@@ -258,6 +258,23 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
             scheduledAt = new Date(`${appointmentDate}T${timePart}:00`).toISOString();
         }
 
+        // --- VALIDATION: CHECK DOUBLE BOOKING ---
+        if (techId && scheduledAt) {
+            const { data: conflict } = await supabase
+                .from('tickets')
+                .select('id')
+                .eq('technician_id', techId)
+                .eq('scheduled_at', scheduledAt)
+                .not('status', 'in', '("cancelado","rejected")') // Ignore cancelled
+                .maybeSingle();
+
+            if (conflict) {
+                alert('⚠️ CONFLICTO DE AGENDA\n\nEste técnico ya tiene una cita asignada exactamente a esa hora.\nPor favor, selecciona otro horario o técnico.');
+                setLoading(false);
+                return;
+            }
+        }
+
         // 3. Create Ticket
         const applianceInfo = {
             type: applianceType,
