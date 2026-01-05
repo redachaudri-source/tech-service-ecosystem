@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Save, User, Smartphone, Plus } from 'lucide-react';
+import { X, Save, User, Smartphone, Plus, Clock } from 'lucide-react';
+import AgendaPicker from './AgendaPicker';
 
 const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submitLabel = 'Crear Ticket' }) => {
     const [loading, setLoading] = useState(false);
+    const [showAgenda, setShowAgenda] = useState(false);
 
     // Data Sources
     const [clients, setClients] = useState([]);
@@ -504,6 +506,19 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
                                     value={appointmentTime}
                                     onChange={e => setAppointmentTime(e.target.value)}
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (!techId || !appointmentDate) {
+                                            alert('Primero selecciona un Técnico y una Fecha.');
+                                        } else {
+                                            setShowAgenda(true);
+                                        }
+                                    }}
+                                    className="px-3 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 font-medium text-xs flex items-center gap-1"
+                                >
+                                    <Clock size={16} /> Ver Agenda
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -516,6 +531,17 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
                         </button>
                     </div>
                 </form>
+
+                {/* VISUAL AGENDA OVERLAY */}
+                {showAgenda && (
+                    <AgendaPicker
+                        techId={techId}
+                        techName={techs.find(t => t.id === techId)?.full_name || 'Técnico'}
+                        date={appointmentDate}
+                        onTimeSelect={(time) => setAppointmentTime(time)}
+                        onClose={() => setShowAgenda(false)}
+                    />
+                )}
             </div>
         </div>
     );
