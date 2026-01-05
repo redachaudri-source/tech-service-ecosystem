@@ -17,6 +17,18 @@ const DashboardHome = () => {
 
     useEffect(() => {
         fetchDashboardData();
+
+        // Realtime Subscription
+        const channel = supabase
+            .channel('dashboard_stats_v2')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
+                fetchDashboardData();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, []);
 
     const fetchDashboardData = async () => {

@@ -29,7 +29,13 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
     }, [date, time, techs]);
 
     const fetchTechs = async () => {
-        const { data } = await supabase.from('profiles').select('*').eq('role', 'tech');
+        const { data } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('role', 'tech')
+            .eq('is_active', true)
+            .is('deleted_at', null);
+
         setTechs(data || []);
     };
 

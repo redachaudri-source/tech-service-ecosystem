@@ -923,9 +923,9 @@ const TechTicketDetail = () => {
                         ))}
 
                         {isEditingAllowed && (
-                            <div className="mt-2 flex gap-2">
+                            <div className="mt-2 flex flex-col sm:flex-row gap-2">
                                 <select
-                                    className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                                    className="w-full sm:flex-1 p-3 sm:p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
                                     value={selectedLaborId}
                                     onChange={e => setSelectedLaborId(e.target.value)}
                                 >
@@ -936,9 +936,9 @@ const TechTicketDetail = () => {
                                 </select>
                                 <button
                                     onClick={addLabor}
-                                    className="p-2 bg-blue-100 text-blue-700 rounded-lg font-bold"
+                                    className="w-full sm:w-auto px-6 py-3 sm:py-2 bg-blue-100 text-blue-700 rounded-lg font-bold flex items-center justify-center hover:bg-blue-200 transition"
                                 >
-                                    +
+                                    + Añadir
                                 </button>
                             </div>
                         )}
@@ -1016,39 +1016,41 @@ const TechTicketDetail = () => {
                         ))}
 
                         {isEditingAllowed && (
-                            <div className="mt-2 flex gap-2">
+                            <div className="mt-2 flex flex-col sm:flex-row gap-2">
                                 <input
                                     type="text"
                                     placeholder="Nombre pieza"
-                                    className="flex-[2] p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                                    className="w-full sm:flex-[2] p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
                                     value={newPart.name}
                                     onChange={e => setNewPart({ ...newPart, name: e.target.value })}
                                 />
-                                <div className="w-16">
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        placeholder="Cant."
-                                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-center"
-                                        value={newPart.qty}
-                                        onChange={e => setNewPart({ ...newPart, qty: e.target.value })}
-                                    />
+                                <div className="flex gap-2">
+                                    <div className="w-20 sm:w-16">
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            placeholder="Cant."
+                                            className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-center"
+                                            value={newPart.qty}
+                                            onChange={e => setNewPart({ ...newPart, qty: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="flex-1 sm:w-24 relative">
+                                        <input
+                                            type="number"
+                                            placeholder="€"
+                                            className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                                            value={newPart.price}
+                                            onChange={e => setNewPart({ ...newPart, price: e.target.value })}
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={addPart}
+                                        className="w-12 sm:w-auto px-3 bg-blue-100 text-blue-700 rounded-lg font-bold flex items-center justify-center"
+                                    >
+                                        +
+                                    </button>
                                 </div>
-                                <div className="w-24 relative">
-                                    <input
-                                        type="number"
-                                        placeholder="€"
-                                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
-                                        value={newPart.price}
-                                        onChange={e => setNewPart({ ...newPart, price: e.target.value })}
-                                    />
-                                </div>
-                                <button
-                                    onClick={addPart}
-                                    className="p-2 bg-blue-100 text-blue-700 rounded-lg font-bold"
-                                >
-                                    +
-                                </button>
                             </div>
                         )}
                     </div>
