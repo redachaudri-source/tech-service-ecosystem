@@ -300,7 +300,7 @@ const TeamManager = () => {
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-800">Gestión de Equipo <span className="text-sm text-slate-400 font-normal">(v3.0 Stable)</span></h1>
+                    <h1 className="text-3xl font-bold text-slate-800">Gestión de Equipo <span className="text-sm text-slate-400 font-normal">(v3.1 Fix)</span></h1>
                     <p className="text-slate-500">Administra accesos y personal técnico</p>
                 </div>
 
