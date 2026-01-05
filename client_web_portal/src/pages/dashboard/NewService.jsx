@@ -1,0 +1,345 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ChevronLeft, Save, MapPin, Phone, AlertCircle, Wrench, Camera, HelpCircle, X, Image as ImageIcon } from 'lucide-react';
+
+const NewService = () => {
+    const navigate = useNavigate();
+    const [loading, setLoading] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [profile, setProfile] = useState(null);
+    const [showHelp, setShowHelp] = useState(false);
+
+    const [formData, setFormData] = useState({
+        type: 'Lavadora', // Default
+        brand: '',
+        model: '',
+        description_failure: '',
+        address: '',
+        phone: '',
+        label_image_url: '' // New field for the photo
+    });
+
+    const [applianceTypes, setApplianceTypes] = useState([]);
+
+    useEffect(() => {
+        const fetchTypes = async () => {
+            const { data } = await supabase.from('appliance_types').select('name').order('name');
+            if (data) setApplianceTypes(data.map(t => t.name));
+        };
+        fetchTypes();
+    }, []);
+
+    const [searchParams] = useSearchParams();
+    const applianceId = searchParams.get('from_appliance');
+
+    useEffect(() => {
+        fetchProfile();
+        if (applianceId) fetchApplianceData(applianceId);
+    }, [applianceId]);
+
+    const fetchApplianceData = async (id) => {
+        try {
+            const { data, error } = await supabase
+                .from('client_appliances')
+                .select('*')
+                .eq('id', id)
+                .single();
+
+            if (error) throw error;
+            if (data) {
+                setFormData(prev => ({
+                    ...prev,
+                    type: data.type || prev.type,
+                    brand: data.brand || '',
+                    model: data.model || '',
+                    label_image_url: data.photo_url || ''
+                }));
+            }
+        } catch (err) {
+            console.error('Error fetching appliance:', err);
+        }
+    };
+
+    const fetchProfile = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+            if (data) {
+                setProfile(data);
+                setFormData(prev => ({
+                    ...prev,
+                    address: data.address || '',
+                    phone: data.phone || ''
+                }));
+            }
+        }
+    };
+
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleImageUpload = async (e) => {
+        try {
+            setUploading(true);
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random()}.${fileExt}`;
+            const filePath = `labels/${fileName}`;
+
+            // Upload to Supabase
+            const { error: uploadError } = await supabase.storage
+                .from('service-attachments')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            // Get Public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('service-attachments')
+                .getPublicUrl(filePath);
+
+            setFormData(prev => ({ ...prev, label_image_url: publicUrl }));
+
+        } catch (error) {
+            alert('Error subiendo imagen: ' + error.message);
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('Usuario no autenticado');
+
+            const { error } = await supabase
+                .from('tickets')
+                .insert([
+                    {
+                        client_id: user.id,
+                        status: 'solicitado',
+                        description_failure: formData.description_failure,
+                        appliance_id: applianceId || null, // Link to appliance logic
+                        appliance_info: {
+                            type: formData.type,
+                            brand: formData.brand,
+                            model: formData.model,
+                            label_image_url: formData.label_image_url // Save image URL here
+                        },
+                        origin_source: 'client_web' // Explicitly mark as Client Web Origin
+                    }
+                ]);
+
+            if (error) throw error;
+
+            alert('Solicitud enviada correctamente.');
+            navigate('/dashboard');
+
+        } catch (error) {
+            console.error('Error creating ticket:', error);
+            alert('Error al crear la solicitud: ' + error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-slate-50 pb-12">
+            {/* Header */}
+            <div className="bg-white border-b border-slate-200 sticky top-0 z-10 px-4 py-4">
+                <div className="max-w-3xl mx-auto flex items-center justify-between">
+                    <button
+                        onClick={() => navigate('/dashboard')}
+                        className="flex items-center gap-1 text-slate-600 hover:text-blue-600 font-medium"
+                    >
+                        <ChevronLeft size={20} /> Volver
+                    </button>
+                    <h1 className="font-bold text-slate-800">Nueva Reparación</h1>
+                    <div className="w-8"></div> {/* Spacer */}
+                </div>
+            </div>
+
+            <div className="max-w-3xl mx-auto px-4 mt-8">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative">
+
+                    <div className="p-6 border-b border-slate-100 bg-slate-50">
+                        <div className="flex items-start gap-4">
+                            <div className="bg-blue-100 p-3 rounded-xl text-blue-600">
+                                <Wrench size={24} />
+                            </div>
+                            <div>
+                                <h2 className="font-bold text-lg text-slate-800">Detalles de la Avería</h2>
+                                <p className="text-slate-500 text-sm">Describe el problema para que los técnicos vayan preparados.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form onSubmit={handleSubmit} className="p-6 space-y-6">
+
+                        {/* Appliance Info */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Tipo de Aparato</label>
+                                <select
+                                    name="type"
+                                    className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                                    value={formData.type}
+                                    onChange={handleChange}
+                                >
+                                    {applianceTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Marca</label>
+                                <input
+                                    type="text"
+                                    name="brand"
+                                    required
+                                    placeholder="Ej: Samsung, Bosch..."
+                                    className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                                    value={formData.brand}
+                                    onChange={handleChange}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Model & Label Photo */}
+                        <div>
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="block text-sm font-medium text-slate-700">Modelo</label>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowHelp(true)}
+                                    className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium bg-blue-50 px-2 py-1 rounded-full transition"
+                                >
+                                    <HelpCircle size={14} /> ¿Dónde está la etiqueta?
+                                </button>
+                            </div>
+
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    name="model"
+                                    placeholder="Ej: WW90T534DTW (Opcional)"
+                                    className="flex-1 p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                                    value={formData.model}
+                                    onChange={handleChange}
+                                />
+                                <div className="relative">
+                                    <input
+                                        type="file"
+                                        id="label-upload"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={handleImageUpload}
+                                        disabled={uploading}
+                                    />
+                                    <label
+                                        htmlFor="label-upload"
+                                        className={`h-full px-4 rounded-xl border flex items-center gap-2 cursor-pointer transition font-medium
+                                            ${formData.label_image_url
+                                                ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                                                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                                            }`}
+                                    >
+                                        {uploading ? (
+                                            <div className="animate-spin w-5 h-5 border-2 border-slate-400 border-t-blue-600 rounded-full"></div>
+                                        ) : formData.label_image_url ? (
+                                            <>
+                                                <ImageIcon size={20} />
+                                                <span className="hidden sm:inline">Foto Subida</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Camera size={20} />
+                                                <span className="hidden sm:inline">Foto Etiqueta</span>
+                                            </>
+                                        )}
+                                    </label>
+                                </div>
+                            </div>
+                            {formData.label_image_url && (
+                                <div className="mt-2 text-xs text-green-600 flex items-center gap-1">
+                                    <ImageIcon size={12} /> Imagen adjuntada correctamente. Ayudará al técnico a identificar las piezas.
+                                </div>
+                            )}
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Descripción del Problema</label>
+                            <textarea
+                                name="description_failure"
+                                required
+                                rows={4}
+                                placeholder="Ej: No desagua, hace un ruido extraño, no enciende..."
+                                className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none resize-none"
+                                value={formData.description_failure}
+                                onChange={handleChange}
+                            />
+                        </div>
+
+                        {/* Contact Info Confirmation */}
+                        <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-4 flex gap-3 text-sm text-yellow-800">
+                            <AlertCircle size={20} className="shrink-0" />
+                            <p>
+                                Los técnicos se desplazarán a: <strong>{formData.address || 'Tu dirección registrada'}</strong>
+                                <br />
+                                Contactarán al: <strong>{formData.phone || 'Tu teléfono registrado'}</strong>
+                            </p>
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={loading || uploading}
+                            className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-xl shadow-blue-600/20"
+                        >
+                            {loading ? 'Enviando...' : 'Solicitar Reparación'}
+                        </button>
+
+                    </form>
+                </div>
+            </div>
+
+            {/* Help Modal */}
+            {showHelp && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden">
+                        <div className="p-4 border-b flex justify-between items-center bg-slate-50 shrink-0">
+                            <h3 className="font-bold text-lg text-slate-800">¿Dónde encuentro la etiqueta?</h3>
+                            <button onClick={() => setShowHelp(false)} className="p-1 hover:bg-slate-200 rounded-full transition">
+                                <X size={20} className="text-slate-500" />
+                            </button>
+                        </div>
+                        <div className="p-6 overflow-y-auto flex-1 flex flex-col items-center">
+                            <img
+                                src="/appliance_guide.png"
+                                alt="Guía ubicación etiquetas"
+                                className="w-full h-auto max-h-[50vh] object-contain rounded-lg border border-slate-100 mb-4"
+                            />
+                            <p className="text-sm text-slate-500 text-center">
+                                La etiqueta suele contener el <strong>Modelo (Model No.)</strong> y el número de serie.
+                                Normalmente es una pegatina plateada o blanca.
+                            </p>
+                        </div>
+                        <div className="p-4 border-t bg-slate-50 shrink-0">
+                            <button
+                                onClick={() => setShowHelp(false)}
+                                className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition"
+                            >
+                                Entendido
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default NewService;

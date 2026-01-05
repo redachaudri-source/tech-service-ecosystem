@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Production
+build/
+dist/
+
+# Misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env
+*.log
+
+# Vercel
+.vercel
+
+# Sub-project specific
+admin_panel_web/dist
+admin_panel_web/.env
+admin_panel_web/node_modules
+
+client_web_portal/dist
+client_web_portal/.env
+client_web_portal/node_modules

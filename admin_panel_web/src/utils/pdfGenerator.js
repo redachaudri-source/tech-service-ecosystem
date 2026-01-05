@@ -1,0 +1,231 @@
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
+// Helper to load image as Base64
+export const loadImage = async (url) => {
+    if (!url) return null;
+    try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    } catch (error) {
+        console.error('Error loading logo:', error);
+        return null;
+    }
+};
+
+export const generateServiceReport = (ticket, logoImg = null, options = {}) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+    const isQuote = options.isQuote || false;
+
+    // --- Header ---
+    if (logoImg) {
+        try {
+            // Extract format from Data URI (e.g., data:image/png;base64,...)
+            const format = logoImg.match(/^data:image\/(.*);base64/)?.[1]?.toUpperCase() || 'PNG';
+            doc.addImage(logoImg, format, 15, 15, 40, 15);
+        } catch (e) {
+            console.error('Error adding logo to PDF:', e);
+        }
+    }
+
+    doc.setFontSize(22);
+    doc.text(isQuote ? 'PRESUPUESTO' : 'PARTE DE TRABAJO', pageWidth - 15, 25, { align: 'right' });
+
+    doc.setFontSize(10);
+    doc.text('Servicio Técnico Especializado', pageWidth - 15, 30, { align: 'right' });
+
+    // Ticket Info
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Nº Servicio: ${ticket.ticket_number}`, 15, 50);
+    doc.text(`Fecha: ${new Date().toLocaleDateString()}`, pageWidth - 50, 50);
+
+    // --- Client Info ---
+    doc.setFillColor(245, 247, 250);
+    doc.rect(15, 55, pageWidth - 30, 25, 'F');
+    doc.setFontSize(11);
+    doc.text('DATOS DEL CLIENTE', 20, 62);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(`Nombre: ${ticket.client?.full_name || '-'}`, 20, 70);
+    doc.text(`Teléfono: ${ticket.client?.phone || '-'}`, pageWidth / 2, 70);
+    doc.text(`Dirección: ${ticket.client?.address || '-'}`, 20, 76);
+
+    // --- Appliance Info ---
+    // Only show if NOT a generic budget OR if data exists
+    const appInfo = ticket.appliance_info || {};
+    const hasApplianceData = appInfo.type || appInfo.brand || appInfo.model;
+    const isGenericBudget = ticket.type === 'budget';
+
+    if (!isGenericBudget || (hasApplianceData && hasApplianceData !== '-')) {
+        doc.setFont('helvetica', 'bold');
+        doc.text('DATOS DEL APARATO', 20, 90);
+        doc.line(20, 92, pageWidth - 20, 92);
+
+        doc.setFont('helvetica', 'normal');
+        const type = appInfo.type || '-';
+        const brand = appInfo.brand || '-';
+        const model = appInfo.model || '-';
+
+        doc.text(`Aparato: ${type}`, 20, 100);
+        doc.text(`Marca: ${brand}`, 80, 100);
+        doc.text(`Modelo: ${model}`, 140, 100);
+    }
+
+    // --- Diagnosis & Intervention ---
+    let yPos = 115;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('DIAGNÓSTICO Y SOLUCIÓN', 20, yPos);
+    yPos += 7;
+
+    doc.setFont('helvetica', 'normal');
+    const splitDiagnosis = doc.splitTextToSize(`Avería: ${ticket.tech_diagnosis || 'Sin diagnosis'}`, pageWidth - 40);
+    doc.text(splitDiagnosis, 20, yPos);
+    yPos += (splitDiagnosis.length * 5) + 3;
+
+    const splitSolution = doc.splitTextToSize(`Solución: ${ticket.tech_solution || 'Sin solución registrada'}`, pageWidth - 40);
+    doc.text(splitSolution, 20, yPos);
+    yPos += (splitSolution.length * 5) + 10;
+
+    // --- Materials & Labor Table ---
+    const labor = Array.isArray(ticket.labor_list) ? ticket.labor_list : JSON.parse(ticket.labor_list || '[]');
+    const parts = Array.isArray(ticket.parts_list) ? ticket.parts_list : JSON.parse(ticket.parts_list || '[]');
+
+    const tableData = [
+        ...labor.map(l => [l.name, 'Mano de Obra', `${l.price}€`]),
+        ...parts.map(p => [p.name, 'Pieza', `${p.price}€`])
+    ];
+
+    autoTable(doc, {
+        startY: yPos,
+        head: [['Concepto', 'Tipo', 'Precio']],
+        body: tableData,
+        theme: 'striped',
+        headStyles: { fillColor: [41, 128, 185] },
+        styles: { fontSize: 9 },
+        margin: { top: 10, left: 15, right: 15 }
+    });
+
+    yPos = doc.lastAutoTable.finalY + 10;
+
+    // --- Totals ---
+    // Calculate totals manually to ensure accuracy with current data
+    const subtotal = labor.reduce((s, i) => s + (Number(i.price) * (i.qty || 1)), 0) +
+        parts.reduce((s, i) => s + (Number(i.price) * (i.qty || 1)), 0);
+    const vat = subtotal * 0.21;
+    const total = subtotal + vat;
+    const deposit = Number(ticket.deposit_amount || ticket.payment_deposit || 0);
+    const totalPaid = ticket.is_paid ? total : deposit; // If marked as paid, full amount, else just deposit
+    const remaining = total - totalPaid;
+
+    doc.setFontSize(11);
+    doc.text(`Subtotal: ${subtotal.toFixed(2)}€`, pageWidth - 50, yPos, { align: 'right' });
+    yPos += 6;
+    doc.text(`IVA (21%): ${vat.toFixed(2)}€`, pageWidth - 50, yPos, { align: 'right' });
+    yPos += 8;
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`TOTAL: ${total.toFixed(2)}€`, pageWidth - 50, yPos, { align: 'right' });
+    yPos += 10;
+
+    if (deposit > 0) {
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`A cuenta / Señal: -${deposit.toFixed(2)}€`, pageWidth - 50, yPos, { align: 'right' });
+        yPos += 6;
+        if (!ticket.is_paid) {
+            doc.setFont('helvetica', 'bold');
+            doc.text(`PENDIENTE: ${remaining.toFixed(2)}€`, pageWidth - 50, yPos, { align: 'right' });
+        }
+    }
+
+    // Payment Terms / Legal
+    if (ticket.payment_terms) {
+        yPos += 10;
+        doc.setFontSize(9);
+        doc.setTextColor(100);
+        doc.setFont('helvetica', 'italic');
+        const splitTerms = doc.splitTextToSize(`Condiciones de Pago: ${ticket.payment_terms}`, pageWidth - 40);
+        doc.text(splitTerms, 20, yPos);
+        doc.setTextColor(0);
+        yPos += (splitTerms.length * 4);
+    }
+
+    if (ticket.is_paid) {
+        doc.setTextColor(0, 150, 0);
+        doc.text('PAGADO', pageWidth - 50, yPos + 10, { align: 'right' });
+        doc.setFontSize(9);
+        doc.text(`Método: ${ticket.payment_method?.toUpperCase()}`, pageWidth - 50, yPos + 16, { align: 'right' });
+        doc.setTextColor(0, 0, 0);
+    }
+
+    // --- Footer / Signatures ---
+    yPos = 250;
+    doc.setDrawColor(150);
+    doc.line(30, yPos, 90, yPos);
+    doc.line(120, yPos, 180, yPos);
+
+    doc.setFontSize(8);
+    doc.text('Firma Cliente', 60, yPos + 5, { align: 'center' });
+    doc.text('Firma Técnico', 150, yPos + 5, { align: 'center' });
+
+    doc.setFontSize(7);
+    doc.text('Garantía de reparación de 3 meses según normativa vigente.', pageWidth / 2, 280, { align: 'center' });
+
+    return doc;
+};
+
+export const generateDepositReceipt = (ticket, logoImg = null) => {
+    const doc = new jsPDF({ format: 'a5', orientation: 'landscape' }); // Receipt style
+    const pageWidth = doc.internal.pageSize.width;
+
+    if (logoImg) {
+        try {
+            const format = logoImg.match(/^data:image\/(.*);base64/)?.[1]?.toUpperCase() || 'PNG';
+            doc.addImage(logoImg, format, 10, 10, 30, 10);
+        } catch (e) {
+            console.error('Error adding logo to Receipt:', e);
+        }
+    }
+
+    doc.setFontSize(16);
+    doc.text('RECIBO DE ENTREGA A CUENTA', pageWidth - 10, 20, { align: 'right' });
+
+    doc.setFontSize(10);
+    doc.text(`Nº Recibo: R-${ticket.ticket_number}-${Date.now().toString().slice(-4)}`, pageWidth - 10, 28, { align: 'right' });
+    doc.text(`Fecha: ${new Date().toLocaleDateString()}`, pageWidth - 10, 33, { align: 'right' });
+
+    doc.setFontSize(12);
+    doc.text(`Hemos recibido de D./Dña: ${ticket.client?.full_name}`, 15, 50);
+
+    const deposit = Number(ticket.deposit_amount || 0);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text(`La cantidad de: ${deposit.toFixed(2)}€`, 15, 65);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(`En concepto de señal / pago a cuenta para la reparación del aparato:`, 15, 80);
+    doc.text(`${ticket.appliance_info?.type} - ${ticket.appliance_info?.brand} (${ticket.appliance_info?.model})`, 15, 86);
+    doc.text(`Nº Servicio Referencia: ${ticket.ticket_number}`, 15, 92);
+
+    // Signatures
+    const yPos = 110;
+    doc.line(20, yPos, 80, yPos);
+    doc.line(110, yPos, 170, yPos);
+    doc.setFontSize(8);
+    doc.text('Firma y Sello Empresa', 50, yPos + 5, { align: 'center' });
+    doc.text('Firma Cliente', 140, yPos + 5, { align: 'center' });
+
+    return doc;
+};
