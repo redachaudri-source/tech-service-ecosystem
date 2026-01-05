@@ -2,15 +2,16 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { X, Clock, AlertCircle, CheckCircle } from 'lucide-react';
 
-const AgendaPicker = ({ techId, techName, date, onTimeSelect, onClose }) => {
+const AgendaPicker = ({ techId, techName, date, duration, onTimeSelect, onClose }) => {
     const [loading, setLoading] = useState(true);
     const [busySlots, setBusySlots] = useState([]);
 
-    // Generar horas de 8:00 a 19:00
-    const timeSlots = Array.from({ length: 12 }, (_, i) => {
-        const hour = i + 8;
-        return `${hour.toString().padStart(2, '0')}:00`;
-    });
+    // Generate 30-minute slots from 8:00 to 19:00
+    const timeSlots = [];
+    for (let h = 8; h < 19; h++) {
+        timeSlots.push(`${h.toString().padStart(2, '0')}:00`);
+        timeSlots.push(`${h.toString().padStart(2, '0')}:30`);
+    }
 
     useEffect(() => {
         if (techId && date) {
@@ -20,28 +21,50 @@ const AgendaPicker = ({ techId, techName, date, onTimeSelect, onClose }) => {
 
     const checkAvailability = async () => {
         setLoading(true);
-        // Rango del día completo
         const startOfDay = new Date(`${date}T00:00:00`).toISOString();
         const endOfDay = new Date(`${date}T23:59:59`).toISOString();
 
-        const { data, error } = await supabase
+        const { data } = await supabase
             .from('tickets')
-            .select('scheduled_at')
+            .select('scheduled_at, estimated_duration')
             .eq('technician_id', techId)
             .gte('scheduled_at', startOfDay)
             .lte('scheduled_at', endOfDay)
             .not('status', 'in', '("cancelado","rejected")');
 
+        const blocked = new Set();
+
         if (data) {
-            // Extraer solo la hora "HH:00" de las citas
-            const slots = data.map(ticket => {
-                const d = new Date(ticket.scheduled_at);
-                const h = d.getHours().toString().padStart(2, '0');
-                const m = d.getMinutes().toString().padStart(2, '0');
-                return `${h}:${m}`;
+            data.forEach(ticket => {
+                const ticketStart = new Date(ticket.scheduled_at);
+                const dur = ticket.estimated_duration || 60; // Default 1h if null
+
+                // Block Duration + 30m Buffer
+                // If ticket is 11:00 (2h), it blocks 11:00-13:00. Plus 30m buffer = 11:00-13:30.
+                // So slots blocked: 11:00, 11:30, 12:00, 12:30, 13:00.
+                // 13:30 is FREE.
+
+                // Calculate slots to block
+                const buffer = 30; // 30 min buffer
+                const totalBlockMinutes = dur + buffer;
+
+                // We iterate in 30m chunks
+                for (let i = 0; i < totalBlockMinutes; i += 30) {
+                    // Create a new date object for each slot to avoid mutation issues
+                    const slotTime = new Date(ticketStart.getTime() + i * 60000);
+                    const h = slotTime.getHours().toString().padStart(2, '0');
+                    const m = slotTime.getMinutes().toString().padStart(2, '0');
+                    blocked.add(`${h}:${m}`);
+                }
             });
-            setBusySlots(slots);
         }
+
+        // Also block future slots if "New Service" fits? 
+        // OPTIONAL: If I select 11:00 for a 4h job, I should checking if I overlap others.
+        // For now, let's just show RED what is already taken.
+        // Conflict validation in Modal handles the "Am I stepping on someone?" check.
+
+        setBusySlots(Array.from(blocked));
         setLoading(false);
     };
 

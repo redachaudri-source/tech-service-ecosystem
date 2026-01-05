@@ -26,6 +26,7 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
     // Form State - Schedule
     const [appointmentDate, setAppointmentDate] = useState('');
     const [appointmentTime, setAppointmentTime] = useState('');
+    const [duration, setDuration] = useState(60); // Default 1h
 
     // Form State - New Client
     const [newClientName, setNewClientName] = useState('');
@@ -260,20 +261,42 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
             scheduledAt = new Date(`${appointmentDate}T${timePart}:00`).toISOString();
         }
 
-        // --- VALIDATION: CHECK DOUBLE BOOKING ---
+        // --- VALIDATION: CHECK DOUBLE BOOKING (RANGE OVERLAP) ---
         if (techId && scheduledAt) {
-            const { data: conflict } = await supabase
-                .from('tickets')
-                .select('id')
-                .eq('technician_id', techId)
-                .eq('scheduled_at', scheduledAt)
-                .not('status', 'in', '("cancelado","rejected")') // Ignore cancelled
-                .maybeSingle();
+            // New Ticket Range
+            const newStart = new Date(scheduledAt);
+            const newEnd = new Date(newStart.getTime() + (duration * 60000)); // duration is in minutes
 
-            if (conflict) {
-                alert('⚠️ CONFLICTO DE AGENDA\n\nEste técnico ya tiene una cita asignada exactamente a esa hora.\nPor favor, selecciona otro horario o técnico.');
-                setLoading(false);
-                return;
+            // Get Technician's tickets for that day
+            const dayStart = new Date(newStart);
+            dayStart.setHours(0, 0, 0, 0);
+            const dayEnd = new Date(newStart);
+            dayEnd.setHours(23, 59, 59, 999);
+
+            const { data: existingTickets } = await supabase
+                .from('tickets')
+                .select('scheduled_at, estimated_duration')
+                .eq('technician_id', techId)
+                .gte('scheduled_at', dayStart.toISOString())
+                .lte('scheduled_at', dayEnd.toISOString())
+                .not('status', 'in', '("cancelado","rejected")');
+
+            if (existingTickets) {
+                const hasConflict = existingTickets.some(ticket => {
+                    const existStart = new Date(ticket.scheduled_at);
+                    const existDuration = ticket.estimated_duration || 60;
+                    // Add 30m buffer to existing ticket end
+                    const existEnd = new Date(existStart.getTime() + (existDuration + 30) * 60000);
+
+                    // Check Overlap: (StartA < EndB) and (EndA > StartB)
+                    return (newStart < existEnd && newEnd > existStart);
+                });
+
+                if (hasConflict) {
+                    alert('⚠️ CONFLICTO DE AGENDA\n\nEl horario seleccionado solapa con otro servicio (incluyendo tiempo de desplazamiento/buffer).\nPor favor revisa la Agenda Visual.');
+                    setLoading(false);
+                    return;
+                }
             }
         }
 
@@ -293,6 +316,7 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
                 description_failure: description,
                 ai_diagnosis: aiDiagnosis,
                 scheduled_at: scheduledAt,
+                estimated_duration: duration,
                 // If created by Admin and has a date, assume it's confirmed (otherwise why set a date?)
                 appointment_status: scheduledAt ? 'confirmed' : 'pending',
                 status: techId ? 'asignado' : 'solicitado', // logic can change if assigned immediately
@@ -493,6 +517,24 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
 
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-2">Agendar Cita (Opcional)</label>
+
+                            {/* Duration Selector */}
+                            <div className="mb-2">
+                                <label className="text-xs text-slate-500 font-bold uppercase">Duración Est.</label>
+                                <select
+                                    className="w-full p-2 border rounded-lg text-sm bg-slate-50"
+                                    value={duration}
+                                    onChange={e => setDuration(Number(e.target.value))}
+                                >
+                                    <option value={30}>30 min (Rápido)</option>
+                                    <option value={60}>1h (Estándar)</option>
+                                    <option value={90}>1h 30m</option>
+                                    <option value={120}>2h (Complejo)</option>
+                                    <option value={180}>3h (Muy Largo)</option>
+                                    <option value={240}>4h (Medio Día)</option>
+                                </select>
+                            </div>
+
                             <div className="flex gap-2">
                                 <input
                                     type="date"
@@ -538,6 +580,7 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
                         techId={techId}
                         techName={techs.find(t => t.id === techId)?.full_name || 'Técnico'}
                         date={appointmentDate}
+                        duration={duration}
                         onTimeSelect={(time) => setAppointmentTime(time)}
                         onClose={() => setShowAgenda(false)}
                     />
