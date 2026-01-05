@@ -58,7 +58,12 @@ const FleetMap = () => {
                     streetViewControl={false}
                     mapTypeControl={false}
                 >
-                    {locations.map(loc => (
+                    {locations.filter(loc => {
+                        // Filter out locations older than 60 minutes
+                        if (!loc.updated_at) return false;
+                        const diff = new Date() - new Date(loc.updated_at);
+                        return diff < 60 * 60 * 1000;
+                    }).map(loc => (
                         <AdvancedMarker
                             key={loc.technician_id}
                             position={{ lat: loc.latitude, lng: loc.longitude }}
@@ -107,7 +112,9 @@ const FleetMap = () => {
                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Flota en tiempo real</h3>
                 <div className="flex items-center gap-2 mt-1">
                     <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                    <span className="text-sm font-bold text-slate-800">{locations.length} Activos</span>
+                    <span className="text-sm font-bold text-slate-800">
+                        {locations.filter(l => l.updated_at && (new Date() - new Date(l.updated_at) < 60 * 60 * 1000)).length} Activos
+                    </span>
                 </div>
             </div>
         </div>
