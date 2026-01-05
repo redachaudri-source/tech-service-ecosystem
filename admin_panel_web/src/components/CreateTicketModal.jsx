@@ -191,7 +191,12 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
 
     const fetchData = async () => {
         const { data: clientsData } = await supabase.from('profiles').select('*').eq('role', 'client');
-        const { data: techsData } = await supabase.from('profiles').select('*').eq('role', 'tech');
+        const { data: techsData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('role', 'tech')
+            .eq('is_active', true)
+            .is('deleted_at', null);
 
         if (clientsData) setClients(clientsData);
         if (techsData) setTechs(techsData);
