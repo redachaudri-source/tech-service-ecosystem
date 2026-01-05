@@ -232,7 +232,13 @@ const TeamManager = () => {
                     options: {
                         data: {
                             full_name: formData.fullName,
-                            role: formData.role
+                            role: formData.role,
+                            dni: formData.dni,
+                            username: formData.username,
+                            phone: formData.phone,
+                            address: formData.address,
+                            avatar_url: formData.avatarUrl,
+                            contact_email: contactEmail
                         }
                     }
                 });
