@@ -48,7 +48,7 @@ const FleetMap = () => {
     const defaultCenter = { lat: 36.7212, lng: -4.4217 };
 
     return (
-        <div className="h-[500px] w-full rounded-2xl overflow-hidden shadow-sm border border-slate-200 relative">
+        <div className="h-64 sm:h-96 lg:h-[500px] w-full rounded-2xl overflow-hidden shadow-sm border border-slate-200 relative">
             <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
                 <Map
                     defaultCenter={defaultCenter}

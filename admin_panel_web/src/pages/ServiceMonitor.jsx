@@ -176,7 +176,7 @@ const ServiceMonitor = () => {
             {showCreateModal && <CreateTicketModal onClose={() => setShowCreateModal(false)} onSuccess={() => { fetchData(); setShowCreateModal(false); }} />}
 
             {/* Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
                 <table className="w-full text-left">
                     <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
