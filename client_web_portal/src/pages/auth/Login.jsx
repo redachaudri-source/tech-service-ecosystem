@@ -46,15 +46,15 @@ const Login = () => {
 
             <form onSubmit={handleLogin} className="space-y-5">
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Correo Electrónico</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Correo Electrónico o Usuario</label>
                     <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                         <input
-                            type="email"
+                            type="text"
                             name="email"
                             required
                             className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-sm"
-                            placeholder="tu@email.com"
+                            placeholder="tu@email.com o usuario"
                             value={formData.email}
                             onChange={handleChange}
                         />
