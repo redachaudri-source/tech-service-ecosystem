@@ -3,13 +3,15 @@ import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { LogOut, Plus, Clock, CheckCircle, AlertCircle, Wrench, User, Calendar, FileText, Package, PieChart } from 'lucide-react';
 
+import { useToast } from '../../components/ToastProvider';
+
 const Dashboard = () => {
     const navigate = useNavigate();
+    const { addToast } = useToast();
     const [loading, setLoading] = useState(true);
     const [profile, setProfile] = useState(null);
     const [tickets, setTickets] = useState([]);
     const [budgets, setBudgets] = useState([]); // New Budgets State
-
     const [isConnected, setIsConnected] = useState(false);
     const [lastUpdate, setLastUpdate] = useState(null);
     const [cancelModal, setCancelModal] = useState({ show: false, ticketId: null });
@@ -35,6 +37,15 @@ const Dashboard = () => {
                         console.log('🔔 Realtime Update:', payload);
                         fetchDashboardData();
                         setLastUpdate(new Date());
+
+                        if (payload.eventType === 'UPDATE') {
+                            if (payload.new.status !== payload.old.status) {
+                                addToast(`Tu servicio ha cambiado a: ${payload.new.status.toUpperCase().replace('_', ' ')}`, 'info', true);
+                            }
+                            if (payload.new.technician_id && !payload.old.technician_id) {
+                                addToast('¡Técnico Asignado!', 'success', true);
+                            }
+                        }
                     }
                 )
                 .subscribe((status) => {
@@ -43,7 +54,6 @@ const Dashboard = () => {
                 });
         };
 
-        // Listen for Auth Changes to re-connect if session is restored
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             if (session) initRealtime();
         });
@@ -346,7 +356,7 @@ const Dashboard = () => {
                         </div>
                         <div className="flex items-center gap-4">
                             <span className="text-sm font-medium text-slate-600 hidden sm:block">
-                                Hola, {profile?.full_name?.split(' ')[0]}
+                                Hola, {profile?.full_name?.split(' ')[0] || 'Usuario'}
                             </span>
                             <button
                                 onClick={handleLogout}

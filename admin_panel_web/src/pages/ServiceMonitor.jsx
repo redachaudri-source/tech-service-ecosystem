@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { useToast } from '../components/ToastProvider';
 import { Search, Plus, Trash2, FileText, CheckCircle, Clock, AlertCircle, Eye, AlertTriangle } from 'lucide-react';
 import CreateTicketModal from '../components/CreateTicketModal';
 import SmartAssignmentModal from '../components/SmartAssignmentModal'; // Import
@@ -47,9 +48,15 @@ const ServiceMonitor = () => {
             if (channel) supabase.removeChannel(channel);
 
             channel = supabase.channel('tickets_monitor_global_v2')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
-                    console.log('Admin: Realtime Update Received');
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, (payload) => {
+                    console.log('Admin: Realtime Update Received', payload);
                     fetchData();
+                    if (payload.eventType === 'INSERT') {
+                        addToast('Nuevo Ticket Recibido', 'info', true);
+                    } else if (payload.eventType === 'UPDATE') {
+                        // Optional: simpler toast for updates
+                        // addToast('Ticket Actualizado', 'default', false);
+                    }
                 })
                 .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
         };

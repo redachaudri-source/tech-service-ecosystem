@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useToast } from '../components/ToastProvider';
 import { Clock, User, CheckCircle, AlertCircle, Calendar, Wrench, X, TrendingUp, Search } from 'lucide-react';
 import SmartAssignmentModal from '../components/SmartAssignmentModal';
 
@@ -31,7 +32,14 @@ const IncomingRequests = () => {
 
         // Realtime Subscription
         const channel = supabase.channel('incoming_requests_monitor')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tickets' }, (payload) => {
+                // Check if it's a request (status default is usually 'solicitado' or checked via payload)
+                if (payload.new && payload.new.status === 'solicitado') {
+                    addToast('¡Nueva Solicitud Web!', 'success', true);
+                }
+                fetchData();
+            })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tickets' }, () => {
                 fetchData();
             })
             .subscribe((status) => {

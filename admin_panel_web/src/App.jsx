@@ -11,6 +11,7 @@ import GlobalAgenda from './pages/GlobalAgenda';
 import FleetMap from './components/FleetMap';
 import Login from './pages/Login';
 import { AuthProvider } from './context/AuthContext';
+import { ToastProvider } from './components/ToastProvider';
 import AuthGuard from './components/AuthGuard';
 import Settings from './pages/Settings';
 import BudgetRegistry from './pages/financial/BudgetRegistry'; // New
@@ -28,48 +29,50 @@ import TechSettings from './pages/tech/TechSettings';
 function App() {
     return (
         <AuthProvider>
-            <BrowserRouter>
-                <Routes>
-                    {/* Admin Routes */}
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/" element={
-                        <AuthGuard>
-                            <Layout />
-                        </AuthGuard>
-                    }>
-                        <Route index element={<DashboardHome />} />
-                        <Route path="requests" element={<IncomingRequests />} />
-                        <Route path="services" element={<ServiceMonitor />} />
-                        <Route path="agenda" element={<GlobalAgenda />} />
-                        <Route path="clients" element={<ClientManager />} />
-                        <Route path="team" element={<TeamManager />} />
-                        <Route path="tracking" element={<div className="h-full"><FleetMap /></div>} />
-                        <Route path="inventory" element={<InventoryManager />} />
-                        <Route path="appliance-types" element={<ApplianceTypes />} />
-                        <Route path="budgets" element={<BudgetRegistry />} />
-                        <Route path="settings" element={<Settings />} />
-                    </Route>
+            <ToastProvider>
+                <BrowserRouter>
+                    <Routes>
+                        {/* Admin Routes */}
+                        <Route path="/login" element={<Login />} />
+                        <Route path="/" element={
+                            <AuthGuard>
+                                <Layout />
+                            </AuthGuard>
+                        }>
+                            <Route index element={<DashboardHome />} />
+                            <Route path="requests" element={<IncomingRequests />} />
+                            <Route path="services" element={<ServiceMonitor />} />
+                            <Route path="agenda" element={<GlobalAgenda />} />
+                            <Route path="clients" element={<ClientManager />} />
+                            <Route path="team" element={<TeamManager />} />
+                            <Route path="tracking" element={<div className="h-full"><FleetMap /></div>} />
+                            <Route path="inventory" element={<InventoryManager />} />
+                            <Route path="appliance-types" element={<ApplianceTypes />} />
+                            <Route path="budgets" element={<BudgetRegistry />} />
+                            <Route path="settings" element={<Settings />} />
+                        </Route>
 
-                    {/* Tech App Routes (Mobile Optimized) */}
-                    <Route path="/tech/login" element={<TechLogin />} />
-                    <Route path="/tech" element={
-                        <TechGuard>
-                            <TechLayout />
-                        </TechGuard>
-                    }>
-                        <Route index element={<Navigate to="dashboard" replace />} />
-                        <Route path="dashboard" element={<TechDashboard />} />
-                        <Route path="ticket/:id" element={<TechTicketDetail />} />
+                        {/* Tech App Routes (Mobile Optimized) */}
+                        <Route path="/tech/login" element={<TechLogin />} />
+                        <Route path="/tech" element={
+                            <TechGuard>
+                                <TechLayout />
+                            </TechGuard>
+                        }>
+                            <Route index element={<Navigate to="dashboard" replace />} />
+                            <Route path="dashboard" element={<TechDashboard />} />
+                            <Route path="ticket/:id" element={<TechTicketDetail />} />
 
-                        {/* New Tech Routes */}
-                        <Route path="all-services" element={<TechServiceList filterType="all" />} />
-                        <Route path="new-services" element={<TechServiceList filterType="new" />} />
-                        <Route path="agenda" element={<TechAgenda />} />
-                        <Route path="history" element={<TechServiceList filterType="history" />} />
-                        <Route path="settings" element={<TechSettings />} />
-                    </Route>
-                </Routes>
-            </BrowserRouter>
+                            {/* New Tech Routes */}
+                            <Route path="all-services" element={<TechServiceList filterType="all" />} />
+                            <Route path="new-services" element={<TechServiceList filterType="new" />} />
+                            <Route path="agenda" element={<TechAgenda />} />
+                            <Route path="history" element={<TechServiceList filterType="history" />} />
+                            <Route path="settings" element={<TechSettings />} />
+                        </Route>
+                    </Routes>
+                </BrowserRouter>
+            </ToastProvider>
         </AuthProvider>
     )
 }

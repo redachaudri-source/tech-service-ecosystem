@@ -5,16 +5,39 @@ import { useNavigate } from 'react-router-dom';
 import { MapPin, Phone, Calendar, Clock, ChevronRight, Search, Filter } from 'lucide-react';
 import TechRouteLine from '../../components/TechRouteLine';
 
+import { useToast } from '../../components/ToastProvider';
+
 const TechDashboard = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const { addToast } = useToast(); // Hook
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]); // Default Today
     const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
-        if (user) fetchTickets();
+        if (user) {
+            fetchTickets();
+
+            // Realtime: Listen for assignments to ME
+            const channel = supabase.channel('tech_dashboard_updates')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets', filter: `technician_id=eq.${user.id}` }, (payload) => {
+                    console.log('Tech: Ticket Update', payload);
+                    fetchTickets();
+
+                    if (payload.eventType === 'UPDATE' && payload.new.technician_id === user.id && payload.old.technician_id !== user.id) {
+                        addToast('¡Nueva Asignación!', 'success', true);
+                    } else if (payload.eventType === 'INSERT' && payload.new.technician_id === user.id) {
+                        addToast('¡Nuevo Ticket Asignado!', 'success', true);
+                    }
+                })
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(channel);
+            };
+        }
     }, [user, filterDate]);
 
     const fetchTickets = async () => {

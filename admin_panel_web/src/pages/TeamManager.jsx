@@ -4,10 +4,12 @@ import { supabase } from '../lib/supabase';
 import { createClient } from '@supabase/supabase-js'; // For creating users without killing session
 import { Plus, User, MapPin, Trash2, Edit2, X, Shield, ShieldAlert, Lock, Unlock, Smartphone, Upload, RotateCcw } from 'lucide-react';
 
+import { useToast } from '../components/ToastProvider';
 import { useAuth } from '../context/AuthContext';
 
 const TeamManager = () => {
     const { user } = useAuth();
+    const { addToast } = useToast();
     const [activeTab, setActiveTab] = useState('techs'); // 'admins' | 'techs'
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -23,6 +25,20 @@ const TeamManager = () => {
             .then(({ data }) => {
                 if (data?.company_name) setCompanyName(data.company_name);
             });
+
+        // Realtime for Profiles (Status Changes)
+        const channel = supabase.channel('team_manager_profiles')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (payload) => {
+                fetchMembers();
+                if (payload.new.is_active !== payload.old.is_active) {
+                    addToast(`Estado de técnico actualizado: ${payload.new.full_name}`, 'info', false);
+                }
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, []);
 
     // Form State
