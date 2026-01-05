@@ -21,8 +21,12 @@ const AgendaPicker = ({ techId, techName, date, duration, onTimeSelect, onClose 
 
     const checkAvailability = async () => {
         setLoading(true);
-        const startOfDay = new Date(`${date}T00:00:00`).toISOString();
-        const endOfDay = new Date(`${date}T23:59:59`).toISOString();
+
+        // Ensure accurate full day range in Local Time -> UTC
+        // When user picks "2026-06-01", we want 00:00 to 23:59 of that LOCAL day.
+        const searchDate = new Date(date);
+        const startOfDay = new Date(searchDate.setHours(0, 0, 0, 0)).toISOString();
+        const endOfDay = new Date(searchDate.setHours(23, 59, 59, 999)).toISOString();
 
         const { data } = await supabase
             .from('tickets')

@@ -273,30 +273,46 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
             const dayEnd = new Date(newStart);
             dayEnd.setHours(23, 59, 59, 999);
 
-            const { data: existingTickets } = await supabase
-                .from('tickets')
-                .select('scheduled_at, estimated_duration')
-                .eq('technician_id', techId)
-                .gte('scheduled_at', dayStart.toISOString())
-                .lte('scheduled_at', dayEnd.toISOString())
-                .not('status', 'in', '("cancelado","rejected")');
+            try {
+                const { data: existingTickets, error: fetchError } = await supabase
+                    .from('tickets')
+                    .select('scheduled_at, estimated_duration')
+                    .eq('technician_id', techId)
+                    .gte('scheduled_at', dayStart.toISOString())
+                    .lte('scheduled_at', dayEnd.toISOString())
+                    .not('status', 'in', '("cancelado","rejected")');
 
-            if (existingTickets) {
-                const hasConflict = existingTickets.some(ticket => {
-                    const existStart = new Date(ticket.scheduled_at);
-                    const existDuration = ticket.estimated_duration || 60;
-                    // Add 30m buffer to existing ticket end
-                    const existEnd = new Date(existStart.getTime() + (existDuration + 30) * 60000);
+                if (fetchError) throw fetchError;
 
-                    // Check Overlap: (StartA < EndB) and (EndA > StartB)
-                    return (newStart < existEnd && newEnd > existStart);
-                });
+                if (existingTickets) {
+                    const hasConflict = existingTickets.some(ticket => {
+                        const existStart = new Date(ticket.scheduled_at);
+                        const existDuration = ticket.estimated_duration || 60;
+                        // Add 30m buffer to existing ticket end
+                        const existEnd = new Date(existStart.getTime() + (existDuration + 30) * 60000);
 
-                if (hasConflict) {
-                    alert('⚠️ CONFLICTO DE AGENDA\n\nEl horario seleccionado solapa con otro servicio (incluyendo tiempo de desplazamiento/buffer).\nPor favor revisa la Agenda Visual.');
+                        // Check Overlap: (StartA < EndB) and (EndA > StartB)
+                        return (newStart < existEnd && newEnd > existStart);
+                    });
+
+                    if (hasConflict) {
+                        alert('⚠️ CONFLICTO DE AGENDA DETECTADO\n\nEl horario se solapa con otro servicio existente.\nPor favor usa el botón "Abrir Agenda" para ver los huecos libres.');
+                        setLoading(false);
+                        return;
+                    }
+                }
+            } catch (err) {
+                console.error("Validation Error:", err);
+                // Fail safe: If error is about missing column 'estimated_duration', warn user but maybe allow?
+                // No, better to be safe.
+                if (err.message?.includes('estimated_duration')) {
+                    alert('⚠️ ERROR DE BASE DE DATOS\n\nFalta la columna "estimated_duration".\nPor favor ejecuta el script de migración SQL en Supabase.');
                     setLoading(false);
                     return;
                 }
+                alert('⚠️ ERROR DE VALIDACIÓN\n\nOcurrió un error al verificar la disponibilidad del técnico. Por favor, inténtalo de nuevo.');
+                setLoading(false);
+                return;
             }
         }
 
@@ -500,76 +516,113 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
                     </div>
 
                     {/* SECTION: ASSIGNMENT & SCHEDULE */}
-                    <div className="pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">Asignar Técnico</label>
-                            <select
-                                className="w-full p-2 border border-slate-200 rounded-lg bg-white"
-                                value={techId}
-                                onChange={e => setTechId(e.target.value)}
-                            >
-                                <option value="">-- Sin Asignar (Pendiente) --</option>
-                                {techs.map(t => (
-                                    <option key={t.id} value={t.id}>{t.full_name}</option>
-                                ))}
-                            </select>
-                        </div>
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                            <Clock size={18} />
+                            Agenda y Asignación
+                        </h3>
 
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">Agendar Cita (Opcional)</label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            {/* Column 1: Tech & Duration */}
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Técnico</label>
+                                    <select
+                                        className="w-full p-2.5 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-blue-500/20 outline-none"
+                                        value={techId}
+                                        onChange={e => setTechId(e.target.value)}
+                                    >
+                                        <option value="">-- Pendiente de Asignar --</option>
+                                        {techs.map(t => (
+                                            <option key={t.id} value={t.id}>{t.full_name}</option>
+                                        ))}
+                                    </select>
+                                </div>
 
-                            {/* Duration Selector */}
-                            <div className="mb-2">
-                                <label className="text-xs text-slate-500 font-bold uppercase">Duración Est.</label>
-                                <select
-                                    className="w-full p-2 border rounded-lg text-sm bg-slate-50"
-                                    value={duration}
-                                    onChange={e => setDuration(Number(e.target.value))}
-                                >
-                                    <option value={30}>30 min (Rápido)</option>
-                                    <option value={60}>1h (Estándar)</option>
-                                    <option value={90}>1h 30m</option>
-                                    <option value={120}>2h (Complejo)</option>
-                                    <option value={180}>3h (Muy Largo)</option>
-                                    <option value={240}>4h (Medio Día)</option>
-                                </select>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Duración Estimada</label>
+                                    <select
+                                        className="w-full p-2.5 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-blue-500/20 outline-none"
+                                        value={duration}
+                                        onChange={e => setDuration(Number(e.target.value))}
+                                    >
+                                        <option value={30}>30 min (Rápido)</option>
+                                        <option value={60}>1h (Estándar)</option>
+                                        <option value={90}>1h 30m</option>
+                                        <option value={120}>2h (Complejo)</option>
+                                        <option value={180}>3h (Muy Largo)</option>
+                                        <option value={240}>4h (Medio Día)</option>
+                                    </select>
+                                </div>
                             </div>
 
-                            <div className="flex gap-2">
-                                <input
-                                    type="date"
-                                    className="flex-1 p-2 border rounded-lg"
-                                    value={appointmentDate}
-                                    onChange={e => setAppointmentDate(e.target.value)}
-                                />
-                                <input
-                                    type="time"
-                                    className="w-24 p-2 border rounded-lg"
-                                    value={appointmentTime}
-                                    onChange={e => setAppointmentTime(e.target.value)}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        if (!techId || !appointmentDate) {
-                                            alert('Primero selecciona un Técnico y una Fecha.');
-                                        } else {
-                                            setShowAgenda(true);
-                                        }
-                                    }}
-                                    className="px-3 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 font-medium text-xs flex items-center gap-1"
-                                >
-                                    <Clock size={16} /> Ver Agenda
-                                </button>
+                            {/* Column 2: Date & Time Picker */}
+                            <div className="flex flex-col justify-end">
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Horario de Visita</label>
+                                <div className="p-3 bg-white border border-slate-200 rounded-lg">
+                                    {!appointmentTime ? (
+                                        <div className="text-center py-2">
+                                            <p className="text-sm text-slate-400 mb-2">Sin fecha seleccionada</p>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (!techId) {
+                                                        alert('Primero selecciona un Técnico.');
+                                                    } else {
+                                                        // Default to today if empty
+                                                        if (!appointmentDate) setAppointmentDate(new Date().toISOString().split('T')[0]);
+                                                        setShowAgenda(true);
+                                                    }
+                                                }}
+                                                className="w-full py-2 bg-indigo-50 text-indigo-600 rounded-lg font-semibold text-sm hover:bg-indigo-100 transition flex items-center justify-center gap-2"
+                                            >
+                                                <Clock size={16} />
+                                                Abrir Agenda
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center">
+                                            <p className="text-xs text-slate-400 mb-1">Cita Programada para:</p>
+                                            <div className="font-bold text-lg text-indigo-700 flex items-center justify-center gap-2">
+                                                <span>{new Date(appointmentDate).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' })}</span>
+                                                <span>•</span>
+                                                <span>{appointmentTime}</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowAgenda(true)}
+                                                className="mt-2 text-xs text-indigo-500 hover:text-indigo-700 underline"
+                                            >
+                                                Cambiar Hora
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                {/* Hidden inputs for logic compatibility */}
+                                <input type="hidden" value={appointmentDate} />
+                                <input type="hidden" value={appointmentTime} />
                             </div>
                         </div>
                     </div>
 
-                    <div className="pt-4 flex justify-end gap-3">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
-                        <button type="submit" disabled={loading} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
-                            <Save size={18} />
-                            {loading ? 'Guardando...' : submitLabel}
+                    <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
+                        <button type="button" onClick={onClose} className="px-5 py-2.5 text-slate-500 hover:bg-slate-100 rounded-xl font-medium transition">Cancelar</button>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 hover:-translate-y-0.5 transition flex items-center gap-2"
+                        >
+                            {loading ? (
+                                <>
+                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    Guardando...
+                                </>
+                            ) : (
+                                <>
+                                    <Save size={20} />
+                                    {submitLabel}
+                                </>
+                            )}
                         </button>
                     </div>
                 </form>
