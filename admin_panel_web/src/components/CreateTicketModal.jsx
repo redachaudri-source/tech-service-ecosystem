@@ -569,8 +569,12 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
                                                     if (!techId) {
                                                         alert('Primero selecciona un Técnico.');
                                                     } else {
-                                                        // Default to today if empty
-                                                        if (!appointmentDate) setAppointmentDate(new Date().toISOString().split('T')[0]);
+                                                        // Default to today (Local) if empty
+                                                        if (!appointmentDate) {
+                                                            const today = new Date();
+                                                            const localIso = new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+                                                            setAppointmentDate(localIso);
+                                                        }
                                                         setShowAgenda(true);
                                                     }
                                                 }}
