@@ -320,7 +320,7 @@ const TeamManager = () => {
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-800">Gestión de Equipo <span className="text-sm text-slate-400 font-normal">(v3.0.4 Block Logic Final)</span></h1>
+                    <h1 className="text-3xl font-bold text-slate-800">Gestión de Equipo <span className="text-sm text-slate-400 font-normal">(v3.0.5 Tech Fix)</span></h1>
                     <p className="text-slate-500">Administra accesos y personal técnico</p>
                 </div>
 
@@ -463,8 +463,8 @@ const TeamManager = () => {
                                         <button
                                             onClick={() => handleToggleStatus(member)}
                                             className={`p-1.5 rounded-full transition-all border-2 ${member.is_active
-                                                    ? 'bg-white border-green-400 text-green-600 shadow-[0_2px_8px_rgba(34,197,94,0.25)] hover:bg-green-50'
-                                                    : 'bg-red-50 border-red-200 text-red-400 hover:bg-red-100'
+                                                ? 'bg-white border-green-400 text-green-600 shadow-[0_2px_8px_rgba(34,197,94,0.25)] hover:bg-green-50'
+                                                : 'bg-red-50 border-red-200 text-red-400 hover:bg-red-100'
                                                 }`}
                                             title={member.is_active ? "Bloquear Acceso" : "Desbloquear Acceso"}
                                         >
@@ -507,13 +507,15 @@ const TeamManager = () => {
                                                 Borrar
                                             </button>
 
-                                            <button
-                                                onClick={() => handleOpenPermissions(member)}
-                                                className="ml-auto text-slate-300 hover:text-purple-600 p-1.5 hover:bg-purple-50 rounded-lg transition"
-                                                title="Gestionar Permisos"
-                                            >
-                                                <ShieldAlert size={18} />
-                                            </button>
+                                            {member.role !== 'tech' && (
+                                                <button
+                                                    onClick={() => handleOpenPermissions(member)}
+                                                    className="ml-auto text-slate-300 hover:text-purple-600 p-1.5 hover:bg-purple-50 rounded-lg transition"
+                                                    title="Gestionar Permisos"
+                                                >
+                                                    <ShieldAlert size={18} />
+                                                </button>
+                                            )}
                                         </>
                                     )}
                                 </div>
