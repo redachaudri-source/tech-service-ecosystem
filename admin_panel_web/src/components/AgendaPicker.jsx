@@ -30,7 +30,7 @@ const AgendaPicker = ({ techId, techName, date, duration, onTimeSelect, onClose 
 
         const { data } = await supabase
             .from('tickets')
-            .select('scheduled_at, estimated_duration')
+            .select('*')
             .eq('technician_id', techId)
             .gte('scheduled_at', startOfDay)
             .lte('scheduled_at', endOfDay)
