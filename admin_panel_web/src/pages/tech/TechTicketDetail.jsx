@@ -29,7 +29,14 @@ const TechTicketDetail = () => {
                 },
                 (payload) => {
                     console.log('Real-time update received:', payload);
-                    setTicket(current => ({ ...current, ...payload.new }));
+                    setTicket((current) => {
+                        // Protect against race conditions: if ticket isn't loaded yet, ignore update
+                        // (it will be loaded by fetchTicket with full relations shortly)
+                        if (!current) return current;
+
+                        // Merge update while preserving existing joined relations (client, etc.)
+                        return { ...current, ...payload.new };
+                    });
                 }
             )
             .subscribe();
