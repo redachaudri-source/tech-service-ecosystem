@@ -325,18 +325,27 @@ const ServiceMonitor = () => {
                                 <td className="px-6 py-4">
                                     <StatusBadge status={ticket.status} />
 
-                                    {/* Star Rating Display */}
-                                    {ticket.reviews && ticket.reviews.length > 0 && (
-                                        <div className="flex items-center gap-0.5 mt-1 bg-yellow-50 px-1.5 py-0.5 rounded w-fit border border-yellow-100">
-                                            {[...Array(5)].map((_, i) => (
-                                                <Star
-                                                    key={i}
-                                                    size={10}
-                                                    className={i < ticket.reviews[0].rating ? "text-yellow-400 fill-yellow-400" : "text-slate-200"}
-                                                />
-                                            ))}
-                                        </div>
-                                    )}
+                                    {/* Star Rating Display - Robust Handling */}
+                                    {(() => {
+                                        // Handle both Array (1:N) and Object (1:1 inferred) responses from Supabase
+                                        const rating = Array.isArray(ticket.reviews)
+                                            ? (ticket.reviews.length > 0 ? ticket.reviews[0].rating : null)
+                                            : (ticket.reviews?.rating || null);
+
+                                        if (!rating) return null;
+
+                                        return (
+                                            <div className="flex items-center gap-0.5 mt-1 bg-yellow-50 px-1.5 py-0.5 rounded w-fit border border-yellow-100">
+                                                {[...Array(5)].map((_, i) => (
+                                                    <Star
+                                                        key={i}
+                                                        size={10}
+                                                        className={i < rating ? "text-yellow-400 fill-yellow-400" : "text-slate-200"}
+                                                    />
+                                                ))}
+                                            </div>
+                                        );
+                                    })()}
 
                                     {(ticket.status === 'cancelado' || ticket.status === 'rejected') && ticket.client_feedback && (
                                         <div className="mt-2 text-[10px] bg-red-50 text-red-800 p-2 rounded border border-red-100 max-w-[200px]">
