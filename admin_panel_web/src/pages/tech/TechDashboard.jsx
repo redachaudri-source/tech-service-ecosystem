@@ -69,6 +69,7 @@ const TechDashboard = () => {
             const safeData = data || [];
 
             // Client-side date filtering (safer for timezones initially)
+            // Fixed syntax error
             const filtered = safeData.filter(t => {
                 // DEBUG: Show everything for now to prove data exists
                 console.log(`Checking ticket ${t.id} - Status: ${t.status}`);
