@@ -161,6 +161,7 @@ const Dashboard = () => {
                 // IMPORTANT: Update technician to the one assigned for this specifi slot
                 if (selectedSlot.technician_id) {
                     updateData.technician_id = selectedSlot.technician_id;
+                    updateData.status = 'asignado'; // Fix: Ensure status reflects assignment
                 }
             }
 
