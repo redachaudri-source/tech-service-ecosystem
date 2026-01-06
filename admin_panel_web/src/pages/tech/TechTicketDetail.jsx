@@ -5,16 +5,14 @@ import { generateServiceReport, generateDepositReceipt, loadImage } from '../../
 import {
     ChevronLeft, MapPin, Phone, User,
     Navigation, PhoneCall, CheckCircle,
-    ArrowRightCircle, Search, Copy, Camera, Upload, FileText,
-    Eye, Scan, AlertTriangle, ClipboardCopy, Clock, History, PackagePlus
+    Eye, Scan, AlertTriangle, ClipboardCopy, Clock, History, Package
 } from 'lucide-react';
 import Tesseract from 'tesseract.js';
-// import TechLocationTracker from '../../components/TechLocationTracker';
+import TechLocationTracker from '../../components/TechLocationTracker';
 import { useAuth } from '../../context/AuthContext';
 
 const TechTicketDetail = () => {
-    // Real-time Ticket Subscription - DISABLED FOR DEBUG
-    /*
+    // Real-time Ticket Subscription
     useEffect(() => {
         if (!id) return;
 
@@ -46,7 +44,6 @@ const TechTicketDetail = () => {
             supabase.removeChannel(channel);
         };
     }, [id]);
-    */
     const { user } = useAuth();
     const navigate = useNavigate();
     const [ticket, setTicket] = useState(null);
@@ -1240,7 +1237,7 @@ const TechTicketDetail = () => {
             {ticket.status === 'en_diagnostico' && (
                 <div className="bg-orange-50 rounded-2xl p-5 shadow-sm border border-orange-100 mb-4 animate-in fade-in slide-in-from-bottom-4">
                     <h3 className="text-xs font-bold text-orange-800 uppercase tracking-wider mb-4 flex items-center gap-2">
-                        <PackagePlus size={14} /> Solicitar Repuesto / Material
+                        <Package size={14} /> Solicitar Repuesto / Material
                     </h3>
                     <p className="text-xs text-orange-700 mb-4">
                         Si necesitas pedir material y el cliente ha pagado a cuenta, usa esta sección para <strong>pausar el servicio</strong> hasta que llegue el repuesto.
@@ -1542,13 +1539,13 @@ const TechTicketDetail = () => {
                     </div>
                 </div>
             )}
-            {/* GPS Tracker Component - TEMPORARILY DISABLED FOR DEBUGGING */}
-            {/* {ticket && user && (
+            {/* GPS Tracker Component */}
+            {ticket && user && (
                 <TechLocationTracker
                     ticketStatus={ticket.status}
                     technicianId={user.id}
                 />
-            )} */}
+            )}
         </div>
     );
 };
