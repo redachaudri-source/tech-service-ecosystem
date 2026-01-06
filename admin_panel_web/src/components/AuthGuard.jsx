@@ -14,12 +14,12 @@ const AuthGuard = ({ children }) => {
     }
 
     if (role !== 'admin') {
-        // If logged in but not admin, maybe redirect to a "Unauthorized" page or just Login
-        // For now, Login with error is tricky unless we sign them out. 
-        // The Login page handles signing out non-admins, so redirecting there is safe usually if we force logout?
-        // Actually, AuthContext should ideally handle this, but let's just Navigate to login
-        // which might loop if we don't sign out. 
-        // Better: Render a "Forbidden" screen.
+        // Smart Redirect: If user is a technician trying to access Admin root, send them to Tech App
+        if (role === 'technician') {
+            return <Navigate to="/tech/dashboard" replace />;
+        }
+
+        // Otherwise (e.g. client role or unknown), show Forbidden
         return (
             <div className="h-screen flex flex-col items-center justify-center bg-slate-100 p-4">
                 <div className="bg-white p-8 rounded-xl shadow-lg max-w-md text-center">
