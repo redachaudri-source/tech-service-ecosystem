@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Phone, Calendar, Clock, ChevronRight, Search, Filter } from 'lucide-react';
+import { MapPin, Phone, Calendar, Clock, ChevronRight, Search, Filter, Package, History } from 'lucide-react';
 import TechRouteLine from '../../components/TechRouteLine';
 
 import { useToast } from '../../components/ToastProvider';
@@ -134,6 +134,24 @@ const TechDashboard = () => {
                 />
                 <button className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800">
                     <Filter size={18} />
+                </button>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2">
+                <button
+                    onClick={() => navigate('/tech/pending-material')}
+                    className="p-4 bg-orange-50 text-orange-800 rounded-2xl border border-orange-100 font-bold text-sm flex flex-col items-center justify-center gap-1 active:scale-95 transition shadow-sm"
+                >
+                    <Package size={24} className="text-orange-500 mb-1" />
+                    En Espera Material
+                </button>
+                <button
+                    onClick={() => navigate('/tech/history')}
+                    className="p-4 bg-slate-50 text-slate-700 rounded-2xl border border-slate-200 font-bold text-sm flex flex-col items-center justify-center gap-1 active:scale-95 transition shadow-sm"
+                >
+                    <History size={24} className="text-slate-400 mb-1" />
+                    Historial
                 </button>
             </div>
 

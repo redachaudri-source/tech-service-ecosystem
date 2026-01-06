@@ -56,6 +56,10 @@ const TechServiceList = ({ filterType }) => {
             // Sorting by updated_at (when it was finished)
             query = query.order('updated_at', { ascending: sortOrder === 'asc' });
 
+        } else if (filterType === 'pending_material') {
+            // "Pendientes de Material"
+            query = query.eq('status', 'pendiente_material').order('updated_at', { ascending: false });
+
         } else if (filterType === 'all') {
             // "Todos" 
             query = query.order('created_at', { ascending: false });
@@ -90,6 +94,7 @@ const TechServiceList = ({ filterType }) => {
             en_diagnostico: 'bg-purple-100 text-purple-700',
             en_reparacion: 'bg-orange-100 text-orange-700',
             en_espera: 'bg-gray-100 text-gray-700',
+            pendiente_material: 'bg-orange-100 text-orange-800 border border-orange-200',
             finalizado: 'bg-green-100 text-green-700',
             pagado: 'bg-emerald-100 text-emerald-700',
             cancelado: 'bg-red-100 text-red-700',
@@ -100,6 +105,7 @@ const TechServiceList = ({ filterType }) => {
     const getTitle = () => {
         switch (filterType) {
             case 'new': return 'Nuevos sin Atender';
+            case 'pending_material': return 'En Espera de Material';
             case 'history': return 'Historial Completado';
             default: return 'Todos los Servicios';
         }

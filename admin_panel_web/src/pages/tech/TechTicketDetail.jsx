@@ -358,14 +358,45 @@ const TechTicketDetail = () => {
     };
 
     const handleGenerateReceipt = async () => {
-        if (!ticket || !deposit) return;
+        if (!ticket || !deposit) {
+            alert("No hay importe a cuenta para generar recibo.");
+            return;
+        }
         setGeneratingReceipt(true);
         try {
             const logoImg = settings?.logo_url ? await loadImage(settings.logo_url) : null;
-            const doc = generateDepositReceipt(ticket, logoImg);
+
+            // Use getCurrentTicketData() to ensure we use the LATEST deposit amount from the input field
+            const currentData = getCurrentTicketData();
+
+            // 1. Generate PDF
+            const doc = generateDepositReceipt(currentData, logoImg);
             const pdfBlob = doc.output('blob');
-            const pdfUrl = URL.createObjectURL(pdfBlob);
-            window.open(pdfUrl, '_blank');
+            const fileName = `recibo_senal_${ticket.ticket_number}_${Date.now()}.pdf`;
+
+            // 2. Upload to Supabase
+            const { error: uploadError } = await supabase.storage
+                .from('service-reports')
+                .upload(fileName, pdfBlob, { contentType: 'application/pdf' });
+
+            if (uploadError) throw uploadError;
+
+            // 3. Get Public URL
+            const { data } = supabase.storage.from('service-reports').getPublicUrl(fileName);
+            const publicUrl = data.publicUrl;
+
+            // 4. Save URL to DB
+            const { error: dbError } = await supabase
+                .from('tickets')
+                .update({ deposit_receipt_url: publicUrl })
+                .eq('id', id);
+
+            if (dbError) throw dbError;
+
+            // 5. Open and Notify
+            window.open(publicUrl, '_blank');
+            alert('Recibo generado y guardado correctamente.');
+
         } catch (error) {
             console.error('Error receipt:', error);
             alert('Error generando recibo: ' + error.message);
@@ -541,6 +572,7 @@ const TechTicketDetail = () => {
         presupuesto_revision: { label: 'CADUCADO / REVISIÓN', color: 'bg-red-100 text-red-700', next: null },
         presupuesto_aceptado: { label: 'PRESUPUESTO ACEPTADO', color: 'bg-green-100 text-green-700', next: 'en_reparacion', nextLabel: 'INICIAR REPARACIÓN' },
         en_reparacion: { label: 'EN REPARACIÓN', color: 'bg-pink-100 text-pink-700', next: 'finalizado', nextLabel: 'FINALIZAR SERVICIO' },
+        pendiente_material: { label: 'PENDIENTE DE PIEZA', color: 'bg-orange-100 text-orange-800 border-orange-200', next: null },
         finalizado: { label: 'FINALIZADO', color: 'bg-green-100 text-green-700', next: null },
         cancelado: { label: 'CANCELADO', color: 'bg-red-100 text-red-700', next: null },
         rejected: { label: 'RECHAZADO', color: 'bg-red-100 text-red-700', next: null }
@@ -1135,13 +1167,24 @@ const TechTicketDetail = () => {
                     <div className="space-y-4 mb-4">
                         <div>
                             <label className="block text-xs font-bold text-slate-500 mb-1">Descripción del Repuesto *</label>
-                            <input
-                                type="text"
-                                value={ticket.required_parts_description || ''}
-                                onChange={(e) => setTicket({ ...ticket, required_parts_description: e.target.value })}
-                                placeholder="Ej: Bomba de desagüe Samsung..."
-                                className="w-full p-3 bg-white border border-orange-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
-                            />
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={ticket.required_parts_description || ''}
+                                    onChange={(e) => setTicket({ ...ticket, required_parts_description: e.target.value })}
+                                    placeholder="Ej: Bomba de desagüe Samsung..."
+                                    className="w-full p-3 bg-white border border-orange-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none pr-10"
+                                />
+                                {parts.length > 0 && !ticket.required_parts_description && (
+                                    <button
+                                        onClick={() => setTicket({ ...ticket, required_parts_description: parts.map(p => p.name).join(', ') })}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-orange-500 hover:text-orange-700 p-1"
+                                        title="Copiar repuestos añadidos"
+                                    >
+                                        <Copy size={16} />
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
                         {/* Note: Deposit logic is shared with the budget section above, keeping them synced in state 'deposit' */}
@@ -1163,7 +1206,14 @@ const TechTicketDetail = () => {
 
                     <button
                         onClick={async () => {
-                            if (!ticket.required_parts_description || !deposit) {
+                            // AUTO-FILL: If description is empty but parts exist, auto-fill it before submitting
+                            let finalDesc = ticket.required_parts_description;
+                            if (!finalDesc && parts.length > 0) {
+                                finalDesc = parts.map(p => p.name).join(', ');
+                                setTicket(prev => ({ ...prev, required_parts_description: finalDesc }));
+                            }
+
+                            if (!finalDesc || !deposit) {
                                 alert('Para solicitar material es obligatorio indicar la pieza y el importe pagado a cuenta.');
                                 return;
                             }

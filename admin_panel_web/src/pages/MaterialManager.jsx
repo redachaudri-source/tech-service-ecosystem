@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { Package, Search, Clock, CheckCircle, AlertTriangle, History, ArrowRight } from 'lucide-react';
+import { Package, Search, Clock, CheckCircle, AlertTriangle, History, ArrowRight, FileText } from 'lucide-react';
 import SmartAssignmentModal from '../components/SmartAssignmentModal';
 
 const MaterialManager = () => {
@@ -150,6 +150,16 @@ const MaterialManager = () => {
                                                 <div className="text-[10px] text-green-600 flex items-center gap-1 font-bold mt-1">
                                                     <CheckCircle size={10} /> PAGADO
                                                 </div>
+                                            )}
+                                            {ticket.deposit_receipt_url && (
+                                                <a
+                                                    href={ticket.deposit_receipt_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-[10px] text-blue-500 font-bold hover:text-blue-700 flex items-center gap-1 mt-1 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 w-fit"
+                                                >
+                                                    <FileText size={10} /> Recibo
+                                                </a>
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-slate-500">

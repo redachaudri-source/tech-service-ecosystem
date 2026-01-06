@@ -68,6 +68,7 @@ function App() {
                             {/* New Tech Routes */}
                             <Route path="all-services" element={<TechServiceList filterType="all" />} />
                             <Route path="new-services" element={<TechServiceList filterType="new" />} />
+                            <Route path="pending-material" element={<TechServiceList filterType="pending_material" />} />
                             <Route path="agenda" element={<TechAgenda />} />
                             <Route path="history" element={<TechServiceList filterType="history" />} />
                             <Route path="settings" element={<TechSettings />} />
