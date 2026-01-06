@@ -189,6 +189,7 @@ export const generateDepositReceipt = (ticket, logoImg = null) => {
     const doc = new jsPDF({ format: 'a5', orientation: 'landscape' }); // Receipt style
     const pageWidth = doc.internal.pageSize.width;
 
+    // --- Header ---
     if (logoImg) {
         try {
             const format = logoImg.match(/^data:image\/(.*);base64/)?.[1]?.toUpperCase() || 'PNG';
@@ -205,25 +206,82 @@ export const generateDepositReceipt = (ticket, logoImg = null) => {
     doc.text(`Nº Recibo: R-${ticket.ticket_number}-${Date.now().toString().slice(-4)}`, pageWidth - 10, 28, { align: 'right' });
     doc.text(`Fecha: ${new Date().toLocaleDateString()}`, pageWidth - 10, 33, { align: 'right' });
 
+    // --- Client Info ---
     doc.setFontSize(12);
-    doc.text(`Hemos recibido de D./Dña: ${ticket.client?.full_name}`, 15, 50);
+    doc.text(`Hemos recibido de D./Dña: ${ticket.client?.full_name || 'Cliente'}`, 15, 50);
 
+    // --- Financial Calculations (Replicated from TechTicketDetail) ---
+    const labor = Array.isArray(ticket.labor_list) ? ticket.labor_list : [];
+    const parts = Array.isArray(ticket.parts_list) ? ticket.parts_list : [];
     const deposit = Number(ticket.deposit_amount || 0);
+
+    // Calculate Totals
+    const partsTotal = parts.reduce((sum, p) => sum + (Number(p.price) * (Number(p.qty) || 1)), 0);
+    const laborTotal = labor.reduce((sum, l) => sum + (Number(l.price) * (Number(l.qty) || 1)), 0);
+    const subtotal = partsTotal + laborTotal;
+    const vat = subtotal * 0.21;
+    const total = subtotal + vat;
+    const remaining = total - deposit;
+
+    // --- Main Amount (Deposit) ---
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(14);
     doc.text(`La cantidad de: ${deposit.toFixed(2)}€`, 15, 65);
 
+    // --- Concept / Details ---
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.text(`En concepto de señal / pago a cuenta para la reparación del aparato:`, 15, 80);
-    doc.text(`${ticket.appliance_info?.type} - ${ticket.appliance_info?.brand} (${ticket.appliance_info?.model})`, 15, 86);
-    doc.text(`Nº Servicio Referencia: ${ticket.ticket_number}`, 15, 92);
+    doc.text(`En concepto de señal / pago a cuenta para la reparación del aparato:`, 15, 75);
+    doc.text(`${ticket.appliance_info?.type || 'Aparato'} - ${ticket.appliance_info?.brand || ''} (${ticket.appliance_info?.model || 'Modelo no especificado'})`, 15, 80);
+    doc.text(`Nº Servicio Referencia: ${ticket.ticket_number}`, 15, 85);
 
-    // Signatures
+    // --- Parts Description ---
+    if (ticket.required_parts_description || parts.length > 0) {
+        const partsDesc = ticket.required_parts_description || parts.map(p => p.name).join(', ');
+        doc.text(`Repuestos solicitados: ${partsDesc}`, 15, 90);
+    }
+
+    // --- Financial Breakdown Box ---
+    doc.setDrawColor(200);
+    doc.setFillColor(250, 250, 250);
+    doc.rect(pageWidth - 85, 45, 75, 50, 'FD'); // Box on right
+
+    doc.setFontSize(9);
+    doc.text('RESUMEN ECONÓMICO', pageWidth - 80, 52);
+
+    let yBox = 60;
+    doc.text(`Subtotal:`, pageWidth - 80, yBox);
+    doc.text(`${subtotal.toFixed(2)}€`, pageWidth - 15, yBox, { align: 'right' });
+
+    yBox += 5;
+    doc.text(`IVA (21%):`, pageWidth - 80, yBox);
+    doc.text(`${vat.toFixed(2)}€`, pageWidth - 15, yBox, { align: 'right' });
+
+    yBox += 7;
+    doc.setFont('helvetica', 'bold');
+    doc.text(`TOTAL PRESUPUESTO:`, pageWidth - 80, yBox);
+    doc.text(`${total.toFixed(2)}€`, pageWidth - 15, yBox, { align: 'right' });
+
+    yBox += 7;
+    doc.setTextColor(0, 100, 0); // Dark Green
+    doc.text(`PAGADO A CUENTA:`, pageWidth - 80, yBox);
+    doc.text(`-${deposit.toFixed(2)}€`, pageWidth - 15, yBox, { align: 'right' });
+
+    yBox += 8;
+    doc.setTextColor(200, 0, 0); // Dark Red
+    doc.setFontSize(11);
+    doc.text(`PENDIENTE DE PAGO:`, pageWidth - 80, yBox);
+    doc.text(`${remaining.toFixed(2)}€`, pageWidth - 15, yBox, { align: 'right' });
+
+    doc.setTextColor(0); // Reset color
+
+    // --- Signatures ---
     const yPos = 110;
+    doc.setDrawColor(0);
     doc.line(20, yPos, 80, yPos);
     doc.line(110, yPos, 170, yPos);
     doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
     doc.text('Firma y Sello Empresa', 50, yPos + 5, { align: 'center' });
     doc.text('Firma Cliente', 140, yPos + 5, { align: 'center' });
 

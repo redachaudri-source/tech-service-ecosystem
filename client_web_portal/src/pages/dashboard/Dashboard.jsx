@@ -634,9 +634,19 @@ const Dashboard = () => {
                                                                 href={ticket.quote_pdf_url}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
-                                                                className="inline-flex items-center gap-2 text-sm font-bold text-blue-600 bg-white px-3 py-1.5 rounded-lg border border-blue-100 hover:bg-blue-50 transition mb-3 shadow-sm"
+                                                                className="inline-flex items-center gap-2 text-sm font-bold text-blue-600 bg-white px-3 py-1.5 rounded-lg border border-blue-100 hover:bg-blue-50 transition mb-3 shadow-sm mr-2"
                                                             >
-                                                                <FileText size={16} /> Ver PDF Presupuesto
+                                                                <FileText size={16} /> Ver Presupuesto
+                                                            </a>
+                                                        )}
+                                                        {ticket.deposit_receipt_url && (
+                                                            <a
+                                                                href={ticket.deposit_receipt_url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="inline-flex items-center gap-2 text-sm font-bold text-orange-600 bg-white px-3 py-1.5 rounded-lg border border-orange-100 hover:bg-orange-50 transition mb-3 shadow-sm"
+                                                            >
+                                                                <FileText size={16} /> Ver Recibo Señal
                                                             </a>
                                                         )}
                                                     </div>
