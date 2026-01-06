@@ -584,9 +584,9 @@ const Dashboard = () => {
                                                         </p>
 
                                                         {/* Cancellation Logic */}
-                                                        {['en_camino', 'trabajando', 'en_diagnostico', 'en_reparacion'].includes(ticket.status) ? (
+                                                        {['en_camino', 'trabajando', 'en_diagnostico', 'en_reparacion', 'pendiente_material'].includes(ticket.status) ? (
                                                             <div className="text-xs text-slate-500 bg-white/50 p-2 rounded border border-slate-100 italic">
-                                                                🚫 No es posible cancelar: El técnico ya está en camino o trabajando. Contacta por teléfono si es urgente.
+                                                                🚫 No es posible cancelar: El técnico ya está trabajando o hay material pedido. Contacta por teléfono si es urgente.
                                                             </div>
                                                         ) : (
                                                             <div className="mt-2 pt-2 border-t border-green-200/50 flex flex-col items-start gap-1">
@@ -597,7 +597,7 @@ const Dashboard = () => {
                                                                     <AlertCircle size={14} /> Cancelar Servicio
                                                                 </button>
                                                                 <span className="text-[10px] text-slate-500 italic leading-tight ml-5">
-                                                                    * Solo disponible antes de que su técnico esté en camino.
+                                                                    * Solo disponible antes de que su técnico inicie el servicio.
                                                                 </span>
                                                             </div>
                                                         )}
@@ -611,6 +611,28 @@ const Dashboard = () => {
                                                         <span className="font-bold">Solicitud de cambio enviada. Esperando nueva propuesta.</span>
                                                     </div>
                                                 )}
+                                            </div>
+                                        )}
+
+                                        {/* DOCUMENTS / RECEIPT SECTION (Visible always if exists) */}
+                                        {ticket.deposit_receipt_url && (
+                                            <div className="mt-4 bg-orange-50 border border-orange-100 p-4 rounded-lg shadow-sm flex justify-between items-center animate-in fade-in">
+                                                <div>
+                                                    <h4 className="text-sm font-bold text-orange-800 flex items-center gap-2">
+                                                        <FileText size={16} /> Recibo de Señal Disponible
+                                                    </h4>
+                                                    <p className="text-xs text-orange-700 mt-1">
+                                                        Justificante del pago a cuenta realizado.
+                                                    </p>
+                                                </div>
+                                                <a
+                                                    href={ticket.deposit_receipt_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="bg-white text-orange-600 px-4 py-2 rounded-lg text-xs font-bold shadow-sm border border-orange-200 hover:bg-orange-600 hover:text-white transition"
+                                                >
+                                                    Ver Recibo
+                                                </a>
                                             </div>
                                         )}
 
@@ -639,16 +661,7 @@ const Dashboard = () => {
                                                                 <FileText size={16} /> Ver Presupuesto
                                                             </a>
                                                         )}
-                                                        {ticket.deposit_receipt_url && (
-                                                            <a
-                                                                href={ticket.deposit_receipt_url}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="inline-flex items-center gap-2 text-sm font-bold text-orange-600 bg-white px-3 py-1.5 rounded-lg border border-orange-100 hover:bg-orange-50 transition mb-3 shadow-sm"
-                                                            >
-                                                                <FileText size={16} /> Ver Recibo Señal
-                                                            </a>
-                                                        )}
+                                                        {/* Duplicate Removed */}
                                                     </div>
                                                 </div>
 
