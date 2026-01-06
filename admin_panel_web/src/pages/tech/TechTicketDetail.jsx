@@ -95,10 +95,20 @@ const TechTicketDetail = () => {
             setTicket(data);
 
             // Init State from DB
+            // Init State from DB (Safe JSON Parse)
+            const safeParse = (str) => {
+                try {
+                    return str ? (typeof str === 'string' ? JSON.parse(str) : str) : [];
+                } catch (e) {
+                    console.error("JSON Parse Error", e);
+                    return [];
+                }
+            };
+
             setDiagnosis(data.tech_diagnosis || '');
             setSolution(data.tech_solution || '');
-            setParts(data.parts_list ? (typeof data.parts_list === 'string' ? JSON.parse(data.parts_list) : data.parts_list) : []);
-            setLabor(data.labor_list ? (typeof data.labor_list === 'string' ? JSON.parse(data.labor_list) : data.labor_list) : []);
+            setParts(safeParse(data.parts_list));
+            setLabor(safeParse(data.labor_list));
             setDeposit(data.deposit_amount || 0);
             setIsPaid(data.is_paid || false);
             setPaymentMethod(data.payment_method || 'cash');
@@ -594,8 +604,42 @@ const TechTicketDetail = () => {
     const displayedDiagnosis = ticket?.ai_diagnosis || liveDiagnosis;
     const isLive = !ticket?.ai_diagnosis && liveDiagnosis;
 
-    if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>;
-    if (!ticket) return null;
+    if (loading) return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <div className="flex flex-col items-center gap-4">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <p className="text-slate-500 animate-pulse">Cargando servicio...</p>
+            </div>
+        </div>
+    );
+
+    if (!ticket) return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+            <div className="text-center max-w-md">
+                <div className="bg-red-50 text-red-500 p-4 rounded-full inline-block mb-4">
+                    <AlertTriangle size={32} />
+                </div>
+                <h2 className="text-xl font-bold text-slate-800 mb-2">Ticket no disponible</h2>
+                <p className="text-slate-500 mb-6">
+                    No se pudo cargar la información del servicio. Puede que haya sido eliminado o no tengas permisos para verlo.
+                </p>
+                <div className="flex gap-3 justify-center">
+                    <button
+                        onClick={() => navigate('/tech/dashboard')}
+                        className="px-6 py-2 bg-slate-200 text-slate-700 rounded-lg font-bold"
+                    >
+                        Volver
+                    </button>
+                    <button
+                        onClick={fetchTicket}
+                        className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold"
+                    >
+                        Reintentar
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 
     const statusMap = {
         solicitado: { label: 'SOLICITADO', color: 'bg-orange-100 text-orange-700', next: 'en_camino', nextLabel: 'INICIAR VIAJE' },
