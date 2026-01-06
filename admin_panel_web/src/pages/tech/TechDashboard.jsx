@@ -64,7 +64,7 @@ const TechDashboard = () => {
 
             if (error) throw error;
 
-            console.log("DEBUG TICKETS FETCHED:", data?.length, data);
+            console.log("DEBUG TICKETS FETCHED:", data?.length, data); // FORCE_DEPLOY_FIX_V2
 
             const safeData = data || [];
 
