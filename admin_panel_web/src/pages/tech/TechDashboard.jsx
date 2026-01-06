@@ -158,17 +158,7 @@ const TechDashboard = () => {
                 </div>
             </div>
 
-            {/* DEBUG OVERLAY - TEMPORARY */}
-            <div className="mb-6 p-4 bg-yellow-50 border-2 border-yellow-400 rounded-lg text-xs font-mono text-slate-800 overflow-auto max-h-40">
-                <p className="font-bold text-red-600">MODO DEBUG ACTIVADO</p>
-                <p>User ID (Auth): {user?.id}</p>
-                <p>Tickets Cargados: {tickets.length}</p>
-                <p>Fecha Filtro: {filterDate}</p>
-                <details>
-                    <summary className="cursor-pointer text-blue-600 underline">Ver JSON raw (Click)</summary>
-                    <pre>{JSON.stringify(tickets, null, 2)}</pre>
-                </details>
-            </div>
+
             {/* Agenda List */}
             <div className="space-y-3">
                 {loading ? (
