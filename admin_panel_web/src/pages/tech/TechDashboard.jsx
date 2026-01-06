@@ -64,7 +64,7 @@ const TechDashboard = () => {
 
             if (error) throw error;
 
-            console.log("Raw Tickets Fetched:", data?.length, data);
+            console.log("DEBUG TICKETS FETCHED:", data?.length, data);
 
             const safeData = data || [];
 
