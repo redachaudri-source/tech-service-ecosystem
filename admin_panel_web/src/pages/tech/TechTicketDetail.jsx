@@ -9,6 +9,7 @@ import {
     Eye, Scan, AlertTriangle, ClipboardCopy, Clock, History, PackagePlus
 } from 'lucide-react';
 import Tesseract from 'tesseract.js';
+import TechLocationTracker from '../../components/TechLocationTracker';
 
 const TechTicketDetail = () => {
     const { id } = useParams();
@@ -1461,6 +1462,13 @@ const TechTicketDetail = () => {
                         )}
                     </div>
                 </div>
+            )}
+            {/* GPS Tracker Component - Invisible unless status matches */}
+            {ticket && user && (
+                <TechLocationTracker
+                    ticketStatus={ticket.status}
+                    technicianId={user.id}
+                />
             )}
         </div>
     );

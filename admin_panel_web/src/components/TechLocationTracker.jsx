@@ -1,85 +1,84 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { MapPin } from 'lucide-react';
 
-const TRACKING_INTERVAL = 10000; // 10 seconds
-
-const TechLocationTracker = () => {
-    const [active, setActive] = useState(false);
+const TechLocationTracker = ({ ticketStatus, technicianId }) => {
+    const [tracking, setTracking] = useState(false);
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        // Start tracking immediately if we are mounting (meaning user is logged in as tech)
-        // Ideally we check if there are "en_camino" tickets, but for now we track as long as app is open for simplicity in MVP
-        // or we can just track if the user allows it.
-        startTracking();
+        let watchId;
 
-        return () => stopTracking();
-    }, []);
+        // Only track if status is 'en_camino'
+        if (ticketStatus === 'en_camino' && technicianId) {
+            setTracking(true);
 
-    const startTracking = async () => {
-        if (!navigator.geolocation) {
-            setError('Geolocation not supported');
-            return;
-        }
-
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        setActive(true);
-        console.log('📡 Starting GPS Tracking for Tech:', user.email);
-
-        const watchId = navigator.geolocation.watchPosition(
-            (position) => {
-                updateLocation(user.id, position);
-            },
-            (err) => {
-                console.error('GPS Error:', err);
-                setError(err.message);
-            },
-            {
+            // Options: High accuracy, check every 10s roughly (by throttling in success callback if needed, 
+            // but watchPosition triggers on movement. We might want to throttle updates to DB).
+            const options = {
                 enableHighAccuracy: true,
                 timeout: 10000,
-                maximumAge: 0
-            }
+                maximumAge: 5000
+            };
+
+            let lastUpdate = 0;
+
+            const success = async (pos) => {
+                const now = Date.now();
+                // Throttle updates to every 15 seconds to save DB writes
+                if (now - lastUpdate < 15000) return;
+
+                lastUpdate = now;
+                const { latitude, longitude } = pos.coords;
+
+                try {
+                    await supabase
+                        .from('profiles')
+                        .update({
+                            current_lat: latitude,
+                            current_lng: longitude,
+                            last_location_update: new Date().toISOString()
+                        })
+                        .eq('id', technicianId);
+
+                    setError(null);
+                } catch (err) {
+                    console.error('Error updating location:', err);
+                }
+            };
+
+            const errorCallback = (err) => {
+                console.warn('Geolocation error:', err);
+                setError('No se puede acceder al GPS.');
+            };
+
+            watchId = navigator.geolocation.watchPosition(success, errorCallback, options);
+        } else {
+            setTracking(false);
+        }
+
+        return () => {
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+        };
+    }, [ticketStatus, technicianId]);
+
+    if (!tracking) return null;
+
+    if (error) {
+        return (
+            <div className="fixed bottom-4 right-4 bg-red-100 text-red-700 px-3 py-2 rounded-full text-xs font-bold shadow-lg z-50 flex items-center gap-2">
+                <MapPin size={14} />
+                GPS Error: {error}
+            </div>
         );
+    }
 
-        // Cleanup function for internal use
-        window.techWatchId = watchId;
-    };
-
-    const stopTracking = () => {
-        if (window.techWatchId) {
-            navigator.geolocation.clearWatch(window.techWatchId);
-        }
-        setActive(false);
-    };
-
-    const updateLocation = async (userId, position) => {
-        try {
-            const { latitude, longitude, heading, speed } = position.coords;
-
-            // Upsert location
-            const { error } = await supabase
-                .from('technician_locations')
-                .upsert({
-                    technician_id: userId,
-                    latitude,
-                    longitude,
-                    heading: heading || 0,
-                    speed: speed || 0,
-                    updated_at: new Date().toISOString()
-                });
-
-            if (error) throw error;
-            // console.log('📍 Location updated:', latitude, longitude);
-
-        } catch (err) {
-            console.error('Error syncing location:', err);
-        }
-    };
-
-    if (error) return null; // Invisible component usually, or show error icon
-    return null; // This is a "headless" component
+    return (
+        <div className="fixed bottom-4 right-4 bg-green-100 text-green-700 px-3 py-2 rounded-full text-xs font-bold shadow-lg z-50 flex items-center gap-2 animate-pulse">
+            <MapPin size={14} />
+            Compartiendo Ubicación con Cliente
+        </div>
+    );
 };
 
 export default TechLocationTracker;

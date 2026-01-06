@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { LogOut, Plus, Clock, CheckCircle, AlertCircle, Wrench, User, Calendar, FileText, Package, PieChart } from 'lucide-react';
+import TechLocationMap from '../../components/TechLocationMap';
 
 import { useToast } from '../../components/ToastProvider';
 
@@ -494,6 +495,13 @@ const Dashboard = () => {
                                         <p className="text-slate-500 text-sm line-clamp-2">
                                             {ticket.description_failure}
                                         </p>
+
+                                        {/* TECH LOCATION MAP - Only when 'en_camino' */}
+                                        {ticket.status === 'en_camino' && ticket.technician_id && (
+                                            <div className="mt-4 mb-4 animate-in fade-in slide-in-from-top-4">
+                                                <TechLocationMap technicianId={ticket.technician_id} />
+                                            </div>
+                                        )}
 
                                         {/* Technician & Appointment Info */}
                                         {(ticket.technician || ticket.scheduled_at || (ticket.proposed_slots && ticket.proposed_slots.length > 0)) && (
