@@ -268,14 +268,41 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
 
         // 2. Schedule Logic
         let scheduledAt = null;
-        if (appointmentDate) {
-            // Default to 9:00 AM if no time set but date is set
-            const timePart = appointmentTime || '09:00';
-            scheduledAt = new Date(`${appointmentDate}T${timePart}:00`).toISOString();
+        let appointmentSt = 'pending';
+        let ticketStatus = 'solicitado';
+        let assignedTech = null;
+
+        if (techId === 'smart') {
+            // SMART MODE: No date/tech yet (handled by next modal)
+            ticketStatus = 'solicitado';
+            appointmentSt = 'pending';
+            assignedTech = null;
+        } else if (techId) {
+            // MANUAL ASSIGNMENT (If manual section was kept or re-added in future)
+            // But currently UI forces 'smart' or 'none'. 
+            // In case we support direct assignment:
+            if (appointmentDate) {
+                const timePart = appointmentTime || '09:00';
+                scheduledAt = new Date(`${appointmentDate}T${timePart}:00`).toISOString();
+                appointmentSt = 'confirmed';
+                ticketStatus = 'asignado';
+                assignedTech = techId;
+            } else {
+                // Assign without date?
+                ticketStatus = 'asignado';
+                assignedTech = techId;
+            }
+        } else {
+            // PLAIN SOLICITADO
+            ticketStatus = 'solicitado';
+            appointmentSt = 'pending';
+            assignedTech = null;
         }
 
-        // --- VALIDATION: CHECK DOUBLE BOOKING (RANGE OVERLAP) ---
-        if (techId && scheduledAt) {
+
+        // --- VALIDATION: DOUBLE BOOKING (Only if Manual Date Set) ---
+        // Skip check if 'smart' is selected or no date
+        if (assignedTech && scheduledAt && techId !== 'smart') {
             // New Ticket Range
             const newStart = new Date(scheduledAt);
             const newEnd = new Date(newStart.getTime() + (duration * 60000)); // duration is in minutes
@@ -287,11 +314,10 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
             dayEnd.setHours(23, 59, 59, 999);
 
             try {
-                // Use select('*') to avoid crash if estimated_duration column doesn't exist yet
                 const { data: existingTickets, error: fetchError } = await supabase
                     .from('tickets')
                     .select('*')
-                    .eq('technician_id', techId)
+                    .eq('technician_id', assignedTech)
                     .gte('scheduled_at', dayStart.toISOString())
                     .lte('scheduled_at', dayEnd.toISOString())
                     .neq('status', 'cancelado')
@@ -303,23 +329,18 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
                     const hasConflict = existingTickets.some(ticket => {
                         const existStart = new Date(ticket.scheduled_at);
                         const existDuration = ticket.estimated_duration || 60;
-                        // Add 30m buffer to existing ticket end
                         const existEnd = new Date(existStart.getTime() + (existDuration + 30) * 60000);
-
-                        // Check Overlap: (StartA < EndB) and (EndA > StartB)
                         return (newStart < existEnd && newEnd > existStart);
                     });
 
                     if (hasConflict) {
-                        alert('⚠️ CONFLICTO DE AGENDA DETECTADO\n\nEl horario se solapa con otro servicio existente.\nPor favor usa el botón "Abrir Agenda" para ver los huecos libres.');
+                        alert('⚠️ CONFLICTO DE AGENDA DETECTADO\n\nEl horario se solapa con otro servicio existente.');
                         setLoading(false);
                         return;
                     }
                 }
             } catch (err) {
                 console.error("Validation Check Failed:", err);
-                // Fail gracefully: If DB check fails, assume safe to proceed but log it.
-                // We don't want to block the user if the "smart features" are acting up.
             }
         }
 
@@ -330,30 +351,37 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
             model: applianceModel
         };
 
-        const { error: ticketError } = await supabase
+        const { data: newTicket, error: ticketError } = await supabase
             .from('tickets')
             .insert({
                 client_id: finalClientId,
-                technician_id: techId || null, // Optional assignment
-                service_type_id: serviceTypeId || null, // New field
+                technician_id: assignedTech || null,
+                service_type_id: serviceTypeId || null,
                 appliance_info: applianceInfo,
                 description_failure: description,
                 ai_diagnosis: aiDiagnosis,
                 scheduled_at: scheduledAt,
                 estimated_duration: duration,
-                // If created by Admin and has a date, assume it's confirmed (otherwise why set a date?)
-                appointment_status: scheduledAt ? 'confirmed' : 'pending',
-                status: techId ? 'asignado' : 'solicitado', // logic can change if assigned immediately
-                created_by: (await supabase.auth.getUser()).data.user?.id, // Capture creator ID
-                origin_source: 'direct' // Mark as Office/Manual creation
-            });
+                appointment_status: appointmentSt,
+                status: ticketStatus,
+                created_by: (await supabase.auth.getUser()).data.user?.id,
+                origin_source: 'direct'
+            })
+            .select()
+            .single();
 
         setLoading(false);
 
         if (ticketError) {
             alert('Error creando ticket: ' + ticketError.message);
         } else {
-            onSuccess();
+            // SUCCESS
+            if (techId === 'smart' && newTicket) {
+                // Pass ticket to parent to open Smart Scheduler
+                onSuccess(newTicket, true); // (ticket, shouldOpenSmart)
+            } else {
+                onSuccess(newTicket, false);
+            }
             onClose();
         }
     };
@@ -541,99 +569,55 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
                         </div>
                     </div>
 
-                    {/* SECTION: ASSIGNMENT & SCHEDULE */}
+                    {/* SECTION: ASSIGNMENT MODE */}
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                         <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
                             <Clock size={18} />
-                            Agenda y Asignación
+                            Asignación y Agenda
                         </h3>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            {/* Column 1: Tech & Duration */}
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Técnico</label>
-                                    <select
-                                        className="w-full p-2.5 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-blue-500/20 outline-none"
-                                        value={techId}
-                                        onChange={e => setTechId(e.target.value)}
-                                    >
-                                        <option value="">-- Pendiente de Asignar --</option>
-                                        {techs.map(t => (
-                                            <option key={t.id} value={t.id}>{t.full_name}</option>
-                                        ))}
-                                    </select>
+                        <div className="space-y-4">
+                            <label className="flex items-center gap-3 p-4 bg-white border border-slate-200 rounded-xl cursor-pointer hover:border-blue-300 transition group shadow-sm">
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${techId === 'smart' ? 'border-blue-500 bg-blue-500' : 'border-slate-300'}`}>
+                                    {techId === 'smart' && <div className="w-2 h-2 bg-white rounded-full" />}
                                 </div>
+                                <input
+                                    type="radio"
+                                    name="assignMode"
+                                    className="hidden"
+                                    checked={techId === 'smart'}
+                                    onChange={() => { setTechId('smart'); setDuration(60); }} // Reset to smart mode
+                                />
+                                <div className="flex-1">
+                                    <div className="font-bold text-slate-800 flex items-center gap-2">
+                                        ✨ Asistente Inteligente (God Mode)
+                                    </div>
+                                    <div className="text-xs text-slate-500 mt-0.5">
+                                        El sistema buscará los mejores huecos y técnicos automáticamente.
+                                    </div>
+                                </div>
+                            </label>
 
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Duración Estimada</label>
-                                    <select
-                                        className="w-full p-2.5 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-blue-500/20 outline-none"
-                                        value={duration}
-                                        onChange={e => setDuration(Number(e.target.value))}
-                                    >
-                                        <option value={30}>30 min (Rápido)</option>
-                                        <option value={60}>1h (Estándar)</option>
-                                        <option value={90}>1h 30m</option>
-                                        <option value={120}>2h (Complejo)</option>
-                                        <option value={180}>3h (Muy Largo)</option>
-                                        <option value={240}>4h (Medio Día)</option>
-                                    </select>
+                            <label className="flex items-center gap-3 p-4 bg-white border border-slate-200 rounded-xl cursor-pointer hover:border-blue-300 transition group shadow-sm opacity-60 hover:opacity-100">
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${techId !== 'smart' ? 'border-blue-500 bg-blue-500' : 'border-slate-300'}`}>
+                                    {techId !== 'smart' && <div className="w-2 h-2 bg-white rounded-full" />}
                                 </div>
-                            </div>
-
-                            {/* Column 2: Date & Time Picker */}
-                            <div className="flex flex-col justify-end">
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Horario de Visita</label>
-                                <div className="p-3 bg-white border border-slate-200 rounded-lg">
-                                    {!appointmentTime ? (
-                                        <div className="text-center py-2">
-                                            <p className="text-sm text-slate-400 mb-2">Sin fecha seleccionada</p>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    if (!techId) {
-                                                        alert('Primero selecciona un Técnico.');
-                                                    } else {
-                                                        // Default to today (Local) if empty
-                                                        if (!appointmentDate) {
-                                                            const today = new Date();
-                                                            const year = today.getFullYear();
-                                                            const month = String(today.getMonth() + 1).padStart(2, '0');
-                                                            const day = String(today.getDate()).padStart(2, '0');
-                                                            setAppointmentDate(`${year}-${month}-${day}`);
-                                                        }
-                                                        setShowAgenda(true);
-                                                    }
-                                                }}
-                                                className="w-full py-2 bg-indigo-50 text-indigo-600 rounded-lg font-semibold text-sm hover:bg-indigo-100 transition flex items-center justify-center gap-2"
-                                            >
-                                                <Clock size={16} />
-                                                Abrir Agenda
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="text-center">
-                                            <p className="text-xs text-slate-400 mb-1">Cita Programada para:</p>
-                                            <div className="font-bold text-lg text-indigo-700 flex items-center justify-center gap-2">
-                                                <span>{new Date(appointmentDate).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' })}</span>
-                                                <span>•</span>
-                                                <span>{appointmentTime}</span>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowAgenda(true)}
-                                                className="mt-2 text-xs text-indigo-500 hover:text-indigo-700 underline"
-                                            >
-                                                Cambiar Hora
-                                            </button>
-                                        </div>
-                                    )}
+                                <input
+                                    type="radio"
+                                    name="assignMode"
+                                    className="hidden"
+                                    checked={techId !== 'smart'}
+                                    onChange={() => setTechId('')} // Reset to no assign
+                                />
+                                <div className="flex-1">
+                                    <div className="font-bold text-slate-800">
+                                        Solo Crear (Pendiente de Asignar)
+                                    </div>
+                                    <div className="text-xs text-slate-500 mt-0.5">
+                                        El ticket se guardará como "Solicitado". Podrás asignarlo después.
+                                    </div>
                                 </div>
-                                {/* Hidden inputs for logic compatibility */}
-                                <input type="hidden" value={appointmentDate} />
-                                <input type="hidden" value={appointmentTime} />
-                            </div>
+                            </label>
                         </div>
                     </div>
 

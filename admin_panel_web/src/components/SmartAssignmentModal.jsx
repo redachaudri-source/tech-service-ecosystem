@@ -29,23 +29,36 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
         const { data: types } = await supabase.from('service_types').select('*').eq('is_active', true);
         if (types) {
             setServiceTypes(types);
-            // Auto-select based on ticket info if possible (search by name?)
-            // For now, default to standard or try match
-            if (ticket.appliance_info?.type) {
+
+            // 1. Try exact ID match first (God Mode Sync)
+            if (ticket.service_type_id) {
+                const exact = types.find(t => t.id === ticket.service_type_id);
+                if (exact) {
+                    setSelectedServiceType(exact);
+                    setDuration(exact.estimated_duration_min);
+                }
+            }
+            // 2. Fallback to name match
+            else if (ticket.appliance_info?.type) {
                 const match = types.find(t => t.name.toLowerCase().includes(ticket.appliance_info.type.toLowerCase()));
                 if (match) {
                     setSelectedServiceType(match);
                     setDuration(match.estimated_duration_min);
                 } else if (types.length > 0) {
-                    // Default to first 'standard' type usually
                     setSelectedServiceType(types[0]);
                     setDuration(types[0].estimated_duration_min);
                 }
             }
         }
 
-        // 2. Fetch Techs (for reference)
-        const { data: techData } = await supabase.from('profiles').select('*').eq('role', 'tech');
+        // 2. Fetch Techs (Active & Not Deleted)
+        const { data: techData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('role', 'tech')
+            .is('deleted_at', null)
+            .eq('is_active', true);
+
         setTechs(techData || []);
 
         // 3. Pre-fill date if ticket has one?
@@ -359,16 +372,19 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
                                                         onClick={() => addProposal(slot)}
                                                         className={`
                                                             col-span-2 py-2 px-1 rounded-lg border text-center transition relative overflow-hidden group
-                                                            ${isOptimal
-                                                                ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:border-green-300 hover:shadow-md'
-                                                                : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 hover:shadow-sm'}
+                                                            ${proposals.some(p => p.technician_id === slot.technician_id && p.start === slot.slot_start)
+                                                                ? 'bg-indigo-600 border-indigo-700 text-white shadow-md ring-2 ring-indigo-300 ring-offset-1 scale-105 z-10'
+                                                                : isOptimal
+                                                                    ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:border-green-300 hover:shadow-md'
+                                                                    : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 hover:shadow-sm'
+                                                            }
                                                         `}
                                                     >
                                                         <div className="font-bold text-sm">{timeStr}</div>
-                                                        {isOptimal && (
+                                                        {isOptimal && !proposals.some(p => p.technician_id === slot.technician_id && p.start === slot.slot_start) && (
                                                             <div className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-bl-lg"></div>
                                                         )}
-                                                        <div className="text-[10px] opacity-70">
+                                                        <div className={`text-[10px] ${proposals.some(p => p.technician_id === slot.technician_id && p.start === slot.slot_start) ? 'text-indigo-200' : 'opacity-70'}`}>
                                                             +{duration}m
                                                         </div>
                                                     </button>

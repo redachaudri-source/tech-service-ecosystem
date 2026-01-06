@@ -181,7 +181,23 @@ const ServiceMonitor = () => {
                 </div>
             </div>
 
-            {showCreateModal && <CreateTicketModal onClose={() => setShowCreateModal(false)} onSuccess={() => { fetchData(); setShowCreateModal(false); }} />}
+            {showCreateModal && (
+                <CreateTicketModal
+                    onClose={() => setShowCreateModal(false)}
+                    onSuccess={(newTicket, shouldOpenSmart) => {
+                        fetchData();
+                        setShowCreateModal(false);
+                        if (shouldOpenSmart && newTicket) {
+                            // Opens the Smart Assignment Modal instantly
+                            setTimeout(() => {
+                                setSelectedTicketForAssign(newTicket);
+                            }, 100); // Small delay to allow modal transition
+                        } else if (newTicket) {
+                            addToast(`Ticket #${newTicket.ticket_number} creado correctamente.`, 'success', true);
+                        }
+                    }}
+                />
+            )}
 
             {/* Table */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
