@@ -281,7 +281,8 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
                     .eq('technician_id', techId)
                     .gte('scheduled_at', dayStart.toISOString())
                     .lte('scheduled_at', dayEnd.toISOString())
-                    .not('status', 'in', '("cancelado","rejected")');
+                    .neq('status', 'cancelado')
+                    .neq('status', 'rejected');
 
                 if (fetchError) throw fetchError;
 
@@ -565,8 +566,10 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
                                                         // Default to today (Local) if empty
                                                         if (!appointmentDate) {
                                                             const today = new Date();
-                                                            const localIso = new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
-                                                            setAppointmentDate(localIso);
+                                                            const year = today.getFullYear();
+                                                            const month = String(today.getMonth() + 1).padStart(2, '0');
+                                                            const day = String(today.getDate()).padStart(2, '0');
+                                                            setAppointmentDate(`${year}-${month}-${day}`);
                                                         }
                                                         setShowAgenda(true);
                                                     }

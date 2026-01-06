@@ -34,7 +34,8 @@ const AgendaPicker = ({ techId, techName, date, duration, onTimeSelect, onClose 
             .eq('technician_id', techId)
             .gte('scheduled_at', startOfDay)
             .lte('scheduled_at', endOfDay)
-            .not('status', 'in', '("cancelado","rejected")');
+            .neq('status', 'cancelado')
+            .neq('status', 'rejected');
 
         const blocked = new Set();
 
