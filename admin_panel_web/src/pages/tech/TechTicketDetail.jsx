@@ -658,74 +658,7 @@ const TechTicketDetail = () => {
                                     </p>
                                 )}
 
-                                {/* PENDING MATERIAL WORKFLOW */}
-                                {ticket.status === 'en_diagnostico' && (
-                                    <div className="mt-4 bg-orange-50 border border-orange-100 rounded-xl p-4">
-                                        <h4 className="text-sm font-bold text-orange-800 mb-2 flex items-center gap-2">
-                                            <PackagePlus size={16} /> Solicitar Repuesto
-                                        </h4>
-                                        <p className="text-xs text-orange-700 mb-3">
-                                            Si necesitas pedir material y el cliente ha pagado a cuenta, rellena esto para pausar el servicio.
-                                        </p>
 
-                                        <div className="space-y-3 mb-3">
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-500 mb-1">Descripción del Repuesto *</label>
-                                                <input
-                                                    type="text"
-                                                    value={ticket.required_parts_description || ''}
-                                                    onChange={(e) => setTicket({ ...ticket, required_parts_description: e.target.value })}
-                                                    placeholder="Ej: Bomba de desagüe Samsung..."
-                                                    className="w-full p-2 border border-slate-300 rounded-lg text-sm"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-500 mb-1">Importe Pagado a Cuenta (€) *</label>
-                                                <input
-                                                    type="number"
-                                                    value={deposit}
-                                                    onChange={(e) => setDeposit(Number(e.target.value))}
-                                                    placeholder="0.00"
-                                                    className="w-full p-2 border border-slate-300 rounded-lg text-sm"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <button
-                                            onClick={async () => {
-                                                if (!ticket.required_parts_description || !deposit) {
-                                                    alert('Para solicitar material es obligatorio indicar la pieza y el importe pagado a cuenta.');
-                                                    return;
-                                                }
-                                                if (!window.confirm('¿Confirmas que el cliente ha pagado esa cantidad y quieres dejar el servicio en espera de material?')) return;
-
-                                                setUpdating(true);
-                                                try {
-                                                    // 1. Update data cols
-                                                    await supabase.from('tickets').update({
-                                                        required_parts_description: ticket.required_parts_description,
-                                                        deposit_amount: deposit,
-                                                        material_status_at: new Date().toISOString()
-                                                    }).eq('id', ticket.id);
-
-                                                    // 2. Change status
-                                                    await updateStatus('pendiente_material');
-                                                    alert('Servicio pausado por material correctamente.');
-                                                    navigate('/tech/dashboard');
-                                                } catch (e) {
-                                                    console.error(e);
-                                                    alert('Error: ' + e.message);
-                                                    setUpdating(false);
-                                                }
-                                            }}
-                                            disabled={updating}
-                                            className="w-full py-3 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 shadow-md flex items-center justify-center gap-2 active:scale-[0.98]"
-                                        >
-                                            <History size={18} />
-                                            Pausar: Pedir Material
-                                        </button>
-                                    </div>
-                                )}
                             </>
                         );
                     })()}
@@ -1186,6 +1119,81 @@ const TechTicketDetail = () => {
                             </div>
                         )}
                     </div>
+                </div>
+            )}
+
+            {/* MOVED: PENDING MATERIAL WORKFLOW (Placed after Financials) */}
+            {ticket.status === 'en_diagnostico' && (
+                <div className="bg-orange-50 rounded-2xl p-5 shadow-sm border border-orange-100 mb-4 animate-in fade-in slide-in-from-bottom-4">
+                    <h3 className="text-xs font-bold text-orange-800 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <PackagePlus size={14} /> Solicitar Repuesto / Material
+                    </h3>
+                    <p className="text-xs text-orange-700 mb-4">
+                        Si necesitas pedir material y el cliente ha pagado a cuenta, usa esta sección para <strong>pausar el servicio</strong> hasta que llegue el repuesto.
+                    </p>
+
+                    <div className="space-y-4 mb-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Descripción del Repuesto *</label>
+                            <input
+                                type="text"
+                                value={ticket.required_parts_description || ''}
+                                onChange={(e) => setTicket({ ...ticket, required_parts_description: e.target.value })}
+                                placeholder="Ej: Bomba de desagüe Samsung..."
+                                className="w-full p-3 bg-white border border-orange-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+                            />
+                        </div>
+
+                        {/* Note: Deposit logic is shared with the budget section above, keeping them synced in state 'deposit' */}
+                        <div className="bg-white p-3 rounded-xl border border-orange-200">
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Total Pagado a Cuenta (€) *</label>
+                            <div className="flex gap-2 items-center">
+                                <input
+                                    type="number"
+                                    value={deposit}
+                                    onChange={(e) => setDeposit(Number(e.target.value))}
+                                    placeholder="0.00"
+                                    className="w-full p-2 font-mono font-bold text-lg text-slate-800 border-none focus:ring-0"
+                                />
+                                <span className="text-slate-400 font-bold">€</span>
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-1">Asegúrate de que este importe coincide con lo cobrado.</p>
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={async () => {
+                            if (!ticket.required_parts_description || !deposit) {
+                                alert('Para solicitar material es obligatorio indicar la pieza y el importe pagado a cuenta.');
+                                return;
+                            }
+                            if (!window.confirm('¿Confirmas que el cliente ha pagado esa cantidad y quieres dejar el servicio en espera de material?')) return;
+
+                            setUpdating(true);
+                            try {
+                                // 1. Update data cols
+                                await supabase.from('tickets').update({
+                                    required_parts_description: ticket.required_parts_description,
+                                    deposit_amount: deposit,
+                                    material_status_at: new Date().toISOString()
+                                }).eq('id', ticket.id);
+
+                                // 2. Change status
+                                await updateStatus('pendiente_material');
+                                alert('Servicio pausado por material correctamente.');
+                                navigate('/tech/dashboard');
+                            } catch (e) {
+                                console.error(e);
+                                alert('Error: ' + e.message);
+                                setUpdating(false);
+                            }
+                        }}
+                        disabled={updating}
+                        className="w-full py-4 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 shadow-lg shadow-orange-200 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+                    >
+                        <History size={18} />
+                        Confirmar Pago y Pedir Material
+                    </button>
                 </div>
             )}
 
