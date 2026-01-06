@@ -60,11 +60,12 @@ const TechDashboard = () => {
                     client:client_id (full_name, city, address, phone)
                 `)
                 .eq('technician_id', user.id)
-                // .gte('scheduled_at', startOfDay.toISOString()) // Uncomment when real dates are set
-                // .lte('scheduled_at', endOfDay.toISOString())
-                // .gte('scheduled_at', startOfDay.toISOString()) // Uncomment when real dates are set
-                // .lte('scheduled_at', endOfDay.toISOString())
-                .not('status', 'in', '("finalizado","cancelado","rejected")') // Exclude finished and cancelled
+                // Use Whitelist instead of Blacklist for safety (matches TechServiceList logic)
+                .in('status', [
+                    'solicitado', 'asignado', 'en_camino', 'en_diagnostico',
+                    'en_reparacion', 'presupuesto_pendiente', 'presupuesto_aceptado',
+                    'presupuesto_revision', 'pendiente_material'
+                ])
                 .order('scheduled_at', { ascending: true });
 
             if (error) throw error;
@@ -74,7 +75,7 @@ const TechDashboard = () => {
             // Client-side date filtering (safer for timezones initially)
             const filtered = safeData.filter(t => {
                 // 1. Always show active tickets regardless of date (Exclude cancelled/rejected)
-                if (['en_camino', 'en_diagnostico', 'en_reparacion', 'solicitado', 'asignado', 'presupuesto_pendiente', 'presupuesto_aceptado'].includes(t.status)) {
+                if (['en_camino', 'en_diagnostico', 'en_reparacion', 'solicitado', 'asignado', 'presupuesto_pendiente', 'presupuesto_aceptado', 'presupuesto_revision', 'pendiente_material'].includes(t.status)) {
                     return true;
                 }
 
