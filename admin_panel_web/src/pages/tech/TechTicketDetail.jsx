@@ -13,7 +13,31 @@ import TechLocationTracker from '../../components/TechLocationTracker';
 import { useAuth } from '../../context/AuthContext';
 
 const TechTicketDetail = () => {
-    const { id } = useParams();
+    // Real-time Ticket Subscription
+    useEffect(() => {
+        if (!id) return;
+
+        const channel = supabase
+            .channel(`ticket-detail-${id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'tickets',
+                    filter: `id=eq.${id}`
+                },
+                (payload) => {
+                    console.log('Real-time update received:', payload);
+                    setTicket(current => ({ ...current, ...payload.new }));
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [id]);
     const { user } = useAuth();
     const navigate = useNavigate();
     const [ticket, setTicket] = useState(null);
