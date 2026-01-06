@@ -1,343 +1,389 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Calendar, User, X, Plus, CheckCircle, Clock } from 'lucide-react';
+import { Calendar, User, X, Plus, CheckCircle, Clock, MapPin, AlertTriangle, ShieldCheck } from 'lucide-react';
 
 const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
-    const [techs, setTechs] = useState([]);
-    const [date, setDate] = useState('');
-    const [time, setTime] = useState('');
-    const [selectedTechForSlot, setSelectedTechForSlot] = useState('');
-    const [slots, setSlots] = useState([]); // Array of {date, time, technician_id, technician_name}
+    // Phase 14: Smart Scheduling "God Mode"
+    const [serviceTypes, setServiceTypes] = useState([]);
+    const [selectedServiceType, setSelectedServiceType] = useState(null);
+    const [duration, setDuration] = useState(60); // Default 60 min
 
-    // Tech availability state for the CURRENTLY selected date/time
-    const [techWorkloads, setTechWorkloads] = useState({});
-    const [dateConflicts, setDateConflicts] = useState({});
+    const [selectedDate, setSelectedDate] = useState('');
+    const [smartSlots, setSmartSlots] = useState([]); // Results from DB RPC
+    const [loadingSlots, setLoadingSlots] = useState(false);
+
+    // Selected Proposal (Just one for now to keep flow simple, or array if multiple)
+    // We will stick to the "Builder" logic but powered by AI slots.
+    const [proposals, setProposals] = useState([]);
+
+    // Techs cache for name lookup if needed, though RPC returns names
+    const [techs, setTechs] = useState([]);
 
     useEffect(() => {
-        fetchTechs();
+        fetchInitialData();
     }, []);
 
-    // Recalculate availability whenever Date or Time changes (for the "Builder" section)
-    useEffect(() => {
-        if (date && time && techs.length > 0) {
-            checkAvailabilityForSlot(date, time);
-            setSelectedTechForSlot(''); // Reset selection when time changes
-        } else {
-            setTechWorkloads({});
-            setDateConflicts({});
-        }
-    }, [date, time, techs]);
-
-    const fetchTechs = async () => {
-        const { data } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('role', 'tech')
-            .eq('is_active', true)
-            .is('deleted_at', null);
-
-        setTechs(data || []);
-    };
-
-    const checkAvailabilityForSlot = async (slotDate, slotTime) => {
-        // Fetch tickets for this day
-        const { data } = await supabase
-            .from('tickets')
-            .select('technician_id, scheduled_at')
-            .not('technician_id', 'is', null)
-            .neq('status', 'finalizado')
-            .gte('scheduled_at', `${slotDate}T00:00:00`)
-            .lte('scheduled_at', `${slotDate}T23:59:59`);
-
-        const dailyLoad = {};
-        const conflicts = {};
-
-        // Initialize
-        techs.forEach(t => {
-            dailyLoad[t.id] = 0;
-            conflicts[t.id] = false;
-        });
-
-        data.forEach(t => {
-            if (!t.scheduled_at) return;
-            // dailyLoad[t.technician_id] = (dailyLoad[t.technician_id] || 0) + 1; // Count all tickets that day?
-            // Actually, let's just count them.
-            dailyLoad[t.technician_id] = (dailyLoad[t.technician_id] || 0) + 1;
-
-            // Normalize time to HH:MM for comparison
-            const dateObj = new Date(t.scheduled_at);
-            const hours = dateObj.getHours().toString().padStart(2, '0');
-            const minutes = dateObj.getMinutes().toString().padStart(2, '0');
-            const tTime = `${hours}:${minutes}`;
-
-            if (tTime === slotTime) {
-                conflicts[t.technician_id] = true;
+    const fetchInitialData = async () => {
+        // 1. Fetch Service Types
+        const { data: types } = await supabase.from('service_types').select('*').eq('is_active', true);
+        if (types) {
+            setServiceTypes(types);
+            // Auto-select based on ticket info if possible (search by name?)
+            // For now, default to standard or try match
+            if (ticket.appliance_info?.type) {
+                const match = types.find(t => t.name.toLowerCase().includes(ticket.appliance_info.type.toLowerCase()));
+                if (match) {
+                    setSelectedServiceType(match);
+                    setDuration(match.estimated_duration_min);
+                } else if (types.length > 0) {
+                    // Default to first 'standard' type usually
+                    setSelectedServiceType(types[0]);
+                    setDuration(types[0].estimated_duration_min);
+                }
             }
-        });
+        }
 
-        setTechWorkloads(dailyLoad);
-        setDateConflicts(conflicts);
+        // 2. Fetch Techs (for reference)
+        const { data: techData } = await supabase.from('profiles').select('*').eq('role', 'tech');
+        setTechs(techData || []);
+
+        // 3. Pre-fill date if ticket has one?
+        if (ticket.scheduled_at) {
+            setSelectedDate(ticket.scheduled_at.split('T')[0]);
+        }
     };
 
-    const addSlot = () => {
-        if (!date || !time) return alert("Selecciona fecha y hora.");
-        if (!selectedTechForSlot) return alert("Selecciona un técnico para esta hora.");
-        if (slots.length >= 3) return alert("Máximo 3 opciones.");
+    // When Date or Duration changes -> Fetch Smart Slots from DB
+    useEffect(() => {
+        if (selectedDate && duration) {
+            fetchSmartSlots();
+        }
+    }, [selectedDate, duration, selectedServiceType]);
 
-        // Check duplicates
-        const isDuplicate = slots.some(s => s.date === date && s.time === time);
-        if (isDuplicate) return alert("Ya existe una propuesta para esta hora.");
+    const fetchSmartSlots = async () => {
+        setLoadingSlots(true);
+        try {
+            // Call the GOD MODE RPC
+            // get_tech_availability(target_date, duration_minutes, target_cp)
+            // We need to parse CP from ticket address if possible.
+            // Let's assume ticket.profiles?.address contains "CP: 29000" or similar, or just pass NULL for now if not parsed 100%.
+            // Ideally we pass ticket.client_address_cp if we had it structure.
 
-        const tech = techs.find(t => t.id === selectedTechForSlot);
+            const { data, error } = await supabase.rpc('get_tech_availability', {
+                target_date: selectedDate,
+                duration_minutes: duration,
+                target_cp: null // TODO: Parse CP from ticket.profiles.address
+            });
 
-        setSlots([...slots, {
-            date,
-            time,
-            technician_id: selectedTechForSlot,
-            technician_name: tech.full_name
+            if (error) throw error;
+
+            // Transform data for UI
+            // Data shape: [{ technician_id, technician_name, slot_start, is_optimal_cp, efficiency_score }, ...]
+            setSmartSlots(data || []);
+
+        } catch (err) {
+            console.error("Error fetching smart slots:", err);
+        } finally {
+            setLoadingSlots(false);
+        }
+    };
+
+    const handleServiceTypeChange = (typeId) => {
+        const type = serviceTypes.find(t => t.id === typeId);
+        if (type) {
+            setSelectedServiceType(type);
+            setDuration(type.estimated_duration_min);
+        }
+    };
+
+    const addProposal = (slot) => {
+        if (proposals.length >= 3) return alert("Máximo 3 opciones.");
+        // Check dupe
+        if (proposals.some(p => p.technician_id === slot.technician_id && p.start === slot.slot_start)) {
+            return;
+        }
+
+        setProposals([...proposals, {
+            technician_id: slot.technician_id,
+            technician_name: slot.technician_name,
+            date: selectedDate,
+            start: slot.slot_start, // ISO String
+            duration: duration,
+            type_name: selectedServiceType?.name
         }]);
-
-        // Clear for next input
-        setDate('');
-        setTime('');
-        setSelectedTechForSlot('');
     };
 
-    const removeSlot = (index) => {
-        setSlots(slots.filter((_, i) => i !== index));
+    const removeProposal = (idx) => {
+        setProposals(proposals.filter((_, i) => i !== idx));
     };
 
     const handleConfirmDirect = async () => {
-        if (slots.length === 0) return alert("Registra primero la opción de fecha/hora.");
-
+        if (proposals.length === 0) return alert("Selecciona una opción.");
         try {
-            // Take the first slot as the definitive one
-            const primarySlot = slots[0];
-            const scheduledDate = `${primarySlot.date}T${primarySlot.time}:00`;
+            const p = proposals[0]; // Take first
 
             const { error } = await supabase
                 .from('tickets')
                 .update({
                     status: 'asignado',
                     appointment_status: 'confirmed',
-                    technician_id: primarySlot.technician_id,
-                    scheduled_at: scheduledDate,
-                    proposed_slots: [] // Clear proposals
+                    technician_id: p.technician_id,
+                    scheduled_at: p.start,
+                    estimated_duration: p.duration,
+                    service_type_id: selectedServiceType?.id,
+                    proposed_slots: []
                 })
                 .eq('id', ticket.id);
 
-            if (error) throw error;
+            if (error) throw error; // Trigger will catch overlaps!
             onSuccess();
             onClose();
-        } catch (error) {
-            alert('Error: ' + error.message);
+        } catch (err) {
+            alert("Error (Posible Solape): " + err.message);
         }
     };
 
     const handleSendProposals = async () => {
-        if (slots.length === 0) return alert("Debes añadir al menos una opción.");
-
+        if (proposals.length === 0) return alert("Selecciona opciones.");
         try {
             const { error } = await supabase
                 .from('tickets')
                 .update({
-                    status: 'solicitado', // CORRECTED ENUM
+                    status: 'solicitado',
                     appointment_status: 'pending',
-                    proposed_slots: slots,
-                    scheduled_at: null
+                    proposed_slots: proposals,
+                    scheduled_at: null,
+                    estimated_duration: duration,
+                    service_type_id: selectedServiceType?.id
                 })
                 .eq('id', ticket.id);
 
             if (error) throw error;
             onSuccess();
             onClose();
-        } catch (error) {
-            alert('Error: ' + error.message);
+        } catch (err) {
+            alert("Error: " + err.message);
         }
     };
 
-    const sortedTechs = [...techs].sort((a, b) => {
-        // Sort by availability for CURRENT slot input
-        const conflictA = dateConflicts[a.id] ? 1 : 0;
-        const conflictB = dateConflicts[b.id] ? 1 : 0;
-        if (conflictA !== conflictB) return conflictA - conflictB;
-        return (techWorkloads[a.id] || 0) - (techWorkloads[b.id] || 0);
+    // Group Slots by Tech for "Tetris" View
+    // Structure: { techId: { techName, slots: [] } }
+    const slotsByTech = {};
+    techs.forEach(t => {
+        slotsByTech[t.id] = { name: t.full_name, slots: [] };
+    });
+    smartSlots.forEach(s => {
+        if (slotsByTech[s.technician_id]) {
+            slotsByTech[s.technician_id].slots.push(s);
+        }
     });
 
+
     return (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 bg-slate-900/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm transition-all">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl overflow-hidden flex flex-col max-h-[95vh] border border-slate-700">
                 {/* Header */}
-                <div className="p-5 border-b border-slate-100 bg-white flex justify-between items-center">
+                <div className="p-5 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
                     <div>
-                        <h3 className="font-bold text-xl text-slate-800">Nueva Propuesta de Cita</h3>
-                        <p className="text-sm text-slate-500">Crea hasta 3 opciones para el cliente o asigna directamente.</p>
+                        <h3 className="font-bold text-2xl text-slate-800 flex items-center gap-2">
+                            <ShieldCheck className="text-blue-600" />
+                            Asistente Inteligente v3.0
+                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200 uppercase tracking-widest font-bold">God Mode</span>
+                        </h3>
+                        <p className="text-sm text-slate-500 mt-1">
+                            Ticket #{ticket.ticket_number} • {ticket.appliance_info?.type} • <span className="font-mono">{ticket.profiles?.address}</span>
+                        </p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition">
+                    <button onClick={onClose} className="p-2 hover:bg-white rounded-full text-slate-400 hover:text-red-500 transition shadow-sm border border-transparent hover:border-slate-200">
                         <X size={24} />
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6">
-                    <div className="flex flex-col lg:flex-row gap-8">
+                <div className="flex-1 flex overflow-hidden">
+                    {/* LEFT PANEL: CONFIG */}
+                    <div className="w-80 bg-white border-r border-slate-200 p-6 flex flex-col gap-6 overflow-y-auto">
 
-                        {/* LEFT: Builder Column */}
-                        <div className="flex-1 space-y-6">
-                            <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100 space-y-4">
-                                <h4 className="font-bold text-blue-900 flex items-center gap-2">
-                                    <div className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">1</div>
-                                    Definir Fecha y Hora
-                                </h4>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Fecha</label>
-                                        <input
-                                            type="date"
-                                            className="w-full p-3 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
-                                            value={date}
-                                            onChange={(e) => setDate(e.target.value)}
-                                            min={new Date().toISOString().split('T')[0]}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Hora</label>
-                                        <input
-                                            type="time"
-                                            className="w-full p-3 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
-                                            value={time}
-                                            onChange={(e) => setTime(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className={`space-y-3 transition-opacity duration-200 ${(!date || !time) ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
-                                <h4 className="font-bold text-slate-700 flex items-center gap-2">
-                                    <div className="bg-slate-700 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">2</div>
-                                    Seleccionar Técnico Disponible
-                                </h4>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-2">
-                                    {sortedTechs.map(tech => {
-                                        const isConflict = dateConflicts[tech.id];
-                                        const load = techWorkloads[tech.id] || 0;
-
-                                        return (
-                                            <div
-                                                key={tech.id}
-                                                onClick={() => !isConflict && setSelectedTechForSlot(tech.id)}
-                                                className={`
-                                                    p-3 rounded-xl border cursor-pointer transition relative overflow-hidden group
-                                                    ${selectedTechForSlot === tech.id
-                                                        ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600 shadow-md'
-                                                        : isConflict
-                                                            ? 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed'
-                                                            : 'border-slate-200 hover:border-blue-400 hover:shadow-sm bg-white'}
-                                                `}
-                                            >
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <div className="font-bold text-slate-700">{tech.full_name}</div>
-                                                        <div className="text-xs mt-1 font-medium text-slate-500">
-                                                            {load} servicios hoy
-                                                        </div>
-                                                    </div>
-                                                    {isConflict ? (
-                                                        <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1">
-                                                            <X size={10} /> OCUPADO
-                                                        </span>
-                                                    ) : (
-                                                        // UNIFIED STATUS: Always Green/Disponible if not conflict
-                                                        <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-green-100 text-green-700">
-                                                            DISPONIBLE
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* REGISTRAR OPCION BUTTON - ALWAYS VISIBLE */}
-                            <button
-                                onClick={addSlot}
-                                disabled={!date || !time || !selectedTechForSlot || slots.length >= 3}
-                                className="w-full py-4 bg-blue-100 text-blue-700 rounded-xl font-bold text-lg hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+                        {/* 1. Service Type */}
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">1. Tipo de Servicio</label>
+                            <select
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition"
+                                onChange={(e) => handleServiceTypeChange(e.target.value)}
+                                value={selectedServiceType?.id || ''}
                             >
-                                <Plus size={24} />
-                                Registrar Propuesta
+                                <option value="" disabled>Seleccionar Tipo</option>
+                                {serviceTypes.map(t => (
+                                    <option key={t.id} value={t.id}>{t.name} ({t.estimated_duration_min} min)</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* 2. Duration Override */}
+                        <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Duración Real</label>
+                                <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{duration} min</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="30" max="480" step="15"
+                                className="w-full accent-blue-600 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                                value={duration}
+                                onChange={(e) => setDuration(parseInt(e.target.value))}
+                            />
+                            <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                                <span>30m</span>
+                                <span>4h</span>
+                                <span>8h</span>
+                            </div>
+                        </div>
+
+                        {/* 3. Date Selection */}
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">2. Fecha Objetivo</label>
+                            <input
+                                type="date"
+                                className="w-full p-3 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none font-bold text-slate-700 shadow-sm"
+                                value={selectedDate}
+                                onChange={(e) => setSelectedDate(e.target.value)}
+                                min={new Date().toISOString().split('T')[0]}
+                            />
+                        </div>
+
+                        {/* Divider */}
+                        <div className="h-px bg-slate-100 my-2"></div>
+
+                        {/* Selected Proposals Preview */}
+                        <div className="flex-1">
+                            <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2 text-sm">
+                                <Calendar size={16} className="text-indigo-600" />
+                                Propuestas ({proposals.length}/3)
+                            </h4>
+                            <div className="space-y-2">
+                                {proposals.map((p, idx) => (
+                                    <div key={idx} className="bg-indigo-50 border border-indigo-100 p-3 rounded-lg relative group">
+                                        <button
+                                            onClick={() => removeProposal(idx)}
+                                            className="absolute top-1 right-1 text-indigo-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition p-1"
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                        <div className="font-bold text-indigo-900 text-sm">{p.technician_name}</div>
+                                        <div className="text-xs text-indigo-700 flex items-center gap-1 mt-1">
+                                            <Clock size={10} />
+                                            {new Date(p.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            <span className="opacity-50">•</span>
+                                            {p.duration} min
+                                        </div>
+                                    </div>
+                                ))}
+                                {proposals.length === 0 && (
+                                    <div className="text-xs text-slate-400 text-center italic py-4 border-2 border-dashed border-slate-100 rounded-lg">
+                                        Selecciona huecos del gráfico...
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="space-y-2 mt-auto">
+                            <button
+                                onClick={handleSendProposals}
+                                disabled={proposals.length === 0}
+                                className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-200 transition text-sm flex items-center justify-center gap-2"
+                            >
+                                <CheckCircle size={16} /> Enviar Propuestas
+                            </button>
+                            <button
+                                onClick={handleConfirmDirect}
+                                disabled={proposals.length === 0}
+                                className="w-full py-3 bg-white text-slate-700 border border-slate-300 rounded-xl font-bold hover:bg-slate-50 disabled:opacity-50 transition text-sm flex items-center justify-center gap-2"
+                            >
+                                <CheckCircle size={16} /> Asignar Directo
                             </button>
                         </div>
+                    </div>
 
-                        {/* RIGHT: List Column */}
-                        <div className="lg:w-80 border-l border-slate-100 lg:pl-8 flex flex-col">
-                            <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                <Calendar size={20} className="text-blue-600" />
-                                Opciones Registradas
-                                <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs">{slots.length}/3</span>
-                            </h4>
-
-                            <div className="flex-1 space-y-3 overflow-y-auto min-h-[200px]">
-                                {slots.length === 0 ? (
-                                    <div className="h-full border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-400 p-4 text-center">
-                                        <Clock size={32} className="mb-2 opacity-50" />
-                                        <p className="text-sm">Añade al menos una opción...</p>
+                    {/* RIGHT PANEL: VISUAL TETRIS (Timeline) */}
+                    <div className="flex-1 bg-slate-50 p-6 overflow-y-auto">
+                        {!selectedDate ? (
+                            <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                                <Calendar size={64} className="mb-4 opacity-20" />
+                                <p className="text-lg font-medium">Selecciona una fecha para ver disponibilidad</p>
+                            </div>
+                        ) : loadingSlots ? (
+                            <div className="h-full flex items-center justify-center">
+                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                <div className="flex justify-between items-end mb-2">
+                                    <h4 className="font-bold text-slate-700">Disponibilidad {new Date(selectedDate).toLocaleDateString()}</h4>
+                                    <div className="flex gap-4 text-xs font-medium text-slate-500">
+                                        <div className="flex items-center gap-1"><div className="w-3 h-3 bg-white border border-slate-300 rounded"></div> Libre</div>
+                                        <div className="flex items-center gap-1"><div className="w-3 h-3 bg-green-100 border border-green-300 rounded"></div> Zona Óptima</div>
+                                        <div className="flex items-center gap-1"><div className="w-3 h-3 bg-slate-200 rounded"></div> Ocupado / No Válido</div>
                                     </div>
-                                ) : (
-                                    slots.map((slot, idx) => (
-                                        <div key={idx} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition group relative">
-                                            <button
-                                                onClick={() => removeSlot(idx)}
-                                                className="absolute top-2 right-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"
-                                            >
-                                                <X size={18} />
-                                            </button>
-                                            <div className="flex items-center gap-3 mb-2">
-                                                <div className="bg-blue-100 text-blue-700 font-bold w-6 h-6 rounded-full flex items-center justify-center text-xs">
-                                                    {idx + 1}
-                                                </div>
-                                                <div className="font-bold text-slate-700">
-                                                    {new Date(slot.date).toLocaleDateString()}
-                                                </div>
+                                </div>
+
+                                {Object.values(slotsByTech).map(tech => (
+                                    <div key={tech.name} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold">
+                                                {tech.name.charAt(0)}
                                             </div>
-                                            <div className="pl-9 space-y-1">
-                                                <div className="text-sm font-medium text-slate-800 flex items-center gap-2">
-                                                    <Clock size={14} className="text-slate-400" />
-                                                    {slot.time} hrs
-                                                </div>
-                                                <div className="text-xs text-slate-500 flex items-center gap-2">
-                                                    <User size={14} className="text-slate-400" />
-                                                    {slot.technician_name}
-                                                </div>
+                                            <div>
+                                                <div className="font-bold text-slate-800">{tech.name}</div>
+                                                {/* Logic for "En Zona" badge could go here if RPC returned aggregate efficiency */}
                                             </div>
                                         </div>
-                                    ))
-                                )}
-                            </div>
 
-                            {/* FOOTER ACTIONS - DUAL BUTTONS */}
-                            <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
-                                <button
-                                    onClick={handleSendProposals}
-                                    disabled={slots.length === 0}
-                                    className="w-full py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-600/20 active:scale-[0.98] transition flex items-center justify-center gap-2"
-                                >
-                                    <CheckCircle size={20} />
-                                    Enviar Propuestas
-                                </button>
+                                        {/* Timeline Bar Construction */}
+                                        <div className="grid grid-cols-10 gap-2">
+                                            {/* We map the found slots. 
+                                                NOTE: The RPC returns *available* slots.
+                                                A true timeline would show the whole day 9-19. 
+                                                For MVP GOD MODE, let's render the AVAILABLE slots as clickable "Chips".
+                                                Rendering a true gantt chart is complex logic for React without a library.
+                                                Detailed Chips are cleaner for selection.
+                                            */}
+                                            {tech.slots.map((slot, idx) => {
+                                                const start = new Date(slot.slot_start);
+                                                const timeStr = start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                                const isOptimal = slot.is_optimal_cp || false; // From RPC
 
-                                {slots.length > 0 && (
-                                    <button
-                                        onClick={handleConfirmDirect}
-                                        className="w-full py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 shadow-lg shadow-green-600/20 active:scale-[0.98] transition flex items-center justify-center gap-2"
-                                    >
-                                        <CheckCircle size={20} />
-                                        Asignar Definitivamente
-                                    </button>
-                                )}
+                                                return (
+                                                    <button
+                                                        key={idx}
+                                                        onClick={() => addProposal(slot)}
+                                                        className={`
+                                                            col-span-2 py-2 px-1 rounded-lg border text-center transition relative overflow-hidden group
+                                                            ${isOptimal
+                                                                ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:border-green-300 hover:shadow-md'
+                                                                : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 hover:shadow-sm'}
+                                                        `}
+                                                    >
+                                                        <div className="font-bold text-sm">{timeStr}</div>
+                                                        {isOptimal && (
+                                                            <div className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-bl-lg"></div>
+                                                        )}
+                                                        <div className="text-[10px] opacity-70">
+                                                            +{duration}m
+                                                        </div>
+                                                    </button>
+                                                )
+                                            })}
+                                            {tech.slots.length === 0 && (
+                                                <div className="col-span-10 text-center py-2 text-xs text-slate-300 italic bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                                                    Sin huecos disponibles de {duration} min
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                        </div>
+                        )}
                     </div>
                 </div>
             </div>
