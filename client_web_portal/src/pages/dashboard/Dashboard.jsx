@@ -794,14 +794,35 @@ const Dashboard = () => {
                             <button
                                 onClick={() => {
                                     if (!cancelReason.trim()) return;
-                                    handleUpdateAppointment(cancelModal.ticketId, 'rejected', cancelReason);
+                                    // Use direct update for cancellation to ensure status change
+                                    const cancelTicket = async () => {
+                                        try {
+                                            const { error } = await supabase
+                                                .from('tickets')
+                                                .update({
+                                                    status: 'cancelado',
+                                                    appointment_status: 'rejected',
+                                                    client_feedback: cancelReason
+                                                })
+                                                .eq('id', cancelModal.ticketId);
+
+                                            if (error) throw error;
+
+                                            fetchDashboardData();
+                                            alert('Servicio cancelado correctamente.');
+                                        } catch (err) {
+                                            console.error(err);
+                                            alert('Error al cancelar el servicio.');
+                                        }
+                                    };
+                                    cancelTicket();
                                     setCancelModal({ show: false, ticketId: null });
                                     setCancelReason('');
                                 }}
                                 disabled={!cancelReason.trim()}
                                 className="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                Confirmar Cancelación
+                                Confirmar Cancelación del Servicio
                             </button>
                         </div>
                     </div>

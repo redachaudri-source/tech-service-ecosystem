@@ -472,7 +472,7 @@ const StatusBadge = ({ status }) => {
     };
     return (
         <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status] || 'bg-gray-100 text-gray-800'}`}>
-            {status ? status.toUpperCase().replace('_', ' ') : 'UNKNOWN'}
+            {status === 'cancelado' ? 'CANCELADO POR CLIENTE' : (status ? status.toUpperCase().replace('_', ' ') : 'UNKNOWN')}
         </span>
     );
 };
