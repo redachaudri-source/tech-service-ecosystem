@@ -640,6 +640,7 @@ const TechTicketDetail = () => {
 
                         return (
                             <>
+                                {/* REPAIR ACTIONS */}
                                 <button
                                     onClick={() => updateStatus(currentStatus.next)}
                                     disabled={updating || !!restrictionMsg}
@@ -655,6 +656,75 @@ const TechTicketDetail = () => {
                                     <p className="text-center text-xs text-red-500 font-bold bg-red-50 py-2 rounded-lg border border-red-100">
                                         🚫 {restrictionMsg}
                                     </p>
+                                )}
+
+                                {/* PENDING MATERIAL WORKFLOW */}
+                                {ticket.status === 'en_diagnostico' && (
+                                    <div className="mt-4 bg-orange-50 border border-orange-100 rounded-xl p-4">
+                                        <h4 className="text-sm font-bold text-orange-800 mb-2 flex items-center gap-2">
+                                            <PackagePlus size={16} /> Solicitar Repuesto
+                                        </h4>
+                                        <p className="text-xs text-orange-700 mb-3">
+                                            Si necesitas pedir material y el cliente ha pagado a cuenta, rellena esto para pausar el servicio.
+                                        </p>
+
+                                        <div className="space-y-3 mb-3">
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-500 mb-1">Descripción del Repuesto *</label>
+                                                <input
+                                                    type="text"
+                                                    value={ticket.required_parts_description || ''}
+                                                    onChange={(e) => setTicket({ ...ticket, required_parts_description: e.target.value })}
+                                                    placeholder="Ej: Bomba de desagüe Samsung..."
+                                                    className="w-full p-2 border border-slate-300 rounded-lg text-sm"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-500 mb-1">Importe Pagado a Cuenta (€) *</label>
+                                                <input
+                                                    type="number"
+                                                    value={deposit}
+                                                    onChange={(e) => setDeposit(Number(e.target.value))}
+                                                    placeholder="0.00"
+                                                    className="w-full p-2 border border-slate-300 rounded-lg text-sm"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={async () => {
+                                                if (!ticket.required_parts_description || !deposit) {
+                                                    alert('Para solicitar material es obligatorio indicar la pieza y el importe pagado a cuenta.');
+                                                    return;
+                                                }
+                                                if (!window.confirm('¿Confirmas que el cliente ha pagado esa cantidad y quieres dejar el servicio en espera de material?')) return;
+
+                                                setUpdating(true);
+                                                try {
+                                                    // 1. Update data cols
+                                                    await supabase.from('tickets').update({
+                                                        required_parts_description: ticket.required_parts_description,
+                                                        deposit_amount: deposit,
+                                                        material_status_at: new Date().toISOString()
+                                                    }).eq('id', ticket.id);
+
+                                                    // 2. Change status
+                                                    await updateStatus('pendiente_material');
+                                                    alert('Servicio pausado por material correctamente.');
+                                                    navigate('/tech/dashboard');
+                                                } catch (e) {
+                                                    console.error(e);
+                                                    alert('Error: ' + e.message);
+                                                    setUpdating(false);
+                                                }
+                                            }}
+                                            disabled={updating}
+                                            className="w-full py-3 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 shadow-md flex items-center justify-center gap-2 active:scale-[0.98]"
+                                        >
+                                            <History size={18} />
+                                            Pausar: Pedir Material
+                                        </button>
+                                    </div>
                                 )}
                             </>
                         );

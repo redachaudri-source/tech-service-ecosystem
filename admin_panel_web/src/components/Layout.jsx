@@ -19,6 +19,7 @@ const Layout = () => {
         { icon: UserCheck, label: 'Equipo', path: '/team' },
         { icon: Package, label: 'Inventario', path: '/inventory' },
         { icon: Tag, label: 'Tipos Electro.', path: '/appliance-types' },
+        { icon: Package, label: 'Gestión Materiales', path: '/materials' },
         { icon: FileText, label: 'Presupuestos', path: '/budgets' },
         { icon: SettingsIcon, label: 'Ajustes Panel', path: '/settings' },
     ];

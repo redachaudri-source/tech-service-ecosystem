@@ -15,6 +15,7 @@ import { ToastProvider } from './components/ToastProvider';
 import AuthGuard from './components/AuthGuard';
 import Settings from './pages/Settings';
 import BudgetRegistry from './pages/financial/BudgetRegistry'; // New
+import MaterialManager from './pages/MaterialManager'; // New Material Workflow
 
 // Tech Imports
 import TechLayout from './components/TechLayout';
@@ -48,6 +49,7 @@ function App() {
                             <Route path="tracking" element={<div className="h-full"><FleetMap /></div>} />
                             <Route path="inventory" element={<InventoryManager />} />
                             <Route path="appliance-types" element={<ApplianceTypes />} />
+                            <Route path="materials" element={<MaterialManager />} />
                             <Route path="budgets" element={<BudgetRegistry />} />
                             <Route path="settings" element={<Settings />} />
                         </Route>
