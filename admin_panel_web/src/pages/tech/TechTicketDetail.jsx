@@ -9,11 +9,12 @@ import {
     Eye, Scan, AlertTriangle, ClipboardCopy, Clock, History, PackagePlus
 } from 'lucide-react';
 import Tesseract from 'tesseract.js';
-import TechLocationTracker from '../../components/TechLocationTracker';
+// import TechLocationTracker from '../../components/TechLocationTracker';
 import { useAuth } from '../../context/AuthContext';
 
 const TechTicketDetail = () => {
-    // Real-time Ticket Subscription
+    // Real-time Ticket Subscription - DISABLED FOR DEBUG
+    /*
     useEffect(() => {
         if (!id) return;
 
@@ -45,6 +46,7 @@ const TechTicketDetail = () => {
             supabase.removeChannel(channel);
         };
     }, [id]);
+    */
     const { user } = useAuth();
     const navigate = useNavigate();
     const [ticket, setTicket] = useState(null);
@@ -1540,13 +1542,13 @@ const TechTicketDetail = () => {
                     </div>
                 </div>
             )}
-            {/* GPS Tracker Component - Invisible unless status matches */}
-            {ticket && user && (
+            {/* GPS Tracker Component - TEMPORARILY DISABLED FOR DEBUGGING */}
+            {/* {ticket && user && (
                 <TechLocationTracker
                     ticketStatus={ticket.status}
                     technicianId={user.id}
                 />
-            )}
+            )} */}
         </div>
     );
 };
