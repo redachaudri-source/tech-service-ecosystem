@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { X, Star, User, Calendar, MessageSquare } from 'lucide-react';
 
 const AdminReviewModal = ({ technician, onClose }) => {
