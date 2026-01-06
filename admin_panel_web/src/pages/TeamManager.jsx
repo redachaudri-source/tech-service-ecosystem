@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { createClient } from '@supabase/supabase-js'; // For creating users without killing session
-import { Plus, User, MapPin, Trash2, Edit2, X, Shield, ShieldAlert, Lock, Unlock, Smartphone, Upload, RotateCcw } from 'lucide-react';
+import { Plus, User, MapPin, Trash2, Edit2, X, Shield, ShieldAlert, Lock, Unlock, Smartphone, Upload, RotateCcw, Star, MessageSquare } from 'lucide-react';
+import AdminReviewModal from '../components/AdminReviewModal';
 
 import { useToast } from '../components/ToastProvider';
 import { useAuth } from '../context/AuthContext';
@@ -87,8 +88,8 @@ const TeamManager = () => {
 
     // Permissions State
     const [showPermsModal, setShowPermsModal] = useState(false);
+    const [viewingReviews, setViewingReviews] = useState(null); // For Review Modal
     const [targetAdmin, setTargetAdmin] = useState(null);
-    const [perms, setPerms] = useState({});
 
     const handleOpenPermissions = (admin) => {
         setTargetAdmin(admin);
@@ -440,6 +441,23 @@ const TeamManager = () => {
                                         {member.email?.endsWith('@example.com') ? member.username : member.email}
                                     </div>
 
+                                    {/* REPUTATION DISPLAY */}
+                                    {activeTab === 'techs' && (
+                                        <div className="flex items-center gap-2 mb-2 bg-yellow-50 px-2 py-1 rounded w-fit border border-yellow-100">
+                                            <div className="flex items-center text-yellow-500 font-bold">
+                                                <Star size={14} fill="currentColor" className="mr-1" />
+                                                {member.avg_rating ? member.avg_rating : '-'}
+                                            </div>
+                                            <span className="text-xs text-slate-400">|</span>
+                                            <button
+                                                onClick={() => setViewingReviews(member)}
+                                                className="text-xs text-slate-500 hover:text-blue-600 underline font-medium"
+                                            >
+                                                {member.total_reviews || 0} reseñas
+                                            </button>
+                                        </div>
+                                    )}
+
                                     {activeTab === 'techs' && (
                                         <div className="mt-2">
                                             <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
@@ -503,6 +521,17 @@ const TeamManager = () => {
                                                 <Edit2 size={16} />
                                                 Editar
                                             </button>
+
+                                            {activeTab === 'techs' && (
+                                                <button
+                                                    onClick={() => setViewingReviews(member)}
+                                                    className="flex items-center gap-2 text-slate-500 hover:text-yellow-600 px-2 py-1 hover:bg-yellow-50 rounded-lg transition text-sm font-medium"
+                                                    title="Ver Reseñas"
+                                                >
+                                                    <MessageSquare size={16} />
+                                                    Reseñas
+                                                </button>
+                                            )}
 
                                             <button
                                                 onClick={() => {
@@ -813,8 +842,17 @@ const TeamManager = () => {
                     </div>
                 </div>
             )}
+
+            {/* REVIEWS MODAL */}
+            {viewingReviews && (
+                <AdminReviewModal
+                    technician={viewingReviews}
+                    onClose={() => setViewingReviews(null)}
+                />
+            )}
         </div>
     );
 };
+
 
 export default TeamManager;

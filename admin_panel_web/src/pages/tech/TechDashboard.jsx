@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Phone, Calendar, Clock, ChevronRight, Search, Filter, Package, History } from 'lucide-react';
+import { MapPin, Phone, Calendar, Clock, ChevronRight, Search, Filter, Package, History, Star } from 'lucide-react';
 import TechRouteLine from '../../components/TechRouteLine';
 
 import { useToast } from '../../components/ToastProvider';
@@ -15,6 +15,7 @@ const TechDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]); // Default Today
     const [searchQuery, setSearchQuery] = useState('');
+    const [stats, setStats] = useState({ rating: 0, reviews: 0 });
 
     useEffect(() => {
         if (user) {
@@ -60,7 +61,22 @@ const TechDashboard = () => {
                     client:client_id (full_name, city, address, phone)
                 `)
                 .eq('technician_id', user.id)
+                .eq('technician_id', user.id)
                 .order('scheduled_at', { ascending: true });
+
+            // Fetch Tech Stats
+            const { data: profileData } = await supabase
+                .from('profiles')
+                .select('avg_rating, total_reviews')
+                .eq('id', user.id)
+                .single();
+
+            if (profileData) {
+                setStats({
+                    rating: profileData.avg_rating || 0,
+                    reviews: profileData.total_reviews || 0
+                });
+            }
 
             if (error) throw error;
 
@@ -150,8 +166,16 @@ const TechDashboard = () => {
             {/* Date Header */}
             <div className="flex justify-between items-center mb-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800">Hola, {user?.user_metadata?.first_name || 'Técnico'}</h1>
-                    <p className="text-slate-500">Aquí tienes tu agenda de hoy</p>
+                    <div className="flex flex-col">
+                        <h1 className="text-2xl font-bold text-slate-800">Hola, {user?.user_metadata?.first_name || 'Técnico'}</h1>
+                        <div className="flex items-center gap-2 mt-1">
+                            <div className="flex items-center gap-1 text-yellow-500 font-bold bg-yellow-50 px-2 py-0.5 rounded-lg border border-yellow-100 text-sm">
+                                <Star size={14} fill="currentColor" />
+                                <span>{stats.rating > 0 ? stats.rating : 'Nuevo'}</span>
+                            </div>
+                            <span className="text-xs text-slate-400">Tu Puntuación</span>
+                        </div>
+                    </div>
                 </div>
                 <div className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
                     {dateString}

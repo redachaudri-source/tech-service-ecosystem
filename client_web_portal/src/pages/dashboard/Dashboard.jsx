@@ -5,6 +5,8 @@ import { LogOut, Plus, Clock, CheckCircle, AlertCircle, Wrench, User, Calendar, 
 import TechLocationMap from '../../components/TechLocationMap';
 
 import { useToast } from '../../components/ToastProvider';
+import TechProfileCard from '../../components/TechProfileCard';
+import ReviewModal from '../../components/ReviewModal';
 
 const Dashboard = () => {
     const navigate = useNavigate();
@@ -17,6 +19,10 @@ const Dashboard = () => {
     const [lastUpdate, setLastUpdate] = useState(null);
     const [cancelModal, setCancelModal] = useState({ show: false, ticketId: null });
     const [cancelReason, setCancelReason] = useState('');
+
+    // Reputation System State
+    const [reviewModal, setReviewModal] = useState({ show: false, ticketId: null, technicianId: null });
+    const [reviewedTicketIds, setReviewedTicketIds] = useState([]);
 
     useEffect(() => {
         let channel = null;
@@ -109,6 +115,16 @@ const Dashboard = () => {
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
+
+            // Fetch Existing Reviews (to hide button if already reviewed)
+            const { data: reviews } = await supabase
+                .from('reviews')
+                .select('ticket_id')
+                .eq('client_id', user.id);
+
+            if (reviews) {
+                setReviewedTicketIds(reviews.map(r => r.ticket_id));
+            }
 
             // Fetch Pending Budgets (Proposals from Admin)
             const { data: budgetData, error: budgetError } = await supabase
@@ -508,9 +524,8 @@ const Dashboard = () => {
                                             <div className="mt-4 space-y-3">
                                                 {/* Tech Info */}
                                                 {ticket.technician && (
-                                                    <div className="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100 w-fit">
-                                                        <User size={16} className="text-blue-500" />
-                                                        <span className="font-medium">Técnico:</span> {ticket.technician?.full_name || 'Asignado'}
+                                                    <div className="w-full sm:w-auto">
+                                                        <TechProfileCard technician={ticket.technician} compact={true} />
                                                     </div>
                                                 )}
 
@@ -756,6 +771,23 @@ const Dashboard = () => {
                                         {getStatusLabel(ticket.status)}
                                     </span>
                                 </div>
+
+                                {/* REVIEW BUTTON (Only if not reviewed yet) */}
+                                {ticket.status === 'finalizado' && !reviewedTicketIds.includes(ticket.id) && (
+                                    <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex justify-between items-center animate-in fade-in">
+                                        <div className="text-xs text-yellow-800">
+                                            <span className="font-bold">¡Servicio finalizado!</span>
+                                            <p>Valora al técnico para cerrarlo.</p>
+                                        </div>
+                                        <button
+                                            onClick={() => setReviewModal({ show: true, ticketId: ticket.id, technicianId: ticket.technician_id })}
+                                            className="bg-yellow-400 text-yellow-900 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm hover:bg-yellow-500 transition flex items-center gap-1"
+                                        >
+                                            <User size={14} /> Valorar
+                                        </button>
+                                    </div>
+                                )}
+
                                 <div className="mt-3 flex justify-end gap-2">
                                     {ticket.quote_pdf_url && (
                                         <a
@@ -781,84 +813,102 @@ const Dashboard = () => {
                             </div>
                         ))}
                     </div>
-                )}
+                )
+                }
 
-            </div>
+            </div >
 
             {/* Cancel Modal */}
-            {cancelModal.show && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in fade-in">
-                    <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
-                        <div className="flex items-center gap-3 text-red-600 border-b border-red-100 pb-3">
-                            <div className="bg-red-50 p-2 rounded-full">
-                                <AlertCircle size={24} />
+            {
+                cancelModal.show && (
+                    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in fade-in">
+                        <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+                            <div className="flex items-center gap-3 text-red-600 border-b border-red-100 pb-3">
+                                <div className="bg-red-50 p-2 rounded-full">
+                                    <AlertCircle size={24} />
+                                </div>
+                                <h3 className="text-lg font-bold">Cancelar Cita Confirmada</h3>
                             </div>
-                            <h3 className="text-lg font-bold">Cancelar Cita Confirmada</h3>
-                        </div>
 
-                        <div className="space-y-3">
-                            <p className="text-slate-600 text-sm">
-                                Estás a punto de cancelar una cita que ya estaba confirmada.
-                                <br />
-                                Por favor, indícanos el motivo para gestionar tu solicitud correctamente:
-                            </p>
+                            <div className="space-y-3">
+                                <p className="text-slate-600 text-sm">
+                                    Estás a punto de cancelar una cita que ya estaba confirmada.
+                                    <br />
+                                    Por favor, indícanos el motivo para gestionar tu solicitud correctamente:
+                                </p>
 
-                            <textarea
-                                value={cancelReason}
-                                onChange={(e) => setCancelReason(e.target.value)}
-                                placeholder="Ej: Me ha surgido un imprevisto, ya no necesito la reparación..."
-                                className="w-full h-24 border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-red-500 focus:outline-none"
-                            ></textarea>
+                                <textarea
+                                    value={cancelReason}
+                                    onChange={(e) => setCancelReason(e.target.value)}
+                                    placeholder="Ej: Me ha surgido un imprevisto, ya no necesito la reparación..."
+                                    className="w-full h-24 border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-red-500 focus:outline-none"
+                                ></textarea>
 
-                            {!cancelReason.trim() && (
-                                <p className="text-xs text-red-500 font-bold">* El motivo es obligatorio</p>
-                            )}
-                        </div>
+                                {!cancelReason.trim() && (
+                                    <p className="text-xs text-red-500 font-bold">* El motivo es obligatorio</p>
+                                )}
+                            </div>
 
-                        <div className="flex gap-3 pt-2">
-                            <button
-                                onClick={() => { setCancelModal({ show: false, ticketId: null }); setCancelReason(''); }}
-                                className="flex-1 py-2.5 border border-slate-300 rounded-xl font-bold text-slate-700 hover:bg-slate-50 transition"
-                            >
-                                Volver
-                            </button>
-                            <button
-                                onClick={() => {
-                                    if (!cancelReason.trim()) return;
-                                    // Use direct update for cancellation to ensure status change
-                                    const cancelTicket = async () => {
-                                        try {
-                                            const { error } = await supabase
-                                                .from('tickets')
-                                                .update({
-                                                    status: 'cancelado',
-                                                    appointment_status: 'rejected',
-                                                    client_feedback: cancelReason
-                                                })
-                                                .eq('id', cancelModal.ticketId);
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    onClick={() => { setCancelModal({ show: false, ticketId: null }); setCancelReason(''); }}
+                                    className="flex-1 py-2.5 border border-slate-300 rounded-xl font-bold text-slate-700 hover:bg-slate-50 transition"
+                                >
+                                    Volver
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        if (!cancelReason.trim()) return;
+                                        // Use direct update for cancellation to ensure status change
+                                        const cancelTicket = async () => {
+                                            try {
+                                                const { error } = await supabase
+                                                    .from('tickets')
+                                                    .update({
+                                                        status: 'cancelado',
+                                                        appointment_status: 'rejected',
+                                                        client_feedback: cancelReason
+                                                    })
+                                                    .eq('id', cancelModal.ticketId);
 
-                                            if (error) throw error;
+                                                if (error) throw error;
 
-                                            fetchDashboardData();
-                                            alert('Servicio cancelado correctamente.');
-                                        } catch (err) {
-                                            console.error(err);
-                                            alert('Error al cancelar el servicio.');
-                                        }
-                                    };
-                                    cancelTicket();
-                                    setCancelModal({ show: false, ticketId: null });
-                                    setCancelReason('');
-                                }}
-                                disabled={!cancelReason.trim()}
-                                className="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Confirmar Cancelación del Servicio
-                            </button>
+                                                fetchDashboardData();
+                                                alert('Servicio cancelado correctamente.');
+                                            } catch (err) {
+                                                console.error(err);
+                                                alert('Error al cancelar el servicio.');
+                                            }
+                                        };
+                                        cancelTicket();
+                                        setCancelModal({ show: false, ticketId: null });
+                                        setCancelReason('');
+                                    }}
+                                    disabled={!cancelReason.trim()}
+                                    className="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Confirmar Cancelación del Servicio
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
+
+            {/* Review Modal */}
+            {
+                reviewModal.show && (
+                    <ReviewModal
+                        ticketId={reviewModal.ticketId}
+                        technicianId={reviewModal.technicianId}
+                        onClose={() => setReviewModal({ show: false, ticketId: null, technicianId: null })}
+                        onSuccess={() => {
+                            fetchDashboardData();
+                            addToast('¡Valoración enviada! ⭐️⭐️⭐️⭐️⭐️', 'success');
+                        }}
+                    />
+                )
+            }
         </div >
     );
 };
