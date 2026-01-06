@@ -89,9 +89,10 @@ const ServiceMonitor = () => {
         } catch (err) {
             console.warn("Complex fetch failed (likely missing created_by), falling back to simple fetch:", err);
             // Fallback: Simple fetch without creator join
+            // Fallback: Simple fetch without creator join but keeping reviews
             const { data: ticketData } = await supabase
                 .from('tickets')
-                .select('*, profiles:client_id(full_name, address, phone)')
+                .select('*, profiles:client_id(full_name, address, phone), reviews(rating)')
                 .order('created_at', { ascending: false });
 
             if (ticketData) setTickets(ticketData || []);
