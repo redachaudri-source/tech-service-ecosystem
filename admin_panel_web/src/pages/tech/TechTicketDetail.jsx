@@ -8,7 +8,8 @@ import {
     Eye, Scan, AlertTriangle, ClipboardCopy, Clock, History, Package
 } from 'lucide-react';
 import Tesseract from 'tesseract.js';
-import TechLocationTracker from '../../components/TechLocationTracker';
+import TechLocationMap from '../../components/TechLocationMap';
+import ErrorBoundary from '../../components/ErrorBoundary';
 import { useAuth } from '../../context/AuthContext';
 
 const TechTicketDetail = () => {
@@ -1405,7 +1406,18 @@ const TechTicketDetail = () => {
                                 )}
                             </>
                         )}
-
+                        {/* Map Section - Wrapped in ErrorBoundary to prevent full page crash */}
+                        <div className="mt-6">
+                            <h3 className="font-bold text-slate-800 mb-3">Ubicación</h3>
+                            <div className="h-64 rounded-xl overflow-hidden border border-slate-200 shadow-sm relative z-0">
+                                <ErrorBoundary>
+                                    <TechLocationMap
+                                        ticket={ticket}
+                                        className="h-full w-full"
+                                    />
+                                </ErrorBoundary>
+                            </div>
+                        </div>
                         {/* PDF GENERATION BUTTON */}
                         <div className="pt-4 mt-2 border-t border-slate-100 flex flex-col gap-3">
                             {ticket.pdf_url && (
@@ -1542,10 +1554,14 @@ const TechTicketDetail = () => {
             )}
             {/* GPS Tracker Component */}
             {ticket && user && (
-                <TechLocationTracker
-                    ticketStatus={ticket.status}
-                    technicianId={user.id}
-                />
+                <div className="mt-8 mb-4">
+                    <ErrorBoundary>
+                        <TechLocationMap
+                            technicianId={user.id}
+                            className="w-full h-64 rounded-xl shadow-lg"
+                        />
+                    </ErrorBoundary>
+                </div>
             )}
         </div>
     );
