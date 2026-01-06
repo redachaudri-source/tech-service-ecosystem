@@ -104,27 +104,42 @@ const DashboardHome = () => {
 
 
         // 5. RECENT RATINGS
-        const { data: ratedTickets } = await supabase
-            .from('tickets')
-            .select('id, rating, client_feedback, updated_at, profiles:client_id(full_name), technician:technician_id(full_name)')
-            .not('rating', 'is', null)
-            .order('updated_at', { ascending: false })
+        // 5. RECENT RATINGS (Fetch from 'reviews' table)
+        const { data: recentReviewsData } = await supabase
+            .from('reviews')
+            .select(`
+                *,
+                profiles:client_id (full_name),
+                technician_profiles:technician_id (full_name)
+            `)
+            .order('created_at', { ascending: false })
             .limit(3);
 
         const { data: allRatings } = await supabase
-            .from('tickets')
-            .select('rating')
-            .not('rating', 'is', null);
+            .from('profiles')
+            .select('avg_rating')
+            .eq('role', 'tech');
 
-        const avgRating = allRatings?.length
-            ? (allRatings.reduce((a, b) => a + b.rating, 0) / allRatings.length).toFixed(1)
+        // Calculate global average from tech profiles or reviews? 
+        // Let's us AVG of all reviews for smoother global stat
+        const { data: globalAvgData } = await supabase.rpc('get_global_avg_rating');
+        // Or simple JS calc from fetched reviews if not too many...
+        // For MVP, let's just fetch all reviews count/avg
+        const { data: reviewsStats } = await supabase
+            .from('reviews')
+            .select('rating');
+
+        const avgRating = reviewsStats?.length
+            ? (reviewsStats.reduce((a, b) => a + b.rating, 0) / reviewsStats.length).toFixed(1)
             : '0.0';
+
+
 
         setStats({
             todayServices: todayCount || 0,
             monthlyIncome: totalIncome,
             topTech: topTechName,
-            recentReviews: ratedTickets || [],
+            recentReviews: recentReviewsData || [],
             avgRating: avgRating
         });
         setChartData(formattedChartData);
@@ -208,14 +223,14 @@ const DashboardHome = () => {
                                         </span>
                                     </div>
                                     <p className="text-sm text-slate-600 italic mb-2 line-clamp-2">
-                                        "{review.client_feedback || 'Sin comentario'}"
+                                        "{review.comment || 'Sin comentario'}"
                                     </p>
                                     <div className="flex justify-between items-end">
                                         <div className="text-xs font-bold text-slate-700">
                                             {review.profiles?.full_name || 'Cliente'}
                                         </div>
                                         <div className="text-[10px] text-slate-400">
-                                            Tech: {review.technician?.full_name?.split(' ')[0]}
+                                            Tech: {review.technician_profiles?.full_name?.split(' ')[0]}
                                         </div>
                                     </div>
                                 </div>

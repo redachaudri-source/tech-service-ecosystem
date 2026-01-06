@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../components/ToastProvider';
-import { Search, Plus, Trash2, FileText, CheckCircle, Clock, AlertCircle, Eye, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Trash2, FileText, CheckCircle, Clock, AlertCircle, Eye, AlertTriangle, Phone, Star } from 'lucide-react';
 import CreateTicketModal from '../components/CreateTicketModal';
 import SmartAssignmentModal from '../components/SmartAssignmentModal'; // Import
 import ServiceDetailsModal from '../components/ServiceDetailsModal'; // Import Details Modal
@@ -80,7 +80,7 @@ const ServiceMonitor = () => {
             // 1. Tickets (Try complex join first)
             const { data: ticketData, error } = await supabase
                 .from('tickets')
-                .select('*, profiles:client_id(full_name, address, phone), creator:created_by(full_name)')
+                .select('*, profiles:client_id(full_name, address, phone), creator:created_by(full_name), reviews(rating)')
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
@@ -275,6 +275,11 @@ const ServiceMonitor = () => {
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="font-medium text-slate-800">{ticket.profiles?.full_name}</div>
+                                    {ticket.profiles?.phone && (
+                                        <a href={`tel:${ticket.profiles.phone}`} className="flex items-center gap-1 text-xs text-blue-600 hover:underline mb-0.5" onClick={(e) => e.stopPropagation()}>
+                                            <Phone size={10} /> {ticket.profiles.phone}
+                                        </a>
+                                    )}
                                     <div className="text-xs text-slate-500">{ticket.profiles?.address}</div>
                                 </td>
                                 <td className="px-6 py-4">
@@ -318,6 +323,20 @@ const ServiceMonitor = () => {
                                 </td>
                                 <td className="px-6 py-4">
                                     <StatusBadge status={ticket.status} />
+
+                                    {/* Star Rating Display */}
+                                    {ticket.reviews && ticket.reviews.length > 0 && (
+                                        <div className="flex items-center gap-0.5 mt-1 bg-yellow-50 px-1.5 py-0.5 rounded w-fit border border-yellow-100">
+                                            {[...Array(5)].map((_, i) => (
+                                                <Star
+                                                    key={i}
+                                                    size={10}
+                                                    className={i < ticket.reviews[0].rating ? "text-yellow-400 fill-yellow-400" : "text-slate-200"}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
+
                                     {(ticket.status === 'cancelado' || ticket.status === 'rejected') && ticket.client_feedback && (
                                         <div className="mt-2 text-[10px] bg-red-50 text-red-800 p-2 rounded border border-red-100 max-w-[200px]">
                                             <span className="font-bold block mb-0.5 opacity-75">Motivo:</span>
