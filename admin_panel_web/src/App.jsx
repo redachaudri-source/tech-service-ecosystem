@@ -16,6 +16,7 @@ import AuthGuard from './components/AuthGuard';
 import Settings from './pages/Settings';
 import BudgetRegistry from './pages/financial/BudgetRegistry'; // New
 import MaterialManager from './pages/MaterialManager'; // New Material Workflow
+import BusinessSettings from './pages/BusinessSettings'; // New God Mode Settings
 
 // Tech Imports
 import TechLayout from './components/TechLayout';
@@ -55,6 +56,7 @@ function App() {
                                 <Route path="appliance-types" element={<ApplianceTypes />} />
                                 <Route path="materials" element={<MaterialManager />} />
                                 <Route path="budgets" element={<BudgetRegistry />} />
+                                <Route path="business-settings" element={<BusinessSettings />} />
                                 <Route path="settings" element={<Settings />} />
                             </Route>
 

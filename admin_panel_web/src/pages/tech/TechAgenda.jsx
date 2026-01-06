@@ -78,6 +78,11 @@ const TechAgenda = () => {
                     <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1">
                         <Clock size={12} />
                         {new Date(ticket.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {ticket.estimated_duration && (
+                            <span className="text-slate-400 font-normal">
+                                - {new Date(new Date(ticket.scheduled_at).getTime() + ticket.estimated_duration * 60000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({ticket.estimated_duration}m)
+                            </span>
+                        )}
                     </span>
                 ) : (
                     <span className="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1">

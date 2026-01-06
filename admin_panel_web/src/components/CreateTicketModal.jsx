@@ -10,6 +10,7 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
     // Data Sources
     const [clients, setClients] = useState([]);
     const [techs, setTechs] = useState([]);
+    const [serviceTypes, setServiceTypes] = useState([]); // New Data Source
 
     // Form State - Mode
     const [isNewClient, setIsNewClient] = useState(false);
@@ -17,6 +18,7 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
     // Form State - Ticket
     const [clientId, setClientId] = useState('');
     const [techId, setTechId] = useState('');
+    const [serviceTypeId, setServiceTypeId] = useState(''); // New State
     const [applianceType, setApplianceType] = useState('Lavadora');
     const [applianceBrand, setApplianceBrand] = useState('');
     const [applianceModel, setApplianceModel] = useState('');
@@ -200,9 +202,20 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
             .eq('role', 'tech')
             .eq('is_active', true)
             .is('deleted_at', null);
+        const { data: typesData } = await supabase.from('service_types').select('*').eq('is_active', true);
 
         if (clientsData) setClients(clientsData);
         if (techsData) setTechs(techsData);
+        if (typesData) setServiceTypes(typesData);
+    };
+
+    const handleServiceTypeChange = (e) => {
+        const id = e.target.value;
+        setServiceTypeId(id);
+        const type = serviceTypes.find(t => t.id === id);
+        if (type) {
+            setDuration(type.estimated_duration_min);
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -322,6 +335,7 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
             .insert({
                 client_id: finalClientId,
                 technician_id: techId || null, // Optional assignment
+                service_type_id: serviceTypeId || null, // New field
                 appliance_info: applianceInfo,
                 description_failure: description,
                 ai_diagnosis: aiDiagnosis,
@@ -447,12 +461,30 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
                         )}
                     </div>
 
-                    {/* SECTION: APPLIANCE */}
+                    {/* SECTION: APPLIANCE & SERVICE */}
                     <div>
                         <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
                             <Smartphone size={18} />
-                            Equipo y Falla
+                            Detalles del Servicio
                         </h3>
+
+                        {/* SERVICE TYPE SELECTOR */}
+                        <div className="mb-4">
+                            <label className="block text-sm font-bold text-slate-700 mb-1">Tipo de Servicio (Define Duración)</label>
+                            <select
+                                className="w-full p-2 border border-blue-200 bg-blue-50/50 rounded-lg font-medium text-slate-800"
+                                value={serviceTypeId}
+                                onChange={handleServiceTypeChange}
+                            >
+                                <option value="">-- Seleccionar Tipo (Estándar: 1h) --</option>
+                                {serviceTypes.map(t => (
+                                    <option key={t.id} value={t.id}>
+                                        {t.name} ({t.estimated_duration_min} min)
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-4 mb-4">
                             <div>
                                 <label className="block text-sm text-slate-600 mb-1">Tipo Equipo</label>

@@ -21,11 +21,21 @@ const NewService = () => {
     });
 
     const [applianceTypes, setApplianceTypes] = useState([]);
+    const [serviceTypes, setServiceTypes] = useState([]);
+    const [selectedServiceTypeId, setSelectedServiceTypeId] = useState('');
 
     useEffect(() => {
         const fetchTypes = async () => {
-            const { data } = await supabase.from('appliance_types').select('name').order('name');
-            if (data) setApplianceTypes(data.map(t => t.name));
+            const { data: appTypes } = await supabase.from('appliance_types').select('name').order('name');
+            const { data: servTypes } = await supabase.from('service_types').select('id, name').eq('is_active', true);
+
+            if (appTypes) setApplianceTypes(appTypes.map(t => t.name));
+            if (servTypes) {
+                setServiceTypes(servTypes);
+                // Default to 'Reparación' or similar if exists, else first
+                const defaultType = servTypes.find(t => t.name.toLowerCase().includes('reparación') || t.name.toLowerCase().includes('estándar'));
+                if (defaultType) setSelectedServiceTypeId(defaultType.id);
+            }
         };
         fetchTypes();
     }, []);
@@ -125,14 +135,15 @@ const NewService = () => {
                         client_id: user.id,
                         status: 'solicitado',
                         description_failure: formData.description_failure,
-                        appliance_id: applianceId || null, // Link to appliance logic
+                        appliance_id: applianceId || null,
                         appliance_info: {
                             type: formData.type,
                             brand: formData.brand,
                             model: formData.model,
-                            label_image_url: formData.label_image_url // Save image URL here
+                            label_image_url: formData.label_image_url
                         },
-                        origin_source: 'client_web' // Explicitly mark as Client Web Origin
+                        service_type_id: selectedServiceTypeId || null,
+                        origin_source: 'client_web'
                     }
                 ]);
 
@@ -181,6 +192,26 @@ const NewService = () => {
                     </div>
 
                     <form onSubmit={handleSubmit} className="p-6 space-y-6">
+
+                        {/* Service Type Selector */}
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">¿Qué necesitas?</label>
+                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                                {serviceTypes.map(t => (
+                                    <button
+                                        key={t.id}
+                                        type="button"
+                                        onClick={() => setSelectedServiceTypeId(t.id)}
+                                        className={`p-3 text-sm font-medium rounded-xl border text-left transition
+                                            ${selectedServiceTypeId === t.id
+                                                ? 'bg-blue-50 border-blue-500 text-blue-700 ring-1 ring-blue-500'
+                                                : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300'}`}
+                                    >
+                                        {t.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
 
                         {/* Appliance Info */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

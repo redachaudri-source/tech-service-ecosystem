@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Map, Package, LogOut, UserCheck, Settings as SettingsIcon, Globe, Calendar, Tag, FileText, Menu as MenuIcon, X } from 'lucide-react';
+import { LayoutDashboard, Users, Map, Package, LogOut, UserCheck, Settings as SettingsIcon, Globe, Calendar, Tag, FileText, Menu as MenuIcon, X, Briefcase } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
@@ -21,6 +21,7 @@ const Layout = () => {
         { icon: Tag, label: 'Tipos Electro.', path: '/appliance-types' },
         { icon: Package, label: 'Gestión Materiales', path: '/materials' },
         { icon: FileText, label: 'Presupuestos', path: '/budgets' },
+        { icon: Briefcase, label: 'Ajustes de Negocio', path: '/business-settings' },
         { icon: SettingsIcon, label: 'Ajustes Panel', path: '/settings' },
     ];
 

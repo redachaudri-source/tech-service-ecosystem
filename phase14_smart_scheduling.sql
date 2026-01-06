@@ -96,12 +96,13 @@ CREATE OR REPLACE FUNCTION check_tech_overlap()
 RETURNS TRIGGER AS $$
 BEGIN
     -- Only check if tech and date are set and status is active
-    IF NEW.technician_id IS NOT NULL AND NEW.scheduled_at IS NOT NULL AND NEW.status NOT IN ('cancelado', 'rejected', 'finalizado') THEN
+    -- Cast status to text to avoid Enum errors if 'rejected' is not a valid enum member
+    IF NEW.technician_id IS NOT NULL AND NEW.scheduled_at IS NOT NULL AND NEW.status::text NOT IN ('cancelado', 'rejected', 'finalizado') THEN
         IF EXISTS (
             SELECT 1 FROM tickets
             WHERE technician_id = NEW.technician_id
             AND id != NEW.id -- exclude self
-            AND status NOT IN ('cancelado', 'rejected', 'finalizado') -- only active tickets
+            AND status::text NOT IN ('cancelado', 'rejected', 'finalizado') -- only active tickets
             AND scheduled_at IS NOT NULL
             -- Check Overlap: (StartA < EndB) and (EndA > StartB)
             AND scheduled_at < (NEW.scheduled_at + (NEW.estimated_duration || ' minutes')::interval)
@@ -159,7 +160,7 @@ BEGIN
             SELECT EXISTS (
                 SELECT 1 FROM tickets t
                 WHERE t.technician_id = tech.id
-                AND t.status NOT IN ('cancelado', 'rejected', 'finalizado')
+                AND t.status::text NOT IN ('cancelado', 'rejected', 'finalizado') 
                 AND t.scheduled_at IS NOT NULL
                 AND (t.scheduled_at, t.scheduled_end_at) OVERLAPS (curr_time, slot_end)
             ) INTO is_conflict;

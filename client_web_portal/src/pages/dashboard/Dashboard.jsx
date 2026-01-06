@@ -172,7 +172,13 @@ const Dashboard = () => {
 
             // If confirmed with a specific slot, set that as the final schedule
             if (status === 'confirmed' && selectedSlot) {
-                updateData.scheduled_at = `${selectedSlot.date}T${selectedSlot.time}:00`;
+                // Support both Smart Slots (ISO start) and Legacy (date+time)
+                if (selectedSlot.start) {
+                    updateData.scheduled_at = selectedSlot.start;
+                } else {
+                    updateData.scheduled_at = `${selectedSlot.date}T${selectedSlot.time}:00`;
+                }
+
                 updateData.proposed_slots = []; // Clear proposals
 
                 // IMPORTANT: Update technician to the one assigned for this specifi slot
@@ -542,24 +548,31 @@ const Dashboard = () => {
                                                                 <p className="text-sm text-amber-700 mb-2">
                                                                     El técnico ha propuesto las siguientes fechas. Por favor, confirma la que mejor te venga:
                                                                 </p>
-                                                                {ticket.proposed_slots.map((slot, idx) => (
-                                                                    <div key={idx} className="flex justify-between items-center bg-white p-3 rounded-lg border border-amber-200 shadow-sm">
-                                                                        <div>
-                                                                            <span className="block font-bold text-slate-800 text-sm">
-                                                                                {new Date(slot.date).toLocaleDateString()}
-                                                                            </span>
-                                                                            <span className="block text-slate-500 text-xs">
-                                                                                {slot.time} hrs
-                                                                            </span>
+                                                                {ticket.proposed_slots.map((slot, idx) => {
+                                                                    const dateStr = slot.start ? new Date(slot.start).toLocaleDateString() : new Date(slot.date).toLocaleDateString();
+                                                                    const timeStr = slot.start ? new Date(slot.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : slot.time;
+                                                                    const duration = slot.duration ? `${slot.duration} min` : '';
+
+                                                                    return (
+                                                                        <div key={idx} className="flex justify-between items-center bg-white p-3 rounded-lg border border-amber-200 shadow-sm">
+                                                                            <div>
+                                                                                <span className="block font-bold text-slate-800 text-sm">
+                                                                                    {dateStr}
+                                                                                </span>
+                                                                                <span className="block text-slate-500 text-xs flex items-center gap-1">
+                                                                                    {timeStr}
+                                                                                    {duration && <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[10px] font-bold">{duration}</span>}
+                                                                                </span>
+                                                                            </div>
+                                                                            <button
+                                                                                onClick={() => handleUpdateAppointment(ticket.id, 'confirmed', null, slot)}
+                                                                                className="px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 shadow-sm"
+                                                                            >
+                                                                                Confirmar
+                                                                            </button>
                                                                         </div>
-                                                                        <button
-                                                                            onClick={() => handleUpdateAppointment(ticket.id, 'confirmed', null, slot)}
-                                                                            className="px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 shadow-sm"
-                                                                        >
-                                                                            Confirmar
-                                                                        </button>
-                                                                    </div>
-                                                                ))}
+                                                                    );
+                                                                })}
                                                             </div>
                                                         ) : (
                                                             // Legacy / Single Slot Fallback
