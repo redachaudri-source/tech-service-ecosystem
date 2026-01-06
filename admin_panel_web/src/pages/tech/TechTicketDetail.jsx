@@ -12,6 +12,7 @@ import TechLocationTracker from '../../components/TechLocationTracker';
 import { useAuth } from '../../context/AuthContext';
 
 const TechTicketDetail = () => {
+    const { id } = useParams();
     // Real-time Ticket Subscription
     useEffect(() => {
         if (!id) return;
