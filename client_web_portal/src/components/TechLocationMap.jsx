@@ -28,6 +28,33 @@ const RecenterAutomatically = ({ pos }) => {
     return null;
 };
 
+// Uber-style Car Marker (Top-down view roughly)
+const UberCarIcon = new L.DivIcon({
+    className: 'bg-transparent',
+    html: `<div style="
+        background-color: black; 
+        color: white; 
+        width: 36px; 
+        height: 36px; 
+        border-radius: 50%; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+        border: 2px solid white;
+    ">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2" />
+            <circle cx="7" cy="17" r="2" />
+            <path d="M9 17h6" />
+            <circle cx="17" cy="17" r="2" />
+        </svg>
+    </div>`,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    popupAnchor: [0, -20]
+});
+
 const TechLocationMap = ({ technicianId }) => {
     const [position, setPosition] = useState(null);
     const [lastUpdate, setLastUpdate] = useState(null);
@@ -88,46 +115,6 @@ const TechLocationMap = ({ technicianId }) => {
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 />
-// Custom Car Icon
-                const carIcon = new L.Icon({
-                    iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', // Fallback or nice PNG
-                // Better: Inline SVG for "Uber-like" top-down car view
-                iconUrl: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzEwMTAxMCIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjIiIHk9IjUiIHdpZHRoPSIyMCIgaGVpZ2h0PSIxNCIgcng9IjIiIC8+PGxpbmUgeDE9IjIiIHkxPSIxMCIgeDI9IjIyIiB5Mj0iMTAiIC8+PC9zdmc+', // Simple car/box representation
-                iconSize: [40, 40],
-                iconAnchor: [20, 20],
-                popupAnchor: [0, -20],
-                className: 'leaflet-car-icon'
-});
-
-                // Uber-style Car Marker (Top-down view roughly)
-                const UberCarIcon = new L.DivIcon({
-                    className: 'bg-transparent',
-                html: `<div style="
-        background-color: black; 
-        color: white; 
-        width: 36px; 
-        height: 36px; 
-        border-radius: 50%; 
-        display: flex; 
-        align-items: center; 
-        justify-content: center;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
-        border: 2px solid white;
-    ">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2" />
-                        <circle cx="7" cy="17" r="2" />
-                        <path d="M9 17h6" />
-                        <circle cx="17" cy="17" r="2" />
-                    </svg>
-                </div>`,
-                iconSize: [36, 36],
-                iconAnchor: [18, 18],
-                popupAnchor: [0, -20]
-});
-
-                // ... inside component ...
-
                 <Marker position={position} icon={UberCarIcon}>
                     <Popup>
                         <div className="text-center font-bold">
