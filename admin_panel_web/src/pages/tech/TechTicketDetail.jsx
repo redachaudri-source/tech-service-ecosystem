@@ -1557,7 +1557,7 @@ const TechTicketDetail = () => {
                 <div className="mt-8 mb-4">
                     <ErrorBoundary>
                         <TechLocationMap
-                            technicianId={user.id}
+                            technicianId={user.id} // DEPLOY_FIX_V3
                             className="w-full h-64 rounded-xl shadow-lg"
                         />
                     </ErrorBoundary>
