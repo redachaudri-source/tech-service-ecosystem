@@ -107,44 +107,50 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
         setSlots(slots.filter((_, i) => i !== index));
     };
 
-    const handleConfirm = async (isDirect = false) => {
-        if (slots.length === 0) return alert("Debes añadir al menos una opción.");
+    const handleConfirmDirect = async () => {
+        if (slots.length === 0) return alert("Registra primero la opción de fecha/hora.");
 
         try {
+            // Take the first slot as the definitive one
             const primarySlot = slots[0];
-
-            let updatePayload;
-
-            if (isDirect) {
-                // Direct Assignment (Admin Override)
-                // Set scheduled_at immediately and status confirmed
-                const scheduledDate = new Date(`${primarySlot.date}T${primarySlot.time}:00`).toISOString();
-
-                updatePayload = {
-                    status: 'asignado',
-                    appointment_status: 'confirmed', // Direct confirmation
-                    technician_id: primarySlot.technician_id,
-                    scheduled_at: scheduledDate,
-                    proposed_slots: [] // Clear proposals as it's confirmed
-                };
-            } else {
-                // Proposal Mode (Standard)
-                updatePayload = {
-                    status: 'asignado',
-                    appointment_status: 'pending',
-                    technician_id: primarySlot.technician_id, // Default to first option
-                    proposed_slots: slots,
-                    scheduled_at: null // Clear specific schedule until confirmed
-                };
-            }
+            const scheduledDate = `${primarySlot.date}T${primarySlot.time}:00`;
 
             const { error } = await supabase
                 .from('tickets')
-                .update(updatePayload)
+                .update({
+                    status: 'asignado',
+                    appointment_status: 'confirmed',
+                    technician_id: primarySlot.technician_id,
+                    scheduled_at: scheduledDate,
+                    proposed_slots: [] // Clear proposals
+                })
                 .eq('id', ticket.id);
 
             if (error) throw error;
             onSuccess();
+            onClose();
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    };
+
+    const handleSendProposals = async () => {
+        if (slots.length === 0) return alert("Debes añadir al menos una opción.");
+
+        try {
+            const { error } = await supabase
+                .from('tickets')
+                .update({
+                    status: 'solicitado', // CORRECTED ENUM
+                    appointment_status: 'pending',
+                    proposed_slots: slots,
+                    scheduled_at: null
+                })
+                .eq('id', ticket.id);
+
+            if (error) throw error;
+            onSuccess();
+            onClose();
         } catch (error) {
             alert('Error: ' + error.message);
         }
@@ -165,7 +171,7 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
                 <div className="p-5 border-b border-slate-100 bg-white flex justify-between items-center">
                     <div>
                         <h3 className="font-bold text-xl text-slate-800">Nueva Propuesta de Cita</h3>
-                        <p className="text-sm text-slate-500">Crea hasta 3 opciones para el cliente.</p>
+                        <p className="text-sm text-slate-500">Crea hasta 3 opciones para el cliente o asigna directamente.</p>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition">
                         <X size={24} />
@@ -241,8 +247,9 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
                                                             <X size={10} /> OCUPADO
                                                         </span>
                                                     ) : (
-                                                        <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${load === 0 ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
-                                                            {load === 0 ? 'LIBRE' : 'DISPONIBLE'}
+                                                        // UNIFIED STATUS: Always Green/Disponible if not conflict
+                                                        <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-green-100 text-green-700">
+                                                            DISPONIBLE
                                                         </span>
                                                     )}
                                                 </div>
@@ -252,13 +259,14 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
                                 </div>
                             </div>
 
+                            {/* REGISTRAR OPCION BUTTON - ALWAYS VISIBLE */}
                             <button
                                 onClick={addSlot}
                                 disabled={!date || !time || !selectedTechForSlot || slots.length >= 3}
-                                className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold text-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-600/20 active:scale-[0.98] transition flex items-center justify-center gap-2"
+                                className="w-full py-4 bg-blue-100 text-blue-700 rounded-xl font-bold text-lg hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
                             >
                                 <Plus size={24} />
-                                Registrar Opción
+                                Registrar Propuesta
                             </button>
                         </div>
 
@@ -270,11 +278,11 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
                                 <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs">{slots.length}/3</span>
                             </h4>
 
-                            <div className="flex-1 space-y-3 overflow-y-auto">
+                            <div className="flex-1 space-y-3 overflow-y-auto min-h-[200px]">
                                 {slots.length === 0 ? (
-                                    <div className="h-40 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-400 p-4 text-center">
+                                    <div className="h-full border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-400 p-4 text-center">
                                         <Clock size={32} className="mb-2 opacity-50" />
-                                        <p className="text-sm">Añade al menos una opción para continuar.</p>
+                                        <p className="text-sm">Añade al menos una opción...</p>
                                     </div>
                                 ) : (
                                     slots.map((slot, idx) => (
@@ -307,32 +315,30 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
                                     ))
                                 )}
                             </div>
+
+                            {/* FOOTER ACTIONS - DUAL BUTTONS */}
+                            <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
+                                <button
+                                    onClick={handleSendProposals}
+                                    disabled={slots.length === 0}
+                                    className="w-full py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-600/20 active:scale-[0.98] transition flex items-center justify-center gap-2"
+                                >
+                                    <CheckCircle size={20} />
+                                    Enviar Propuestas
+                                </button>
+
+                                {slots.length > 0 && (
+                                    <button
+                                        onClick={handleConfirmDirect}
+                                        className="w-full py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 shadow-lg shadow-green-600/20 active:scale-[0.98] transition flex items-center justify-center gap-2"
+                                    >
+                                        <CheckCircle size={20} />
+                                        Asignar Definitivamente
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-
-                {/* Footer */}
-                <div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 z-10">
-                    <button onClick={onClose} className="px-6 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl font-medium transition">
-                        Cancelar
-                    </button>
-                    <button
-                        onClick={() => handleConfirm(false)}
-                        disabled={slots.length === 0}
-                        className="px-6 py-2.5 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-green-600/20 active:scale-[0.98] transition flex items-center gap-2"
-                    >
-                        <CheckCircle size={20} />
-                        Confirmar y Enviar ({slots.length})
-                    </button>
-                    {slots.length === 1 && (
-                        <button
-                            onClick={() => handleConfirm(true)}
-                            className="px-8 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 active:scale-[0.98] transition flex items-center gap-2"
-                        >
-                            <CheckCircle size={20} />
-                            Fijar Cita (Directo)
-                        </button>
-                    )}
                 </div>
             </div>
         </div>
