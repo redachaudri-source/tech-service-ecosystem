@@ -507,7 +507,7 @@ const Dashboard = () => {
 
                                                 {/* Appointment Pending Card */}
                                                 {/* Appointment Pending Card (Multi-Slot or Single) */}
-                                                {ticket.appointment_status === 'pending' && (
+                                                {(ticket.appointment_status === 'pending' || (ticket.proposed_slots && ticket.proposed_slots.length > 0 && ticket.appointment_status !== 'confirmed' && ticket.appointment_status !== 'rejected')) && (
                                                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 animate-in fade-in slide-in-from-top-2">
                                                         <h4 className="font-bold text-amber-800 text-sm flex items-center gap-2 mb-2">
                                                             <Calendar size={16} /> Propuesta de Cita
