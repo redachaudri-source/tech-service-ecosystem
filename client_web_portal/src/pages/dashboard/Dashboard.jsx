@@ -495,7 +495,7 @@ const Dashboard = () => {
                                         </p>
 
                                         {/* Technician & Appointment Info */}
-                                        {(ticket.technician || ticket.scheduled_at) && (
+                                        {(ticket.technician || ticket.scheduled_at || (ticket.proposed_slots && ticket.proposed_slots.length > 0)) && (
                                             <div className="mt-4 space-y-3">
                                                 {/* Tech Info */}
                                                 {ticket.technician && (
