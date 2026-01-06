@@ -10,9 +10,11 @@ import {
 } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 import TechLocationTracker from '../../components/TechLocationTracker';
+import { useAuth } from '../../context/AuthContext';
 
 const TechTicketDetail = () => {
     const { id } = useParams();
+    const { user } = useAuth();
     const navigate = useNavigate();
     const [ticket, setTicket] = useState(null);
     const [loading, setLoading] = useState(true);
