@@ -3,6 +3,10 @@ import { supabase } from '../lib/supabase';
 import { Calendar, ChevronLeft, ChevronRight, User, Clock, MapPin } from 'lucide-react';
 
 const GlobalAgenda = () => {
+    const [selectedDate, setSelectedDate] = useState(new Date());
+    const [techs, setTechs] = useState([]);
+    const [appointments, setAppointments] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [showRouteMode, setShowRouteMode] = useState(false);
 
     // Helper to generate consistent colors from CP strings
@@ -60,8 +64,8 @@ const GlobalAgenda = () => {
                     <button
                         onClick={() => setShowRouteMode(!showRouteMode)}
                         className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition border ${showRouteMode
-                                ? 'bg-indigo-600 text-white border-indigo-700 shadow-md ring-2 ring-indigo-200'
-                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                            ? 'bg-indigo-600 text-white border-indigo-700 shadow-md ring-2 ring-indigo-200'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                             }`}
                     >
                         <MapPin size={16} />
