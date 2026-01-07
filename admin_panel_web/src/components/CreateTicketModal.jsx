@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { X, Save, User, Smartphone, Plus, Clock } from 'lucide-react';
 import AgendaPicker from './AgendaPicker';
+import SmartBrandSelector from './SmartBrandSelector';
 
 const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submitLabel = 'Crear Ticket' }) => {
     const [loading, setLoading] = useState(false);
@@ -22,6 +23,7 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
     const [applianceType, setApplianceType] = useState('Lavadora');
     const [applianceBrand, setApplianceBrand] = useState('');
     const [applianceModel, setApplianceModel] = useState('');
+    const [selectedBrandId, setSelectedBrandId] = useState(null); // New
     const [description, setDescription] = useState('');
     const [aiDiagnosis, setAiDiagnosis] = useState('');
 
@@ -347,7 +349,7 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
         // 3. Create Ticket
         const applianceInfo = {
             type: applianceType,
-            brand: applianceBrand,
+            brand: applianceBrand, // Keep legacy text for JSON views
             model: applianceModel
         };
 
@@ -357,6 +359,7 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
                 client_id: finalClientId,
                 technician_id: assignedTech || null,
                 service_type_id: serviceTypeId || null,
+                brand_id: selectedBrandId || null, // NEW: Link to Brands Table
                 appliance_info: applianceInfo,
                 description_failure: description,
                 ai_diagnosis: aiDiagnosis,
@@ -535,8 +538,18 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm text-slate-600 mb-1">Marca <span className="text-amber-500">*</span></label>
-                                <input required type="text" className="w-full p-2 border rounded-lg" placeholder="Ej. Samsung" value={applianceBrand} onChange={e => setApplianceBrand(e.target.value)} />
+                                <SmartBrandSelector
+                                    value={applianceBrand}
+                                    onChange={(brandObj) => {
+                                        if (brandObj && typeof brandObj === 'object') {
+                                            setApplianceBrand(brandObj.name);
+                                            setSelectedBrandId(brandObj.id);
+                                        } else {
+                                            setApplianceBrand(brandObj || '');
+                                            setSelectedBrandId(null);
+                                        }
+                                    }}
+                                />
                             </div>
                         </div>
                         <div className="mb-4">

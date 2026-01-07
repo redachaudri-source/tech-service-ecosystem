@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, Save, MapPin, Phone, AlertCircle, Wrench, Camera, HelpCircle, X, Image as ImageIcon } from 'lucide-react';
+import SmartBrandSelector from '../../components/SmartBrandSelector';
 
 const NewService = () => {
     const navigate = useNavigate();
@@ -13,6 +14,7 @@ const NewService = () => {
     const [formData, setFormData] = useState({
         type: 'Lavadora', // Default
         brand: '',
+        brand_id: null, // New
         model: '',
         description_failure: '',
         address: '',
@@ -142,6 +144,7 @@ const NewService = () => {
                             model: formData.model,
                             label_image_url: formData.label_image_url
                         },
+                        brand_id: formData.brand_id || null, // store ID
                         service_type_id: selectedServiceTypeId || null,
                         origin_source: 'client_web'
                     }
@@ -227,111 +230,111 @@ const NewService = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Marca</label>
-                                <input
-                                    type="text"
-                                    name="brand"
-                                    required
-                                    placeholder="Ej: Samsung, Bosch..."
-                                    className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                                <SmartBrandSelector
+                                    label="Marca"
                                     value={formData.brand}
-                                    onChange={handleChange}
+                                    onChange={(brandObj) => {
+                                        if (brandObj && typeof brandObj === 'object') {
+                                            setFormData(prev => ({ ...prev, brand: brandObj.name, brand_id: brandObj.id }));
+                                        } else {
+                                            setFormData(prev => ({ ...prev, brand: '', brand_id: null }));
+                                        }
+                                    }}
                                 />
                             </div>
-                        </div>
 
-                        {/* Model & Label Photo */}
-                        <div>
-                            <div className="flex justify-between items-center mb-1">
-                                <label className="block text-sm font-medium text-slate-700">Modelo</label>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowHelp(true)}
-                                    className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium bg-blue-50 px-2 py-1 rounded-full transition"
-                                >
-                                    <HelpCircle size={14} /> ¿Dónde está la etiqueta?
-                                </button>
-                            </div>
-
-                            <div className="flex gap-2">
-                                <input
-                                    type="text"
-                                    name="model"
-                                    placeholder="Ej: WW90T534DTW (Opcional)"
-                                    className="flex-1 p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                                    value={formData.model}
-                                    onChange={handleChange}
-                                />
-                                <div className="relative">
-                                    <input
-                                        type="file"
-                                        id="label-upload"
-                                        accept="image/*"
-                                        className="hidden"
-                                        onChange={handleImageUpload}
-                                        disabled={uploading}
-                                    />
-                                    <label
-                                        htmlFor="label-upload"
-                                        className={`h-full px-4 rounded-xl border flex items-center gap-2 cursor-pointer transition font-medium
-                                            ${formData.label_image_url
-                                                ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
-                                                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
-                                            }`}
+                            {/* Model & Label Photo */}
+                            <div>
+                                <div className="flex justify-between items-center mb-1">
+                                    <label className="block text-sm font-medium text-slate-700">Modelo</label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowHelp(true)}
+                                        className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium bg-blue-50 px-2 py-1 rounded-full transition"
                                     >
-                                        {uploading ? (
-                                            <div className="animate-spin w-5 h-5 border-2 border-slate-400 border-t-blue-600 rounded-full"></div>
-                                        ) : formData.label_image_url ? (
-                                            <>
-                                                <ImageIcon size={20} />
-                                                <span className="hidden sm:inline">Foto Subida</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Camera size={20} />
-                                                <span className="hidden sm:inline">Foto Etiqueta</span>
-                                            </>
-                                        )}
-                                    </label>
+                                        <HelpCircle size={14} /> ¿Dónde está la etiqueta?
+                                    </button>
                                 </div>
+
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        name="model"
+                                        placeholder="Ej: WW90T534DTW (Opcional)"
+                                        className="flex-1 p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                                        value={formData.model}
+                                        onChange={handleChange}
+                                    />
+                                    <div className="relative">
+                                        <input
+                                            type="file"
+                                            id="label-upload"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={handleImageUpload}
+                                            disabled={uploading}
+                                        />
+                                        <label
+                                            htmlFor="label-upload"
+                                            className={`h-full px-4 rounded-xl border flex items-center gap-2 cursor-pointer transition font-medium
+                                            ${formData.label_image_url
+                                                    ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                                                }`}
+                                        >
+                                            {uploading ? (
+                                                <div className="animate-spin w-5 h-5 border-2 border-slate-400 border-t-blue-600 rounded-full"></div>
+                                            ) : formData.label_image_url ? (
+                                                <>
+                                                    <ImageIcon size={20} />
+                                                    <span className="hidden sm:inline">Foto Subida</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Camera size={20} />
+                                                    <span className="hidden sm:inline">Foto Etiqueta</span>
+                                                </>
+                                            )}
+                                        </label>
+                                    </div>
+                                </div>
+                                {formData.label_image_url && (
+                                    <div className="mt-2 text-xs text-green-600 flex items-center gap-1">
+                                        <ImageIcon size={12} /> Imagen adjuntada correctamente. Ayudará al técnico a identificar las piezas.
+                                    </div>
+                                )}
                             </div>
-                            {formData.label_image_url && (
-                                <div className="mt-2 text-xs text-green-600 flex items-center gap-1">
-                                    <ImageIcon size={12} /> Imagen adjuntada correctamente. Ayudará al técnico a identificar las piezas.
-                                </div>
-                            )}
-                        </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Descripción del Problema</label>
-                            <textarea
-                                name="description_failure"
-                                required
-                                rows={4}
-                                placeholder="Ej: No desagua, hace un ruido extraño, no enciende..."
-                                className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none resize-none"
-                                value={formData.description_failure}
-                                onChange={handleChange}
-                            />
-                        </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Descripción del Problema</label>
+                                <textarea
+                                    name="description_failure"
+                                    required
+                                    rows={4}
+                                    placeholder="Ej: No desagua, hace un ruido extraño, no enciende..."
+                                    className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none resize-none"
+                                    value={formData.description_failure}
+                                    onChange={handleChange}
+                                />
+                            </div>
 
-                        {/* Contact Info Confirmation */}
-                        <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-4 flex gap-3 text-sm text-yellow-800">
-                            <AlertCircle size={20} className="shrink-0" />
-                            <p>
-                                Los técnicos se desplazarán a: <strong>{formData.address || 'Tu dirección registrada'}</strong>
-                                <br />
-                                Contactarán al: <strong>{formData.phone || 'Tu teléfono registrado'}</strong>
-                            </p>
-                        </div>
+                            {/* Contact Info Confirmation */}
+                            <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-4 flex gap-3 text-sm text-yellow-800">
+                                <AlertCircle size={20} className="shrink-0" />
+                                <p>
+                                    Los técnicos se desplazarán a: <strong>{formData.address || 'Tu dirección registrada'}</strong>
+                                    <br />
+                                    Contactarán al: <strong>{formData.phone || 'Tu teléfono registrado'}</strong>
+                                </p>
+                            </div>
 
-                        <button
-                            type="submit"
-                            disabled={loading || uploading}
-                            className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-xl shadow-blue-600/20"
-                        >
-                            {loading ? 'Enviando...' : 'Solicitar Reparación'}
-                        </button>
+                            <button
+                                type="submit"
+                                disabled={loading || uploading}
+                                className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-xl shadow-blue-600/20"
+                            >
+                                {loading ? 'Enviando...' : 'Solicitar Reparación'}
+                            </button>
 
                     </form>
                 </div>

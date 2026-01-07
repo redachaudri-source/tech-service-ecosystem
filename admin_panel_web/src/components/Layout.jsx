@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Map, Package, LogOut, UserCheck, Settings as SettingsIcon, Globe, Calendar, Tag, FileText, Menu as MenuIcon, X, Briefcase } from 'lucide-react';
+import { LayoutDashboard, Users, Map, Package, LogOut, UserCheck, Settings as SettingsIcon, Globe, Calendar, Tag, FileText, Menu as MenuIcon, X, Briefcase, TrendingUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
@@ -17,7 +17,7 @@ const Layout = () => {
         { icon: Map, label: 'Flota', path: '/tracking' },
         { icon: Users, label: 'Clientes', path: '/clients' },
         { icon: UserCheck, label: 'Equipo', path: '/team' },
-        { icon: Package, label: 'Inventario', path: '/inventory' },
+        { icon: TrendingUp, label: 'Analytics (BI)', path: '/analytics' }, // Replaced Inventory
         { icon: Tag, label: 'Tipos Electro.', path: '/appliance-types' },
         { icon: Package, label: 'Gestión Materiales', path: '/materials' },
         { icon: FileText, label: 'Presupuestos', path: '/budgets' },

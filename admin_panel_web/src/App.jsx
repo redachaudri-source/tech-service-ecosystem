@@ -17,6 +17,7 @@ import Settings from './pages/Settings';
 import BudgetRegistry from './pages/financial/BudgetRegistry'; // New
 import MaterialManager from './pages/MaterialManager'; // New Material Workflow
 import BusinessSettings from './pages/BusinessSettings'; // New God Mode Settings
+import Analytics from './pages/Analytics'; // Level God Analytics
 
 // Tech Imports
 import TechLayout from './components/TechLayout';
@@ -52,7 +53,8 @@ function App() {
                                 <Route path="clients" element={<ClientManager />} />
                                 <Route path="team" element={<TeamManager />} />
                                 <Route path="tracking" element={<div className="h-full"><FleetMap /></div>} />
-                                <Route path="inventory" element={<InventoryManager />} />
+                                {/* <Route path="inventory" element={<InventoryManager />} /> Replaced by Analytics */}
+                                <Route path="analytics" element={<Analytics />} />
                                 <Route path="appliance-types" element={<ApplianceTypes />} />
                                 <Route path="materials" element={<MaterialManager />} />
                                 <Route path="budgets" element={<BudgetRegistry />} />
