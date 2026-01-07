@@ -3,67 +3,48 @@ import { supabase } from '../lib/supabase';
 import { Calendar, ChevronLeft, ChevronRight, User, Clock, MapPin } from 'lucide-react';
 
 const GlobalAgenda = () => {
-    const [selectedDate, setSelectedDate] = useState(new Date());
-    const [techs, setTechs] = useState([]);
-    const [appointments, setAppointments] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [showRouteMode, setShowRouteMode] = useState(false);
 
-    useEffect(() => {
-        fetchAgendaData();
-    }, [selectedDate]);
+    // Helper to generate consistent colors from CP strings
+    const getCpColor = (cp) => {
+        if (!cp) return 'bg-slate-100 border-slate-200 text-slate-500';
+        // A simple hash to pick a color
+        const colors = [
+            'bg-red-100 border-red-300 text-red-800',
+            'bg-orange-100 border-orange-300 text-orange-800',
+            'bg-amber-100 border-amber-300 text-amber-800',
+            'bg-green-100 border-green-300 text-green-800',
+            'bg-emerald-100 border-emerald-300 text-emerald-800',
+            'bg-teal-100 border-teal-300 text-teal-800',
+            'bg-cyan-100 border-cyan-300 text-cyan-800',
+            'bg-sky-100 border-sky-300 text-sky-800',
+            'bg-blue-100 border-blue-300 text-blue-800',
+            'bg-indigo-100 border-indigo-300 text-indigo-800',
+            'bg-violet-100 border-violet-300 text-violet-800',
+            'bg-purple-100 border-purple-300 text-purple-800',
+            'bg-fuchsia-100 border-fuchsia-300 text-fuchsia-800',
+            'bg-pink-100 border-pink-300 text-pink-800',
+            'bg-rose-100 border-rose-300 text-rose-800'
+        ];
 
-    const fetchAgendaData = async () => {
-        setLoading(true);
-        try {
-            const dateStr = selectedDate.toISOString().split('T')[0];
-
-            // 1. Fetch Techs
-            const { data: techData } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('role', 'tech')
-                .order('full_name');
-            setTechs(techData || []);
-
-            // 2. Fetch Appointments for Date
-            const { data: apptData } = await supabase
-                .from('tickets')
-                .select(`*, client:profiles!client_id(full_name, address)`)
-                .gte('scheduled_at', `${dateStr}T00:00:00`)
-                .lte('scheduled_at', `${dateStr}T23:59:59`)
-                .not('technician_id', 'is', null) // Only assigned
-                .neq('status', 'finalizado'); // Show active
-
-            setAppointments(apptData || []);
-
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setLoading(false);
+        let hash = 0;
+        for (let i = 0; i < cp.length; i++) {
+            hash = cp.charCodeAt(i) + ((hash << 5) - hash);
         }
+
+        return colors[Math.abs(hash) % colors.length];
     };
 
-    const changeDate = (days) => {
-        const newDate = new Date(selectedDate);
-        newDate.setDate(selectedDate.getDate() + days);
-        setSelectedDate(newDate);
+    // Helper for CP Extraction
+    const getCpFromAppointment = (appt) => {
+        // Ideally we have appt.client.postal_code, or parse address
+        if (appt.client?.address) {
+            const match = appt.client.address.match(/\b\d{5}\b/);
+            return match ? match[0] : null;
+        }
+        return null;
     };
 
-    // Helper to position items on a timeline (8am to 8pm)
-    const getPosition = (dateStr) => {
-        const date = new Date(dateStr);
-        const startHour = 8; // 8 AM
-        const pixelsPerHour = 100; // Height of hour block
-        const hour = date.getHours();
-        const minutes = date.getMinutes();
-
-        if (hour < startHour) return 0;
-        return ((hour - startHour) + (minutes / 60)) * pixelsPerHour;
-    };
-
-    const hours = Array.from({ length: 13 }, (_, i) => i + 8); // 8 to 20
-
-    if (loading) return <div className="p-8 text-center text-slate-500">Cargando agenda...</div>;
 
     return (
         <div className="h-[calc(100vh-100px)] flex flex-col">
@@ -74,12 +55,26 @@ const GlobalAgenda = () => {
                     Agenda Global
                 </h1>
 
-                <div className="flex items-center gap-4 bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
-                    <button onClick={() => changeDate(-1)} className="p-2 hover:bg-slate-100 rounded-full"><ChevronLeft /></button>
-                    <div className="font-bold text-lg w-48 text-center">
-                        {selectedDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+                <div className="flex items-center gap-4">
+                    {/* Route Mode Toggle */}
+                    <button
+                        onClick={() => setShowRouteMode(!showRouteMode)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition border ${showRouteMode
+                                ? 'bg-indigo-600 text-white border-indigo-700 shadow-md ring-2 ring-indigo-200'
+                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                            }`}
+                    >
+                        <MapPin size={16} />
+                        {showRouteMode ? 'Modo Rutas (Visualizando CPs)' : 'Ver Rutas'}
+                    </button>
+
+                    <div className="flex items-center gap-4 bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
+                        <button onClick={() => changeDate(-1)} className="p-2 hover:bg-slate-100 rounded-full"><ChevronLeft /></button>
+                        <div className="font-bold text-lg w-48 text-center">
+                            {selectedDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+                        </div>
+                        <button onClick={() => changeDate(1)} className="p-2 hover:bg-slate-100 rounded-full"><ChevronRight /></button>
                     </div>
-                    <button onClick={() => changeDate(1)} className="p-2 hover:bg-slate-100 rounded-full"><ChevronRight /></button>
                 </div>
             </div>
 
@@ -126,18 +121,33 @@ const GlobalAgenda = () => {
                                     .filter(appt => appt.technician_id === tech.id)
                                     .map(appt => {
                                         const top = getPosition(appt.scheduled_at);
+                                        const cp = getCpFromAppointment(appt);
+                                        // Dynamic Style based on mode
+                                        const styleClass = showRouteMode
+                                            ? getCpColor(cp)
+                                            : getStatusColor(appt.appointment_status);
+
                                         return (
                                             <div
                                                 key={appt.id}
-                                                className={`absolute left-1 right-1 p-2 rounded-lg border text-xs shadow-sm hover:shadow-md transition cursor-pointer
-                                                    ${getStatusColor(appt.appointment_status)}
+                                                className={`absolute left-1 right-1 p-2 rounded-lg border text-xs shadow-sm hover:shadow-md transition cursor-pointer overflow-hidden
+                                                    ${styleClass}
                                                 `}
-                                                style={{ top: `${top}px`, height: '90px' }} // Fixed height or calculated duration
+                                                style={{ top: `${top}px`, height: '85px' }} // Slightly shorter to avoid exact overlap visual
                                                 title={`${appt.client?.full_name} - ${appt.description_failure}`}
                                             >
                                                 <div className="font-bold truncate">{appt.scheduled_at.split('T')[1].slice(0, 5)}</div>
+
+                                                {showRouteMode && cp && (
+                                                    <div className="text-[10px] uppercase font-black opacity-80 mb-0.5">
+                                                        📍 CP: {cp}
+                                                    </div>
+                                                )}
+
                                                 <div className="truncate font-medium">{appt.client?.full_name}</div>
-                                                <div className="truncate text-[10px] opacity-75">{appt.appliance_info?.type}</div>
+                                                {!showRouteMode && (
+                                                    <div className="truncate text-[10px] opacity-75">{appt.appliance_info?.type}</div>
+                                                )}
 
                                                 {/* Status Indicator */}
                                                 <div className="absolute bottom-1 right-1">
