@@ -79,14 +79,21 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
         try {
             // Call the GOD MODE RPC
             // get_tech_availability(target_date, duration_minutes, target_cp)
-            // We need to parse CP from ticket address if possible.
-            // Let's assume ticket.profiles?.address contains "CP: 29000" or similar, or just pass NULL for now if not parsed 100%.
-            // Ideally we pass ticket.client_address_cp if we had it structure.
+
+            // Logic to extract CP:
+            let targetCp = null;
+            if (ticket.profiles?.postal_code) {
+                targetCp = ticket.profiles.postal_code;
+            } else if (ticket.profiles?.address) {
+                // Try Regex for 5 digits (Spain CP)
+                const match = ticket.profiles.address.match(/\b\d{5}\b/);
+                if (match) targetCp = match[0];
+            }
 
             const { data, error } = await supabase.rpc('get_tech_availability', {
                 target_date: selectedDate,
                 duration_minutes: duration,
-                target_cp: null // TODO: Parse CP from ticket.profiles.address
+                target_cp: targetCp
             });
 
             if (error) throw error;
