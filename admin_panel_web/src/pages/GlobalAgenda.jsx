@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import { Calendar, ChevronLeft, ChevronRight, User, Clock, MapPin, Maximize2, Minimize2 } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, User, Clock, MapPin, Maximize2, Minimize2, AlertTriangle, TrendingUp } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -21,13 +21,26 @@ const createTechIcon = (color) => new L.DivIcon({
     iconAnchor: [6, 6]
 });
 
+// --- MATH HELPERS ---
+const toRad = (x) => x * Math.PI / 180;
+const getDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // km
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+};
+
 const GlobalAgenda = () => {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [techs, setTechs] = useState([]);
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showRouteMode, setShowRouteMode] = useState(false);
-    const [splitView, setSplitView] = useState(true); // Default to Split View (God Mode)
+    const [splitView, setSplitView] = useState(true);
 
     useEffect(() => {
         fetchAgendaData();
@@ -125,35 +138,47 @@ const GlobalAgenda = () => {
     const techAppointmentsCount = (techId, appointments) => appointments.filter(a => a.technician_id === techId).length;
 
 
-    // --- MAP LOGIC ---
-    // Prepare Route Data per Tech
+    // --- MAP & AI LOGIC ---
+    // Calculates Route Efficiency (ZigZags + Total Distance)
     const routeData = useMemo(() => {
         return techs.map(tech => {
-            // Get appointments sorted by time
             const techAppts = appointments
                 .filter(a => a.technician_id === tech.id)
                 .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
 
-            // Extract coordinates (Simulated or Real)
-            /* 
-               NOTE: In a real app, 'client.current_lat/lng' isn't the ADDRESS location usually, 
-               but the client's live location. We need 'address_lat/lng'. 
-               For GOD MODE simulation, let's assume we have them or derive strictly for visual demo.
-               If null, we skip mapping.
-            */
-            const path = techAppts
-                .map(a => {
-                    // Start simple: Use client.current_lat/lng if available (from Realtime GPS feature)
-                    // Fallback: Random offset from Malaga Center for demo if missing? 
-                    // Better: Check if we have 'lat'/'lng' in address structure.
-                    // Assuming we might have added it. If not, map won't show markers without geocoding.
-                    // Let's use 'current_lat' as proxy or [36.72 + offset, -4.42 + offset]
-                    const lat = a.client?.current_lat || (36.72 + (Math.random() * 0.05 - 0.025));
-                    const lng = a.client?.current_lng || (-4.42 + (Math.random() * 0.05 - 0.025));
-                    return { lat, lng, ...a };
-                });
+            let totalDist = 0;
+            const path = techAppts.map((a, index) => {
+                // Determine Lat/Lng (Simulated for demo if missing)
+                // In real prod, this comes from geocoding 'a.client.address'
+                const lat = a.client?.current_lat || (36.72 + (Math.random() * 0.05 - 0.025));
+                const lng = a.client?.current_lng || (-4.42 + (Math.random() * 0.05 - 0.025));
 
-            return { tech, path, color: getTechColor(tech.id) };
+                return { lat, lng, ...a, index };
+            });
+
+            // Calculate Metrics
+            const badPoints = new Set();
+            for (let i = 0; i < path.length - 1; i++) {
+                const dist = getDistance(path[i].lat, path[i].lng, path[i + 1].lat, path[i + 1].lng);
+                totalDist += dist;
+
+                // Simple "Zig-Zag" heuristic: 
+                // Simplified for Demo: Flag legs > 8km as "Inefficient Alert"
+                if (dist > 8) {
+                    badPoints.add(path[i].id); // Leg start is culprit (or end?)
+                    // Let's flag the destination as "Far Reach"
+                    badPoints.add(path[i + 1].id);
+                }
+            }
+
+            // Efficiency Score (Inverse of avg distance per hop, normalized to 100)
+            const hopCount = Math.max(path.length - 1, 1);
+            const avgHop = totalDist / hopCount;
+            // Assume 2km avg is Perfect (100). 15km avg is Bad (0). 
+            let score = Math.max(0, Math.min(100, 100 - ((avgHop - 2) * 5)));
+            if (path.length === 0) score = 100; // Idle is efficient? Or N/A.
+
+            return { tech, path, color: getTechColor(tech.id), score: Math.round(score), badPoints, totalDist: totalDist.toFixed(1) };
         });
     }, [techs, appointments]);
 
@@ -170,7 +195,6 @@ const GlobalAgenda = () => {
                 </h1>
 
                 <div className="flex items-center gap-4">
-                    {/* Toggle Route Mode (Colors) */}
                     <button
                         onClick={() => setShowRouteMode(!showRouteMode)}
                         className={`flex items-center gap-2 px-3 py-2 rounded-lg font-bold text-sm transition border ${showRouteMode ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-slate-600 border-slate-200'
@@ -179,7 +203,6 @@ const GlobalAgenda = () => {
                         <MapPin size={16} /> CP
                     </button>
 
-                    {/* Toggle Split View */}
                     <button
                         onClick={() => setSplitView(!splitView)}
                         className={`flex items-center gap-2 px-3 py-2 rounded-lg font-bold text-sm transition border ${splitView ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-slate-600 border-slate-200'
@@ -206,42 +229,49 @@ const GlobalAgenda = () => {
                 <div className={`flex-1 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col transition-all ${splitView ? 'w-1/2' : 'w-full'}`}>
                     {/* Header Row (Techs) */}
                     <div className="flex border-b border-slate-200 bg-slate-50 overflow-x-auto hide-scrollbar">
-                        <div className="w-14 border-r border-slate-200 shrink-0"></div> {/* Time Col */}
-                        {techs.map(tech => (
-                            <div key={tech.id} className="flex-1 min-w-[120px] py-2 text-center border-r border-slate-200 last:border-0 font-semibold text-slate-700 px-2 group cursor-pointer hover:bg-blue-50 transition">
-                                <div className="truncate">{tech.full_name.split(' ')[0]}</div>
-                                <div className="text-[10px] text-slate-400 font-normal flex justify-center items-center gap-1">
-                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: getTechColor(tech.id) }}></div>
-                                    {techAppointmentsCount(tech.id, appointments)} citas
+                        <div className="w-14 border-r border-slate-200 shrink-0"></div>
+                        {techs.map(tech => {
+                            const stats = routeData.find(r => r.tech.id === tech.id);
+                            return (
+                                <div key={tech.id} className="flex-1 min-w-[120px] py-2 text-center border-r border-slate-200 last:border-0 font-semibold text-slate-700 px-2 group cursor-pointer hover:bg-blue-50 transition">
+                                    <div className="truncate">{tech.full_name.split(' ')[0]}</div>
+
+                                    {/* Efficiency Score Badge */}
+                                    {stats && stats.path.length > 0 && (
+                                        <div className={`text-[10px] font-bold mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border ${stats.score > 80 ? 'bg-green-100 text-green-700 border-green-200' :
+                                                stats.score > 50 ? 'bg-yellow-100 text-yellow-700 border-yellow-200' :
+                                                    'bg-red-100 text-red-700 border-red-200'
+                                            }`}>
+                                            <TrendingUp size={10} />
+                                            {stats.score}% Eff
+                                        </div>
+                                    )}
+                                    <div className="text-[10px] text-slate-400 font-normal mt-0.5">{techAppointmentsCount(tech.id, appointments)} citas</div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
                     {/* Body (Timeline) */}
                     <div className="flex-1 overflow-y-auto relative bg-slate-50/30">
                         <div className="flex min-h-[1300px]">
-                            {/* Grid Lines */}
                             <div className="absolute inset-0 flex flex-col pointer-events-none w-full">
-                                {hours.map(hour => (
-                                    <div key={hour} className="h-[100px] border-b border-slate-100 w-full"></div>
-                                ))}
+                                {hours.map(hour => (<div key={hour} className="h-[100px] border-b border-slate-100 w-full"></div>))}
                             </div>
-
-                            {/* Time Labels */}
                             <div className="w-14 border-r border-slate-200 shrink-0 bg-white z-10">
-                                {hours.map(hour => (
-                                    <div key={hour} className="h-[100px] text-xs text-slate-400 text-center pt-2">{hour}:00</div>
-                                ))}
+                                {hours.map(hour => (<div key={hour} className="h-[100px] text-xs text-slate-400 text-center pt-2">{hour}:00</div>))}
                             </div>
 
-                            {/* Columns */}
                             {techs.map(tech => (
                                 <div key={tech.id} className="flex-1 min-w-[120px] border-r border-slate-100 relative group">
                                     {appointments.filter(a => a.technician_id === tech.id).map(appt => {
                                         const top = getPosition(appt.scheduled_at);
                                         const cp = getCpFromAppointment(appt);
                                         const styleClass = showRouteMode ? getCpColor(cp) : getStatusColor(appt.appointment_status);
+
+                                        // Is Inefficient?
+                                        const stats = routeData.find(r => r.tech.id === tech.id);
+                                        const isInefficient = stats?.badPoints.has(appt.id);
 
                                         return (
                                             <div
@@ -252,10 +282,14 @@ const GlobalAgenda = () => {
                                             >
                                                 <div className="font-bold flex justify-between">
                                                     <span>{appt.scheduled_at.split('T')[1].slice(0, 5)}</span>
-                                                    {showRouteMode && cp && <span className="opacity-75">{cp}</span>}
+                                                    {isInefficient && (
+                                                        <span className="text-amber-600 bg-amber-100 rounded-full px-1 animate-pulse" title="Ruta Ineficiente">
+                                                            <AlertTriangle size={12} />
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div className="font-medium truncate mt-0.5">{appt.client?.full_name}</div>
-                                                <div className="truncate text-[10px] opacity-75">{appt.appliance_info?.type}</div>
+                                                {showRouteMode && cp && <div className="text-[9px] font-mono opacity-80">{cp}</div>}
                                                 <div className="absolute bottom-1 right-1">{getParamStatusIcon(appt.appointment_status)}</div>
                                             </div>
                                         );
@@ -270,18 +304,15 @@ const GlobalAgenda = () => {
                 {splitView && (
                     <div className="w-1/3 min-w-[400px] bg-slate-100 rounded-xl border border-slate-300 shadow-inner overflow-hidden relative">
                         <MapContainer
-                            center={[36.7213, -4.4214]} // Malaga Center
+                            center={[36.7213, -4.4214]}
                             zoom={12}
                             style={{ height: '100%', width: '100%' }}
                             attributionControl={false}
                         >
                             <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
-
-                            {/* Draw Routes per Tech */}
                             {routeData.map((route, idx) => (
                                 route.path.length > 0 && (
                                     <div key={route.tech.id}>
-                                        {/* Determine color */}
                                         <Polyline
                                             positions={route.path.map(p => [p.lat, p.lng])}
                                             pathOptions={{ color: route.color, weight: 4, opacity: 0.7, dashArray: '5, 10' }}
@@ -294,8 +325,9 @@ const GlobalAgenda = () => {
                                             >
                                                 <Popup className="text-xs font-sans">
                                                     <strong>{stop.scheduled_at.split('T')[1].slice(0, 5)}</strong> <br />
-                                                    Technician: {route.tech.full_name} <br />
-                                                    Client: {stop.client?.full_name}
+                                                    Tech: {route.tech.full_name} <br />
+                                                    Client: {stop.client?.full_name} <br />
+                                                    {route.badPoints.has(stop.id) && <span className="text-red-600 font-bold">⚠️ Ineficiente (+8km)</span>}
                                                 </Popup>
                                             </Marker>
                                         ))}
@@ -304,14 +336,16 @@ const GlobalAgenda = () => {
                             ))}
                         </MapContainer>
                         <div className="absolute top-4 right-4 bg-white/90 backdrop-blur p-2 rounded-lg shadow-md z-[1000] text-xs max-w-[150px]">
-                            <h4 className="font-bold mb-1 border-b pb-1">Técnicos en Ruta</h4>
+                            <h4 className="font-bold mb-1 border-b pb-1">Técnicos</h4>
                             {routeData.filter(r => r.path.length > 0).map(r => (
-                                <div key={r.tech.id} className="flex items-center gap-2 mb-1">
-                                    <div className="w-3 h-3 rounded-full border border-white shadow-sm" style={{ backgroundColor: r.color }}></div>
-                                    <span className="truncate">{r.tech.full_name.split(' ')[0]}</span>
+                                <div key={r.tech.id} className="flex justify-between items-center mb-1">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: r.color }}></div>
+                                        <span className="truncate w-16">{r.tech.full_name.split(' ')[0]}</span>
+                                    </div>
+                                    <span className={`font-bold ${r.score < 50 ? 'text-red-500' : 'text-green-600'}`}>{r.score}%</span>
                                 </div>
                             ))}
-                            {routeData.every(r => r.path.length === 0) && <span className="italic text-slate-400">Sin datos de ruta hoy</span>}
                         </div>
                     </div>
                 )}
