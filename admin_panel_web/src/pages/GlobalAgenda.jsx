@@ -9,6 +9,47 @@ const GlobalAgenda = () => {
     const [loading, setLoading] = useState(true);
     const [showRouteMode, setShowRouteMode] = useState(false);
 
+    useEffect(() => {
+        fetchAgendaData();
+    }, [selectedDate]);
+
+    const fetchAgendaData = async () => {
+        setLoading(true);
+        try {
+            const dateStr = selectedDate.toISOString().split('T')[0];
+
+            // 1. Fetch Techs
+            const { data: techData } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('role', 'tech')
+                .order('full_name');
+            setTechs(techData || []);
+
+            // 2. Fetch Appointments for Date
+            const { data: apptData } = await supabase
+                .from('tickets')
+                .select(`*, client:profiles!client_id(full_name, address)`)
+                .gte('scheduled_at', `${dateStr}T00:00:00`)
+                .lte('scheduled_at', `${dateStr}T23:59:59`)
+                .not('technician_id', 'is', null) // Only assigned
+                .neq('status', 'finalizado'); // Show active
+
+            setAppointments(apptData || []);
+
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const changeDate = (days) => {
+        const newDate = new Date(selectedDate);
+        newDate.setDate(selectedDate.getDate() + days);
+        setSelectedDate(newDate);
+    };
+
     // Helper to generate consistent colors from CP strings
     const getCpColor = (cp) => {
         if (!cp) return 'bg-slate-100 border-slate-200 text-slate-500';
@@ -49,6 +90,21 @@ const GlobalAgenda = () => {
         return null;
     };
 
+    // Helper to position items on a timeline (8am to 8pm)
+    const getPosition = (dateStr) => {
+        const date = new Date(dateStr);
+        const startHour = 8; // 8 AM
+        const pixelsPerHour = 100; // Height of hour block
+        const hour = date.getHours();
+        const minutes = date.getMinutes();
+
+        if (hour < startHour) return 0;
+        return ((hour - startHour) + (minutes / 60)) * pixelsPerHour;
+    };
+
+    const hours = Array.from({ length: 13 }, (_, i) => i + 8); // 8 to 20
+
+    if (loading) return <div className="p-8 text-center text-slate-500">Cargando agenda...</div>;
 
     return (
         <div className="h-[calc(100vh-100px)] flex flex-col">
@@ -64,8 +120,8 @@ const GlobalAgenda = () => {
                     <button
                         onClick={() => setShowRouteMode(!showRouteMode)}
                         className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition border ${showRouteMode
-                            ? 'bg-indigo-600 text-white border-indigo-700 shadow-md ring-2 ring-indigo-200'
-                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                ? 'bg-indigo-600 text-white border-indigo-700 shadow-md ring-2 ring-indigo-200'
+                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                             }`}
                     >
                         <MapPin size={16} />
