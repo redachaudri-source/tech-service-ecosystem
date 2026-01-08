@@ -5,338 +5,297 @@ import {
     PieChart, Pie, Cell, AreaChart, Area, Legend
 } from 'recharts';
 import {
-    TrendingUp, AlertTriangle, MapPin, DollarSign, Award, Clock,
-    Calendar, Filter, ChevronDown, Activity, Zap
+    TrendingUp, Activity, MapPin, Award, Clock,
+    Calendar, Filter, Download, Zap, ChevronRight, DollarSign
 } from 'lucide-react';
+import AnalyticsSidebar from '../components/analytics/AnalyticsSidebar';
+import { generateExecutiveReport } from '../utils/pdfReportGenerator';
 
-// Premium Color Palette
-const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#6366f1'];
-const EMPTY_COLOR = '#e2e8f0';
+const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#6366f1', '#ec4899', '#64748b'];
 
 const Analytics = () => {
     const [loading, setLoading] = useState(true);
-    const [kpiData, setKpiData] = useState(null);
-    const [timeRange, setTimeRange] = useState('30'); // days
+    const [data, setData] = useState(null);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+    // Filters State
+    const [dateRange, setDateRange] = useState('30'); // Quick Select
+    const [filters, setFilters] = useState({
+        techId: null,
+        zoneCp: null,
+        applianceType: null,
+        startDate: null,
+        endDate: null
+    });
 
     useEffect(() => {
-        fetchAnalytics();
-    }, [timeRange]);
+        updateDateFilters();
+    }, [dateRange]);
 
-    const fetchAnalytics = async () => {
+    useEffect(() => {
+        if (filters.startDate) {
+            fetchData();
+        }
+    }, [filters]);
+
+    const updateDateFilters = () => {
+        const end = new Date();
+        const start = new Date();
+        start.setDate(end.getDate() - parseInt(dateRange));
+
+        setFilters(prev => ({
+            ...prev,
+            startDate: start.toISOString(),
+            endDate: end.toISOString()
+        }));
+    };
+
+    const fetchData = async () => {
         setLoading(true);
         try {
-            const endDate = new Date();
-            const startDate = new Date();
-            startDate.setDate(endDate.getDate() - parseInt(timeRange));
-
-            const { data, error } = await supabase.rpc('get_analytics_kpis', {
-                start_date: startDate.toISOString(),
-                end_date: endDate.toISOString()
+            const { data, error } = await supabase.rpc('get_business_intelligence', {
+                p_start_date: filters.startDate,
+                p_end_date: filters.endDate,
+                p_tech_id: filters.techId,
+                p_zone_cp: filters.zoneCp,
+                p_appliance_type: filters.applianceType
             });
 
             if (error) throw error;
-            setKpiData(data);
+            setData(data);
         } catch (err) {
-            console.error("Error fetching analytics:", err);
+            console.error("Analytics Error:", err);
         } finally {
-            // Fake delay for skeleton showcase if needed, but better fast.
-            setTimeout(() => setLoading(false), 500);
+            setLoading(false);
         }
     };
 
-    // Safe Data Accessors (Handle Null/Zeros)
-    const topBrands = kpiData?.top_brands || [];
-    const dailyRhythm = kpiData?.daily_rhythm || [];
-    const techRanking = kpiData?.tech_ranking || [];
-    const heatmap = kpiData?.heatmap || [];
+    const handleExport = () => {
+        if (data) {
+            generateExecutiveReport(data, filters);
+        }
+    };
 
-    const totalVolume = topBrands.reduce((acc, curr) => acc + curr.count, 0);
-    const avgTicket = topBrands.length > 0
-        ? topBrands.reduce((acc, curr) => acc + (curr.avg_ticket * curr.count), 0) / totalVolume
-        : 0;
-    const topBrandName = topBrands[0]?.name || '---';
+    // Safe Accessors
+    const kpis = data?.kpis || {};
+    const marketShare = data?.market_share || [];
+    const seasonality = data?.seasonality || [];
+    const techPerf = data?.tech_performance || [];
+    const hotspots = data?.hot_zones || [];
 
-    // Skeleton Component
-    const SkeletonCard = ({ h = "h-32" }) => (
-        <div className={`bg-white rounded-2xl p-6 shadow-sm border border-slate-100 animate-pulse ${h}`}>
-            <div className="h-4 bg-slate-100 rounded w-1/3 mb-4"></div>
-            <div className="h-8 bg-slate-100 rounded w-1/2"></div>
-        </div>
-    );
+    // Filter Badges Display
+    const activeFiltersCount = [filters.techId, filters.zoneCp, filters.applianceType].filter(Boolean).length;
 
     return (
-        <div className="min-h-screen bg-slate-50/50 pb-20">
-            {/* HEADER SECTION */}
-            <div className="bg-white border-b border-slate-200 sticky top-0 z-20 px-6 py-4 shadow-sm">
-                <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="min-h-screen bg-slate-50/50 pb-20 relative overflow-hidden">
+
+            {/* MAIN CONTENT */}
+            <div className="max-w-7xl mx-auto px-6 py-6 space-y-8">
+
+                {/* 1. HEADER & CONTROLS */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm sticky top-0 z-10">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
-                            <div className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white p-2 rounded-xl shadow-lg shadow-blue-500/30">
-                                <Activity size={24} />
+                        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                            <div className="bg-blue-600 text-white p-2 rounded-lg shadow-blue-200 shadow-lg">
+                                <Activity size={20} />
                             </div>
-                            Centro de Inteligencia
+                            Business Intelligence
                         </h1>
-                        <p className="text-slate-500 text-sm mt-1 ml-1">
-                            Monitorización en tiempo real del rendimiento operativo.
+                        <p className="text-xs text-slate-500 mt-1 ml-1">
+                            {filters.startDate && new Date(filters.startDate).toLocaleDateString()} - {filters.endDate && new Date(filters.endDate).toLocaleDateString()}
                         </p>
                     </div>
 
-                    {/* CONTROLS */}
-                    <div className="flex items-center gap-3 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg shadow-sm border border-slate-100 text-sm font-medium text-slate-700">
-                            <Calendar size={16} className="text-slate-400" />
-                            <select
-                                className="bg-transparent outline-none cursor-pointer hover:text-blue-600 transition-colors"
-                                value={timeRange}
-                                onChange={(e) => setTimeRange(e.target.value)}
-                            >
-                                <option value="7">Últimos 7 días</option>
-                                <option value="30">Últimos 30 días</option>
-                                <option value="90">Último Trimestre</option>
-                                <option value="365">Este Año</option>
-                            </select>
-                            <ChevronDown size={14} className="text-slate-400" />
+                    <div className="flex items-center gap-2">
+                        {/* Quick Date Select */}
+                        <div className="bg-slate-50 p-1 rounded-xl border border-slate-200 flex text-sm font-medium">
+                            {['7', '30', '90', '365'].map(days => (
+                                <button
+                                    key={days}
+                                    onClick={() => setDateRange(days)}
+                                    className={`px-3 py-1.5 rounded-lg transition-all ${dateRange === days ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-800'
+                                        }`}
+                                >
+                                    {days === '365' ? '1A' : `${days}D`}
+                                </button>
+                            ))}
                         </div>
-                        <button className="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-400 hover:text-blue-600">
+
+                        {/* Filter Toggle */}
+                        <button
+                            onClick={() => setIsSidebarOpen(true)}
+                            className={`p-2.5 rounded-xl border transition-all flex items-center gap-2 ${activeFiltersCount > 0
+                                    ? 'bg-blue-50 border-blue-200 text-blue-600 shadow-sm'
+                                    : 'bg-white border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600'
+                                }`}
+                        >
                             <Filter size={18} />
+                            {activeFiltersCount > 0 && (
+                                <span className="bg-blue-600 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold">
+                                    {activeFiltersCount}
+                                </span>
+                            )}
+                        </button>
+
+                        {/* Export Button */}
+                        <button
+                            onClick={handleExport}
+                            className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-slate-200 transition-all flex items-center gap-2"
+                        >
+                            <Download size={16} /> Exportar PDF
                         </button>
                     </div>
                 </div>
-            </div>
 
-            <div className="max-w-7xl mx-auto p-6 space-y-8 animate-in fade-in duration-500">
-
-                {/* 1. KPI CARDS */}
-                {loading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        {[1, 2, 3, 4].map(i => <SkeletonCard key={i} h="h-32" />)}
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        {/* KPI 1: Volume */}
-                        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow group relative overflow-hidden">
-                            <div className="absolute right-0 top-0 w-24 h-24 bg-blue-50 rounded-bl-full -mr-4 -mt-4 opacity-50 group-hover:scale-110 transition-transform" />
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Volumen Total</p>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-black text-slate-800">{totalVolume}</span>
-                                <span className="text-sm font-medium text-slate-400">servicios</span>
+                {/* 2. KPI GRID (Executive Summary) */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {/* Volume */}
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group">
+                        <div className="flex justify-between items-start z-10 relative">
+                            <div>
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Volumen Total</p>
+                                <h3 className="text-3xl font-black text-slate-800 mt-1">{loading ? '...' : kpis.total_volume}</h3>
                             </div>
-                            <div className="mt-4 flex items-center text-xs font-medium text-green-600 bg-green-50 w-fit px-2 py-1 rounded-full">
-                                <TrendingUp size={12} className="mr-1" /> +12% vs mes anterior
-                            </div>
+                            <div className="bg-blue-50 text-blue-600 p-2 rounded-lg"><TrendingUp size={20} /></div>
                         </div>
-
-                        {/* KPI 2: Avg Ticket */}
-                        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow group relative overflow-hidden">
-                            <div className="absolute right-0 top-0 w-24 h-24 bg-emerald-50 rounded-bl-full -mr-4 -mt-4 opacity-50 group-hover:scale-110 transition-transform" />
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Ticket Medio</p>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-black text-slate-800">{Math.round(avgTicket)}€</span>
-                            </div>
-                            <div className="mt-4 flex items-center text-xs font-medium text-slate-500 bg-slate-50 w-fit px-2 py-1 rounded-full">
-                                <Activity size={12} className="mr-1" /> Estable
-                            </div>
-                        </div>
-
-                        {/* KPI 3: Top Brand */}
-                        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow group relative overflow-hidden">
-                            <div className="absolute right-0 top-0 w-24 h-24 bg-purple-50 rounded-bl-full -mr-4 -mt-4 opacity-50 group-hover:scale-110 transition-transform" />
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Marca Líder</p>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-2xl font-black text-slate-800 truncate max-w-[180px]" title={topBrandName}>
-                                    {topBrandName}
-                                </span>
-                            </div>
-                            <div className="mt-4 flex items-center text-xs font-medium text-purple-600 bg-purple-50 w-fit px-2 py-1 rounded-full">
-                                <Award size={12} className="mr-1" /> Muy solicitado
-                            </div>
-                        </div>
-
-                        {/* KPI 4: Peak Day */}
-                        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow group relative overflow-hidden">
-                            <div className="absolute right-0 top-0 w-24 h-24 bg-amber-50 rounded-bl-full -mr-4 -mt-4 opacity-50 group-hover:scale-110 transition-transform" />
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Día Más Activo</p>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-black text-slate-800">
-                                    {dailyRhythm.sort((a, b) => b.count - a.count)[0]?.day_name?.trim() || '---'}
-                                </span>
-                            </div>
-                            <div className="mt-4 flex items-center text-xs font-medium text-amber-600 bg-amber-50 w-fit px-2 py-1 rounded-full">
-                                <Clock size={12} className="mr-1" /> Planificar Refuerzos
-                            </div>
+                        <div className="absolute right-0 bottom-0 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <TrendingUp size={80} />
                         </div>
                     </div>
-                )}
 
-                {/* 2. CHARTS SECTION */}
+                    {/* Revenue */}
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group">
+                        <div className="flex justify-between items-start z-10 relative">
+                            <div>
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Facturación</p>
+                                <h3 className="text-3xl font-black text-slate-800 mt-1">{loading ? '...' : `${kpis.total_revenue}€`}</h3>
+                            </div>
+                            <div className="bg-green-50 text-green-600 p-2 rounded-lg"><DollarSign size={20} /></div>
+                        </div>
+                        <div className="absolute right-0 bottom-0 opacity-10 group-hover:opacity-20 transition-opacity text-green-600">
+                            <DollarSign size={80} />
+                        </div>
+                    </div>
+
+                    {/* Avg Ticket */}
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ticket Medio</p>
+                                <h3 className="text-3xl font-black text-slate-800 mt-1">{loading ? '...' : `${kpis.avg_ticket}€`}</h3>
+                            </div>
+                            <div className="bg-purple-50 text-purple-600 p-2 rounded-lg"><Award size={20} /></div>
+                        </div>
+                        <div className="mt-4 flex items-center gap-1 text-xs font-medium text-slate-400 bg-slate-50 w-fit px-2 py-1 rounded-full">
+                            Tasa Cierre: <span className="text-slate-800">{kpis.completion_rate}%</span>
+                        </div>
+                    </div>
+
+                    {/* Top Zone */}
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Zona Caliente</p>
+                                <h3 className="text-2xl font-black text-slate-800 mt-1 truncate max-w-[140px]">
+                                    {loading ? '...' : (hotspots[0]?.postal_code || '--')}
+                                </h3>
+                            </div>
+                            <div className="bg-red-50 text-red-600 p-2 rounded-lg"><MapPin size={20} /></div>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-2">Mayor volumen de incidencias</p>
+                    </div>
+                </div>
+
+                {/* 3. CHARTS LAYOUT */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                    {/* CHART A: BRAND DISTRIBUTION (THE CIRCLE) */}
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm col-span-1 flex flex-col">
-                        <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-                            <Zap size={18} className="text-amber-500" />
-                            Cuota de Mercado
+                    {/* A. Market Share (Donut) */}
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm col-span-1 lg:col-span-1 flex flex-col">
+                        <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
+                            <Zap size={18} className="text-amber-500" /> Cuota de Mercado
                         </h3>
-                        <div className="flex-1 min-h-[300px] relative flex items-center justify-center">
-                            {loading ? (
-                                <div className="animate-pulse bg-slate-100 rounded-full w-48 h-48"></div>
-                            ) : topBrands.length === 0 ? (
-                                <div className="text-center text-slate-400 text-sm">Sin datos suficientes</div>
-                            ) : (
-                                <ResponsiveContainer width="100%" height={300}>
+                        <div className="flex-1 min-h-[300px] relative">
+                            {loading ? <div className="animate-pulse bg-slate-50 w-full h-full rounded-full" /> : (
+                                <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
                                         <Pie
-                                            data={topBrands}
-                                            innerRadius={80}
-                                            outerRadius={110}
-                                            paddingAngle={5}
-                                            dataKey="count"
-                                            nameKey="name"
-                                            stroke="none"
+                                            data={marketShare}
+                                            innerRadius={60}
+                                            outerRadius={100}
+                                            paddingAngle={4}
+                                            dataKey="value"
                                         >
-                                            {topBrands.map((entry, index) => (
+                                            {marketShare.map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
                                         </Pie>
-                                        <Tooltip
-                                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                            itemStyle={{ color: '#1e293b', fontWeight: 'bold' }}
-                                        />
+                                        <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
                                         <Legend verticalAlign="bottom" height={36} iconType="circle" />
                                     </PieChart>
                                 </ResponsiveContainer>
                             )}
-                            {/* Center Label */}
-                            {!loading && topBrands.length > 0 && (
-                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <div className="text-center">
-                                        <p className="text-xs text-slate-400 uppercase font-bold">Total</p>
-                                        <p className="text-2xl font-black text-slate-800">{totalVolume}</p>
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     </div>
 
-                    {/* CHART B: BRAND WAR (BARS) */}
+                    {/* B. Seasonality (Area) */}
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm col-span-1 lg:col-span-2">
-                        <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-                            <Award size={18} className="text-blue-500" />
-                            Volumen por Marca
+                        <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
+                            <Clock size={18} className="text-blue-500" /> Estacionalidad y Volumen
                         </h3>
-                        <div className="min-h-[300px]">
-                            {loading ? (
-                                <div className="w-full h-full bg-slate-50 animate-pulse rounded-xl"></div>
-                            ) : topBrands.length === 0 ? (
-                                <div className="h-full flex items-center justify-center text-slate-400">Sin datos</div>
-                            ) : (
-                                <ResponsiveContainer width="100%" height={300}>
-                                    <BarChart data={topBrands} margin={{ top: 20, right: 30, left: 0, bottom: 0 }} barSize={40}>
+                        <div className="h-[300px]">
+                            {loading ? <div className="animate-pulse bg-slate-50 w-full h-full rounded-xl" /> : (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={seasonality} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                        <defs>
+                                            <linearGradient id="colorTickets" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
-                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
                                         <Tooltip
-                                            cursor={{ fill: '#f8fafc' }}
                                             contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                            cursor={{ stroke: '#3b82f6', strokeWidth: 1 }}
                                         />
-                                        <Bar dataKey="count" fill="#3b82f6" radius={[6, 6, 0, 0]}>
-                                            {topBrands.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                            ))}
-                                        </Bar>
-                                    </BarChart>
+                                        <Area type="monotone" dataKey="tickets" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorTickets)" />
+                                    </AreaChart>
                                 </ResponsiveContainer>
                             )}
                         </div>
                     </div>
                 </div>
 
-                {/* 3. HEATMAP & RANKING ROW */}
+                {/* 4. ROI & ZONES */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-                    {/* HEATMAP LIST (Design Upgrade) */}
-                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
-                        <div className="p-6 border-b border-slate-50">
-                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                <MapPin size={18} className="text-red-500" />
-                                Zonas de Alta Demanda
-                            </h3>
-                        </div>
-                        <div className="flex-1 overflow-auto max-h-[350px]">
-                            {loading ? (
-                                <div className="p-4 space-y-3">
-                                    {[1, 2, 3].map(i => <div key={i} className="h-10 bg-slate-50 rounded animate-pulse" />)}
-                                </div>
-                            ) : heatmap.length === 0 ? (
-                                <div className="p-10 text-center text-slate-400">No hay datos geográficos</div>
-                            ) : (
-                                <table className="w-full text-sm text-left">
-                                    <thead className="bg-slate-50/50 text-xs text-slate-500 uppercase font-semibold sticky top-0 backdrop-blur-sm">
-                                        <tr>
-                                            <th className="px-6 py-3">C. Postal</th>
-                                            <th className="px-6 py-3 text-right">Incidencias</th>
-                                            <th className="px-6 py-3 text-right">Intensidad</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-50">
-                                        {heatmap.sort((a, b) => b.count - a.count).map((zone, idx) => (
-                                            <tr key={zone.postal_code} className="hover:bg-slate-50/50 transition-colors cursor-default group">
-                                                <td className="px-6 py-4 font-mono font-bold text-slate-700">
-                                                    <span className="bg-slate-100 px-2 py-1 rounded text-slate-600 group-hover:bg-white group-hover:shadow-sm transition-all">
-                                                        {zone.postal_code}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 text-right font-medium text-slate-600">{zone.count}</td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                                                        <div
-                                                            className="h-full bg-gradient-to-r from-orange-300 to-red-500 rounded-full"
-                                                            style={{ width: `${Math.min(100, (zone.count / (heatmap[0]?.count || 1)) * 100)}%` }}
-                                                        />
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* TECH RANKING (Design Upgrade) */}
-                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
-                        <div className="p-6 border-b border-slate-50">
-                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                <Award size={18} className="text-yellow-500" />
-                                Top Performers
-                            </h3>
-                        </div>
-                        <div className="flex-1 overflow-auto max-h-[350px]">
-                            {loading ? (
-                                <div className="p-4 space-y-3">
-                                    {[1, 2, 3].map(i => <div key={i} className="h-12 bg-slate-50 rounded animate-pulse" />)}
-                                </div>
-                            ) : techRanking.length === 0 ? (
-                                <div className="p-10 text-center text-slate-400">Sin ranking disponible</div>
-                            ) : (
-                                <div className="divide-y divide-slate-50">
-                                    {techRanking.map((tech, idx) => (
-                                        <div key={idx} className="p-4 flex items-center justify-between hover:bg-slate-50/50 transition">
-                                            <div className="flex items-center gap-4">
-                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm
-                                                    ${idx === 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-100 text-slate-600'}
-                                                `}>
+                    {/* Tech ROI */}
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
+                            <Award size={18} className="text-purple-500" /> Rentabilidad por Técnico (ROI)
+                        </h3>
+                        <div className="h-[350px] overflow-y-auto pr-2">
+                            {loading ? <div className="space-y-4">{[1, 2, 3].map(i => <div key={i} className="h-12 bg-slate-50 rounded-xl animate-pulse" />)}</div> : (
+                                <div className="space-y-4">
+                                    {techPerf.map((tech, idx) => (
+                                        <div key={idx} className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl transition group">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${idx === 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-100 text-slate-600'}`}>
                                                     {idx + 1}
                                                 </div>
                                                 <div>
-                                                    <p className="font-bold text-slate-800 text-sm">{tech.full_name}</p>
-                                                    <p className="text-xs text-slate-400">{tech.jobs} servicios completados</p>
+                                                    <p className="font-bold text-slate-800 text-sm">{tech.name}</p>
+                                                    <p className="text-xs text-slate-400">{tech.jobs} trabajos</p>
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <p className="font-mono font-bold text-green-600 text-sm">{tech.total_revenue}€</p>
-                                                <div className="w-20 h-1 bg-slate-100 rounded-full mt-1 ml-auto">
-                                                    <div className="h-full bg-green-500 rounded-full" style={{ width: '80%' }}></div>
+                                                <p className="font-bold text-green-600 font-mono text-sm">{tech.revenue}€</p>
+                                                <div className="w-24 h-1.5 bg-slate-100 rounded-full mt-1 ml-auto overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-green-500 rounded-full"
+                                                        style={{ width: `${(tech.revenue / (techPerf[0]?.revenue || 1)) * 100}%` }}
+                                                    />
                                                 </div>
                                             </div>
                                         </div>
@@ -345,28 +304,53 @@ const Analytics = () => {
                             )}
                         </div>
                     </div>
+
+                    {/* Hot Zones Heatmap List */}
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
+                            <MapPin size={18} className="text-red-500" /> Zonas Calientes (CP)
+                        </h3>
+                        <div className="h-[350px] overflow-y-auto">
+                            <table className="w-full text-sm">
+                                <thead className="text-xs text-slate-400 uppercase bg-slate-50 sticky top-0">
+                                    <tr>
+                                        <th className="px-4 py-3 text-left">Zona</th>
+                                        <th className="px-4 py-3 text-right">Volumen</th>
+                                        <th className="px-4 py-3 text-right">Intensidad</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {loading ? <tr><td colSpan="3" className="p-4 text-center">Cargando...</td></tr> : hotspots.map((zone) => (
+                                        <tr key={zone.id} className="hover:bg-slate-50/50">
+                                            <td className="px-4 py-3 font-mono font-bold text-slate-600">{zone.postal_code}</td>
+                                            <td className="px-4 py-3 text-right font-medium">{zone.value}</td>
+                                            <td className="px-4 py-3">
+                                                <div className="h-1.5 bg-slate-100 rounded-full max-w-[100px] ml-auto overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-red-500"
+                                                        style={{ width: `${(zone.value / (hotspots[0]?.value || 1)) * 100}%` }}
+                                                    />
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                 </div>
 
-                {/* AI ALERT COMPONENT */}
-                {!loading && (
-                    <div className="fixed bottom-6 right-6 max-w-sm w-full bg-white rounded-2xl shadow-xl shadow-red-500/10 border border-red-100 p-4 animate-in slide-in-from-bottom-10 fade-in duration-700 flex gap-4">
-                        <div className="bg-red-50 p-3 rounded-full h-fit shrink-0 text-red-500">
-                            <Activity size={20} />
-                        </div>
-                        <div>
-                            <h4 className="font-bold text-slate-800 text-sm">Centinela IA Activo</h4>
-                            <p className="text-xs text-slate-500 mt-1">
-                                Analizando patrones en tiempo real. Se ha detectado una anomalía leve en la zona <strong>29014</strong>.
-                            </p>
-                            <button className="text-xs font-bold text-red-600 mt-2 hover:underline">Ver Reporte</button>
-                        </div>
-                        <button className="absolute top-2 right-2 text-slate-300 hover:text-slate-500">
-                            <ChevronDown size={14} />
-                        </button>
-                    </div>
-                )}
-
             </div>
+
+            {/* SIDEBAR OVERLAY */}
+            <AnalyticsSidebar
+                isOpen={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
+                filters={filters}
+                onFilterChange={setFilters}
+            />
+
         </div>
     );
 };
