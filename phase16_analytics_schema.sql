@@ -21,7 +21,7 @@ DECLARE
     b_id UUID;
     clean_name TEXT;
 BEGIN
-    FOR r IN SELECT id, appliance_brand FROM tickets WHERE brand_id IS NULL AND appliance_brand IS NOT NULL LOOP
+    FOR r IN SELECT id, appliance_info->>'brand' as appliance_brand FROM tickets WHERE brand_id IS NULL AND appliance_info->>'brand' IS NOT NULL LOOP
         -- Simple Normalization: Trim and Proper Case (e.g., " SAMSUNG " -> "Samsung")
         clean_name := INITCAP(TRIM(r.appliance_brand));
         

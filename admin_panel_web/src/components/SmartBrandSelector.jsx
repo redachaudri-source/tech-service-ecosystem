@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Check, ChevronsUpDown, Plus } from 'lucide-react';
-import { Combobox } from '@headlessui/react'; // Ensure headlessui is installed, or build custom
+// import { Combobox } from '@headlessui/react'; // Ensure headlessui is installed, or build custom
 // Wait, I need to check if @headlessui/react is in package.json.
 // If not I will build a custom one to avoid install delays if not necessary.
 // Let's build a robust custom one to be safe and independent.
