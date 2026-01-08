@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { Check, ChevronsUpDown, Plus, Search } from 'lucide-react';
 
 // Simplified version for Client Portal (tailored to client styles if needed, but keeping consistent)
