@@ -1,12 +1,13 @@
--- PHASE 16 PART 2: ANALYTICS GOD MODE RPC (HARDENED V2)
--- Protocol Zero Errors: This function NEVER returns NULL. Always valid JSON.
+-- PHASE 16 PART 2: ANALYTICS GOD MODE RPC (HARDENED V3 - DEEP FILTERING)
+-- Updates: Added p_brand_id for granular filtering.
 
 CREATE OR REPLACE FUNCTION get_business_intelligence(
     p_start_date TIMESTAMP WITH TIME ZONE,
     p_end_date TIMESTAMP WITH TIME ZONE,
     p_tech_id UUID DEFAULT NULL,
     p_zone_cp TEXT DEFAULT NULL,
-    p_appliance_type TEXT DEFAULT NULL
+    p_appliance_type TEXT DEFAULT NULL,
+    p_brand_id UUID DEFAULT NULL -- New Parameter
 )
 RETURNS JSON AS $$
 DECLARE
@@ -34,6 +35,7 @@ BEGIN
             AND (p_tech_id IS NULL OR t.technician_id = p_tech_id)
             AND (p_zone_cp IS NULL OR p_client.postal_code ILIKE p_zone_cp || '%')
             AND (p_appliance_type IS NULL OR t.appliance_info->>'type' = p_appliance_type)
+            AND (p_brand_id IS NULL OR t.brand_id = p_brand_id) -- New Filter
     )
     SELECT json_build_object(
         
