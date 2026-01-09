@@ -1,5 +1,5 @@
--- PHASE 16 PART 2: ANALYTICS GOD MODE RPC (HARDENED V3 - DEEP FILTERING)
--- Updates: Added p_brand_id for granular filtering.
+-- PHASE 16 PART 2: ANALYTICS GOD MODE RPC (HARDENED V4 - FUNNEL REVOLUTION)
+-- Updates: Added status_breakdown for Resolution Funnel.
 
 CREATE OR REPLACE FUNCTION get_business_intelligence(
     p_start_date TIMESTAMP WITH TIME ZONE,
@@ -7,7 +7,7 @@ CREATE OR REPLACE FUNCTION get_business_intelligence(
     p_tech_id UUID DEFAULT NULL,
     p_zone_cp TEXT DEFAULT NULL,
     p_appliance_type TEXT DEFAULT NULL,
-    p_brand_id UUID DEFAULT NULL -- New Parameter
+    p_brand_id UUID DEFAULT NULL
 )
 RETURNS JSON AS $$
 DECLARE
@@ -35,11 +35,11 @@ BEGIN
             AND (p_tech_id IS NULL OR t.technician_id = p_tech_id)
             AND (p_zone_cp IS NULL OR p_client.postal_code ILIKE p_zone_cp || '%')
             AND (p_appliance_type IS NULL OR t.appliance_info->>'type' = p_appliance_type)
-            AND (p_brand_id IS NULL OR t.brand_id = p_brand_id) -- New Filter
+            AND (p_brand_id IS NULL OR t.brand_id = p_brand_id)
     )
     SELECT json_build_object(
         
-        -- 1. HEADLINE KPIs (Default to 0)
+        -- 1. HEADLINE KPIs
         'kpis', (
             SELECT COALESCE(
                 json_build_object(
@@ -56,7 +56,7 @@ BEGIN
             FROM filtered_data
         ),
 
-        -- 2. MARKET SHARE (Default to Empty Array)
+        -- 2. MARKET SHARE
         'market_share', (
             SELECT COALESCE(
                 json_agg(x), '[]'::json
@@ -71,7 +71,7 @@ BEGIN
             ) x
         ),
 
-        -- 3. SEASONALITY (Default to Empty Array)
+        -- 3. SEASONALITY
         'seasonality', (
             SELECT COALESCE(
                 json_agg(x), '[]'::json
@@ -104,7 +104,7 @@ BEGIN
             ) x
         ),
 
-        -- 5. HOT ZONES
+        -- 5. HOT ZONES (VISUAL DENSITY READY)
         'hot_zones', (
             SELECT COALESCE(
                 json_agg(x), '[]'::json
@@ -119,12 +119,26 @@ BEGIN
             ) x
         ),
 
-        -- 6. TOP FAULT (New Requirement)
+        -- 6. TOP FAULT
         'top_fault', (
              SELECT COALESCE(
                 (SELECT appliance_type FROM filtered_data GROUP BY appliance_type ORDER BY COUNT(*) DESC LIMIT 1),
                 'N/A'
              )
+        ),
+
+        -- 7. STATUS BREAKDOWN (RESOLUTION FUNNEL) -- NEW
+        'status_breakdown', (
+            SELECT COALESCE(
+                json_agg(x), '[]'::json
+            ) FROM (
+                SELECT 
+                    status,
+                    COUNT(*) as count
+                FROM filtered_data
+                GROUP BY status
+                ORDER BY count DESC
+            ) x
         )
 
     ) INTO result;
