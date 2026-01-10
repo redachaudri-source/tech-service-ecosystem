@@ -186,7 +186,7 @@ const FilterItem = ({ label, isActive, onClick }) => (
 );
 
 // 2. VISUALIZATION CANVAS (Persistent Header Layout)
-const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode, setViewMode, activeConcept }) => {
+const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode, setViewMode, activeConcept, rpcError }) => {
 
     // Date Presets
     const applyPreset = (months) => {
@@ -537,6 +537,7 @@ const AnalyticsContainer = () => {
                     dateRange={dateRange} setDateRange={setDateRange}
                     viewMode={viewMode} setViewMode={setViewMode}
                     activeConcept={activeConcept}
+                    rpcError={rpcError}
                 />
             </div>
         </div>
