@@ -12,13 +12,13 @@ const AVAILABLE_SHORTCUTS = [
     { id: 'new_service', label: 'Nuevo Servicio', icon: Wrench, path: '/services/new', color: 'bg-blue-600' },
     { id: 'agenda_today', label: 'Agenda Hoy', icon: Calendar, path: '/agenda', color: 'bg-indigo-600' },
     { id: 'clients', label: 'Clientes', icon: Users, path: '/clients', color: 'bg-emerald-600' },
-    { id: 'stock', label: 'Consultar Stock', icon: Package, path: '/materials', color: 'bg-amber-600' },
+    { id: 'stock', label: 'REPUESTOS PENDIENTES', icon: Package, path: '/materials', color: 'bg-amber-600' },
     { id: 'billing', label: 'Facturación', icon: FileText, path: '/analytics', color: 'bg-slate-700' },
     { id: 'team', label: 'Equipo Técnico', icon: Users, path: '/team', color: 'bg-pink-600' },
     { id: 'budgets', label: 'Presupuestos', icon: FileText, path: '/budgets', color: 'bg-cyan-600' },
 ];
 
-const DEFAULT_SHORTCUTS = ['new_service', 'agenda_today', 'stock', 'billing'];
+const DEFAULT_SHORTCUTS = ['new_service', 'agenda_today', 'stock'];
 
 // --- COMPONENTS ---
 
@@ -103,6 +103,7 @@ const DashboardHome = () => {
     const navigate = useNavigate();
     const [stats, setStats] = useState({ todayServices: 0, monthlyIncome: 0, topTech: 'N/A', activeServices: 0 });
     const [chartData, setChartData] = useState([]);
+    const [alerts, setAlerts] = useState([]);
 
     // Shortcut State (Persist in LocalStorage would be ideal, using State for now)
     const [myShortcuts, setMyShortcuts] = useState(() => {
@@ -122,11 +123,64 @@ const DashboardHome = () => {
 
     useEffect(() => {
         fetchDashboardData();
+        fetchAlerts();
+
         const channel = supabase.channel('dashboard_stats_v3')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => fetchDashboardData())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
+                fetchDashboardData();
+                fetchAlerts();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items' }, () => {
+                fetchAlerts();
+            })
             .subscribe();
         return () => { supabase.removeChannel(channel); };
     }, []);
+
+    const fetchAlerts = async () => {
+        const newAlerts = [];
+
+        // 1. Check Low Stock
+        const { data: lowStock } = await supabase
+            .from('inventory_items') // Assuming table name based on context
+            .select('name, quantity, min_quantity')
+            .limit(3); // Limit initial fetch, then filter
+
+        // Filter strictly in JS to be safe if `min_quantity` comparison is tricky in simple select
+        lowStock?.forEach(item => {
+            if (item.quantity < (item.min_quantity || 5)) { // Default min_quantity to 5 if not set
+                newAlerts.push({
+                    type: 'stock',
+                    title: `Stock Bajo: ${item.name}`,
+                    desc: `Quedan ${item.quantity} unidades (Min: ${item.min_quantity || 5})`,
+                    color: 'bg-red-500'
+                });
+            }
+        });
+
+        // 2. Check Delayed Tickets (Yesterday or before)
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        yesterday.setHours(23, 59, 59, 999);
+
+        const { data: delayed } = await supabase
+            .from('tickets')
+            .select('ticket_id, title, status, created_at') // using created_at as proxy for scheduled if not available, OR check if 'scheduled_date' exists
+            .in('status', ['pendiente', 'en_proceso', 'asignado'])
+            .lt('created_at', yesterday.toISOString()) // Tickets created before yesterday and still open
+            .limit(3);
+
+        delayed?.forEach(t => {
+            newAlerts.push({
+                type: 'delay',
+                title: `Retraso: Ticket #${t.ticket_id.slice(0, 6)}`,
+                desc: `${t.title || 'Servicio'} lleva abierto más de 24h.`,
+                color: 'bg-amber-500'
+            });
+        });
+
+        setAlerts(newAlerts);
+    };
 
     const fetchDashboardData = async () => {
         const now = new Date();
@@ -238,33 +292,25 @@ const DashboardHome = () => {
                     </div>
                 </div>
 
-                {/* Notifications / Mini Feed (Placeholder for Density) */}
+                {/* Notifications / Mini Feed */}
                 <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col">
                     <h2 className="text-xs font-bold text-slate-700 uppercase mb-4">Avisos Recientes</h2>
-                    <div className="flex-1 space-y-3">
-                        <div className="flex gap-3 items-start p-2 hover:bg-slate-50 rounded transition-colors">
-                            <div className="mt-1 w-2 h-2 rounded-full bg-red-500 shrink-0" />
-                            <div>
-                                <p className="text-xs font-bold text-slate-700">Stock Bajo: Resistencias</p>
-                                <p className="text-[10px] text-slate-500">Quedan menos de 5 unidades.</p>
+                    <div className="flex-1 space-y-3 overflow-y-auto max-h-[250px] pr-2">
+                        {alerts.length > 0 ? alerts.map((alert, idx) => (
+                            <div key={idx} className="flex gap-3 items-start p-2 hover:bg-slate-50 rounded transition-colors border-b border-slate-200 last:border-0">
+                                <div className={`mt-1 w-2 h-2 rounded-full ${alert.color} shrink-0`} />
+                                <div>
+                                    <p className="text-xs font-bold text-slate-700">{alert.title}</p>
+                                    <p className="text-[10px] text-slate-500 leading-tight">{alert.desc}</p>
+                                </div>
                             </div>
-                        </div>
-                        <div className="flex gap-3 items-start p-2 hover:bg-slate-50 rounded transition-colors">
-                            <div className="mt-1 w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-                            <div>
-                                <p className="text-xs font-bold text-slate-700">Retraso en Servicio #1024</p>
-                                <p className="text-[10px] text-slate-500">Tecnico reporta tráfico denso.</p>
+                        )) : (
+                            <div className="text-center py-8 text-slate-400 text-xs">
+                                Todo en orden. No hay alertas.
                             </div>
-                        </div>
-                        <div className="flex gap-3 items-start p-2 hover:bg-slate-50 rounded transition-colors">
-                            <div className="mt-1 w-2 h-2 rounded-full bg-blue-500 shrink-0" />
-                            <div>
-                                <p className="text-xs font-bold text-slate-700">Nueva Reseña 5 Estrellas</p>
-                                <p className="text-[10px] text-slate-500">Cliente satisfecho en zona Centro.</p>
-                            </div>
-                        </div>
+                        )}
                     </div>
-                    <button className="mt-auto w-full py-2 text-[10px] font-bold text-slate-500 hover:bg-slate-50 rounded">Ver Todo</button>
+                    {/* <button className="mt-auto w-full py-2 text-[10px] font-bold text-slate-500 hover:bg-slate-50 rounded">Ver Todo</button> */}
                 </div>
             </div>
 
