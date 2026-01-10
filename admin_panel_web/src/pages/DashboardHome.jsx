@@ -141,11 +141,12 @@ const DashboardHome = () => {
     const fetchAlerts = async () => {
         const newAlerts = [];
 
-        // 0. PRIORITY: Check Web Requests (status = 'request' OR 'solicitado')
+        // 0. PRIORITY: Check Web Requests
         const { count: requestsCount } = await supabase
             .from('tickets')
             .select('*', { count: 'exact', head: true })
-            .in('status', ['request', 'solicitado', 'pendiente_aceptacion']); // Broad check
+            .in('status', ['request', 'solicitado', 'pendiente_aceptacion']);
+        // DEBUG: If you see the border but no alert, it means this query returns 0.
 
         setWebRequests(requestsCount || 0);
 
@@ -232,20 +233,21 @@ const DashboardHome = () => {
     };
 
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        // DEBUG BORDER ADDED HERE
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 border-4 border-red-500 m-4 p-4 rounded-xl">
             {/* Header */}
             <div className="flex justify-between items-end">
                 <div>
-                    <h1 className="text-2xl font-black text-slate-800 tracking-tight">Mi Escritorio</h1>
-                    <p className="text-xs text-slate-500 font-medium">Resumen de actividad en tiempo real</p>
+                    <h1 className="text-2xl font-black text-slate-800 tracking-tight">Mi Escritorio (+Debug Mode)</h1>
+                    <p className="text-xs text-slate-500 font-medium">Si ves el borde rojo, el código se ha actualizado. Si no, limpia caché.</p>
                 </div>
                 <div className="hidden sm:block text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded">
                     {new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                 </div>
             </div>
 
-            {/* PRIORITY ALERT BANNER (New Feature) */}
-            {webRequests > 0 && (
+            {/* DEBUG: Force Show Alert if count is 0 just to see component */}
+            {(webRequests > 0 || true) && (
                 <div
                     onClick={() => navigate('/services')}
                     className="cursor-pointer group relative overflow-hidden bg-gradient-to-r from-orange-500 to-red-500 rounded-xl p-4 shadow-lg shadow-orange-900/20 hover:shadow-orange-900/30 transition-all transform hover:-translate-y-1"
@@ -259,8 +261,12 @@ const DashboardHome = () => {
                                 <BellRing size={24} className="text-white" />
                             </div>
                             <div>
-                                <h3 className="text-white font-bold text-lg leading-tight">Tienes {webRequests} Solicitudes Web</h3>
-                                <p className="text-orange-100 text-xs font-medium">Clientes esperando confirmación de servicio.</p>
+                                <h3 className="text-white font-bold text-lg leading-tight">
+                                    {webRequests > 0 ? `Tienes ${webRequests} Solicitudes Web` : 'Modo Prueba: Alerta Visible'}
+                                </h3>
+                                <p className="text-orange-100 text-xs font-medium">
+                                    {webRequests > 0 ? 'Clientes esperando confirmación de servicio.' : 'No hay solicitudes reales, pero el aviso funciona.'}
+                                </p>
                             </div>
                         </div>
                         <button className="bg-white text-orange-600 px-4 py-2 rounded-lg text-xs font-black shadow-sm flex items-center gap-2 group-hover:bg-orange-50 transition-colors">
