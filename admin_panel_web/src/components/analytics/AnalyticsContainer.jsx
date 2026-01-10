@@ -5,7 +5,7 @@ import { es } from 'date-fns/locale';
 import {
     LayoutGrid, Monitor, User, Map, ChevronRight, ChevronLeft, ChevronDown, ChevronUp,
     Download, Calendar as CalendarIcon, Filter, Layers, Tag as TagIcon,
-    PieChart, BarChart, Activity, Smartphone, HelpCircle, Search, X
+    PieChart, BarChart, Activity, Smartphone, HelpCircle, Search, X, Menu
 } from 'lucide-react';
 import {
     ResponsiveContainer, PieChart as RePie, Pie, Cell,
@@ -437,7 +437,7 @@ const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode,
     const [showMap, setShowMap] = useState(false);
 
     // Header import for Menu
-    const { Menu } = require('lucide-react'); // Ideally import at top, but for replacing block safely
+    // Removed require, imported at top
 
     return (
         <div className="flex flex-col h-full bg-slate-50 overflow-hidden">
