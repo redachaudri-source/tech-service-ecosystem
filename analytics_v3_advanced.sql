@@ -70,10 +70,21 @@ BEGIN
         FROM filtered_tickets
         GROUP BY appliance_type
         ORDER BY revenue DESC
+    ),
+    -- 3. Cross Reference (Brand + Type)
+    cross_reference AS (
+        SELECT 
+            (appliance_type || ' - ' || brand_name) as name,
+            COUNT(*) as value,
+            COALESCE(SUM(total_amount), 0) as revenue,
+            CASE WHEN COUNT(*) = 0 THEN 0 ELSE ROUND(SUM(total_amount) / COUNT(*), 2) END as avg_ticket
+        FROM filtered_tickets
+        GROUP BY appliance_type, brand_name
+        ORDER BY value DESC
     )
     SELECT json_build_object(
         'debug_diagnostics', (SELECT json_build_object(
-            'version', 'V3 MULTI-SELECT',
+            'version', 'V3.1 CROSS-REF',
             'ticket_count', (SELECT COUNT(*) FROM filtered_tickets),
             'filters', json_build_object('brands', p_brand_ids, 'types', p_appliance_types)
         )),
@@ -92,6 +103,9 @@ BEGIN
         'type_share', (
             SELECT COALESCE(json_agg(x), '[]'::json) 
             FROM (SELECT appliance_type as name, COUNT(*) as value FROM filtered_tickets GROUP BY appliance_type ORDER BY value DESC LIMIT 10) x
+        ),
+        'cross_reference', ( -- NEW FIELD
+            SELECT COALESCE(json_agg(x), '[]'::json) FROM cross_reference x
         ),
         'profitability_by_type', (
             SELECT COALESCE(json_agg(x), '[]'::json) FROM type_profitability x
