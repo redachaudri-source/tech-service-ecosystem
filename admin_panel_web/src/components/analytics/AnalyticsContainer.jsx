@@ -349,6 +349,15 @@ const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode,
                     </div>
                 )}
             </div>
+
+            {/* --- DEBUG OVERLAY (TEMPORARY) --- */}
+            <div className="bg-black text-green-400 p-4 text-xs font-mono overflow-auto h-32 border-t border-slate-700 shrink-0">
+                <strong>DEBUG RPC RAW RESPONSE:</strong>
+                <pre>{JSON.stringify(data.client_adoption || 'No Client Data', null, 2)}</pre>
+                <hr className="border-slate-700 my-2" />
+                <strong>FULL RPC:</strong>
+                <pre>{JSON.stringify(data, null, 2)}</pre>
+            </div>
         </div>
     );
 };
