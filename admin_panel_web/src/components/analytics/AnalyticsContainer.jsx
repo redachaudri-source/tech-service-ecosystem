@@ -297,36 +297,84 @@ const Navigator = ({ collapsed, setCollapsed, activeConcept, onSelect, filters, 
 // --- VISUALIZATION CANVAS (Unchanged mostly, just cleaner) ---
 // ... (Keeping logic for Chart selection)
 
-// --- GEO MAP (Unchanged) ---
-const GeoMap = ({ data, metric = 'volume' }) => {
-    const position = [36.7213, -4.4214];
-    const markers = data.map(d => {
-        const offsetLat = (Math.random() - 0.5) * 0.05;
-        const offsetLng = (Math.random() - 0.5) * 0.05;
-        return { ...d, lat: 36.7213 + offsetLat, lng: -4.4214 + offsetLng };
-    });
-    const maxVal = Math.max(...data.map(d => metric === 'revenue' ? (d.revenue || 0) : d.value));
+// --- MAP COMPONENT (Heatmap Style) ---
+const GeoMap = ({ data, metric }) => {
+    // Fixed Center for Malaga
+    const CENTER = [36.7213, -4.4214];
+    const ZOOM = 10;
+
+    const getColor = (val) => {
+        if (val >= 15) return '#ef4444'; // Red (Hot)
+        if (val >= 5) return '#eab308';  // Yellow (Medium)
+        return '#22c55e';                // Green (Low)
+    };
+
+    const getRadius = (val) => {
+        // Logarithmic scale for radius density feel
+        return Math.min(20, 10 + Math.log(val || 1) * 3);
+    };
 
     return (
-        <div className="h-full w-full rounded-xl overflow-hidden relative z-0 group">
-            <MapContainer center={position} zoom={11} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
-                <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" attribution='&copy; OpenStreetMap' />
-                {markers.map((marker, idx) => {
-                    const val = metric === 'revenue' ? (marker.revenue || 0) : marker.value;
-                    const radius = 5 + (val / (maxVal || 1)) * 20;
-                    const color = metric === 'revenue' ? '#10b981' : '#3b82f6';
+        <div className="h-full w-full rounded-xl overflow-hidden relative border border-slate-200 group">
+            <MapContainer center={CENTER} zoom={ZOOM} style={{ height: '100%', width: '100%' }}>
+                <TileLayer
+                    url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                />
+                {data.map((zone, idx) => {
+                    // Mock coordinates based on CP hash
+                    const pseudoRandom = (str) => {
+                        let hash = 0;
+                        for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+                        return hash;
+                    };
+                    const offsetLat = (pseudoRandom(zone.postal_code || '0') % 100) / 400;
+                    const offsetLng = (pseudoRandom((zone.postal_code || '0') + 'X') % 100) / 400;
+
+                    const lat = CENTER[0] + offsetLat;
+                    const lng = CENTER[1] + offsetLng;
+
+                    const val = metric === 'revenue' ? zone.revenue / 100 : zone.value;
+                    const rawVal = metric === 'revenue' ? zone.revenue : zone.value;
+                    const displayVal = metric === 'revenue' ? `${zone.revenue}€` : `${zone.value} Jobs`;
+
                     return (
-                        <CircleMarker key={idx} center={[marker.lat, marker.lng]} radius={radius} pathOptions={{ color: color, fillColor: color, fillOpacity: 0.6, stroke: false }}>
-                            <MapTooltip>
-                                <div className="text-xs font-bold">{marker.postal_code}</div>
-                                <div className="text-xs">{metric === 'revenue' ? `${val} €` : `${val} Tickets`}</div>
+                        <CircleMarker
+                            key={idx}
+                            center={[lat, lng]}
+                            radius={getRadius(metric === 'revenue' ? zone.value : zone.value)}
+                            pathOptions={{
+                                fillColor: getColor(metric === 'revenue' ? (zone.value * 5) : zone.value),
+                                color: getColor(metric === 'revenue' ? (zone.value * 5) : zone.value),
+                                weight: 0,
+                                fillOpacity: 0.6
+                            }}
+                        >
+                            <MapTooltip direction="top" offset={[0, -10]} opacity={1}>
+                                <div className="text-xs font-bold bg-white text-slate-800 p-1 rounded shadow-sm">
+                                    CP: {zone.postal_code} <br /> <span className="text-blue-600">{displayVal}</span>
+                                </div>
                             </MapTooltip>
                         </CircleMarker>
                     );
                 })}
             </MapContainer>
-            <div className="absolute top-2 right-2 z-[400] bg-white/90 backdrop-blur p-1 rounded-lg border border-slate-200 shadow-sm text-[10px] font-bold">
-                {metric === 'revenue' ? '🔥 Facturación (€)' : '🔥 Volumen (Tickets)'}
+
+            {/* HEATMAP LEGEND */}
+            <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm p-3 rounded-lg border border-slate-200 shadow-lg text-[10px] space-y-2 z-[1000]">
+                <h4 className="font-bold text-slate-700 uppercase mb-1">Densidad de Actividad</h4>
+                <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-red-500 shadow-sm shadow-red-200"></div>
+                    <span className="text-slate-600 font-medium">Zona Caliente (+15)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-yellow-500 shadow-sm shadow-yellow-200"></div>
+                    <span className="text-slate-600 font-medium">Media (5-15)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500 shadow-sm shadow-green-200"></div>
+                    <span className="text-slate-600 font-medium">Baja (1-5)</span>
+                </div>
             </div>
         </div>
     );
@@ -435,9 +483,6 @@ const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode,
 
     const showMapToggle = activeConcept !== 'adoption';
     const [showMap, setShowMap] = useState(false);
-
-    // Header import for Menu
-    // Removed require, imported at top
 
     return (
         <div className="flex flex-col h-full bg-slate-50 overflow-hidden">
