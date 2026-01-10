@@ -13,6 +13,7 @@ import {
     LineChart as ReLine, Line, CartesianGrid, AreaChart, Area
 } from 'recharts';
 import { generateExecutiveReport } from '../../utils/pdfReportGenerator';
+import ReportBuilderModal from './ReportBuilderModal';
 
 import { MapContainer, TileLayer, CircleMarker, Tooltip as MapTooltip } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -707,8 +708,22 @@ const AnalyticsContainer = () => {
         fetchData();
     }, [activeConcept, filters, dateRange]);
 
+    const [showReportModal, setShowReportModal] = useState(false);
+
     return (
         <div className="h-screen bg-slate-50 flex overflow-hidden font-sans">
+            <ReportBuilderModal
+                isOpen={showReportModal}
+                onClose={() => setShowReportModal(false)}
+                currentRange={dateRange}
+                onGenerate={(config) => {
+                    generateExecutiveReport(data, {
+                        startDate: config.overrideDate ? config.startDate : dateRange.start,
+                        endDate: config.overrideDate ? config.endDate : dateRange.end
+                    }, config);
+                    setShowReportModal(false);
+                }}
+            />
             <Navigator
                 collapsed={collapsed} setCollapsed={setCollapsed}
                 isMobileOpen={isMobileOpen} setIsMobileOpen={setIsMobileOpen}
