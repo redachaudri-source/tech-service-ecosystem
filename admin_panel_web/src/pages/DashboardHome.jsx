@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import {
     Users, DollarSign, Wrench, AlertTriangle, Star, Plus, X,
-    Calendar, Package, FileText, CheckCircle, Clock, Zap
+    Calendar, Package, FileText, CheckCircle, Clock, Zap, BellRing, ArrowRight
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -104,8 +104,9 @@ const DashboardHome = () => {
     const [stats, setStats] = useState({ todayServices: 0, monthlyIncome: 0, topTech: 'N/A', activeServices: 0 });
     const [chartData, setChartData] = useState([]);
     const [alerts, setAlerts] = useState([]);
+    const [webRequests, setWebRequests] = useState(0);
 
-    // Shortcut State (Persist in LocalStorage would be ideal, using State for now)
+    // Shortcut State
     const [myShortcuts, setMyShortcuts] = useState(() => {
         const saved = localStorage.getItem('dashboard_shortcuts');
         return saved ? JSON.parse(saved) : DEFAULT_SHORTCUTS;
@@ -140,15 +141,22 @@ const DashboardHome = () => {
     const fetchAlerts = async () => {
         const newAlerts = [];
 
+        // 0. PRIORITY: Check Web Requests (status = 'request' OR 'solicitado')
+        const { count: requestsCount } = await supabase
+            .from('tickets')
+            .select('*', { count: 'exact', head: true })
+            .in('status', ['request', 'solicitado', 'pendiente_aceptacion']); // Broad check
+
+        setWebRequests(requestsCount || 0);
+
         // 1. Check Low Stock
         const { data: lowStock } = await supabase
-            .from('inventory_items') // Assuming table name based on context
+            .from('inventory_items')
             .select('name, quantity, min_quantity')
-            .limit(3); // Limit initial fetch, then filter
+            .limit(5);
 
-        // Filter strictly in JS to be safe if `min_quantity` comparison is tricky in simple select
         lowStock?.forEach(item => {
-            if (item.quantity < (item.min_quantity || 5)) { // Default min_quantity to 5 if not set
+            if (item.quantity < (item.min_quantity || 5)) {
                 newAlerts.push({
                     type: 'stock',
                     title: `Stock Bajo: ${item.name}`,
@@ -158,16 +166,16 @@ const DashboardHome = () => {
             }
         });
 
-        // 2. Check Delayed Tickets (Yesterday or before)
+        // 2. Check Delayed Tickets
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
         yesterday.setHours(23, 59, 59, 999);
 
         const { data: delayed } = await supabase
             .from('tickets')
-            .select('ticket_id, title, status, created_at') // using created_at as proxy for scheduled if not available, OR check if 'scheduled_date' exists
+            .select('ticket_id, title, status, created_at')
             .in('status', ['pendiente', 'en_proceso', 'asignado'])
-            .lt('created_at', yesterday.toISOString()) // Tickets created before yesterday and still open
+            .lt('created_at', yesterday.toISOString())
             .limit(3);
 
         delayed?.forEach(t => {
@@ -217,7 +225,7 @@ const DashboardHome = () => {
         setStats({
             todayServices: today.count || 0,
             monthlyIncome: totalIncome,
-            topTech: 'N/A', // Deprecated for compactness or move to detailed view
+            topTech: 'N/A',
             activeServices: active.count || 0
         });
         setChartData(Object.keys(daysMap).reverse().map(k => ({ name: k, services: daysMap[k] })));
@@ -235,6 +243,32 @@ const DashboardHome = () => {
                     {new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                 </div>
             </div>
+
+            {/* PRIORITY ALERT BANNER (New Feature) */}
+            {webRequests > 0 && (
+                <div
+                    onClick={() => navigate('/services')}
+                    className="cursor-pointer group relative overflow-hidden bg-gradient-to-r from-orange-500 to-red-500 rounded-xl p-4 shadow-lg shadow-orange-900/20 hover:shadow-orange-900/30 transition-all transform hover:-translate-y-1"
+                >
+                    <div className="absolute top-0 right-0 p-4 opacity-10">
+                        <BellRing size={80} className="text-white" />
+                    </div>
+                    <div className="relative z-10 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="bg-white/20 p-2.5 rounded-lg backdrop-blur-sm animate-pulse">
+                                <BellRing size={24} className="text-white" />
+                            </div>
+                            <div>
+                                <h3 className="text-white font-bold text-lg leading-tight">Tienes {webRequests} Solicitudes Web</h3>
+                                <p className="text-orange-100 text-xs font-medium">Clientes esperando confirmación de servicio.</p>
+                            </div>
+                        </div>
+                        <button className="bg-white text-orange-600 px-4 py-2 rounded-lg text-xs font-black shadow-sm flex items-center gap-2 group-hover:bg-orange-50 transition-colors">
+                            REVISAR AHORA <ArrowRight size={14} />
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Compact KPIs */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
@@ -310,7 +344,6 @@ const DashboardHome = () => {
                             </div>
                         )}
                     </div>
-                    {/* <button className="mt-auto w-full py-2 text-[10px] font-bold text-slate-500 hover:bg-slate-50 rounded">Ver Todo</button> */}
                 </div>
             </div>
 

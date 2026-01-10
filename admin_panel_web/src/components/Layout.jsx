@@ -69,7 +69,7 @@ const Layout = () => {
         const { count } = await supabase
             .from('tickets')
             .select('*', { count: 'exact', head: true })
-            .in('status', ['request', 'pendiente']); // Unassigned or requests
+            .in('status', ['request', 'solicitado', 'pendiente_aceptacion', 'pendiente']); // Robust check
 
         setNotifications({ services: count || 0 });
     };
