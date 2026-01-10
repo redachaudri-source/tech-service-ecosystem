@@ -37,7 +37,6 @@ function App() {
             <AuthProvider>
                 <ToastProvider>
                     <BrowserRouter>
-// ... rest of code
                         <Routes>
                             {/* Admin Routes */}
                             <Route path="/login" element={<Login />} />

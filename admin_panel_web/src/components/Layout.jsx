@@ -150,7 +150,7 @@ const Layout = () => {
                         </div>
                         <div>
                             <h1 className="text-xs font-black text-slate-100 tracking-tight leading-none uppercase">AdminPanel</h1>
-                            <p className="text-[9px] font-bold text-blue-500 mt-0.5">V4.2.0 PRO (+Debug)</p>
+                            <p className="text-[9px] font-bold text-blue-500 mt-0.5">V4.2.0 PRO</p>
                         </div>
                     </div>
                     {/* Close button for mobile */}
