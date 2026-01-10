@@ -140,7 +140,35 @@ export const generateExecutiveReport = (data, filters) => {
                 head: [['Electrodoméstico', 'Volumen', 'Facturación', 'Ticket Medio']],
                 body: profitRows,
                 theme: 'grid',
-                headStyles: { fillColor: [220, 38, 38] }, // Red Header
+                headStyles: { fillColor: [220, 38, 68] }, // Red Header
+                margin: { left: 20 }
+            });
+
+            yPos = doc.lastAutoTable.finalY + 15;
+        }
+
+        // 6. CROSS REFERENCE (Brand + Type)
+        if (data.cross_reference && data.cross_reference.length > 0) {
+            if (yPos > 240) { doc.addPage(); yPos = 20; }
+
+            doc.setFontSize(14);
+            doc.setTextColor(59, 130, 246); // Blue
+            doc.text("6. Desglose Cruzado (Marca + Tipo)", 20, yPos);
+            yPos += 5;
+
+            const crossRows = data.cross_reference.map(c => [
+                c.name,
+                c.value,
+                `${c.revenue} €`,
+                `${c.avg_ticket} €`
+            ]);
+
+            autoTable(doc, {
+                startY: yPos,
+                head: [['Concepto', 'Volumen', 'Facturación', 'Ticket Medio']],
+                body: crossRows,
+                theme: 'striped',
+                headStyles: { fillColor: [59, 130, 246] },
                 margin: { left: 20 }
             });
         }

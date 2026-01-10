@@ -5,7 +5,7 @@ import { es } from 'date-fns/locale';
 import {
     LayoutGrid, Monitor, User, Map, ChevronRight, ChevronLeft,
     Download, Calendar as CalendarIcon, Filter, Layers, Tag as TagIcon,
-    PieChart, BarChart, Activity, Smartphone
+    PieChart, BarChart, Activity, Smartphone, HelpCircle
 } from 'lucide-react';
 import {
     ResponsiveContainer, PieChart as RePie, Pie, Cell,
@@ -19,10 +19,22 @@ import 'leaflet/dist/leaflet.css';
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#6366f1', '#ec4899', '#64748b'];
 
+// --- TOOLTIP COMPONENT ---
+const FieldTooltip = ({ text }) => (
+    <div className="group relative ml-2 inline-flex">
+        <HelpCircle size={12} className="text-slate-400 cursor-help hover:text-blue-500 transition-colors" />
+        <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 w-48 bg-slate-800 text-white text-[10px] p-2 rounded shadow-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+            {text}
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 -ml-1 border-4 border-transparent border-r-slate-800" />
+        </div>
+    </div>
+);
+
 const EMPTY_DATA = {
     kpis: { total_volume: 0, total_revenue: 0, avg_ticket: 0, completion_rate: 0 },
     market_share: [],
     type_share: [],
+    cross_reference: [], // New field for cross-reference data
     proficiency: [], // V3 might return this
     seasonality: [],
     hot_zones: [],
@@ -67,7 +79,6 @@ const GeoMap = ({ data, metric = 'volume' }) => {
                         <CircleMarker
                             key={idx}
                             center={[marker.lat, marker.lng]}
-                            radius={radius}
                             pathOptions={{ color: color, fillColor: color, fillOpacity: 0.6, stroke: false }}
                         >
                             <MapTooltip>
@@ -115,10 +126,13 @@ const NavButton = ({ label, active, onClick, icon: Icon, count }) => (
     </button>
 );
 
-const FilterSection = ({ title, items, activeItems = [], onToggle, metadata }) => (
+const FilterSection = ({ title, items, activeItems = [], onToggle, metadata, helpText }) => (
     <div className="mb-6">
         <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-2 flex justify-between items-center">
-            {title}
+            <div className="flex items-center">
+                {title}
+                {helpText && <FieldTooltip text={helpText} />}
+            </div>
             {activeItems.length > 0 && (
                 <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full text-[9px]">{activeItems.length}</span>
             )}
@@ -203,6 +217,7 @@ const Navigator = ({ collapsed, setCollapsed, activeConcept, onSelect, filters, 
                                 items={metadata.types}
                                 activeItems={filters.type}
                                 onToggle={(val) => toggleFilter('type', val)}
+                                helpText="Selecciona varios tipos para comparar su rendimiento simultáneamente."
                             />
                         </div>
 
@@ -212,6 +227,7 @@ const Navigator = ({ collapsed, setCollapsed, activeConcept, onSelect, filters, 
                                 items={metadata.brands}
                                 activeItems={filters.brand}
                                 onToggle={(val) => toggleFilter('brand', val)}
+                                helpText="Múltiples marcas activarán el modo 'Comparativa Cruzada'."
                             />
                         </div>
 
@@ -221,6 +237,7 @@ const Navigator = ({ collapsed, setCollapsed, activeConcept, onSelect, filters, 
                                 items={metadata.techs}
                                 activeItems={filters.tech}
                                 onToggle={(val) => toggleFilter('tech', val)}
+                                helpText="Filtra por uno o varios técnicos para ver sus métricas agregadas."
                             />
                         </div>
                     </>
@@ -294,7 +311,7 @@ const MainChart = ({ data, mode }) => {
 // Aliases
 const RePieChart = RePie; const ReBarChart = ReBar; const ReLineChart = ReLine;
 
-const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode, setViewMode, activeConcept, rpcError, mapMetric, onToggleMapMetric }) => {
+const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode, setViewMode, activeConcept, rpcError, mapMetric, onToggleMapMetric, filters }) => {
 
     const applyPreset = (months) => {
         const end = new Date();
@@ -312,6 +329,31 @@ const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode,
             default: return 'Analytics v3.0';
         }
     };
+
+    // Determine the main data source for the chart
+    let mainChartData = data.market_share;
+    let mainChartTitle = 'Distribución Principal';
+
+    if (activeConcept === 'appliance') {
+        const hasTypeFilter = filters?.type?.length > 0;
+        const hasBrandFilter = filters?.brand?.length > 0;
+
+        if (hasTypeFilter && hasBrandFilter && data.cross_reference && data.cross_reference.length > 0) {
+            mainChartData = data.cross_reference;
+            mainChartTitle = 'COMPARATIVA CRUZADA (MARCA + TIPO)';
+        } else if (hasTypeFilter) {
+            mainChartData = data.type_share && data.type_share.length > 0 ? data.type_share : data.market_share;
+            mainChartTitle = 'Distribución por Tipo';
+        } else {
+            mainChartData = data.market_share;
+            mainChartTitle = 'Cuota de Mercado';
+        }
+    }
+
+    // Force Bar Chart for Cross Reference to avoid clutter
+    const effectiveViewMode = (activeConcept === 'appliance' && filters?.type?.length > 0 && filters?.brand?.length > 0)
+        ? 'bar'
+        : viewMode;
 
     return (
         <div className="flex flex-col h-full bg-slate-50 overflow-hidden">
@@ -392,9 +434,7 @@ const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode,
                                 <h3 className="text-xs font-bold text-slate-700 uppercase">
                                     {activeConcept === 'geo'
                                         ? (mapMetric === 'revenue' ? 'Mapa Calor: Facturación (€)' : 'Mapa Calor: Volumen')
-                                        : activeConcept === 'appliance'
-                                            ? 'Comparativa Electro / Mercado'
-                                            : 'Distribución Principal'}
+                                        : mainChartTitle}
                                 </h3>
                                 <div className="flex gap-2">
                                     {activeConcept === 'geo' && (
@@ -403,9 +443,9 @@ const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode,
                                         </button>
                                     )}
                                     <div className="flex bg-slate-100 rounded p-0.5">
-                                        <ChartToggle icon={PieChart} active={viewMode === 'donut'} onClick={() => setViewMode('donut')} />
-                                        <ChartToggle icon={BarChart} active={viewMode === 'bar'} onClick={() => setViewMode('bar')} />
-                                        <ChartToggle icon={Activity} active={viewMode === 'line'} onClick={() => setViewMode('line')} />
+                                        <ChartToggle icon={PieChart} active={effectiveViewMode === 'donut'} onClick={() => setViewMode('donut')} />
+                                        <ChartToggle icon={BarChart} active={effectiveViewMode === 'bar'} onClick={() => setViewMode('bar')} />
+                                        <ChartToggle icon={Activity} active={effectiveViewMode === 'line'} onClick={() => setViewMode('line')} />
                                     </div>
                                 </div>
                             </div>
@@ -415,12 +455,8 @@ const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode,
                                     activeConcept === 'geo'
                                         ? <GeoMap data={data.hot_zones} metric={mapMetric} />
                                         : <MainChart
-                                            data={
-                                                activeConcept === 'appliance' && !data.market_share_is_filtered // Simplified
-                                                    ? (data.type_share && data.type_share.length > 0 ? data.type_share : data.market_share)
-                                                    : data.market_share
-                                            }
-                                            mode={viewMode}
+                                            data={mainChartData}
+                                            mode={effectiveViewMode}
                                             activeConcept={activeConcept}
                                         />
                                 )}
@@ -564,6 +600,7 @@ const AnalyticsContainer = () => {
                     rpcError={rpcError}
                     mapMetric={mapMetric}
                     onToggleMapMetric={toggleMapMetric}
+                    filters={filters}
                 />
             </div>
         </div>
