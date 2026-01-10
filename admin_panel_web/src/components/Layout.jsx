@@ -31,19 +31,19 @@ const Layout = () => {
 
     // Items
     const mainNav = [
-        { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-        { icon: Calendar, label: 'Agenda Global', path: '/agenda' },
-        { icon: Users, label: 'Servicios', path: '/services' },
+        { icon: LayoutDashboard, label: 'Escritorio', path: '/' },
         { icon: Map, label: 'Flota', path: '/tracking' },
         { icon: Users, label: 'Clientes', path: '/clients' },
-        { icon: UserCheck, label: 'Equipo', path: '/team' },
-        { icon: TrendingUp, label: 'Analytics (BI)', path: '/analytics' },
+        { icon: Calendar, label: 'Agenda Global', path: '/agenda' },
+        { icon: Users, label: 'Servicios', path: '/services', isHero: true },
+        { icon: Package, label: 'Gestión de Repuestos', path: '/materials' },
         { icon: FileText, label: 'Presupuestos', path: '/budgets' },
+        { icon: UserCheck, label: 'Equipo Técnico', path: '/team' },
+        { icon: TrendingUp, label: 'Analytics (BI)', path: '/analytics' },
     ];
 
     const settingsNav = [
         { icon: Tag, label: 'Tipos Electro.', path: '/appliance-types', help: 'Define catálogo de aparatos y averías comunes.' },
-        { icon: Package, label: 'Gestión Materiales', path: '/materials', help: 'Control de stock y piezas de repuesto.' },
         { icon: Briefcase, label: 'Ajustes de Negocio', path: '/business-settings', help: 'Configuración fiscal y datos de empresa.' },
         { icon: SettingsIcon, label: 'Ajustes Panel', path: '/settings', help: 'Preferencias generales del sistema.' },
     ];
@@ -56,25 +56,27 @@ const Layout = () => {
     const NavItem = ({ item, isSub = false }) => {
         const Icon = item.icon;
         const isActive = location.pathname === item.path;
+        const isHero = item.isHero;
 
         return (
             <Link
                 to={item.path}
-                className={`group flex items-center justify-between px-3 py-2 rounded-md transition-all duration-200 border border-transparent
+                className={`group flex items-center justify-between px-3 py-2.5 rounded-md transition-all duration-200 border border-transparent
                     ${isActive
                         ? 'bg-blue-600/10 border-blue-600/20 text-blue-400'
                         : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}
-                    ${isSub ? 'ml-3 pl-3 border-l border-slate-800 hover:border-slate-700 rounded-none rounded-r-md text-[10px]' : 'text-[11px]'}
+                    ${isSub ? 'ml-3 pl-3 border-l border-slate-800 hover:border-slate-700 rounded-none rounded-r-md text-[11px]' : 'text-[12px]'}
+                    ${isHero ? 'font-bold text-[13px] bg-indigo-500/10 border-indigo-500/20 text-indigo-300 hover:bg-indigo-500/20 hover:text-indigo-200 my-1' : ''}
                 `}
             >
                 <div className="flex items-center gap-2.5">
-                    <Icon size={isSub ? 12 : 14} className={isActive ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300'} />
-                    <span className="font-medium tracking-wide">{item.label}</span>
+                    <Icon size={isSub ? 13 : (isHero ? 16 : 15)} className={`${isActive ? 'text-blue-400' : (isHero ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300')}`} />
+                    <span className={`tracking-wide ${isHero ? 'uppercase tracking-wider' : 'font-medium'}`}>{item.label}</span>
                 </div>
                 {item.help && (
                     <div className="group/help relative ml-2">
-                        <HelpCircle size={10} className="text-slate-700 cursor-help hover:text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 w-40 bg-slate-900 text-slate-300 text-[9px] p-2 rounded border border-slate-700 shadow-xl opacity-0 group-hover/help:opacity-100 pointer-events-none z-[60]">
+                        <HelpCircle size={12} className="text-slate-700 cursor-help hover:text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 w-40 bg-slate-900 text-slate-300 text-[10px] p-2 rounded border border-slate-700 shadow-xl opacity-0 group-hover/help:opacity-100 pointer-events-none z-[60]">
                             {item.help}
                         </div>
                     </div>
