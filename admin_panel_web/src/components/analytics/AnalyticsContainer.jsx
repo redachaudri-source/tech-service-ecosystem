@@ -484,6 +484,12 @@ const AnalyticsContainer = () => {
                 };
 
                 const { data: rpc, error } = await supabase.rpc('get_business_intelligence', params);
+
+                // --- DEBUG ---
+                console.log("Analytics RPC Response:", rpc);
+                if (error) console.error("Analytics RPC Error:", error);
+                // -------------
+
                 if (error) throw error;
                 setData(rpc || EMPTY_DATA);
             } catch (e) {
