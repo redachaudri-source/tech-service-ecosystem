@@ -318,6 +318,11 @@ const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode,
             <div className="bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center shrink-0">
                 <div className="flex items-center gap-4">
                     <h1 className="text-sm font-black text-slate-800 uppercase tracking-tight">{getDashboardTitle()}</h1>
+                    {rpcError && (
+                        <div className="bg-red-100 border border-red-200 text-red-600 text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1 animate-pulse">
+                            ⚠️ ERROR DE CONEXIÓN (RPC V3 NO ENCONTRADO)
+                        </div>
+                    )}
                     <div className="h-4 w-px bg-slate-200" />
                     <div className="flex gap-1">
                         {[{ l: '6 Meses', v: 6 }, { l: 'Este Año', v: 'YTD' }, { l: 'Histórico', v: 'ALL' }].map(p => (
