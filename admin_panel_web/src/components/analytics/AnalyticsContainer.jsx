@@ -492,7 +492,7 @@ const AnalyticsContainer = () => {
                     p_brand_id: activeConcept === 'appliance' ? filters.brand : null
                 };
 
-                const { data: rpc, error } = await supabase.rpc('get_business_intelligence', params);
+                const { data: rpc, error } = await supabase.rpc('get_analytics_v2', params);
 
                 // --- DEBUG ---
                 console.log("Analytics RPC Response:", rpc);
