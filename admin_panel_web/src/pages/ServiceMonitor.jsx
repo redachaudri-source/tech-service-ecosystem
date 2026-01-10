@@ -226,7 +226,9 @@ const ServiceMonitor = () => {
                                 (t.appliance_info?.brand?.toLowerCase().includes(s))
                             );
                             const matchesTech = !filterTech || t.technician_id === filterTech;
-                            const matchesDate = !filterDate || (t.scheduled_at && t.scheduled_at.startsWith(filterDate));
+                            const matchesDate = !filterDate ||
+                                (t.scheduled_at && t.scheduled_at.startsWith(filterDate)) ||
+                                (!t.scheduled_at && t.created_at && t.created_at.startsWith(filterDate));
                             const matchesOrigin = !filterOrigin || (
                                 filterOrigin === 'budget' ? (t.origin_source?.includes('budget') || t.origin_source?.startsWith('Presupuesto')) :
                                     filterOrigin === 'tech_app' ? (t.origin_source?.includes('tech')) :
