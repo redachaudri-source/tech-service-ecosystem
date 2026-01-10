@@ -29,7 +29,7 @@ BEGIN
             t.created_at,
             t.technician_id,
             t.client_id,
-            t.appliance_type,
+            COALESCE(t.appliance_info->>'type', 'Otros') as appliance_type,
             b.name as brand_name,
             p.postal_code as client_cp,
             tech.full_name as tech_name
@@ -41,7 +41,7 @@ BEGIN
             t.created_at BETWEEN p_start_date AND p_end_date
             AND (p_tech_ids IS NULL OR t.technician_id = ANY(p_tech_ids))
             AND (p_brand_ids IS NULL OR t.brand_id = ANY(p_brand_ids))
-            AND (p_appliance_types IS NULL OR t.appliance_type = ANY(p_appliance_types))
+            AND (p_appliance_types IS NULL OR COALESCE(t.appliance_info->>'type', 'Otros') = ANY(p_appliance_types))
             -- zone filter if needed later
     ),
     -- 1. Tech Performance (ALL Techs, not just active ones)
