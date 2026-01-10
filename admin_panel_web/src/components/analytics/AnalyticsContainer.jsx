@@ -303,6 +303,30 @@ const GeoMap = ({ data, metric }) => {
     const CENTER = [36.7213, -4.4214];
     const ZOOM = 10;
 
+    // Hardcoded Coords for Malaga Province (The "Missing Map" fix)
+    const POSTAL_COORDS = {
+        // Capital
+        '29001': [36.72, -4.42], '29002': [36.71, -4.43], '29003': [36.70, -4.44],
+        '29004': [36.69, -4.45], '29010': [36.73, -4.41], '29018': [36.72, -4.39],
+        // Costa Occidental (The user request)
+        '29600': [36.51, -4.88], '29601': [36.51, -4.88], '29602': [36.52, -4.89], // Marbella Center
+        '29603': [36.50, -4.86], '29604': [36.49, -4.80],
+        '29660': [36.49, -4.95], // Puerto Banus
+        '29670': [36.48, -5.00], // San Pedro
+        '29680': [36.42, -5.15], // Estepona
+        '29650': [36.59, -4.63], '29651': [36.58, -4.62], // Mijas
+        '29640': [36.54, -4.62], '29641': [36.55, -4.61], // Fuengirola
+        '29630': [36.59, -4.53], '29631': [36.60, -4.52], // Benalmadena
+        '29620': [36.62, -4.50], // Torremolinos
+        // Costa Oriental / Axarquia
+        '29700': [36.78, -4.10], // Velez
+        '29730': [36.71, -4.26], // Rincon
+        '29780': [36.74, -3.88], // Nerja
+        // Interior
+        '29200': [37.01, -4.56], // Antequera
+        '29400': [36.73, -5.16], // Ronda
+    };
+
     const getColor = (val) => {
         if (val >= 15) return '#ef4444'; // Red (Hot)
         if (val >= 5) return '#eab308';  // Yellow (Medium)
@@ -311,7 +335,21 @@ const GeoMap = ({ data, metric }) => {
 
     const getRadius = (val) => {
         // Logarithmic scale for radius density feel
-        return Math.min(20, 10 + Math.log(val || 1) * 3);
+        return Math.min(25, 12 + Math.log(val || 1) * 4);
+    };
+
+    const getCoords = (cp) => {
+        if (POSTAL_COORDS[cp]) return POSTAL_COORDS[cp];
+        // Fallback: Deterministic scatter around Malaga if unknown, 
+        // implies "Provincia unmapped" but visible
+        const pseudoRandom = (str) => {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            return hash;
+        };
+        const offsetLat = (pseudoRandom(cp || '0') % 100) / 300;
+        const offsetLng = (pseudoRandom((cp || '0') + 'X') % 100) / 300;
+        return [CENTER[0] + offsetLat, CENTER[1] + offsetLng];
     };
 
     return (
@@ -322,17 +360,7 @@ const GeoMap = ({ data, metric }) => {
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 />
                 {data.map((zone, idx) => {
-                    // Mock coordinates based on CP hash
-                    const pseudoRandom = (str) => {
-                        let hash = 0;
-                        for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-                        return hash;
-                    };
-                    const offsetLat = (pseudoRandom(zone.postal_code || '0') % 100) / 400;
-                    const offsetLng = (pseudoRandom((zone.postal_code || '0') + 'X') % 100) / 400;
-
-                    const lat = CENTER[0] + offsetLat;
-                    const lng = CENTER[1] + offsetLng;
+                    const [lat, lng] = getCoords(zone.postal_code);
 
                     const val = metric === 'revenue' ? zone.revenue / 100 : zone.value;
                     const rawVal = metric === 'revenue' ? zone.revenue : zone.value;
@@ -468,8 +496,7 @@ const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode,
     }
 
     const effectiveViewMode = (
-        (activeConcept === 'business' && filters?.type?.length > 0 && filters?.brand?.length > 0) ||
-        (activeConcept === 'tech')
+        (activeConcept === 'business' && filters?.type?.length > 0 && filters?.brand?.length > 0)
     ) ? 'bar' : viewMode;
 
     const getDashboardTitle = () => {
