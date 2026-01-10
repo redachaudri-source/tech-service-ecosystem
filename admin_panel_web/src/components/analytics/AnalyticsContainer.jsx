@@ -404,12 +404,15 @@ const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode,
             mainChartTitle = 'Cuota de Mercado Global';
         }
     } else if (activeConcept === 'tech') {
-        mainChartData = data.tech_performance;
-        mainChartTitle = 'Rendimiento Técnico';
+        mainChartData = data.tech_performance?.map(t => ({ ...t, value: t.jobs })) || [];
+        mainChartTitle = 'Rendimiento Técnico (Trabajos)';
     }
 
-    // Force Bar for Cross Ref
-    const effectiveViewMode = (activeConcept === 'appliance' && filters?.type?.length > 0 && filters?.brand?.length > 0) ? 'bar' : viewMode;
+    // Force Bar for Cross Ref OR Tech (Single tech line chart is invisible)
+    const effectiveViewMode = (
+        (activeConcept === 'appliance' && filters?.type?.length > 0 && filters?.brand?.length > 0) ||
+        (activeConcept === 'tech')
+    ) ? 'bar' : viewMode;
 
     const getDashboardTitle = () => {
         if (activeConcept === 'appliance' && (filters.brand.length > 0 || filters.type.length > 0)) return "ANÁLISIS FILTRADO";
