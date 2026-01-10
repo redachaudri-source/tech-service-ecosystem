@@ -117,6 +117,34 @@ export const generateExecutiveReport = (data, filters) => {
             doc.text(`Tasa Conversión: ${data.client_adoption.conversion_rate || 0}%`, 140, yPos);
         }
 
+        yPos = yPos + 20;
+
+        // 5. PROFITABILITY BY TYPE (New Strategic Section)
+        if (data.profitability_by_type && data.profitability_by_type.length > 0) {
+            if (yPos > 240) { doc.addPage(); yPos = 20; }
+
+            doc.setFontSize(14);
+            doc.setTextColor(220, 38, 38); // Red Title
+            doc.text("5. Rentabilidad Estratégica (ROI)", 20, yPos);
+            yPos += 5;
+
+            const profitRows = data.profitability_by_type.map(p => [
+                p.name,
+                p.volume,
+                `${p.revenue} €`,
+                `${p.avg_ticket} €`
+            ]);
+
+            autoTable(doc, {
+                startY: yPos,
+                head: [['Electrodoméstico', 'Volumen', 'Facturación', 'Ticket Medio']],
+                body: profitRows,
+                theme: 'grid',
+                headStyles: { fillColor: [220, 38, 38] }, // Red Header
+                margin: { left: 20 }
+            });
+        }
+
         // FOOTER
         const pageCount = doc.internal.getNumberOfPages();
         for (let i = 1; i <= pageCount; i++) {
