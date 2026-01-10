@@ -112,7 +112,7 @@ const AccordionItem = ({ title, children, isOpen, onToggle, helpText }) => (
 );
 
 
-const Navigator = ({ collapsed, setCollapsed, activeConcept, onSelect, filters, setFilters, metadata }) => {
+const Navigator = ({ collapsed, setCollapsed, activeConcept, onSelect, filters, setFilters, metadata, isMobileOpen, setIsMobileOpen }) => {
     // defined concepts: 'business', 'tech', 'adoption'
     const [openSection, setOpenSection] = useState('appliance');
 
@@ -142,131 +142,155 @@ const Navigator = ({ collapsed, setCollapsed, activeConcept, onSelect, filters, 
 
     const NavButton = ({ id, icon: Icon, label, count }) => (
         <button
-            onClick={() => onSelect(id)}
+            onClick={() => { onSelect(id); setIsMobileOpen(false); }}
             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold transition-all border mb-1 ${activeConcept === id ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-sm' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
         >
             <div className="flex items-center gap-3">
                 <Icon size={16} />
-                {!collapsed && label}
+                {(!collapsed || isMobileOpen) && label}
             </div>
-            {!collapsed && count !== undefined && <span className="bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded text-[9px]">{count}</span>}
+            {(!collapsed || isMobileOpen) && count !== undefined && <span className="bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded text-[9px]">{count}</span>}
         </button>
     );
 
+    // Sidebar Classes: Fixed on Mobile, Static on Desktop
+    // Mobile: Hidden by default (translate-x-full), Slide in when open.
+    // Desktop: Always visible, width controlled by collapsed.
+    const sidebarClasses = `
+        fixed inset-y-0 left-0 z-50 bg-white border-r border-slate-200 flex flex-col transition-all duration-300 shadow-2xl md:shadow-none
+        md:static md:translate-x-0
+        ${isMobileOpen ? 'translate-x-0 w-72' : '-translate-x-full'}
+        ${collapsed ? 'md:w-16' : 'md:w-72'}
+    `;
+
     return (
-        <div className={`h-full bg-white border-r border-slate-200 flex flex-col transition-all duration-300 ${collapsed ? 'w-16' : 'w-72'}`}>
-            {/* HEAD */}
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between shrink-0 h-16">
-                {!collapsed && (
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white shadow-lg shadow-slate-200">
-                            <Activity size={18} />
+        <>
+            {/* Mobile Overlay */}
+            {isMobileOpen && (
+                <div
+                    className="fixed inset-0 bg-slate-900/50 z-40 md:hidden backdrop-blur-sm"
+                    onClick={() => setIsMobileOpen(false)}
+                />
+            )}
+
+            <div className={sidebarClasses}>
+                {/* HEAD */}
+                <div className="p-4 border-b border-slate-100 flex items-center justify-between shrink-0 h-16">
+                    {(!collapsed || isMobileOpen) && (
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white shadow-lg shadow-slate-200">
+                                <Activity size={18} />
+                            </div>
+                            <div>
+                                <h1 className="font-black text-sm text-slate-800 leading-tight">ANALYTICS</h1>
+                                <p className="text-[9px] text-blue-600 font-bold tracking-wide">V4.1 MOBILE</p>
+                            </div>
                         </div>
-                        <div>
-                            <h1 className="font-black text-sm text-slate-800 leading-tight">ANALYTICS</h1>
-                            <p className="text-[9px] text-blue-600 font-bold tracking-wide">V4.0 SUITE</p>
-                        </div>
+                    )}
+                    <div className="flex gap-1">
+                        {/* Only show collapse toggle on desktop */}
+                        <button onClick={() => setCollapsed(!collapsed)} className="hidden md:block p-1.5 hover:bg-slate-50 rounded-lg text-slate-400 transition-colors">
+                            {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+                        </button>
+                        {/* Close button on mobile */}
+                        <button onClick={() => setIsMobileOpen(false)} className="md:hidden p-1.5 hover:bg-slate-50 rounded-lg text-slate-400">
+                            <X size={16} />
+                        </button>
                     </div>
-                )}
-                <button onClick={() => setCollapsed(!collapsed)} className="p-1.5 hover:bg-slate-50 rounded-lg text-slate-400 transition-colors">
-                    {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-                </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
-
-                {/* PRIMARY NAVIGATION */}
-                <div className="p-3 pb-0">
-                    <p className="px-3 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{!collapsed && 'Vistas'}</p>
-                    <NavButton id="business" icon={LayoutGrid} label="Negocio & Mercado" />
-                    <NavButton id="tech" icon={User} label="Equipo Técnico" />
                 </div>
 
-                {/* FILTERS SECTION */}
-                {!collapsed && (
-                    <div className="mt-4 flex-1">
-                        <div className="px-4 py-2 bg-slate-50/50 border-y border-slate-100 min-h-[60px]">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
-                                {filters.type.length + filters.brand.length + filters.tech.length > 0 ? 'Filtros Activos:' : 'Sin filtros'}
-                                {(filters.type.length + filters.brand.length + filters.tech.length > 0) &&
-                                    <button onClick={() => setFilters({ type: [], brand: [], tech: [] })} className="text-[9px] text-red-500 hover:underline">Borrar</button>
-                                }
-                            </p>
-                            <div className="flex flex-wrap gap-1.5">
-                                {activeConcept === 'business' && filters.type.map(val => (
-                                    <TagChip key={val} category="Tipo" label={getLabel('type', val)} onRemove={() => removeFilter('type', val)} />
-                                ))}
-                                {activeConcept === 'business' && filters.brand.map(val => (
-                                    <TagChip key={val} category="Marca" label={getLabel('brand', val)} onRemove={() => removeFilter('brand', val)} />
-                                ))}
-                                {activeConcept === 'tech' && filters.tech.map(val => (
-                                    <TagChip key={val} category="Tech" label={getLabel('tech', val)} onRemove={() => removeFilter('tech', val)} />
-                                ))}
-                            </div>
-                        </div>
+                <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
 
-                        {/* BUSINESS FILTERS */}
-                        {activeConcept === 'business' && (
-                            <div className="animate-in fade-in slide-in-from-left-4 duration-300">
-                                <AccordionItem
-                                    title="Electrodomésticos"
-                                    isOpen={openSection === 'appliance'}
-                                    onToggle={() => toggleSection('appliance')}
-                                    helpText="Filtra por tipo de aparato."
-                                >
-                                    <SearchableSelect
-                                        items={metadata.types} placeholder="Buscar tipo..."
-                                        onSelect={(val) => addFilter('type', val)}
-                                        labelKey="name" idKey="name"
-                                    />
-                                </AccordionItem>
-                                <AccordionItem
-                                    title="Marcas"
-                                    isOpen={openSection === 'brand'}
-                                    onToggle={() => toggleSection('brand')}
-                                    helpText="Filtra por marca."
-                                >
-                                    <SearchableSelect
-                                        items={metadata.brands} placeholder="Buscar marca..."
-                                        onSelect={(val) => addFilter('brand', val)}
-                                        labelKey="name" idKey="id"
-                                    />
-                                </AccordionItem>
-                            </div>
-                        )}
-
-                        {/* TECH FILTERS */}
-                        {activeConcept === 'tech' && (
-                            <div className="animate-in fade-in slide-in-from-left-4 duration-300">
-                                <AccordionItem
-                                    title="Selección de Técnicos"
-                                    isOpen={openSection === 'tech'}
-                                    onToggle={() => toggleSection('tech')}
-                                    helpText="Comparar técnicos específicos."
-                                >
-                                    <SearchableSelect
-                                        items={metadata.techs} placeholder="Añadir técnico..."
-                                        onSelect={(val) => addFilter('tech', val)}
-                                        labelKey="full_name" idKey="id"
-                                        renderItem={(item) => (
-                                            <div className="flex items-center gap-2 w-full">
-                                                <div className={`w-2 h-2 rounded-full ${item.is_active ? 'bg-green-500' : 'bg-red-400'}`} />
-                                                <span className={`${!item.is_active && 'text-slate-400 line-through decoration-slate-300'}`}>{item.full_name}</span>
-                                            </div>
-                                        )}
-                                    />
-                                </AccordionItem>
-                            </div>
-                        )}
+                    {/* PRIMARY NAVIGATION */}
+                    <div className="p-3 pb-0">
+                        <p className="px-3 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{(!collapsed || isMobileOpen) && 'Vistas'}</p>
+                        <NavButton id="business" icon={LayoutGrid} label="Negocio & Mercado" />
+                        <NavButton id="tech" icon={User} label="Equipo Técnico" />
+                        <NavButton id="adoption" icon={Smartphone} label="App Clientes" count={metadata.appUsers || 0} />
                     </div>
-                )}
-            </div>
 
-            {/* FOOTER NAV */}
-            <div className="p-3 border-t border-slate-100 shrink-0 bg-slate-50">
-                <NavButton id="adoption" icon={Smartphone} label="App Clientes" count={metadata.appUsers || 0} />
+                    {/* FILTERS SECTION */}
+                    {(!collapsed || isMobileOpen) && (
+                        <div className="mt-4 flex-1">
+                            <div className="px-4 py-2 bg-slate-50/50 border-y border-slate-100 min-h-[60px]">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                                    {filters.type.length + filters.brand.length + filters.tech.length > 0 ? 'Filtros:' : 'Sin filtros'}
+                                    {(filters.type.length + filters.brand.length + filters.tech.length > 0) &&
+                                        <button onClick={() => setFilters({ type: [], brand: [], tech: [] })} className="text-[9px] text-red-500 hover:underline">Borrar</button>
+                                    }
+                                </p>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {activeConcept === 'business' && filters.type.map(val => (
+                                        <TagChip key={val} category="Tipo" label={getLabel('type', val)} onRemove={() => removeFilter('type', val)} />
+                                    ))}
+                                    {activeConcept === 'business' && filters.brand.map(val => (
+                                        <TagChip key={val} category="Marca" label={getLabel('brand', val)} onRemove={() => removeFilter('brand', val)} />
+                                    ))}
+                                    {activeConcept === 'tech' && filters.tech.map(val => (
+                                        <TagChip key={val} category="Tech" label={getLabel('tech', val)} onRemove={() => removeFilter('tech', val)} />
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* BUSINESS FILTERS */}
+                            {activeConcept === 'business' && (
+                                <div className="animate-in fade-in slide-in-from-left-4 duration-300">
+                                    <AccordionItem
+                                        title="Electrodomésticos"
+                                        isOpen={openSection === 'appliance'}
+                                        onToggle={() => toggleSection('appliance')}
+                                        helpText="Filtra por tipo de aparato."
+                                    >
+                                        <SearchableSelect
+                                            items={metadata.types} placeholder="Buscar tipo..."
+                                            onSelect={(val) => addFilter('type', val)}
+                                            labelKey="name" idKey="name"
+                                        />
+                                    </AccordionItem>
+                                    <AccordionItem
+                                        title="Marcas"
+                                        isOpen={openSection === 'brand'}
+                                        onToggle={() => toggleSection('brand')}
+                                        helpText="Filtra por marca."
+                                    >
+                                        <SearchableSelect
+                                            items={metadata.brands} placeholder="Buscar marca..."
+                                            onSelect={(val) => addFilter('brand', val)}
+                                            labelKey="name" idKey="id"
+                                        />
+                                    </AccordionItem>
+                                </div>
+                            )}
+
+                            {/* TECH FILTERS */}
+                            {activeConcept === 'tech' && (
+                                <div className="animate-in fade-in slide-in-from-left-4 duration-300">
+                                    <AccordionItem
+                                        title="Selección de Técnicos"
+                                        isOpen={openSection === 'tech'}
+                                        onToggle={() => toggleSection('tech')}
+                                        helpText="Comparar técnicos específicos."
+                                    >
+                                        <SearchableSelect
+                                            items={metadata.techs} placeholder="Añadir técnico..."
+                                            onSelect={(val) => addFilter('tech', val)}
+                                            labelKey="full_name" idKey="id"
+                                            renderItem={(item) => (
+                                                <div className="flex items-center gap-2 w-full">
+                                                    <div className={`w-2 h-2 rounded-full ${item.is_active ? 'bg-green-500' : 'bg-red-400'}`} />
+                                                    <span className={`${!item.is_active && 'text-slate-400 line-through decoration-slate-300'}`}>{item.full_name}</span>
+                                                </div>
+                                            )}
+                                        />
+                                    </AccordionItem>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+                {/* Logged User or Extra Info could go here if needed, Footer removed */}
             </div>
-        </div>
+        </>
     );
 };
 
@@ -360,8 +384,9 @@ const MainChart = ({ data, mode }) => {
 // Aliases
 const RePieChart = RePie; const ReBarChart = ReBar; const ReLineChart = ReLine;
 
-const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode, setViewMode, activeConcept, rpcError, mapMetric, onToggleMapMetric, filters }) => {
+const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode, setViewMode, activeConcept, rpcError, mapMetric, onToggleMapMetric, filters, onToggleMenu }) => {
 
+    // ... (keep helper functions same)
     const applyPreset = (months) => {
         const end = new Date();
         const start = months === 'YTD' ? startOfYear(new Date()) : subMonths(new Date(), months);
@@ -372,30 +397,28 @@ const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode,
     let mainChartData = [];
     let mainChartTitle = '';
 
-    // LOGIC ROUTING
     if (activeConcept === 'business') {
         const hasType = filters?.type?.length > 0;
         const hasBrand = filters?.brand?.length > 0;
 
         if (hasType && hasBrand && data.cross_reference?.length > 0) {
             mainChartData = data.cross_reference;
-            mainChartTitle = `Comparativa Cruzada (${filters.brand.length} Marcas x ${filters.type.length} Tipos)`;
+            mainChartTitle = `Comparativa Cruzada (${filters.brand.length}x${filters.type.length})`;
         } else if (hasType) {
             mainChartData = data.market_share;
-            mainChartTitle = `Cuota de Mercado (con filtro Tipo)`;
+            mainChartTitle = `Cuota Mercado (Filtrada)`;
         } else if (hasBrand) {
-            mainChartData = data.type_share; // Breakdown by type for selected brands
-            mainChartTitle = `Distribución de Tipos (con filtro Marca)`;
+            mainChartData = data.type_share;
+            mainChartTitle = `Distribución Tipos (Filtrada)`;
         } else {
             mainChartData = data.market_share;
-            mainChartTitle = 'Cuota de Mercado Global (Por Marca)';
+            mainChartTitle = 'Cuota de Mercado Global';
         }
     } else if (activeConcept === 'tech') {
         mainChartData = data.tech_performance?.map(t => ({ ...t, value: t.jobs })) || [];
-        mainChartTitle = 'Rendimiento Técnico (Trabajos Finalizados)';
+        mainChartTitle = 'Rendimiento Técnico';
     }
 
-    // Force Bar for Cross Ref OR Tech
     const effectiveViewMode = (
         (activeConcept === 'business' && filters?.type?.length > 0 && filters?.brand?.length > 0) ||
         (activeConcept === 'tech')
@@ -405,27 +428,28 @@ const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode,
         switch (activeConcept) {
             case 'adoption': return 'Adopción App';
             case 'tech': return 'Equipo Técnico';
-            case 'business': return 'Negocio & Mercado';
+            case 'business': return 'Negocio';
             default: return 'Analítica';
         }
     };
 
-    // Tech Mode Map Toggle Logic
-    // If in Tech Mode, we might want to show Map as secondary or toggle. 
-    // For now, let's keep the single Main Chart area, but maybe allow Toggle to Map in Tech Mode too?
-    // User asked "Map of codes where selected techs worked".
-    // I will add a map toggle available in ALL modes except Adoption.
-
     const showMapToggle = activeConcept !== 'adoption';
-    const [showMap, setShowMap] = useState(false); // Local State for toggle
+    const [showMap, setShowMap] = useState(false);
+
+    // Header import for Menu
+    const { Menu } = require('lucide-react'); // Ideally import at top, but for replacing block safely
 
     return (
         <div className="flex flex-col h-full bg-slate-50 overflow-hidden">
-            <div className="bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center shrink-0">
-                <div className="flex items-center gap-4">
-                    <h1 className="text-sm font-black text-slate-800 uppercase tracking-tight">{getDashboardTitle()}</h1>
-                    <div className="h-4 w-px bg-slate-200" />
-                    <div className="flex gap-1">
+            {/* HEADER */}
+            <div className="bg-white border-b border-slate-200 px-4 py-3 flex justify-between items-center shrink-0 gap-2">
+                <div className="flex items-center gap-3">
+                    <button onClick={onToggleMenu} className="md:hidden text-slate-500 hover:text-slate-800">
+                        <Menu size={20} />
+                    </button>
+                    <h1 className="text-sm font-black text-slate-800 uppercase tracking-tight truncate max-w-[120px] md:max-w-none">{getDashboardTitle()}</h1>
+                    <div className="hidden md:block h-4 w-px bg-slate-200" />
+                    <div className="hidden md:flex gap-1">
                         {[{ l: '6M', v: 6 }, { l: 'YTD', v: 'YTD' }, { l: 'ALL', v: 'ALL' }].map(p => (
                             <button key={p.l} onClick={() => applyPreset(p.v)} className="text-[10px] font-bold text-slate-500 hover:text-blue-600 px-2 py-1 bg-slate-50 hover:bg-blue-50 rounded border border-slate-100 transition-colors">
                                 {p.l}
@@ -435,38 +459,41 @@ const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode,
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <input
-                        type="date" value={dateRange.start.split('T')[0]}
-                        onChange={e => setDateRange({ ...dateRange, start: new Date(e.target.value).toISOString() })}
-                        className="text-xs border border-slate-200 rounded p-1 text-slate-600 font-medium"
-                    />
-                    <span className="text-slate-300">-</span>
-                    <input
-                        type="date" value={dateRange.end.split('T')[0]}
-                        onChange={e => setDateRange({ ...dateRange, end: new Date(e.target.value).toISOString() })}
-                        className="text-xs border border-slate-200 rounded p-1 text-slate-600 font-medium"
-                    />
+                    <div className="flex items-center bg-slate-100 rounded-lg p-1">
+                        <input
+                            type="date" value={dateRange.start.split('T')[0]}
+                            onChange={e => setDateRange({ ...dateRange, start: new Date(e.target.value).toISOString() })}
+                            className="bg-transparent text-[10px] w-20 md:w-auto text-slate-600 font-medium outline-none"
+                        />
+                        <span className="text-slate-300 mx-1">-</span>
+                        <input
+                            type="date" value={dateRange.end.split('T')[0]}
+                            onChange={e => setDateRange({ ...dateRange, end: new Date(e.target.value).toISOString() })}
+                            className="bg-transparent text-[10px] w-20 md:w-auto text-slate-600 font-medium outline-none"
+                        />
+                    </div>
                     <button
                         onClick={() => generateExecutiveReport(data, { startDate: dateRange.start, endDate: dateRange.end })}
-                        className="ml-2 bg-slate-900 text-white px-3 py-1.5 rounded text-[10px] font-bold flex items-center gap-1 hover:bg-slate-800"
+                        className="hidden md:flex ml-2 bg-slate-900 text-white px-3 py-1.5 rounded text-[10px] font-bold items-center gap-1 hover:bg-slate-800"
                     >
                         <Download size={12} /> PDF
                     </button>
                 </div>
             </div>
 
+            {/* CONTENT */}
             <div className="flex-1 overflow-y-auto p-4 md:p-6 text-slate-800">
                 {activeConcept === 'adoption' ? (
                     <div className="space-y-6">
                         <div className="flex items-center justify-between">
-                            <h2 className="text-xl font-bold text-slate-800">Métricas de Clientes</h2>
+                            <h2 className="text-lg md:text-xl font-bold text-slate-800">Métricas de Clientes</h2>
                         </div>
-                        <div className="grid grid-cols-3 gap-6">
-                            <KPICard label="Usuarios Totales" value={data.client_adoption?.total_users} sub="Registros Históricos (APP)" />
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
+                            <KPICard label="Usuarios Totales" value={data.client_adoption?.total_users} sub="Registros Históricos" />
                             <KPICard label="Usuarios Activos" value={data.client_adoption?.active_30d} sub="Login últimos 30 días" highlight />
                             <KPICard label="Tasa Conversión" value={`${data.client_adoption?.conversion_rate}%`} sub="Registros CON Ticket" />
                         </div>
-                        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm h-80">
+                        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm h-64 md:h-80">
                             <h3 className="text-xs font-bold text-slate-700 uppercase mb-4">Curva de Crecimiento</h3>
                             <ResponsiveContainer width="100%" height="100%">
                                 <AreaChart data={data.client_adoption?.growth_curve}>
@@ -481,33 +508,33 @@ const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode,
                     </div>
                 ) : (
                     <div className="grid grid-cols-12 gap-4">
-                        <div className="col-span-12 grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="col-span-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             <KPICard label="Volumen" value={data.kpis?.total_volume} sub="Tickets (Filtrado)" />
                             <KPICard label="Facturación" value={`${data.kpis?.total_revenue}€`} sub="Total (Filtrado)" />
                             <KPICard label="Ticket Medio" value={`${data.kpis?.avg_ticket}€`} sub="Media" highlight />
                             <KPICard label="Tasa Cierre" value={`${data.kpis?.completion_rate}%`} sub="Finalizados" />
                         </div>
 
-                        <div className="col-span-12 lg:col-span-8 bg-white rounded-xl border border-slate-200 p-4 shadow-sm h-[450px] flex flex-col">
+                        <div className="col-span-12 lg:col-span-8 bg-white rounded-xl border border-slate-200 p-4 shadow-sm h-[350px] lg:h-[450px] flex flex-col">
                             <div className="flex justify-between items-center mb-4">
-                                <div className="flex items-center gap-4">
-                                    <h3 className="text-xs font-bold text-slate-700 uppercase">{showMap ? 'Mapa Geográfico' : mainChartTitle}</h3>
+                                <div className="flex items-center gap-2 md:gap-4">
+                                    <h3 className="text-xs font-bold text-slate-700 uppercase truncate max-w-[150px] md:max-w-none">{showMap ? 'Mapa' : mainChartTitle}</h3>
                                     {showMapToggle && (
                                         <button
                                             onClick={() => setShowMap(!showMap)}
                                             className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold border transition-colors ${showMap ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
                                         >
-                                            <Map size={12} /> {showMap ? 'Ver Gráfica' : 'Ver Mapa'}
+                                            <Map size={12} /> {showMap ? 'Graf' : 'Mapa'}
                                         </button>
                                     )}
                                 </div>
                                 <div className="flex gap-2">
                                     {showMap ? (
                                         <button onClick={onToggleMapMetric} className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-[10px] font-bold border border-slate-200 hover:bg-slate-200">
-                                            {mapMetric === 'revenue' ? 'Ver Volumen' : 'Ver €'}
+                                            {mapMetric === 'revenue' ? 'Vol' : '€'}
                                         </button>
                                     ) : (
-                                        <div className="flex bg-slate-100 rounded p-0.5">
+                                        <div className="hidden md:flex bg-slate-100 rounded p-0.5">
                                             <ChartToggle icon={PieChart} active={effectiveViewMode === 'donut'} onClick={() => setViewMode('donut')} />
                                             <ChartToggle icon={BarChart} active={effectiveViewMode === 'bar'} onClick={() => setViewMode('bar')} />
                                             <ChartToggle icon={Activity} active={effectiveViewMode === 'line'} onClick={() => setViewMode('line')} />
@@ -549,6 +576,7 @@ const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode,
 
 const AnalyticsContainer = () => {
     const [collapsed, setCollapsed] = useState(false);
+    const [isMobileOpen, setIsMobileOpen] = useState(false); // Mobile Menu State
     const [activeConcept, setActiveConcept] = useState('business');
     const [filters, setFilters] = useState({ type: [], brand: [], tech: [] });
     const [viewMode, setViewMode] = useState('donut');
@@ -611,6 +639,7 @@ const AnalyticsContainer = () => {
         <div className="h-screen bg-slate-50 flex overflow-hidden font-sans">
             <Navigator
                 collapsed={collapsed} setCollapsed={setCollapsed}
+                isMobileOpen={isMobileOpen} setIsMobileOpen={setIsMobileOpen}
                 activeConcept={activeConcept} onSelect={setActiveConcept}
                 filters={filters} setFilters={setFilters}
                 metadata={metadata}
@@ -624,6 +653,7 @@ const AnalyticsContainer = () => {
                     mapMetric={mapMetric}
                     onToggleMapMetric={() => setMapMetric(prev => prev === 'volume' ? 'revenue' : 'volume')}
                     filters={filters}
+                    onToggleMenu={() => setIsMobileOpen(true)}
                 />
             </div>
         </div>
