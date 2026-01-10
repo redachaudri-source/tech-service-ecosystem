@@ -54,7 +54,7 @@ BEGIN
         SELECT 
             p.id,
             p.created_at,
-            p.updated_at,
+            p.created_at as updated_at, -- FIX: 'updated_at' column missing in schema, using 'created_at' fallback
             (SELECT COUNT(*) FROM tickets t WHERE t.client_id = p.id) as ticket_count
         FROM profiles p
         WHERE 
