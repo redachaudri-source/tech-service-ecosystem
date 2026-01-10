@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, User, MapPin, Trash2, Edit2, X, Phone, Mail, History, Filter, Search as SearchIcon, Lock, Unlock, Package, Zap, Waves, Wind, Refrigerator, Flame, Thermometer, Tv, Smartphone, Disc, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Plus, User, MapPin, Trash2, Edit2, X, Phone, Mail, History, Filter, Search as SearchIcon, Lock, Unlock, Package, Zap, Waves, Wind, Refrigerator, Flame, Thermometer, Tv, Smartphone, Disc, TrendingUp, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 
 
@@ -601,6 +601,50 @@ const ClientManager = () => {
                                 Guardar Cliente
                             </button>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* History Modal */}
+            {showHistory && selectedClient && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col">
+                        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                    <Clock size={20} className="text-blue-600" /> Historial de Tickets
+                                </h2>
+                                <p className="text-xs text-slate-500">{selectedClient.full_name}</p>
+                            </div>
+                            <button onClick={() => setShowHistory(false)} className="text-slate-400 hover:text-slate-600">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50">
+                            {clientTickets.length === 0 ? (
+                                <div className="p-8 text-center text-slate-400 border-2 border-dashed rounded-xl">
+                                    Este cliente no tiene tickets.
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {clientTickets.map(ticket => (
+                                        <div key={ticket.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="text-xs font-bold text-slate-500 uppercase">{format(new Date(ticket.created_at), 'dd/MM/yyyy HH:mm')}</span>
+                                                    <span className={`px-2 py-0.5 rounded text-[10px] bg-slate-100 text-slate-600 uppercase font-bold`}>{ticket.status}</span>
+                                                </div>
+                                                <p className="font-medium text-slate-800">{ticket.appliance_info?.type} {ticket.appliance_info?.brand}</p>
+                                                <p className="text-xs text-slate-500">{ticket.problem_description}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="text-lg font-bold text-slate-800">{ticket.total_amount ? `${ticket.total_amount}€` : '-'}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
