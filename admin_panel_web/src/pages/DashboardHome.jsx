@@ -6,6 +6,7 @@ import {
     Calendar, Package, FileText, CheckCircle, Clock, Zap, BellRing, ArrowRight
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { useTicketNotifications } from '../hooks/useTicketNotifications'; // NEW HOOK
 
 // --- CONFIGURATION ---
 const AVAILABLE_SHORTCUTS = [
@@ -104,7 +105,9 @@ const DashboardHome = () => {
     const [stats, setStats] = useState({ todayServices: 0, monthlyIncome: 0, topTech: 'N/A', activeServices: 0 });
     const [chartData, setChartData] = useState([]);
     const [alerts, setAlerts] = useState([]);
-    const [webRequests, setWebRequests] = useState(0);
+
+    // --- USE NEW HOOK ---
+    const { count: webRequests, loading: loadingNotifications } = useTicketNotifications();
 
     // Shortcut State
     const [myShortcuts, setMyShortcuts] = useState(() => {
@@ -141,30 +144,7 @@ const DashboardHome = () => {
     const fetchAlerts = async () => {
         const newAlerts = [];
 
-        // 0. PRIORITY: Check Web Requests (Robust & Case Insensitive)
-        const { data: requestTickets, error } = await supabase
-            .from('tickets')
-            .select('status')
-            .in('status', [
-                'request', 'solicitado', 'pendiente_aceptacion', 'pendiente', 'new', 'requested', 'pendiente aceptación',
-                'REQUEST', 'SOLICITADO', 'PENDIENTE_ACEPTACION', 'PENDIENTE', 'NEW', 'REQUESTED', 'PENDIENTE ACEPTACIÓN',
-                'Solicitado', 'Pendiente'
-            ]);
-
-        if (requestTickets) {
-            console.log('DEBUG (Dashboard): Estados encontrados:', requestTickets.map(t => t.status));
-
-            const alertStatuses = ['pending', 'pendiente', 'solicitado', 'requested', 'pendiente aceptación', 'new', 'pendiente_aceptacion'];
-
-            const matchCount = requestTickets.filter(t => {
-                const normalized = t.status?.toLowerCase().trim();
-                return alertStatuses.includes(normalized);
-            }).length;
-
-            setWebRequests(matchCount);
-        } else {
-            setWebRequests(0);
-        }
+        // 0. PRIORITY: Handled by Hook (webRequests)
 
         // 1. Check Low Stock
         const { data: lowStock } = await supabase
@@ -261,7 +241,7 @@ const DashboardHome = () => {
                 </div>
             </div>
 
-            {/* PRIORITY ALERT BANNER */}
+            {/* PRIORITY ALERT BANNER (Powered by Hook) */}
             {webRequests > 0 && (
                 <div
                     onClick={() => navigate('/services')}

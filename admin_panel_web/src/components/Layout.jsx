@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { useTicketNotifications } from '../hooks/useTicketNotifications'; // NEW HOOK
 
 // Helper: Custom Tooltip
 const NavTooltip = ({ text }) => (
@@ -53,53 +53,30 @@ const Layout = () => {
         setIsMobileMenuOpen(false);
     }, [location.pathname]);
 
-    // State for Notifications
-    const [notifications, setNotifications] = useState({ services: 0 });
+    // --- NEW ARCHITECTURE: USE HOOK ---
+    const { count: notificationCount } = useTicketNotifications();
+
+    // Sound Effect on Count Increase (Local State to track prev)
+    const [prevCount, setPrevCount] = useState(0);
 
     useEffect(() => {
-        fetchNotifications();
-        // Subscribe to changes
-        const channel = supabase.channel('sidebar_notifications')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => fetchNotifications())
-            .subscribe();
-        return () => { supabase.removeChannel(channel); };
-    }, []);
-
-    const fetchNotifications = async () => {
-        // Broad query to catch all variations
-        const { data, error } = await supabase
-            .from('tickets')
-            .select('status')
-            .in('status', [
-                'request', 'solicitado', 'pendiente_aceptacion', 'pendiente', 'new', 'requested', 'pendiente aceptación',
-                'REQUEST', 'SOLICITADO', 'PENDIENTE_ACEPTACION', 'PENDIENTE', 'NEW', 'REQUESTED', 'PENDIENTE ACEPTACIÓN',
-                'Solicitado', 'Pendiente'
-            ]); // Query broadened to catch case variations at DB level
-
-        if (error) {
-            console.error('Error fetching notifications:', error);
-            return;
+        if (notificationCount > prevCount) {
+            try {
+                const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+                audio.volume = 0.5;
+                audio.play().catch(e => console.log('Audio blocked', e));
+            } catch (e) { }
         }
-
-        if (data) {
-            console.log('DEBUG (Sidebar): Estados encontrados en DB:', data.map(t => t.status));
-
-            const alertStatuses = ['pending', 'pendiente', 'solicitado', 'requested', 'pendiente aceptación', 'new', 'pendiente_aceptacion'];
-
-            const count = data.filter(t => {
-                const normalized = t.status?.toLowerCase().trim();
-                return alertStatuses.includes(normalized);
-            }).length;
-
-            setNotifications({ services: count });
-        }
-    };
+        setPrevCount(notificationCount);
+    }, [notificationCount]);
+    // ----------------------------------
 
     const NavItem = ({ item, isSub = false }) => {
         const Icon = item.icon;
         const isActive = location.pathname === item.path;
         const isHero = item.isHero;
-        const hasBadge = item.path === '/services' && notifications.services > 0;
+        // Use hook value
+        const hasBadge = item.path === '/services' && notificationCount > 0;
 
         return (
             <Link
@@ -118,7 +95,12 @@ const Layout = () => {
                 </div>
 
                 {hasBadge && (
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-red-500 shadow-sm shadow-red-900 animate-pulse"></span>
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 flex h-4 w-4">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 items-center justify-center text-[8px] font-bold text-white">
+                            {notificationCount > 9 ? '9+' : notificationCount}
+                        </span>
+                    </span>
                 )}
 
                 {item.help && !hasBadge && (
@@ -135,7 +117,6 @@ const Layout = () => {
 
     return (
         <div className="flex h-screen w-full bg-slate-50 overflow-hidden font-sans">
-
             {/* Mobile Header */}
             <header className="lg:hidden absolute top-0 left-0 right-0 h-14 bg-slate-900 border-b border-slate-800 text-white flex items-center justify-between px-4 z-20 shadow-md">
                 <button onClick={() => setIsMobileMenuOpen(true)} className="text-slate-400 hover:text-white">
@@ -163,7 +144,6 @@ const Layout = () => {
                 transform transition-transform duration-300 ease-in-out
                 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
             `}>
-                {/* Brand Header */}
                 <div className="h-14 px-4 border-b border-slate-800/50 flex items-center justify-between shrink-0 bg-[#0f172a]">
                     <div className="flex items-center gap-3">
                         <div className="w-7 h-7 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg shadow-lg shadow-blue-900/50 flex items-center justify-center text-white">
@@ -174,13 +154,11 @@ const Layout = () => {
                             <p className="text-[9px] font-bold text-blue-500 mt-0.5">V4.2.0 PRO</p>
                         </div>
                     </div>
-                    {/* Close button for mobile */}
                     <button className="lg:hidden text-slate-500 hover:text-white" onClick={() => setIsMobileMenuOpen(false)}>
                         <X size={18} />
                     </button>
                 </div>
 
-                {/* User Info (Compact) */}
                 <div className="px-4 py-3 border-b border-slate-800/50 bg-slate-900/50">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500">
@@ -195,7 +173,6 @@ const Layout = () => {
                     </div>
                 </div>
 
-                {/* Scrollable Nav Area (Hidden Scrollbar) */}
                 <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                     <style>{`
                         .scrollbar-hide::-webkit-scrollbar { display: none; }
@@ -204,9 +181,8 @@ const Layout = () => {
                     <p className="px-3 pt-2 pb-1 text-[9px] font-black text-slate-600 uppercase tracking-widest">General</p>
                     {mainNav.map(item => <NavItem key={item.path} item={item} />)}
 
-                    <div className="h-4" /> {/* Spacer */}
+                    <div className="h-4" />
 
-                    {/* Accordion Group: Settings */}
                     <div>
                         <button
                             onClick={() => toggleSection('settings')}
@@ -220,10 +196,8 @@ const Layout = () => {
                             {settingsNav.map(item => <NavItem key={item.path} item={item} isSub={true} />)}
                         </div>
                     </div>
-
                 </nav>
 
-                {/* Footer Actions */}
                 <div className="p-2 border-t border-slate-800 bg-[#0f172a]">
                     <button
                         onClick={() => signOut()}
@@ -235,7 +209,6 @@ const Layout = () => {
                 </div>
             </aside>
 
-            {/* Main Content */}
             <main className="flex-1 overflow-auto bg-slate-50 pt-14 lg:pt-0">
                 <div className="p-4 lg:p-6 max-w-[1600px] mx-auto">
                     <Outlet />
