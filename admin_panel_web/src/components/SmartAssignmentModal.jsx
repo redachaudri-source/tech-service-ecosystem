@@ -13,6 +13,9 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
     const [smartSlots, setSmartSlots] = useState([]); // Results from DB RPC
     const [loadingSlots, setLoadingSlots] = useState(false);
 
+    // Manual Override Filter
+    const [selectedTechFilter, setSelectedTechFilter] = useState('');
+
     // Selected Proposal (Just one for now to keep flow simple, or array if multiple)
     // We will stick to the "Builder" logic but powered by AI slots.
     const [proposals, setProposals] = useState([]);
@@ -189,11 +192,21 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
 
     // Group Slots by Tech for "Tetris" View
     // Structure: { techId: { techName, slots: [] } }
-    const slotsByTech = {};
-    techs.forEach(t => {
+    // Group Slots by Tech for "Tetris" View
+    // Structure: { techId: { techName, slots: [] } }
+    let slotsByTech = {};
+
+    // First, decide which techs to show
+    const visibleTechs = selectedTechFilter
+        ? techs.filter(t => t.id === selectedTechFilter)
+        : techs;
+
+    visibleTechs.forEach(t => {
         slotsByTech[t.id] = { name: t.full_name, slots: [] };
     });
+
     smartSlots.forEach(s => {
+        // Only push if the tech is in our visible set
         if (slotsByTech[s.technician_id]) {
             slotsByTech[s.technician_id].slots.push(s);
         }
@@ -257,6 +270,23 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
                                 <span>4h</span>
                                 <span>8h</span>
                             </div>
+                        </div>
+
+                        {/* 2.5 Technician Select (Manual Override) */}
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Técnico Preferente</label>
+                            <select
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition"
+                                value={selectedTechFilter}
+                                onChange={(e) => setSelectedTechFilter(e.target.value)}
+                            >
+                                <option value="">🤖 Cualquiera / Automático</option>
+                                {techs.map(t => (
+                                    <option key={t.id} value={t.id}>
+                                        {t.is_active ? '🟢' : '🔴'} {t.full_name}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
 
                         {/* 3. Date Selection */}
