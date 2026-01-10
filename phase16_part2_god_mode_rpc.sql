@@ -1,5 +1,5 @@
--- PHASE 16 PART 2: ANALYTICS GOD MODE RPC (HARDENED V6 - PROFILE SOURCE FIX)
--- Updates: Switched client_metrics source from auth.users to profiles (public) to fix 0 count.
+-- PHASE 16 PART 2: ANALYTICS GOD MODE RPC (HARDENED V7 - MIRROR PROTOCOL)
+-- Updates: Replicates ClientManager.jsx logic for "APP Users": role='client' AND created_via != 'admin'.
 
 CREATE OR REPLACE FUNCTION get_business_intelligence(
     p_start_date TIMESTAMP WITH TIME ZONE,
@@ -24,6 +24,7 @@ BEGIN
             t.brand_id,
             COALESCE(b.name, 'Otros') as brand_name,
             COALESCE(p_tech.full_name, 'Sin Asignar') as tech_name,
+            -- Use postal_code from profiles as verified in ClientManager.jsx
             COALESCE(p_client.postal_code, '00000') as client_cp,
             COALESCE(t.appliance_info->>'type', 'Otros') as appliance_type
         FROM tickets t
@@ -38,15 +39,17 @@ BEGIN
             AND (p_brand_id IS NULL OR t.brand_id = p_brand_id)
     ),
     client_metrics AS (
-        -- FIX: Source from PROFILES (Public) instead of auth.users
-        -- This guarantees we see all users with role 'client'
+        -- MIRROR PROTOCOL: Logic copied from ClientManager.jsx
+        -- Users with 'APP' badge are those where created_via IS DISTINCT FROM 'admin'
         SELECT 
             p.id,
             p.created_at,
             p.updated_at as last_active, -- Proxy for activity
             (SELECT COUNT(*) FROM tickets t WHERE t.client_id = p.id) as ticket_count
         FROM profiles p
-        WHERE p.role = 'client'
+        WHERE 
+            p.role = 'client'
+            AND p.created_via IS DISTINCT FROM 'admin' -- Matches frontend "APP" logic
         -- NOTE: No date filter here. We want TOTAL historic users.
     )
     SELECT json_build_object(
@@ -153,7 +156,7 @@ BEGIN
             ) x
         ),
 
-        -- 8. CLIENT ADOPTION (PROFILES SOURCE)
+        -- 8. CLIENT ADOPTION (MIRRORED LOGIC)
         'client_adoption', (
             SELECT json_build_object(
                 'total_users', (SELECT COUNT(*) FROM client_metrics),
