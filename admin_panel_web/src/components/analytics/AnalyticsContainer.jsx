@@ -460,7 +460,7 @@ const MainChart = ({ data, mode }) => {
 // Aliases
 const RePieChart = RePie; const ReBarChart = ReBar; const ReLineChart = ReLine;
 
-const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode, setViewMode, activeConcept, rpcError, mapMetric, onToggleMapMetric, filters, onToggleMenu }) => {
+const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode, setViewMode, activeConcept, rpcError, mapMetric, onToggleMapMetric, filters, onToggleMenu, onOpenReport }) => {
 
     // ... (keep helper functions same)
     const applyPreset = (months) => {
@@ -545,7 +545,7 @@ const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode,
                         />
                     </div>
                     <button
-                        onClick={() => generateExecutiveReport(data, { startDate: dateRange.start, endDate: dateRange.end })}
+                        onClick={onOpenReport}
                         className="hidden md:flex ml-2 bg-slate-900 text-white px-3 py-1.5 rounded text-[10px] font-bold items-center gap-1 hover:bg-slate-800"
                     >
                         <Download size={12} /> PDF
@@ -726,6 +726,7 @@ const AnalyticsContainer = () => {
                     onToggleMapMetric={() => setMapMetric(prev => prev === 'volume' ? 'revenue' : 'volume')}
                     filters={filters}
                     onToggleMenu={() => setIsMobileOpen(true)}
+                    onOpenReport={() => setShowReportModal(true)}
                 />
             </div>
         </div>
