@@ -252,8 +252,8 @@ const Navigator = ({ collapsed, setCollapsed, activeConcept, onSelect, filters, 
                                     labelKey="full_name" idKey="id"
                                     renderItem={(item) => (
                                         <div className="flex items-center gap-2 w-full">
-                                            <div className={`w-2 h-2 rounded-full ${item.status === 'activo' || item.is_active ? 'bg-green-500' : 'bg-red-300'}`} />
-                                            <span>{item.full_name}</span>
+                                            <div className={`w-2 h-2 rounded-full ${item.is_active ? 'bg-green-500' : 'bg-red-400'}`} />
+                                            <span className={`${!item.is_active && 'text-slate-400 line-through decoration-slate-300'}`}>{item.full_name}</span>
                                         </div>
                                     )}
                                 />
@@ -565,18 +565,14 @@ const AnalyticsContainer = () => {
             const [t, b, te] = await Promise.all([
                 supabase.from('appliance_types').select('name'),
                 supabase.from('brands').select('id, name').order('name'),
-                // Try fetching status if available, otherwise just id, full_name
-                supabase.from('profiles').select('id, full_name, role').eq('role', 'tech')
+                supabase.from('profiles').select('id, full_name, role, is_active').eq('role', 'tech')
             ]);
-
-            // Mock status if missing
-            const techData = te.data?.map(t => ({ ...t, status: 'activo' })) || [];
 
             const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'client').neq('created_via', 'admin');
             setMetadata({
                 types: t.data?.map(x => x.name) || [],
                 brands: b.data || [],
-                techs: techData,
+                techs: te.data || [],
                 appUsers: count || 0
             });
         };
