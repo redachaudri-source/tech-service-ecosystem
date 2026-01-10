@@ -1,5 +1,5 @@
--- PHASE 16 PART 2: ANALYTICS GOD MODE RPC (HARDENED V5 - CLIENT ADOPTION)
--- Updates: Added client_adoption metrics (Growth, Engagement, Conversion).
+-- PHASE 16 PART 2: ANALYTICS GOD MODE RPC (HARDENED V6 - PROFILE SOURCE FIX)
+-- Updates: Switched client_metrics source from auth.users to profiles (public) to fix 0 count.
 
 CREATE OR REPLACE FUNCTION get_business_intelligence(
     p_start_date TIMESTAMP WITH TIME ZONE,
@@ -38,17 +38,16 @@ BEGIN
             AND (p_brand_id IS NULL OR t.brand_id = p_brand_id)
     ),
     client_metrics AS (
-        -- Only calculate if we are looking at specific metrics or global, 
-        -- but since this is a single JSON response, we calculate it.
-        -- We query auth.users securely here.
+        -- FIX: Source from PROFILES (Public) instead of auth.users
+        -- This guarantees we see all users with role 'client'
         SELECT 
-            au.id,
-            au.created_at,
-            au.last_sign_in_at,
-            (SELECT COUNT(*) FROM tickets t WHERE t.client_id = au.id) as ticket_count
-        FROM auth.users au
-        JOIN profiles p ON au.id = p.id
+            p.id,
+            p.created_at,
+            p.updated_at as last_active, -- Proxy for activity
+            (SELECT COUNT(*) FROM tickets t WHERE t.client_id = p.id) as ticket_count
+        FROM profiles p
         WHERE p.role = 'client'
+        -- NOTE: No date filter here. We want TOTAL historic users.
     )
     SELECT json_build_object(
         
@@ -140,7 +139,7 @@ BEGIN
              )
         ),
 
-        -- 7. STATUS BREAKDOWN (FUNNEL)
+        -- 7. STATUS BREAKDOWN
         'status_breakdown', (
             SELECT COALESCE(
                 json_agg(x), '[]'::json
@@ -154,11 +153,11 @@ BEGIN
             ) x
         ),
 
-        -- 8. CLIENT ADOPTION (NEW)
+        -- 8. CLIENT ADOPTION (PROFILES SOURCE)
         'client_adoption', (
             SELECT json_build_object(
                 'total_users', (SELECT COUNT(*) FROM client_metrics),
-                'active_30d', (SELECT COUNT(*) FROM client_metrics WHERE last_sign_in_at > NOW() - INTERVAL '30 days'),
+                'active_30d', (SELECT COUNT(*) FROM client_metrics WHERE last_active > NOW() - INTERVAL '30 days'),
                 'conversion_rate', (
                     SELECT CASE 
                         WHEN COUNT(*) = 0 THEN 0 
