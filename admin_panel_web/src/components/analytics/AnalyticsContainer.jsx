@@ -31,16 +31,16 @@ const TooltipHelp = ({ text }) => (
     </div>
 );
 
-const SearchableSelect = ({ items, onSelect, placeholder, labelKey = 'name', idKey = 'id' }) => {
+const SearchableSelect = ({ items, onSelect, placeholder, labelKey = 'name', idKey = 'id', renderItem }) => {
     const [query, setQuery] = useState('');
     const [isOpen, setIsOpen] = useState(false);
 
     const filtered = useMemo(() => {
-        if (!query) return [];
+        if (!query) return items; // Show all if no query (user might just want to scroll)
         return items.filter(i => {
             const val = typeof i === 'object' ? i[labelKey] : i;
             return val?.toLowerCase().includes(query.toLowerCase());
-        }).slice(0, 5); // Limit suggestions
+        }).slice(0, 10);
     }, [items, query, labelKey]);
 
     return (
@@ -52,33 +52,34 @@ const SearchableSelect = ({ items, onSelect, placeholder, labelKey = 'name', idK
                     value={query}
                     onChange={e => { setQuery(e.target.value); setIsOpen(true); }}
                     onFocus={() => setIsOpen(true)}
+                    // On Blur needs delay to allow click
+                    onBlur={() => setTimeout(() => setIsOpen(false), 200)}
                     placeholder={placeholder}
                     className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all outline-none"
                 />
             </div>
-            {isOpen && query && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-100 rounded-lg shadow-lg z-50 overflow-hidden">
+            {isOpen && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-100 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto custom-scrollbar">
                     {filtered.length > 0 ? filtered.map((item, idx) => {
-                        const label = typeof item === 'object' ? item[labelKey] : item;
                         const val = typeof item === 'object' ? item[idKey] : item;
                         return (
                             <button
                                 key={idx}
                                 onClick={() => { onSelect(val); setQuery(''); setIsOpen(false); }}
-                                className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 text-slate-700 flex items-center gap-2"
+                                className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 text-slate-700 flex items-center gap-2 border-b border-slate-50 last:border-0"
                             >
-                                <TagIcon size={12} className="text-slate-400" />
-                                {label}
+                                {renderItem ? renderItem(item) : (
+                                    <>
+                                        <TagIcon size={12} className="text-slate-400" />
+                                        {typeof item === 'object' ? item[labelKey] : item}
+                                    </>
+                                )}
                             </button>
                         );
                     }) : (
                         <div className="p-3 text-[10px] text-slate-400 text-center">No hay coincidencias</div>
                     )}
                 </div>
-            )}
-            {/* Backprop click outside would be ideal, but for now simple onBlur delay or keep explicit close */}
-            {isOpen && (
-                <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsOpen(false)} />
             )}
         </div>
     );
@@ -163,7 +164,7 @@ const Navigator = ({ collapsed, setCollapsed, activeConcept, onSelect, filters, 
                 {/* GLOBAL VIEW TOGGLES */}
                 <div className="p-3 space-y-1">
                     <button
-                        onClick={() => onSelect('global')}
+                        onClick={() => onSelect('global')} // 'global' matches default in Canvas
                         className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${activeConcept === 'global' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
                     >
                         <LayoutGrid size={16} /> {collapsed ? '' : 'Vista Global'}
@@ -210,11 +211,11 @@ const Navigator = ({ collapsed, setCollapsed, activeConcept, onSelect, filters, 
                                 title="Electrodomésticos"
                                 isOpen={openSection === 'appliance'}
                                 onToggle={() => toggleSection('appliance')}
-                                helpText="Busca y añade tipos de aparato para comparar. Ejemplo: Añade 'Lavadora' y 'Secadora'."
+                                helpText="Busca y añade tipos de aparato para comparar."
                             >
                                 <SearchableSelect
                                     items={metadata.types}
-                                    placeholder="Buscar tipo (ej. Horno)..."
+                                    placeholder="Buscar tipo..."
                                     onSelect={(val) => addFilter('type', val)}
                                     labelKey="name" idKey="name" // Types are strings
                                 />
@@ -226,11 +227,11 @@ const Navigator = ({ collapsed, setCollapsed, activeConcept, onSelect, filters, 
                                 title="Marcas"
                                 isOpen={openSection === 'brand'}
                                 onToggle={() => toggleSection('brand')}
-                                helpText="Añade marcas para ver su cuota de mercado o cruzarlas con tipos."
+                                helpText="Añade marcas para ver su cuota de mercado o cruzarlas."
                             >
                                 <SearchableSelect
                                     items={metadata.brands}
-                                    placeholder="Buscar marca (ej. Balay)..."
+                                    placeholder="Buscar marca..."
                                     onSelect={(val) => addFilter('brand', val)}
                                     labelKey="name" idKey="id"
                                 />
@@ -242,13 +243,19 @@ const Navigator = ({ collapsed, setCollapsed, activeConcept, onSelect, filters, 
                                 title="Equipo Técnico"
                                 isOpen={openSection === 'tech'}
                                 onToggle={() => toggleSection('tech')}
-                                helpText="Analiza el rendimiento individual o grupal de tus técnicos."
+                                helpText="Analiza rendimiento técnico."
                             >
                                 <SearchableSelect
                                     items={metadata.techs}
                                     placeholder="Buscar técnico..."
                                     onSelect={(val) => addFilter('tech', val)}
                                     labelKey="full_name" idKey="id"
+                                    renderItem={(item) => (
+                                        <div className="flex items-center gap-2 w-full">
+                                            <div className={`w-2 h-2 rounded-full ${item.status === 'activo' || item.is_active ? 'bg-green-500' : 'bg-red-300'}`} />
+                                            <span>{item.full_name}</span>
+                                        </div>
+                                    )}
                                 />
                             </AccordionItem>
                         </div>
@@ -256,11 +263,11 @@ const Navigator = ({ collapsed, setCollapsed, activeConcept, onSelect, filters, 
                 )}
             </div>
 
-            {/* FOOTER NAV */}
+            {/* FOOTER NAV - FIXED 'client' mismatch -> 'adoption' */}
             <div className="p-3 border-t border-slate-100 shrink-0 bg-slate-50">
                 <button
-                    onClick={() => onSelect('client')}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold transition-all border ${activeConcept === 'client' ? 'bg-white border-blue-200 text-blue-700 shadow-sm' : 'border-transparent text-slate-500 hover:bg-white hover:border-slate-200'}`}
+                    onClick={() => onSelect('adoption')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold transition-all border ${activeConcept === 'adoption' ? 'bg-white border-blue-200 text-blue-700 shadow-sm' : 'border-transparent text-slate-500 hover:bg-white hover:border-slate-200'}`}
                 >
                     <div className="flex items-center gap-2">
                         <Smartphone size={16} /> {collapsed ? '' : 'App Clientes'}
@@ -453,6 +460,15 @@ const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode,
             <div className="flex-1 overflow-y-auto p-4 md:p-6 text-slate-800">
                 {activeConcept === 'adoption' ? (
                     <div className="space-y-6">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-xl font-bold text-slate-800">Métricas de Adopción (App)</h2>
+                            <button
+                                onClick={() => onSelect('global')}
+                                className="text-xs text-slate-500 hover:text-slate-800 underline"
+                            >
+                                Volver al Dashboard
+                            </button>
+                        </div>
                         <div className="grid grid-cols-3 gap-6">
                             <KPICard label="Usuarios Totales" value={data.client_adoption?.total_users} sub="Registros Históricos (APP)" />
                             <KPICard label="Usuarios Activos" value={data.client_adoption?.active_30d} sub="Login últimos 30 días" highlight />
@@ -549,13 +565,18 @@ const AnalyticsContainer = () => {
             const [t, b, te] = await Promise.all([
                 supabase.from('appliance_types').select('name'),
                 supabase.from('brands').select('id, name').order('name'),
-                supabase.from('profiles').select('id, full_name').eq('role', 'tech')
+                // Try fetching status if available, otherwise just id, full_name
+                supabase.from('profiles').select('id, full_name, role').eq('role', 'tech')
             ]);
+
+            // Mock status if missing
+            const techData = te.data?.map(t => ({ ...t, status: 'activo' })) || [];
+
             const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'client').neq('created_via', 'admin');
             setMetadata({
                 types: t.data?.map(x => x.name) || [],
                 brands: b.data || [],
-                techs: te.data || [],
+                techs: techData,
                 appUsers: count || 0
             });
         };
