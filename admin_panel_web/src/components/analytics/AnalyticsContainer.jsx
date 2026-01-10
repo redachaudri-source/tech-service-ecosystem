@@ -240,7 +240,7 @@ const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode,
                         onClick={() => generateExecutiveReport(data, { startDate: dateRange.start, endDate: dateRange.end })}
                         className="ml-2 bg-slate-900 text-white px-3 py-1.5 rounded text-[10px] font-bold flex items-center gap-1 hover:bg-slate-800"
                     >
-                        <Download size={12} /> PDF
+                        <Download size={12} /> Descargar Informe
                     </button>
                 </div>
             </div>
