@@ -491,7 +491,7 @@ const AnalyticsContainer = () => {
             const [t, b, te] = await Promise.all([
                 supabase.from('appliance_types').select('name'),
                 supabase.from('brands').select('id, name').order('name'),
-                supabase.from('profiles').select('id, full_name').eq('role', 'technician')
+                supabase.from('profiles').select('id, full_name').eq('role', 'tech')
             ]);
 
             const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'client').neq('created_via', 'admin');

@@ -46,7 +46,7 @@ BEGIN
     ),
     -- 1. Tech Performance (ALL Techs, not just active ones)
     all_techs AS (
-        SELECT id, full_name FROM profiles WHERE role = 'technician' AND deleted_at IS NULL
+        SELECT id, full_name FROM profiles WHERE role = 'tech' AND deleted_at IS NULL
     ),
     tech_stats AS (
         SELECT 
