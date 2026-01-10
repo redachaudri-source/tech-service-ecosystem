@@ -41,7 +41,7 @@ const BrandLogo = ({ name }) => (
     </div>
 );
 
-// 1. NAVIGATOR
+// 1. NAVIGATOR (Collapsible & High Density)
 const Navigator = ({ activeConcept, onSelect, filters, setFilters, metadata, loadingMetadata, collapsed, setCollapsed }) => {
 
     const { types, brands, techs } = metadata;
@@ -78,6 +78,7 @@ const Navigator = ({ activeConcept, onSelect, filters, setFilters, metadata, loa
 
     return (
         <div className="bg-white h-full border-r border-slate-200 flex flex-col w-64 transition-all">
+            {/* Header */}
             <div className="p-3 border-b border-slate-100 flex justify-between items-center">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">FILTROS</span>
                 <button onClick={() => setCollapsed(true)} className="text-slate-400 hover:text-slate-600">
@@ -86,59 +87,108 @@ const Navigator = ({ activeConcept, onSelect, filters, setFilters, metadata, loa
             </div>
 
             <div className="flex-1 overflow-y-auto p-3 space-y-1">
-                <NavButton id="global" label="Global" icon={LayoutGrid} isActive={activeConcept === 'global'} onClick={() => onSelect('global')} />
+                {/* Global */}
+                <NavButton
+                    id="global" label="Global" icon={LayoutGrid}
+                    isActive={activeConcept === 'global'} onClick={() => onSelect('global')}
+                />
 
                 <div className="my-2 border-t border-slate-50" />
                 <p className="px-3 text-[10px] font-bold text-slate-300 uppercase mb-1">Operativo</p>
 
-                <NavButton id="appliance" label="Electro & Marca" icon={Filter} isActive={activeConcept === 'appliance'} onClick={() => onSelect('appliance')} />
+                {/* Appliance Multi-Filter */}
+                <NavButton
+                    id="appliance" label="Electro & Marca" icon={Filter}
+                    isActive={activeConcept === 'appliance'} onClick={() => onSelect('appliance')}
+                />
+
                 {activeConcept === 'appliance' && (
                     <div className="ml-3 pl-3 border-l border-slate-100 space-y-4 my-2 animate-in slide-in-from-left-2">
+                        {/* Types */}
                         <div className="space-y-1">
                             <h4 className="text-[10px] font-bold text-slate-400 uppercase mb-1">Tipo</h4>
-                            {types.map(t => (<FilterItem key={t} label={t} isActive={filters.type === t} onClick={() => toggleFilter('type', t)} />))}
+                            {types.map(t => (
+                                <FilterItem key={t} label={t} isActive={filters.type === t} onClick={() => toggleFilter('type', t)} />
+                            ))}
                         </div>
+                        {/* Brands */}
                         <div className="space-y-1">
                             <h4 className="text-[10px] font-bold text-slate-400 uppercase mb-1">Marca</h4>
-                            {brands.map(b => (<FilterItem key={b.id} label={<BrandLogo name={b.name} />} isActive={filters.brand === b.id} onClick={() => toggleFilter('brand', b.id)} />))}
+                            {brands.map(b => (
+                                <FilterItem
+                                    key={b.id}
+                                    label={<BrandLogo name={b.name} />}
+                                    isActive={filters.brand === b.id}
+                                    onClick={() => toggleFilter('brand', b.id)}
+                                />
+                            ))}
                         </div>
                     </div>
                 )}
 
-                <NavButton id="tech" label="Técnicos" icon={User} isActive={activeConcept === 'tech'} onClick={() => onSelect('tech')} />
+                {/* Tech Filter */}
+                <NavButton
+                    id="tech" label="Técnicos" icon={User}
+                    isActive={activeConcept === 'tech'} onClick={() => onSelect('tech')}
+                />
                 {activeConcept === 'tech' && (
                     <div className="ml-3 pl-3 border-l border-slate-100 space-y-1 my-2">
-                        {techs.map(t => (<FilterItem key={t.id} label={t.full_name} isActive={filters.tech === t.id} onClick={() => toggleFilter('tech', t.id)} />))}
+                        {techs.map(t => (
+                            <FilterItem key={t.id} label={t.full_name} isActive={filters.tech === t.id} onClick={() => toggleFilter('tech', t.id)} />
+                        ))}
                     </div>
                 )}
 
-                <NavButton id="geo" label="Geografía" icon={Map} isActive={activeConcept === 'geo'} onClick={() => onSelect('geo')} />
+                {/* Geo */}
+                <NavButton
+                    id="geo" label="Geografía" icon={Map}
+                    isActive={activeConcept === 'geo'} onClick={() => onSelect('geo')}
+                />
 
                 <div className="my-2 border-t border-slate-50" />
                 <p className="px-3 text-[10px] font-bold text-slate-300 uppercase mb-1">Growth</p>
-                <NavButton id="adoption" label="Adopción App" icon={Smartphone} isActive={activeConcept === 'adoption'} onClick={() => onSelect('adoption')} />
+
+                {/* Adoption */}
+                <NavButton
+                    id="adoption" label="Adopción App" icon={Smartphone}
+                    isActive={activeConcept === 'adoption'} onClick={() => onSelect('adoption')}
+                />
             </div>
         </div>
     );
 };
 
 const NavButton = ({ id, label, icon: Icon, isActive, onClick }) => (
-    <button onClick={onClick} className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${isActive ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}>
-        <div className="flex items-center gap-2.5"><Icon size={16} className={isActive ? 'text-blue-400' : 'text-slate-400'} /><span>{label}</span></div>
+    <button
+        onClick={onClick}
+        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all
+            ${isActive ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}
+        `}
+    >
+        <div className="flex items-center gap-2.5">
+            <Icon size={16} className={isActive ? 'text-blue-400' : 'text-slate-400'} />
+            <span>{label}</span>
+        </div>
         {isActive && <ChevronRight size={12} />}
     </button>
 );
 
 const FilterItem = ({ label, isActive, onClick }) => (
-    <button onClick={onClick} className={`w-full text-left px-2 py-1.5 text-[11px] rounded transition-colors flex justify-between items-center ${isActive ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-500 hover:bg-slate-50'}`}>
+    <button
+        onClick={onClick}
+        className={`w-full text-left px-2 py-1.5 text-[11px] rounded transition-colors flex justify-between items-center
+            ${isActive ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-500 hover:bg-slate-50'}
+        `}
+    >
         <span className="truncate">{label}</span>
         {isActive && <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
     </button>
 );
 
-// 2. VISUALIZATION CANVAS
+// 2. VISUALIZATION CANVAS (Persistent Header Layout)
 const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode, setViewMode, activeConcept }) => {
 
+    // Date Presets
     const applyPreset = (months) => {
         const end = new Date();
         const start = months === 'YTD' ? startOfYear(new Date()) : subMonths(new Date(), months);
@@ -146,52 +196,24 @@ const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode,
         setDateRange({ start: start.toISOString(), end: end.toISOString() });
     };
 
-    // Client Adoption View Logic
-    if (activeConcept === 'adoption') {
-        const adopt = data.client_adoption || { total_users: 0, active_30d: 0, conversion_rate: 0, growth_curve: [] };
-        return (
-            <div className="flex flex-col h-full bg-slate-50 overflow-hidden">
-                <div className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center shrink-0">
-                    <h1 className="text-sm font-black text-slate-800 uppercase tracking-tight">Adopción App Cliente</h1>
-                </div>
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                    {/* Adoption KPIs */}
-                    <div className="grid grid-cols-3 gap-6">
-                        <KPICard label="Usuarios Totales" value={adopt.total_users} sub="Registros Históricos" />
-                        <KPICard label="Usuarios Activos" value={adopt.active_30d} sub="Login últimos 30 días" highlight />
-                        <KPICard label="Tasa Conversión" value={`${adopt.conversion_rate}%`} sub="Registros CON Ticket" />
-                    </div>
+    // Determine Dashboard Title based on Context
+    const getDashboardTitle = () => {
+        switch (activeConcept) {
+            case 'adoption': return 'Adopción App Cliente'; // Overrides generic title
+            case 'geo': return 'Analytics Geográfico';
+            case 'tech': return 'Rendimiento Técnico';
+            case 'appliance': return 'Electrodomésticos';
+            default: return 'Analytics v3.0';
+        }
+    };
 
-                    {/* Growth Chart */}
-                    <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm h-80">
-                        <h3 className="text-xs font-bold text-slate-700 uppercase mb-4">Curva de Crecimiento (Altas Mensuales)</h3>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={adopt.growth_curve} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                                <defs>
-                                    <linearGradient id="colorNew" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
-                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                                <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none' }} />
-                                <Area type="monotone" dataKey="new_users" stroke="#3b82f6" fillOpacity={1} fill="url(#colorNew)" />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    // Default Operational View
     return (
         <div className="flex flex-col h-full bg-slate-50 overflow-hidden">
-            {/* Header */}
+
+            {/* --- PERSISTENT HEADER (GLOBAL) --- */}
             <div className="bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center shrink-0">
                 <div className="flex items-center gap-4">
-                    <h1 className="text-sm font-black text-slate-800 uppercase tracking-tight">Analytics v3.0</h1>
+                    <h1 className="text-sm font-black text-slate-800 uppercase tracking-tight">{getDashboardTitle()}</h1>
                     <div className="h-4 w-px bg-slate-200" />
                     <div className="flex gap-1">
                         {[{ l: '6 Meses', v: 6 }, { l: 'Este Año', v: 'YTD' }, { l: 'Histórico', v: 'ALL' }].map(p => (
@@ -201,86 +223,157 @@ const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode,
                         ))}
                     </div>
                 </div>
+
                 <div className="flex items-center gap-2">
-                    <input type="date" value={dateRange.start.split('T')[0]} onChange={e => setDateRange({ ...dateRange, start: new Date(e.target.value).toISOString() })} className="text-xs border border-slate-200 rounded p-1 text-slate-600 font-medium" />
+                    <input
+                        type="date" value={dateRange.start.split('T')[0]}
+                        onChange={e => setDateRange({ ...dateRange, start: new Date(e.target.value).toISOString() })}
+                        className="text-xs border border-slate-200 rounded p-1 text-slate-600 font-medium"
+                    />
                     <span className="text-slate-300">-</span>
-                    <input type="date" value={dateRange.end.split('T')[0]} onChange={e => setDateRange({ ...dateRange, end: new Date(e.target.value).toISOString() })} className="text-xs border border-slate-200 rounded p-1 text-slate-600 font-medium" />
-                    <button onClick={() => generateExecutiveReport(data, { startDate: dateRange.start, endDate: dateRange.end })} className="ml-2 bg-slate-900 text-white px-3 py-1.5 rounded text-[10px] font-bold flex items-center gap-1 hover:bg-slate-800"><Download size={12} /> PDF</button>
+                    <input
+                        type="date" value={dateRange.end.split('T')[0]}
+                        onChange={e => setDateRange({ ...dateRange, end: new Date(e.target.value).toISOString() })}
+                        className="text-xs border border-slate-200 rounded p-1 text-slate-600 font-medium"
+                    />
+                    <button
+                        onClick={() => generateExecutiveReport(data, { startDate: dateRange.start, endDate: dateRange.end })}
+                        className="ml-2 bg-slate-900 text-white px-3 py-1.5 rounded text-[10px] font-bold flex items-center gap-1 hover:bg-slate-800"
+                    >
+                        <Download size={12} /> PDF
+                    </button>
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 grid grid-cols-12 gap-4">
-                <div className="col-span-12 grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <KPICard label="Volumen" value={data.kpis?.total_volume} sub="Tickets" />
-                    <KPICard label="Facturación" value={`${data.kpis?.total_revenue}€`} sub="Total" />
-                    <KPICard label="Ticket Medio" value={`${data.kpis?.avg_ticket}€`} sub="Promedio" highlight />
-                    <KPICard label="Tasa Cierre" value={`${data.kpis?.completion_rate}%`} sub="Finalizados" />
-                </div>
+            {/* --- DYNAMIC CONTENT AREA --- */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-6">
 
-                <div className="col-span-12 lg:col-span-8 bg-white rounded-xl border border-slate-200 p-4 shadow-sm h-[400px] flex flex-col">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-xs font-bold text-slate-700 uppercase">{activeConcept === 'geo' ? 'Mapa de Densidad' : 'Distribución Principal'}</h3>
-                        <div className="flex bg-slate-100 rounded p-0.5">
-                            <ChartToggle icon={PieChart} active={viewMode === 'donut'} onClick={() => setViewMode('donut')} />
-                            <ChartToggle icon={BarChart} active={viewMode === 'bar'} onClick={() => setViewMode('bar')} />
-                            <ChartToggle icon={Activity} active={viewMode === 'line'} onClick={() => setViewMode('line')} />
+                {/* 1. ADOPTION VIEW */}
+                {activeConcept === 'adoption' && (
+                    <div className="space-y-6">
+                        {/* Adoption KPIs */}
+                        <div className="grid grid-cols-3 gap-6">
+                            <KPICard label="Usuarios Totales" value={data.client_adoption?.total_users} sub="Registros Históricos (APP)" />
+                            <KPICard label="Usuarios Activos" value={data.client_adoption?.active_30d} sub="Login últimos 30 días" highlight />
+                            <KPICard label="Tasa Conversión" value={`${data.client_adoption?.conversion_rate}%`} sub="Registros CON Ticket" />
+                        </div>
+
+                        {/* Growth Chart */}
+                        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm h-80">
+                            <h3 className="text-xs font-bold text-slate-700 uppercase mb-4">Curva de Crecimiento (Altas Mensuales)</h3>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={data.client_adoption?.growth_curve} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="colorNew" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                                    <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                                    <Tooltip contentStyle={{ borderRadius: '8px', border: 'none' }} />
+                                    <Area type="monotone" dataKey="new_users" stroke="#3b82f6" fillOpacity={1} fill="url(#colorNew)" />
+                                </AreaChart>
+                            </ResponsiveContainer>
                         </div>
                     </div>
-                    <div className="flex-1 w-full min-h-0">
-                        {loading ? <div className="w-full h-full bg-slate-50 animate-pulse rounded" /> : (
-                            activeConcept === 'geo'
-                                ? <GeoHeatmapGrid data={data.hot_zones} />
-                                : <MainChart data={data.market_share} mode={viewMode} />
-                        )}
-                    </div>
-                </div>
+                )}
 
-                <div className="col-span-12 lg:col-span-4 flex flex-col gap-4">
-                    <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex-1">
-                        <h3 className="text-xs font-bold text-slate-700 uppercase mb-3">Embudo de Resolución</h3>
-                        <div className="space-y-3">
-                            {data.status_breakdown?.map((s, idx) => {
-                                const max = Math.max(...data.status_breakdown.map(i => i.count));
-                                return (
-                                    <div key={idx}>
-                                        <div className="flex justify-between text-[11px] mb-1">
-                                            <span className="capitalize text-slate-600 font-medium">{s.status}</span>
-                                            <span className="font-bold text-slate-800">{s.count}</span>
-                                        </div>
-                                        <div className="h-1.5 w-full bg-slate-50 rounded-full overflow-hidden">
-                                            <div className={`h-full rounded-full ${s.status === 'finalizado' ? 'bg-green-500' : s.status === 'cancelado' ? 'bg-red-400' : 'bg-blue-400'}`} style={{ width: `${(s.count / max || 0) * 100}%` }} />
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                {/* 2. OPERATIONAL VIEW (DEFAULT) */}
+                {activeConcept !== 'adoption' && (
+                    <div className="grid grid-cols-12 gap-4">
+                        {/* A. KPI CARDS */}
+                        <div className="col-span-12 grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <KPICard label="Volumen" value={data.kpis?.total_volume} sub="Tickets" />
+                            <KPICard label="Facturación" value={`${data.kpis?.total_revenue}€`} sub="Total" />
+                            <KPICard label="Ticket Medio" value={`${data.kpis?.avg_ticket}€`} sub="+2% vs mes anterior" highlight />
+                            <KPICard label="Tasa Cierre" value={`${data.kpis?.completion_rate}%`} sub="Finalizados" />
+                        </div>
+
+                        {/* B. MAIN CHART */}
+                        <div className="col-span-12 lg:col-span-8 bg-white rounded-xl border border-slate-200 p-4 shadow-sm h-[400px] flex flex-col">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-xs font-bold text-slate-700 uppercase">
+                                    {activeConcept === 'geo' ? 'Mapa de Densidad' : 'Distribución Principal'}
+                                </h3>
+                                <div className="flex bg-slate-100 rounded p-0.5">
+                                    <ChartToggle icon={PieChart} active={viewMode === 'donut'} onClick={() => setViewMode('donut')} />
+                                    <ChartToggle icon={BarChart} active={viewMode === 'bar'} onClick={() => setViewMode('bar')} />
+                                    <ChartToggle icon={Activity} active={viewMode === 'line'} onClick={() => setViewMode('line')} />
+                                </div>
+                            </div>
+
+                            <div className="flex-1 w-full min-h-0">
+                                {loading ? <div className="w-full h-full bg-slate-50 animate-pulse rounded" /> : (
+                                    activeConcept === 'geo'
+                                        ? <GeoHeatmapGrid data={data.hot_zones} />
+                                        : <MainChart data={data.market_share} mode={viewMode} />
+                                )}
+                            </div>
+                        </div>
+
+                        {/* C. SIDEBAR WIDGETS */}
+                        <div className="col-span-12 lg:col-span-4 flex flex-col gap-4">
+                            {/* Resolution Funnel */}
+                            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex-1">
+                                <h3 className="text-xs font-bold text-slate-700 uppercase mb-3">Embudo de Resolución</h3>
+                                <div className="space-y-3">
+                                    {data.status_breakdown?.map((s, idx) => {
+                                        const max = Math.max(...data.status_breakdown.map(i => i.count));
+                                        return (
+                                            <div key={idx}>
+                                                <div className="flex justify-between text-[11px] mb-1">
+                                                    <span className="capitalize text-slate-600 font-medium">{s.status}</span>
+                                                    <span className="font-bold text-slate-800">{s.count}</span>
+                                                </div>
+                                                <div className="h-1.5 w-full bg-slate-50 rounded-full overflow-hidden">
+                                                    <div
+                                                        className={`h-full rounded-full ${s.status === 'finalizado' ? 'bg-green-500' : s.status === 'cancelado' ? 'bg-red-400' : 'bg-blue-400'}`}
+                                                        style={{ width: `${(s.count / max) * 100}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Top Fault */}
+                            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm h-32 flex flex-col justify-center items-center text-center">
+                                <span className="text-[10px] text-slate-400 font-bold uppercase">Top Avería Recurrente</span>
+                                <span className="text-xl font-black text-slate-800 mt-1">{data.top_fault}</span>
+                                <span className="text-xl font-black text-slate-800 mt-1">{data.top_fault === 'Otros' && data.market_share.length > 0 ? data.market_share[0].name : ''}</span>
+                                <span className="text-[10px] text-red-500 font-medium bg-red-50 px-2 py-0.5 rounded-full mt-2">Atención Requerida</span>
+                            </div>
                         </div>
                     </div>
-                    <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm h-32 flex flex-col justify-center items-center text-center">
-                        <span className="text-[10px] text-slate-400 font-bold uppercase">Top Avería Recurrente</span>
-                        <span className="text-xl font-black text-slate-800 mt-1">{data.top_fault}</span>
-                        <span className="text-[10px] text-red-500 font-medium bg-red-50 px-2 py-0.5 rounded-full mt-2">Atención Requerida</span>
-                    </div>
-                </div>
+                )}
             </div>
         </div>
     );
 };
 
 // --- SUB-WIDGETS ---
+
 const KPICard = ({ label, value, sub, highlight }) => (
     <div className={`bg-white rounded-xl border p-4 shadow-sm ${highlight ? 'border-blue-200 ring-1 ring-blue-50' : 'border-slate-200'}`}>
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</p>
-        <div className="flex items-baseline gap-1 mt-1"><span className="text-xl font-black text-slate-800 tracking-tight">{value || '--'}</span></div>
+        <div className="flex items-baseline gap-1 mt-1">
+            <span className="text-xl font-black text-slate-800 tracking-tight">{value || (value === 0 ? '0' : '--')}</span>
+        </div>
         <p className={`text-[10px] mt-1 font-medium ${highlight ? 'text-green-600' : 'text-slate-400'}`}>{sub}</p>
     </div>
 );
 
 const ChartToggle = ({ icon: Icon, active, onClick }) => (
-    <button onClick={onClick} className={`p-1.5 rounded ${active ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}><Icon size={14} /></button>
+    <button onClick={onClick} className={`p-1.5 rounded ${active ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
+        <Icon size={14} />
+    </button>
 );
 
 const MainChart = ({ data, mode }) => {
     if (!data || data.length === 0) return <div className="h-full flex items-center justify-center text-slate-400 text-xs">Sin datos para visualizar</div>;
+
     return (
         <ResponsiveContainer width="100%" height="100%">
             {mode === 'donut' ? (
@@ -314,9 +407,13 @@ const MainChart = ({ data, mode }) => {
 // Aliases
 const RePieChart = RePie; const ReBarChart = ReBar; const ReLineChart = ReLine;
 
+
 const GeoHeatmapGrid = ({ data }) => {
     if (!data || data.length === 0) return <div className="h-full flex items-center justify-center text-slate-400 text-xs">Sin datos geo</div>;
+
+    // Simulate a grid density
     const max = Math.max(...data.map(d => d.value));
+
     return (
         <div className="grid grid-cols-4 gap-2 h-full content-start overflow-y-auto pr-2">
             {data.map((zone, idx) => {
@@ -325,13 +422,18 @@ const GeoHeatmapGrid = ({ data }) => {
                     <div key={idx} className="bg-slate-50 border border-slate-100 rounded-lg p-2 flex flex-col items-center justify-center relative overflow-hidden group">
                         <span className="text-[10px] text-slate-400 font-mono z-10 relative">{zone.postal_code}</span>
                         <span className="text-sm font-black text-slate-800 z-10 relative">{zone.value}</span>
-                        <div className="absolute bottom-0 left-0 w-full bg-red-500 opacity-20 transition-all group-hover:opacity-30" style={{ height: `${intensity}%` }} />
+                        {/* Heat Background */}
+                        <div
+                            className="absolute bottom-0 left-0 w-full bg-red-500 opacity-20 transition-all group-hover:opacity-30"
+                            style={{ height: `${intensity}%` }}
+                        />
                     </div>
                 );
             })}
         </div>
     );
 };
+
 
 // 3. MAIN CONTAINER
 const AnalyticsContainer = () => {
@@ -358,7 +460,11 @@ const AnalyticsContainer = () => {
                 supabase.from('brands').select('id, name').order('name'),
                 supabase.from('profiles').select('id, full_name').eq('role', 'technician')
             ]);
-            setMetadata({ types: t.data?.map(x => x.name) || [], brands: b.data || [], techs: te.data || [] });
+            setMetadata({
+                types: t.data?.map(x => x.name) || [],
+                brands: b.data || [],
+                techs: te.data || []
+            });
         };
         loadMeta();
     }, []);
@@ -367,17 +473,25 @@ const AnalyticsContainer = () => {
         const fetchData = async () => {
             setLoading(true);
             try {
-                const { data: rpc, error } = await supabase.rpc('get_business_intelligence', {
+                // Determine active filters based on concept
+                const params = {
                     p_start_date: dateRange.start,
                     p_end_date: dateRange.end,
                     p_tech_id: activeConcept === 'tech' ? filters.tech : null,
                     p_zone_cp: null,
                     p_appliance_type: activeConcept === 'appliance' ? filters.type : null,
                     p_brand_id: activeConcept === 'appliance' ? filters.brand : null
-                });
+                };
+
+                const { data: rpc, error } = await supabase.rpc('get_business_intelligence', params);
                 if (error) throw error;
                 setData(rpc || EMPTY_DATA);
-            } catch (e) { console.error(e); setData(EMPTY_DATA); } finally { setLoading(false); }
+            } catch (e) {
+                console.error(e);
+                setData(EMPTY_DATA);
+            } finally {
+                setLoading(false);
+            }
         };
         fetchData();
     }, [activeConcept, filters, dateRange]);
