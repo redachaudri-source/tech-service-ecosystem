@@ -141,14 +141,30 @@ const DashboardHome = () => {
     const fetchAlerts = async () => {
         const newAlerts = [];
 
-        // 0. PRIORITY: Check Web Requests
-        const { count: requestsCount } = await supabase
+        // 0. PRIORITY: Check Web Requests (Robust & Case Insensitive)
+        const { data: requestTickets, error } = await supabase
             .from('tickets')
-            .select('*', { count: 'exact', head: true })
-            .in('status', ['request', 'solicitado', 'pendiente_aceptacion']);
-        // DEBUG: If you see the border but no alert, it means this query returns 0.
+            .select('status')
+            .in('status', [
+                'request', 'solicitado', 'pendiente_aceptacion', 'pendiente', 'new', 'requested', 'pendiente aceptación',
+                'REQUEST', 'SOLICITADO', 'PENDIENTE_ACEPTACION', 'PENDIENTE', 'NEW', 'REQUESTED', 'PENDIENTE ACEPTACIÓN',
+                'Solicitado', 'Pendiente'
+            ]);
 
-        setWebRequests(requestsCount || 0);
+        if (requestTickets) {
+            console.log('DEBUG (Dashboard): Estados encontrados:', requestTickets.map(t => t.status));
+
+            const alertStatuses = ['pending', 'pendiente', 'solicitado', 'requested', 'pendiente aceptación', 'new', 'pendiente_aceptacion'];
+
+            const matchCount = requestTickets.filter(t => {
+                const normalized = t.status?.toLowerCase().trim();
+                return alertStatuses.includes(normalized);
+            }).length;
+
+            setWebRequests(matchCount);
+        } else {
+            setWebRequests(0);
+        }
 
         // 1. Check Low Stock
         const { data: lowStock } = await supabase

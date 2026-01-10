@@ -66,12 +66,33 @@ const Layout = () => {
     }, []);
 
     const fetchNotifications = async () => {
-        const { count } = await supabase
+        // Broad query to catch all variations
+        const { data, error } = await supabase
             .from('tickets')
-            .select('*', { count: 'exact', head: true })
-            .in('status', ['request', 'solicitado', 'pendiente_aceptacion', 'pendiente']); // Robust check
+            .select('status')
+            .in('status', [
+                'request', 'solicitado', 'pendiente_aceptacion', 'pendiente', 'new', 'requested', 'pendiente aceptación',
+                'REQUEST', 'SOLICITADO', 'PENDIENTE_ACEPTACION', 'PENDIENTE', 'NEW', 'REQUESTED', 'PENDIENTE ACEPTACIÓN',
+                'Solicitado', 'Pendiente'
+            ]); // Query broadened to catch case variations at DB level
 
-        setNotifications({ services: count || 0 });
+        if (error) {
+            console.error('Error fetching notifications:', error);
+            return;
+        }
+
+        if (data) {
+            console.log('DEBUG (Sidebar): Estados encontrados en DB:', data.map(t => t.status));
+
+            const alertStatuses = ['pending', 'pendiente', 'solicitado', 'requested', 'pendiente aceptación', 'new', 'pendiente_aceptacion'];
+
+            const count = data.filter(t => {
+                const normalized = t.status?.toLowerCase().trim();
+                return alertStatuses.includes(normalized);
+            }).length;
+
+            setNotifications({ services: count });
+        }
     };
 
     const NavItem = ({ item, isSub = false }) => {
