@@ -79,6 +79,7 @@ BEGIN
             FROM filtered_tickets
         ),
         'market_share', (SELECT COALESCE(json_agg(x), '[]'::json) FROM (SELECT brand_name as name, COUNT(*) as value FROM filtered_tickets GROUP BY brand_name ORDER BY value DESC LIMIT 8) x),
+        'type_share', (SELECT COALESCE(json_agg(x), '[]'::json) FROM (SELECT appliance_type as name, COUNT(*) as value FROM filtered_tickets GROUP BY appliance_type ORDER BY value DESC LIMIT 8) x), -- NEW: Compare Appliances
         'seasonality', (SELECT COALESCE(json_agg(x), '[]'::json) FROM (SELECT TO_CHAR(created_at, 'Mon') as month, TO_CHAR(created_at, 'MM') as month_num, COUNT(*) as tickets, COALESCE(SUM(total_amount), 0) as revenue FROM filtered_tickets GROUP BY month, month_num ORDER BY month_num) x),
         'tech_performance', (SELECT COALESCE(json_agg(x), '[]'::json) FROM (SELECT tech_name as name, COUNT(*) as jobs, COALESCE(SUM(total_amount) FILTER (WHERE status IN ('finalizado', 'pagado')), 0) as revenue FROM filtered_tickets WHERE technician_id IS NOT NULL GROUP BY tech_name ORDER BY revenue DESC LIMIT 10) x),
         'hot_zones', (SELECT COALESCE(json_agg(x), '[]'::json) FROM (SELECT client_cp as postal_code, COUNT(*) as value FROM filtered_tickets GROUP BY client_cp ORDER BY value DESC LIMIT 20) x),

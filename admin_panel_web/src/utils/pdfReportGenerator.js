@@ -1,11 +1,11 @@
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 /**
  * Generates an Executive PDF Report from Analytics Data
- * @param {Object} data - The dataset from get_business_intelligence RPC
+ * @param {Object} data - The dataset from get_analytics_v2 RPC
  * @param {Object} filters - Current active filters
  */
 export const generateExecutiveReport = (data, filters) => {
@@ -49,8 +49,9 @@ export const generateExecutiveReport = (data, filters) => {
         doc.text("1. Cuota de Mercado (Top Marcas)", 20, yPos);
         yPos += 5;
 
+        // Use autoTable correctly (v5 syntax: default export is the function)
         const brandRows = (data.market_share || []).map(b => [b.name, b.value]);
-        doc.autoTable({
+        autoTable(doc, {
             startY: yPos,
             head: [['Marca', 'Volumen']],
             body: brandRows,
@@ -67,7 +68,7 @@ export const generateExecutiveReport = (data, filters) => {
         yPos += 5;
 
         const techRows = (data.tech_performance || []).map(t => [t.name, t.jobs, `${t.revenue} €`]);
-        doc.autoTable({
+        autoTable(doc, {
             startY: yPos,
             head: [['Técnico', 'Trabajos', 'Facturación']],
             body: techRows,
@@ -78,7 +79,7 @@ export const generateExecutiveReport = (data, filters) => {
 
         yPos = doc.lastAutoTable.finalY + 15;
 
-        // 3. HOT ZONES (Check page break)
+        // 3. HOT ZONES
         if (yPos > 250) {
             doc.addPage();
             yPos = 20;
@@ -89,16 +90,16 @@ export const generateExecutiveReport = (data, filters) => {
         yPos += 5;
 
         const zoneRows = (data.hot_zones || []).slice(0, 10).map(z => [z.postal_code, z.value]);
-        doc.autoTable({
+        autoTable(doc, {
             startY: yPos,
             head: [['C. Postal', 'Incidencias']],
             body: zoneRows,
             theme: 'striped',
             headStyles: { fillColor: [239, 68, 68] }, // Red-500
-            margin: { left: 20, right: 100 } // Narrow table
+            margin: { left: 20, right: 100 }
         });
 
-        // 4. CLIENT ADOPTION (New Section)
+        // 4. CLIENT ADOPTION
         yPos = doc.lastAutoTable.finalY + 15;
         if (yPos > 250) {
             doc.addPage();
@@ -116,7 +117,6 @@ export const generateExecutiveReport = (data, filters) => {
             doc.text(`Tasa Conversión: ${data.client_adoption.conversion_rate || 0}%`, 140, yPos);
         }
 
-
         // FOOTER
         const pageCount = doc.internal.getNumberOfPages();
         for (let i = 1; i <= pageCount; i++) {
@@ -124,7 +124,7 @@ export const generateExecutiveReport = (data, filters) => {
             doc.setFontSize(8);
             doc.setTextColor(150);
             doc.text(`Página ${i} de ${pageCount}`, 190, 285, { align: 'right' });
-            doc.text("Antigravity Business Intelligence", 20, 285);
+            doc.text("Tech Service Analytics", 20, 285);
         }
 
         doc.save(`Informe_Ejecutivo_${format(new Date(), 'yyyyMMdd')}.pdf`);
