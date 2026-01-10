@@ -1,5 +1,5 @@
--- PHASE 16 PART 2: ANALYTICS GOD MODE RPC (HARDENED V4 - FUNNEL REVOLUTION)
--- Updates: Added status_breakdown for Resolution Funnel.
+-- PHASE 16 PART 2: ANALYTICS GOD MODE RPC (HARDENED V5 - CLIENT ADOPTION)
+-- Updates: Added client_adoption metrics (Growth, Engagement, Conversion).
 
 CREATE OR REPLACE FUNCTION get_business_intelligence(
     p_start_date TIMESTAMP WITH TIME ZONE,
@@ -36,6 +36,19 @@ BEGIN
             AND (p_zone_cp IS NULL OR p_client.postal_code ILIKE p_zone_cp || '%')
             AND (p_appliance_type IS NULL OR t.appliance_info->>'type' = p_appliance_type)
             AND (p_brand_id IS NULL OR t.brand_id = p_brand_id)
+    ),
+    client_metrics AS (
+        -- Only calculate if we are looking at specific metrics or global, 
+        -- but since this is a single JSON response, we calculate it.
+        -- We query auth.users securely here.
+        SELECT 
+            au.id,
+            au.created_at,
+            au.last_sign_in_at,
+            (SELECT COUNT(*) FROM tickets t WHERE t.client_id = au.id) as ticket_count
+        FROM auth.users au
+        JOIN profiles p ON au.id = p.id
+        WHERE p.role = 'client'
     )
     SELECT json_build_object(
         
@@ -104,7 +117,7 @@ BEGIN
             ) x
         ),
 
-        -- 5. HOT ZONES (VISUAL DENSITY READY)
+        -- 5. HOT ZONES
         'hot_zones', (
             SELECT COALESCE(
                 json_agg(x), '[]'::json
@@ -127,7 +140,7 @@ BEGIN
              )
         ),
 
-        -- 7. STATUS BREAKDOWN (RESOLUTION FUNNEL) -- NEW
+        -- 7. STATUS BREAKDOWN (FUNNEL)
         'status_breakdown', (
             SELECT COALESCE(
                 json_agg(x), '[]'::json
@@ -139,6 +152,32 @@ BEGIN
                 GROUP BY status
                 ORDER BY count DESC
             ) x
+        ),
+
+        -- 8. CLIENT ADOPTION (NEW)
+        'client_adoption', (
+            SELECT json_build_object(
+                'total_users', (SELECT COUNT(*) FROM client_metrics),
+                'active_30d', (SELECT COUNT(*) FROM client_metrics WHERE last_sign_in_at > NOW() - INTERVAL '30 days'),
+                'conversion_rate', (
+                    SELECT CASE 
+                        WHEN COUNT(*) = 0 THEN 0 
+                        ELSE ROUND((COUNT(*) FILTER (WHERE ticket_count > 0)::numeric / COUNT(*)::numeric) * 100, 1) 
+                    END 
+                    FROM client_metrics
+                ),
+                'growth_curve', (
+                    SELECT COALESCE(json_agg(gc), '[]'::json)
+                    FROM (
+                        SELECT 
+                            TO_CHAR(created_at, 'YYYY-MM') as month,
+                            COUNT(*) as new_users
+                        FROM client_metrics
+                        GROUP BY month
+                        ORDER BY month
+                    ) gc
+                )
+            )
         )
 
     ) INTO result;
