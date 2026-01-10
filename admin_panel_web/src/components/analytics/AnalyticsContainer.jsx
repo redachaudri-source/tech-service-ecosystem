@@ -352,6 +352,11 @@ const VisualizationCanvas = ({ data, loading, dateRange, setDateRange, viewMode,
 
             {/* --- DEBUG OVERLAY (TEMPORARY) --- */}
             <div className="bg-black text-green-400 p-4 text-xs font-mono overflow-auto h-32 border-t border-slate-700 shrink-0">
+                {rpcError && (
+                    <div className="text-red-500 font-bold border-b border-red-900 pb-2 mb-2">
+                        CRITICAL ERROR: {rpcError.message || JSON.stringify(rpcError)}
+                    </div>
+                )}
                 <strong>DEBUG RPC RAW RESPONSE:</strong>
                 <pre>{JSON.stringify(data.client_adoption || 'No Client Data', null, 2)}</pre>
                 <hr className="border-slate-700 my-2" />
@@ -453,6 +458,7 @@ const AnalyticsContainer = () => {
 
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState(EMPTY_DATA);
+    const [rpcError, setRpcError] = useState(null); // New State
     const [metadata, setMetadata] = useState({ types: [], brands: [], techs: [] });
 
     const [dateRange, setDateRange] = useState(() => {
@@ -496,13 +502,19 @@ const AnalyticsContainer = () => {
 
                 // --- DEBUG ---
                 console.log("Analytics RPC Response:", rpc);
-                if (error) console.error("Analytics RPC Error:", error);
+                if (error) {
+                    console.error("Analytics RPC Error:", error);
+                    setRpcError(error);
+                } else {
+                    setRpcError(null);
+                }
                 // -------------
 
                 if (error) throw error;
                 setData(rpc || EMPTY_DATA);
             } catch (e) {
                 console.error(e);
+                setRpcError(e); // Capture caught error
                 setData(EMPTY_DATA);
             } finally {
                 setLoading(false);
