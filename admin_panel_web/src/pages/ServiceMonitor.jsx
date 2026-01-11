@@ -261,10 +261,10 @@ const ServiceMonitor = () => {
                                                         <div className="bg-slate-100 rounded-md p-1.5 border border-slate-200 text-slate-600 flex items-start gap-1.5">
                                                             <Clock size={12} className="mt-0.5 text-slate-400" />
                                                             <div className="flex flex-col">
-                                                                <span className="text-xs font-semibold">
+                                                                <span className="text-[10px] font-semibold">
                                                                     {new Date(ticket.scheduled_at).toLocaleDateString()}
                                                                 </span>
-                                                                <span className="text-[10px] font-mono text-slate-500">
+                                                                <span className="text-[9px] font-mono text-slate-500">
                                                                     {new Date(ticket.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                                 </span>
                                                             </div>
