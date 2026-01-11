@@ -193,7 +193,7 @@ const ServiceMonitor = () => {
 
                         <input type="date" className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 outline-none text-slate-600 text-xs" onChange={(e) => setFilterDate(e.target.value)} />
 
-                        <select className="px-3 py-1.5 border border-slate-200 rounded-lg outline-none text-xs bg-white hidden lg:block" value={filterOrigin} onChange={(e) => setFilterOrigin(e.target.value)}>
+                        <select className="px-3 py-1.5 border border-slate-200 rounded-lg outline-none text-[10px] bg-white !hidden xl:block" value={filterOrigin} onChange={(e) => setFilterOrigin(e.target.value)}>
                             <option value="">Todos los Orígenes</option>
                             <option value="direct">Oficina</option>
                             <option value="client_web">Web Cliente</option>
@@ -201,7 +201,7 @@ const ServiceMonitor = () => {
                             <option value="budget">Presupuesto</option>
                         </select>
 
-                        <select className="px-3 py-1.5 border border-slate-200 rounded-lg outline-none text-xs bg-white hidden lg:block" value={filterTech} onChange={(e) => setFilterTech(e.target.value)}>
+                        <select className="px-3 py-1.5 border border-slate-200 rounded-lg outline-none text-[10px] bg-white !hidden xl:block" value={filterTech} onChange={(e) => setFilterTech(e.target.value)}>
                             <option value="">Todos los Técnicos</option>
                             {techs.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
                         </select>
@@ -217,17 +217,19 @@ const ServiceMonitor = () => {
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
-                                <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase text-slate-500 font-semibold sticky top-0 z-30 shadow-sm">
-                                    <th className="px-3 py-2 md:px-4 md:py-3 min-w-[100px]">ID / Cita</th>
-                                    <th className="px-3 py-2 md:px-4 md:py-3 min-w-[180px]">Cliente</th>
-                                    <th className="px-3 py-2 md:px-4 md:py-3 text-center hidden sm:table-cell">Origen</th>
-                                    <th className="px-3 py-2 md:px-4 md:py-3 min-w-[150px]">Equipo</th>
-                                    <th className="px-3 py-2 md:px-4 md:py-3 text-center">Estado</th>
-                                    <th className="px-3 py-2 md:px-4 md:py-3 text-center hidden sm:table-cell">Doc</th>
-                                    <th className="px-3 py-2 md:px-4 md:py-3 min-w-[140px]">Asignación</th>
-                                    <th className="px-3 py-2 md:px-4 md:py-3 text-right">Acciones</th>
+                                <thead className="text-[10px] uppercase text-slate-500 font-semibold">
+                                    <tr>
+                                        <th className="px-3 py-2 md:px-4 md:py-3 min-w-[100px] sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm">ID / Cita</th>
+                                        <th className="px-3 py-2 md:px-4 md:py-3 min-w-[180px] sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm">Cliente</th>
+                                        <th className="px-3 py-2 md:px-4 md:py-3 text-center hidden sm:table-cell sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm">Origen</th>
+                                        <th className="px-3 py-2 md:px-4 md:py-3 min-w-[150px] sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm">Equipo</th>
+                                        <th className="px-3 py-2 md:px-4 md:py-3 text-center sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm">Estado</th>
+                                        <th className="px-3 py-2 md:px-4 md:py-3 text-center hidden sm:table-cell sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm">Doc</th>
+                                        <th className="px-3 py-2 md:px-4 md:py-3 min-w-[140px] sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm">Asignación</th>
+                                        <th className="px-3 py-2 md:px-4 md:py-3 text-right sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm">Acciones</th>
+                                    </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100 text-xs"> {/* XS font applied here */}
+                                <tbody className="divide-y divide-slate-100 text-[10px]"> {/* Ultra small font */}
                                     {tickets.filter(t => {
                                         const s = searchTerm.toLowerCase();
                                         const brand = (t.appliance_info?.brand || '').toLowerCase();
@@ -476,7 +478,7 @@ const StatusBadge = ({ status }) => {
         cancelado: 'bg-red-100 text-red-800'
     };
     return (
-        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status] || 'bg-gray-100 text-gray-800'}`}>
+        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium ${colors[status] || 'bg-gray-100 text-gray-800'}`}>
             {status === 'cancelado' ? 'CANCELADO POR CLIENTE' : (status ? status.toUpperCase().replace('_', ' ') : 'UNKNOWN')}
         </span>
     );
