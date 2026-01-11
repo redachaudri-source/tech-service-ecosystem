@@ -151,43 +151,62 @@ const ServiceMonitor = () => {
     if (loading) return <div className="text-center p-10">Cargando...</div>;
 
     return (
-        <div className="space-y-6">
-            {/* Header ... */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
-                    Monitor de Servicios
-                    {isConnected && (
-                        <span className="flex items-center gap-1 text-[10px] bg-green-100 text-green-600 px-2 py-0.5 rounded-full border border-green-200 animate-pulse">
-                            <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-                            EN VIVO
-                        </span>
-                    )}
-                </h1>
-                <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-2 bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition shadow-lg shadow-blue-900/20 font-semibold w-full md:w-auto justify-center">
-                    <Plus size={20} /> Nuevo Servicio
-                </button>
-            </div>
+    return (
+        <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-slate-50/50">
+            {/* --- STICKY HEADER & CONTROLS --- */}
+            <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200/60 shadow-sm shrink-0">
+                <div className="p-4 flex flex-col gap-4">
 
-            {/* Filters ... (Keep same logic) */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 items-center justify-between">
-                <div className="relative w-full md:w-1/3">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                    <input type="text" placeholder="Buscar ticket..." className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50" onChange={(e) => setSearchTerm(e.target.value)} />
-                </div>
-                <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
-                    {/* Simplified filter JSX for brevity in replacement, assume standard filters */}
-                    <input type="date" className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 outline-none text-slate-600" onChange={(e) => setFilterDate(e.target.value)} />
-                    <select className="px-3 py-2 border border-slate-200 rounded-lg outline-none" value={filterOrigin} onChange={(e) => setFilterOrigin(e.target.value)}>
-                        <option value="">Todos los Orígenes</option>
-                        <option value="direct">Oficina</option>
-                        <option value="client_web">Web Cliente</option>
-                        <option value="tech_app">App Técnico</option>
-                        <option value="budget">Presupuesto</option>
-                    </select>
-                    <select className="px-3 py-2 border border-slate-200 rounded-lg outline-none" value={filterTech} onChange={(e) => setFilterTech(e.target.value)}>
-                        <option value="">Todos los Técnicos</option>
-                        {techs.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
-                    </select>
+                    {/* Top Row: Title & Create Action */}
+                    <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
+                                Monitor de Servicios
+                                {isConnected && (
+                                    <span className="flex items-center gap-1.5 text-[9px] font-bold bg-emerald-50 text-emerald-600 px-2.5 py-1 rounded-full border border-emerald-100/50 shadow-sm animate-pulse">
+                                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span> EN VIVO
+                                    </span>
+                                )}
+                            </h1>
+                        </div>
+                        <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-lg hover:bg-black transition shadow-lg shadow-slate-900/10 font-medium text-sm w-full md:w-auto justify-center active:scale-95 group">
+                            <Plus size={16} className="text-slate-400 group-hover:text-white transition-colors" /> Nuevo Servicio
+                        </button>
+                    </div>
+
+                    {/* Bottom Row: Omni-Search & Filters */}
+                    <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
+                        {/* Omni-Search Input */}
+                        <div className="relative w-full md:w-96 group">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Search className="text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={16} />
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Buscar: Cliente, Tlf, Dirección, Marca, ID..."
+                                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:bg-white transition-all shadow-sm placeholder:text-slate-400"
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Filters */}
+                        <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end overflow-x-auto pb-1 md:pb-0 hide-scrollbar">
+                            <input type="date" className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 outline-none text-slate-600 text-sm shadow-sm focus:border-indigo-400 hover:border-slate-300 transition-colors" onChange={(e) => setFilterDate(e.target.value)} />
+
+                            <select className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg outline-none text-slate-600 text-sm shadow-sm focus:border-indigo-400 hover:border-slate-300 transition-colors" value={filterOrigin} onChange={(e) => setFilterOrigin(e.target.value)}>
+                                <option value="">Todos los Orígenes</option>
+                                <option value="direct">Oficina</option>
+                                <option value="client_web">Web Cliente</option>
+                                <option value="tech_app">App Técnico</option>
+                                <option value="budget">Presupuesto</option>
+                            </select>
+
+                            <select className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg outline-none text-slate-600 text-sm shadow-sm focus:border-indigo-400 hover:border-slate-300 transition-colors max-w-[160px]" value={filterTech} onChange={(e) => setFilterTech(e.target.value)}>
+                                <option value="">Todos los Técnicos</option>
+                                {techs.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -209,328 +228,245 @@ const ServiceMonitor = () => {
                 />
             )}
 
-            {/* Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
-                <table className="w-full text-left">
-                    <thead className="bg-slate-50 border-b border-slate-200">
-                        <tr>
-                            <th className="px-6 py-4 font-semibold text-slate-600">ID / Cita</th>
-                            <th className="px-6 py-4 font-semibold text-slate-600">Cliente</th>
-                            <th className="px-6 py-4 font-semibold text-slate-600">Origen</th>
-                            <th className="px-6 py-4 font-semibold text-slate-600">Equipo</th>
-                            <th className="px-6 py-4 font-semibold text-slate-600">Estado</th>
-                            <th className="px-6 py-4 font-semibold text-slate-600">Doc</th>
-                            <th className="px-6 py-4 font-semibold text-slate-600">Asignación</th>
-                            <th className="px-6 py-4 font-semibold text-slate-600">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {tickets.filter(t => {
-                            // Logic is complex, assume I can keep the .filter logic if I use the original file content?
-                            // No, I must provide full replacement content for the range.
-                            // I will implement a simplified filter here or copy logic carefully.
-                            const s = searchTerm.toLowerCase();
-                            const matchesSearch = !searchTerm || (
-                                (t.ticket_number?.toString().includes(s)) ||
-                                (t.profiles?.full_name?.toLowerCase().includes(s)) ||
-                                (t.appliance_info?.brand?.toLowerCase().includes(s))
-                            );
-                            const matchesTech = !filterTech || t.technician_id === filterTech;
-                            const matchesDate = !filterDate ||
-                                (t.scheduled_at && t.scheduled_at.startsWith(filterDate)) ||
-                                (!t.scheduled_at && t.created_at && t.created_at.startsWith(filterDate));
-                            const matchesOrigin = !filterOrigin || (
-                                filterOrigin === 'budget' ? (t.origin_source?.includes('budget') || t.origin_source?.startsWith('Presupuesto')) :
-                                    filterOrigin === 'tech_app' ? (t.origin_source?.includes('tech')) :
-                                        (t.origin_source === filterOrigin || (!t.origin_source && filterOrigin === 'direct'))
-                            );
+            {/* --- MAIN CONTENT: TABLE --- */}
+            <div className="flex-1 overflow-auto p-4 content-start">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative">
+                    {loading ? (
+                        <div className="p-12 text-center text-slate-400 flex flex-col items-center gap-3">
+                            <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                            <p className="text-xs font-mono uppercase tracking-widest animate-pulse">Cargando Datos...</p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead className="bg-slate-50/50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider sticky top-0 z-10 backdrop-blur-sm">
+                                    <tr>
+                                        <th className="px-4 py-3 sticky left-0 bg-slate-50 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] text-center w-20">ID</th>
+                                        <th className="px-4 py-3">Cliente / Dirección</th>
+                                        <th className="px-4 py-3">Equipo / Avería</th>
+                                        <th className="px-4 py-3 text-center">Estado</th>
+                                        <th className="px-4 py-3 text-center">Técnico</th>
+                                        <th className="px-4 py-3 text-center">Origen</th>
+                                        <th className="px-4 py-3 text-right">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                                    {tickets.filter(t => {
+                                        const s = searchTerm.toLowerCase();
+                                        const brand = (t.appliance_info?.brand || '').toLowerCase();
+                                        const type = (t.appliance_info?.type || '').toLowerCase();
+                                        const clientName = (t.profiles?.full_name || '').toLowerCase();
+                                        const clientPhone = (t.profiles?.phone || '').toLowerCase();
+                                        const clientAddr = (t.profiles?.address || '').toLowerCase();
+                                        const ticketId = (t.ticket_number?.toString() || '');
 
-                            return matchesSearch && matchesTech && matchesDate && matchesOrigin;
-                        }).map(ticket => (
-                            <tr key={ticket.id} className="hover:bg-slate-50 transition-colors">
-                                <td className="px-6 py-4 font-medium text-slate-900 group relative">
-                                    <div className="flex items-center gap-2">
-                                        <div className="font-mono text-lg">#{ticket.ticket_number}</div>
-                                        <button
-                                            onClick={() => setSelectedTicketForDetails(ticket)}
-                                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-blue-50 text-blue-600 rounded transition"
-                                            title="Ver detalles completos"
-                                        >
-                                            <Eye size={16} />
-                                        </button>
-                                    </div>
+                                        // OMNI-SEARCH LOGIC
+                                        const matchesSearch = !searchTerm || (
+                                            ticketId.includes(s) ||
+                                            clientName.includes(s) ||
+                                            clientPhone.includes(s) ||
+                                            clientAddr.includes(s) ||
+                                            brand.includes(s) ||
+                                            type.includes(s)
+                                        );
 
-                                    <div className="mt-2 space-y-1">
-                                        {/* Date/Time (if exists) */}
-                                        {ticket.scheduled_at && (
-                                            <div className="flex items-center gap-1 text-xs text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded w-fit">
-                                                <Clock size={12} />
-                                                {new Date(ticket.scheduled_at).toLocaleDateString()} {new Date(ticket.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </div>
-                                        )}
+                                        const matchesTech = !filterTech || t.technician_id === filterTech;
+                                        const matchesDate = !filterDate ||
+                                            (t.scheduled_at && t.scheduled_at.startsWith(filterDate)) ||
+                                            (!t.scheduled_at && t.created_at && t.created_at.startsWith(filterDate));
 
-                                        {/* Appointment Status Badges (Always visible if status exists) */}
-                                        {ticket.appointment_status === 'confirmed' && (
-                                            <div className="flex items-center gap-1 text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded border border-green-200 w-fit font-bold">
-                                                <CheckCircle size={10} /> CONFIRMADA
-                                            </div>
-                                        )}
-                                        {ticket.appointment_status === 'pending' && (
-                                            <div className="flex items-center gap-1 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 w-fit font-bold animate-pulse">
-                                                <Clock size={10} /> PENDIENTE ACEPTACIÓN
-                                            </div>
-                                        )}
-                                        {ticket.appointment_status === 'rejected' && (
-                                            <div className="space-y-1">
-                                                <div className="flex items-center gap-1 text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded border border-red-200 w-fit font-bold">
-                                                    <AlertCircle size={10} /> RECHAZADA POR CLIENTE
+                                        const matchesOrigin = !filterOrigin || (
+                                            filterOrigin === 'budget' ? (t.origin_source?.includes('budget') || t.origin_source?.startsWith('Presupuesto')) :
+                                                filterOrigin === 'tech_app' ? (t.origin_source?.includes('tech')) :
+                                                    filterOrigin === 'client_web' ? (t.origin_source?.includes('client_web') || t.origin_source?.includes('web')) :
+                                                        (t.origin_source === filterOrigin || (!t.origin_source && filterOrigin === 'direct'))
+                                        );
+
+                                        return matchesSearch && matchesTech && matchesDate && matchesOrigin;
+                                    }).map(ticket => (
+                                        <tr key={ticket.id} className="hover:bg-slate-50/80 transition-colors group">
+                                            {/* ID (Sticky) */}
+                                            <td className="px-4 py-3 font-mono text-xs font-bold text-slate-500 sticky left-0 bg-white group-hover:bg-slate-50 transition-colors border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] text-center">
+                                                #{ticket.ticket_number}
+                                                <div className="mt-1 text-[10px] text-slate-400 font-sans font-normal opacity-70">
+                                                    {new Date(ticket.created_at).toLocaleDateString()}
                                                 </div>
-                                                {ticket.client_feedback && (
-                                                    <div className="text-[10px] bg-red-50 text-red-800 p-1.5 rounded border border-red-100 font-medium max-w-[200px]">
-                                                        <span className="font-bold block text-[9px] uppercase opacity-75">Preferencia/Nota:</span>
-                                                        "{ticket.client_feedback}"
+                                            </td>
+
+                                            {/* Client */}
+                                            <td className="px-4 py-3 max-w-[220px]">
+                                                <div className="font-bold text-slate-800 truncate mb-0.5">{ticket.profiles?.full_name || 'Sin nombre'}</div>
+                                                <div className="text-xs text-slate-500 truncate flex items-center gap-1 group-hover:text-indigo-500 transition-colors">
+                                                    <span className="text-[10px]">📍</span> {ticket.profiles?.address || 'Sin dirección'}
+                                                </div>
+                                                {ticket.profiles?.phone && (
+                                                    <div className="text-[10px] bg-slate-100 inline-block px-1.5 py-0.5 rounded text-slate-500 font-mono mt-1">{ticket.profiles.phone}</div>
+                                                )}
+                                            </td>
+
+                                            {/* Appliance */}
+                                            <td className="px-4 py-3 max-w-[200px]">
+                                                <div className="font-medium text-slate-700 truncate">
+                                                    {ticket.appliance_info?.type} <span className="text-slate-400 mx-1">|</span> {ticket.appliance_info?.brand}
+                                                </div>
+                                                <div className="text-xs text-slate-500 italic mt-0.5 truncate max-w-full opacity-80" title={ticket.description_failure}>
+                                                    "{ticket.description_failure || 'Sin descripción'}"
+                                                </div>
+                                            </td>
+
+                                            {/* Status Badge */}
+                                            <td className="px-4 py-3 text-center">
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide border
+                                                    ${ticket.status === 'solicitado' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                                                        ticket.status === 'asignado' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                                            ticket.status === 'presupuesto_pendiente' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                                ticket.status === 'presupuesto_aceptado' ? 'bg-green-50 text-green-700 border-green-200' :
+                                                                    ticket.status === 'en_reparacion' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                                                        ticket.status === 'finalizado' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                                            'bg-gray-50 text-gray-600 border-gray-200'
+                                                    }`}>
+                                                    {ticket.status.replace('_', ' ')}
+                                                </span>
+                                            </td>
+
+                                            {/* Technician */}
+                                            <td className="px-4 py-3 text-center">
+                                                {ticket.technician_id ? (
+                                                    techs.find(t => t.id === ticket.technician_id)?.full_name ? (
+                                                        <div className="text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-1 rounded-md inline-block">
+                                                            {techs.find(t => t.id === ticket.technician_id).full_name.split(' ')[0]}
+                                                        </div>
+                                                    ) : <span className="text-xs text-slate-400 font-mono">ID:{ticket.technician_id.slice(0, 4)}</span>
+                                                ) : (
+                                                    <span className="text-xs text-slate-400 italic">--</span>
+                                                )}
+                                                {ticket.scheduled_at && (
+                                                    <div className="text-[10px] text-indigo-500 font-bold mt-1 flex items-center justify-center gap-1">
+                                                        <Clock size={10} /> {new Date(ticket.scheduled_at).toLocaleDateString()}
                                                     </div>
                                                 )}
-                                            </div>
-                                        )}
+                                            </td>
 
-                                        {/* Show count of proposed slots if pending and no date set */}
-                                        {ticket.appointment_status === 'pending' && !ticket.scheduled_at && ticket.proposed_slots?.length > 0 && (
-                                            <div className="text-[10px] text-slate-500 italic">
-                                                {ticket.proposed_slots.length} opciones propuestas
-                                            </div>
-                                        )}
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <div className="font-medium text-slate-800">{ticket.profiles?.full_name}</div>
-                                    {ticket.profiles?.phone && (
-                                        <a href={`tel:${ticket.profiles.phone}`} className="flex items-center gap-1 text-xs text-blue-600 hover:underline mb-0.5" onClick={(e) => e.stopPropagation()}>
-                                            <Phone size={10} /> {ticket.profiles.phone}
-                                        </a>
+                                            {/* Origin */}
+                                            <td className="px-4 py-3 text-center">
+                                                <div className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase inline-block border ${ticket.origin_source === 'client_web' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
+                                                    ticket.origin_source === 'tech_app' ? 'bg-cyan-50 text-cyan-600 border-cyan-100' :
+                                                        'bg-white text-slate-500 border-slate-200'
+                                                    }`}>
+                                                    {ticket.origin_source === 'client_web' ? 'WEB' :
+                                                        ticket.origin_source === 'tech_app' ? 'APP' :
+                                                            'OFFICE'}
+                                                </div>
+                                            </td>
+
+                                            {/* Actions */}
+                                            <td className="px-4 py-3 text-right">
+                                                <div className="flex items-center justify-end gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => setSelectedTicketForDetails(ticket)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-all" title="Ver Ficha">
+                                                        <Eye size={16} />
+                                                    </button>
+
+                                                    {/* Budget Action */}
+                                                    <button onClick={() => setSelectedTicketForBudget(ticket)} className={`p-1.5 rounded transition-all ${ticket.status.includes('presupuesto') ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-400 hover:text-amber-600 hover:bg-amber-50'}`} title="Presupuesto">
+                                                        <FileText size={16} />
+                                                    </button>
+
+                                                    {/* Assign Action */}
+                                                    <button onClick={() => setSelectedTicketForAssign(ticket)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all" title="Reasignar">
+                                                        <AlertTriangle size={16} />
+                                                    </button>
+
+                                                    {/* Reviews Star */}
+                                                    {ticket.reviews && ticket.reviews.length > 0 && (
+                                                        <div className="p-1.5 text-yellow-500">
+                                                            <Star size={14} fill="currentColor" />
+                                                        </div>
+                                                    )}
+
+                                                    <button onClick={() => confirmDelete(ticket.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-all" title="Eliminar">
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {tickets.length === 0 && (
+                                        <tr>
+                                            <td colSpan="7" className="p-12 text-center text-slate-400 italic">No se encontraron servicios.</td>
+                                        </tr>
                                     )}
-                                    <div className="text-xs text-slate-500">{ticket.profiles?.address}</div>
-                                </td>
-                                <td className="px-6 py-4">
-                                    {(() => {
-                                        const src = ticket.origin_source || 'direct';
-                                        let label = 'Oficina';
-                                        let style = 'bg-slate-50 text-slate-500 border-slate-100';
-
-                                        if (src === 'client_web') {
-                                            label = 'Web Cliente';
-                                            style = 'bg-purple-50 text-purple-600 border-purple-100';
-                                        } else if (src.includes('tech')) {
-                                            label = 'App Técnico';
-                                            style = 'bg-indigo-50 text-indigo-600 border-indigo-100';
-                                        } else if (src.includes('budget') || src.startsWith('Presupuesto')) {
-                                            label = 'Presupuesto';
-                                            style = 'bg-blue-50 text-blue-600 border-blue-100';
-                                        } else if (src === 'direct') {
-                                            label = 'Oficina';
-                                            style = 'bg-slate-100 text-slate-600 border-slate-200';
-                                        }
-
-                                        return (
-                                            <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded border ${style}`}>
-                                                {label}
-                                            </span>
-                                        );
-                                    })()}
-                                </td>
-                                <td className="px-6 py-4 text-slate-600">
-                                    {(ticket.appliance_info?.type &&
-                                        ticket.appliance_info?.type !== 'General' &&
-                                        !(ticket.appliance_info?.type === 'Lavadora' && !ticket.appliance_info?.brand)) ? (
-                                        <>
-                                            {ticket.appliance_info.type} <br />
-                                            <span className="text-xs text-slate-400">{ticket.appliance_info.brand}</span>
-                                        </>
-                                    ) : (
-                                        <span className="text-xs text-slate-400 italic">Varios / General</span>
-                                    )}
-                                </td>
-                                <td className="px-6 py-4">
-                                    <StatusBadge status={ticket.status} />
-
-                                    {/* Star Rating Display - Robust Handling */}
-                                    {(() => {
-                                        // Handle both Array (1:N) and Object (1:1 inferred) responses from Supabase
-                                        const rating = Array.isArray(ticket.reviews)
-                                            ? (ticket.reviews.length > 0 ? ticket.reviews[0].rating : null)
-                                            : (ticket.reviews?.rating || null);
-
-                                        if (!rating) return null;
-
-                                        return (
-                                            <div className="flex items-center gap-0.5 mt-1 bg-yellow-50 px-1.5 py-0.5 rounded w-fit border border-yellow-100">
-                                                {[...Array(5)].map((_, i) => (
-                                                    <Star
-                                                        key={i}
-                                                        size={10}
-                                                        className={i < rating ? "text-yellow-400 fill-yellow-400" : "text-slate-200"}
-                                                    />
-                                                ))}
-                                            </div>
-                                        );
-                                    })()}
-
-                                    {(ticket.status === 'cancelado' || ticket.status === 'rejected') && ticket.client_feedback && (
-                                        <div className="mt-2 text-[10px] bg-red-50 text-red-800 p-2 rounded border border-red-100 max-w-[200px]">
-                                            <span className="font-bold block mb-0.5 opacity-75">Motivo:</span>
-                                            <span className="italic">"{ticket.client_feedback}"</span>
-                                        </div>
-                                    )}
-                                </td>
-                                <td className="px-6 py-4">
-                                    <div className="flex gap-2">
-
-                                        {/* Status Action Button */}
-                                        {['presupuesto_pendiente', 'presupuesto_revision', 'presupuesto_aceptado'].includes(ticket.status) && !ticket.quote_pdf_url && (
-                                            <button
-                                                onClick={() => setSelectedTicketForBudget(ticket)}
-                                                className="p-1 rounded flex items-center gap-1 text-xs font-bold text-red-500 hover:bg-red-50"
-                                                title="Presupuesto Faltante - Generar"
-                                            >
-                                                <AlertTriangle size={16} />
-                                            </button>
-                                        )}
-
-                                        {/* Quote PDF Link */}
-                                        {ticket.quote_pdf_url && (
-                                            <a
-                                                href={ticket.quote_pdf_url}
-                                                target="_blank"
-                                                className="text-amber-600 hover:bg-amber-50 p-1 rounded flex items-center gap-1 text-xs font-bold"
-                                                title="Ver Presupuesto Inicial"
-                                            >
-                                                <FileText size={16} />
-                                                <span className="hidden md:inline">P</span>
-                                            </a>
-                                        )}
-
-                                        {/* Final Report Link */}
-                                        {ticket.pdf_url ? (
-                                            <a href={ticket.pdf_url} target="_blank" className="text-blue-600 hover:bg-blue-50 p-1 rounded flex items-center gap-1 text-xs font-bold" title="Ver Informe Final">
-                                                <FileText size={16} />
-                                                <span className="hidden md:inline">R</span>
-                                            </a>
-                                        ) : (
-                                            !ticket.quote_pdf_url && <span className="text-slate-300 text-xs">-</span>
-                                        )}
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                    {/* Smart Assignment Button/Display */}
-                                    {ticket.technician_id ? (
-                                        <div className="flex flex-col gap-1 items-start group">
-                                            <span className="text-sm font-medium text-slate-700 flex items-center gap-2">
-                                                {techs.find(t => t.id === ticket.technician_id)?.full_name || 'Desconocido'}
-                                            </span>
-
-                                            {/* Action Button depends on status */}
-                                            <button
-                                                onClick={() => setSelectedTicketForAssign(ticket)}
-                                                className={`text-xs font-bold hover:underline flex items-center gap-1 ${ticket.appointment_status === 'rejected'
-                                                    ? 'text-red-600 bg-red-50 px-2 py-1 rounded border border-red-100'
-                                                    : 'text-blue-600 opacity-0 group-hover:opacity-100'
-                                                    } `}
-                                            >
-                                                {ticket.appointment_status === 'rejected' ? '⚠️ Re-asignar Cita' : 'Editar'}
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <button
-                                            onClick={() => setSelectedTicketForAssign(ticket)}
-                                            className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-200 transition border border-slate-200"
-                                        >
-                                            Asignar
-                                        </button>
-                                    )}
-                                </td>
-                                <td className="px-6 py-4">
-                                    <button onClick={() => confirmDelete(ticket.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={18} /></button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
             </div>
 
-            {/* Modals */}
-            {showDeleteModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white p-6 rounded-xl shadow-xl text-center">
-                        <h3 className="font-bold text-lg mb-4">¿Eliminar?</h3>
-                        <div className="flex gap-4 justify-center">
-                            <button onClick={() => setShowDeleteModal(false)} className="px-4 py-2 border rounded">Cancelar</button>
-                            <button onClick={handleDelete} className="px-4 py-2 bg-red-600 text-white rounded">Eliminar</button>
+
+            {/* MODALS */}
+            {
+                showCreateModal && (
+                    <CreateTicketModal
+                        onClose={() => setShowCreateModal(false)}
+                        onSuccess={(newTicket, shouldOpenSmart) => {
+                            fetchData();
+                            setShowCreateModal(false);
+                            if (shouldOpenSmart && newTicket) {
+                                setTimeout(() => { setSelectedTicketForAssign(newTicket); }, 100);
+                            } else if (newTicket) {
+                                addToast(`Ticket #${newTicket.ticket_number} creado correctamente.`, 'success', true);
+                            }
+                        }}
+                    />
+                )
+            }
+
+            {
+                showDeleteModal && (
+                    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl">
+                            <h3 className="text-lg font-bold text-slate-900 mb-2">¿Eliminar Servicio?</h3>
+                            <p className="text-sm text-slate-600 mb-6">Esta acción no se puede deshacer. El ticket será eliminado permanentemente.</p>
+                            <div className="flex justify-end gap-3">
+                                <button onClick={() => setShowDeleteModal(false)} className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded">Cancelar</button>
+                                <button onClick={handleDelete} className="px-4 py-2 bg-red-600 text-white font-bold rounded hover:bg-red-700">Eliminar</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
-            {/* NEW: Smart Assignment Modal usage */}
-            {selectedTicketForAssign && (
-                <SmartAssignmentModal
-                    ticket={selectedTicketForAssign}
-                    onClose={() => setSelectedTicketForAssign(null)}
-                    onSuccess={() => {
-                        fetchData();
-                        setSelectedTicketForAssign(null);
-                        alert('Asignación actualizada correctamente.');
-                    }}
-                />
-            )}
+            {
+                selectedTicketForAssign && (
+                    <SmartAssignmentModal
+                        isOpen={!!selectedTicketForAssign}
+                        onClose={() => { setSelectedTicketForAssign(null); fetchData(); }}
+                        ticket={selectedTicketForAssign}
+                        onAssignSuccess={() => { setSelectedTicketForAssign(null); fetchData(); }}
+                    />
+                )
+            }
 
-            {/* NEW: Service Details Modal */}
-            {selectedTicketForDetails && (
-                <ServiceDetailsModal
-                    ticket={selectedTicketForDetails}
-                    onClose={() => setSelectedTicketForDetails(null)}
-                />
-            )}
-            {/* NEW: Budget Modal */}
-            {selectedTicketForBudget && (
-                <BudgetManagerModal
-                    ticket={selectedTicketForBudget}
-                    onClose={() => setSelectedTicketForBudget(null)}
-                    onUpdate={() => {
-                        fetchData();
-                        setSelectedTicketForBudget(null);
-                    }}
-                    onEdit={() => {
-                        // Close Budget Modal and Open Details (or Navigate)
-                        window.location.href = `/tech/ticket/${selectedTicketForBudget.id}`;
-                    }}
-                    onOpenAssignment={() => {
-                        const ticketToAssign = selectedTicketForBudget;
-                        setSelectedTicketForBudget(null); // Close Budget Modal
-                        setTimeout(() => setSelectedTicketForAssign(ticketToAssign), 100); // Open Assign Modal (small delay to avoid flicker/conflict)
-                    }}
-                />
-            )}
-        </div>
-    );
-};
+            {
+                selectedTicketForDetails && (
+                    <ServiceDetailsModal
+                        ticket={selectedTicketForDetails}
+                        onClose={() => setSelectedTicketForDetails(null)}
+                    />
+                )
+            }
 
-const StatusBadge = ({ status }) => {
-    const colors = {
-        solicitado: 'bg-yellow-100 text-yellow-800',
-        asignado: 'bg-blue-100 text-blue-800',
-        en_camino: 'bg-indigo-100 text-indigo-800',
-        en_diagnostico: 'bg-purple-100 text-purple-800',
-        presupuesto_pendiente: 'bg-amber-100 text-amber-800',
-        presupuesto_aceptado: 'bg-green-100 text-green-800',
-        en_reparacion: 'bg-pink-100 text-pink-800',
-        finalizado: 'bg-green-100 text-green-800',
-        pagado: 'bg-green-100 text-green-800',
-        cancelado: 'bg-red-100 text-red-800'
-    };
-    return (
-        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status] || 'bg-gray-100 text-gray-800'}`}>
-            {status === 'cancelado' ? 'CANCELADO POR CLIENTE' : (status ? status.toUpperCase().replace('_', ' ') : 'UNKNOWN')}
-        </span>
+            {
+                selectedTicketForBudget && (
+                    <BudgetManagerModal
+                        isOpen={!!selectedTicketForBudget}
+                        onClose={() => setSelectedTicketForBudget(null)}
+                        ticket={selectedTicketForBudget}
+                        onUpdate={() => fetchData()}
+                    />
+                )
+            }
+        </div >
     );
 };
 
