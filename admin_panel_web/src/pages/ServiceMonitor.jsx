@@ -387,9 +387,6 @@ const ServiceMonitor = () => {
                                                     <button onClick={() => setSelectedTicketForDetails(ticket)} className="p-2 md:p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Ver">
                                                         <Eye size={16} />
                                                     </button>
-                                                    <button onClick={() => setSelectedTicketForBudget(ticket)} className="p-2 md:p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded" title="Gestionar Presupuesto">
-                                                        <FileText size={16} />
-                                                    </button>
                                                     <button onClick={() => confirmDelete(ticket.id)} className="p-2 md:p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded" title="Eliminar">
                                                         <Trash2 size={16} />
                                                     </button>
