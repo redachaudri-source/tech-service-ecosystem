@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, User, MapPin, Trash2, Edit2, X, Phone, Mail, History, Filter, Search as SearchIcon, Lock, Unlock, Package, Zap, Waves, Wind, Refrigerator, Flame, Thermometer, Tv, Smartphone, Disc, TrendingUp, AlertTriangle, CheckCircle, Clock, Star, ShieldAlert } from 'lucide-react';
+import { Plus, User, MapPin, Trash2, Edit2, X, Phone, Mail, History, Filter, Search as SearchIcon, Lock, Unlock, Package, Zap, Waves, Wind, Refrigerator, Flame, Thermometer, Tv, Smartphone, Disc, TrendingUp, AlertTriangle, CheckCircle, Clock, Star, ShieldAlert, Building2, Laptop } from 'lucide-react';
 import { format } from 'date-fns';
 
 const ClientManager = () => {
@@ -347,10 +347,16 @@ const ClientManager = () => {
                                                 <div className="flex items-center gap-2">
                                                     <span className="font-bold text-slate-800 leading-tight">{client.full_name}</span>
                                                     {/* ORIGIN BADGE */}
-                                                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide ${client.created_via === 'admin' ? 'bg-lime-500 text-white' : 'bg-blue-600 text-white'
-                                                        }`}>
-                                                        {client.created_via === 'admin' ? 'OFICINA' : 'APP'}
-                                                    </span>
+                                                    {/* ORIGIN BADGE */}
+                                                    {client.created_via === 'admin' ? (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                            <Building2 size={10} /> Oficina
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-blue-50 text-blue-700 border border-blue-200">
+                                                            <Smartphone size={10} /> App
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div className="text-[10px] text-slate-400 font-mono">ID: ...{client.id.slice(-4)}</div>
                                             </div>
