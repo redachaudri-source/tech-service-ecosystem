@@ -132,6 +132,16 @@ const GlobalAgenda = () => {
         if (error) { alert("Error: " + error.message); fetchAgendaData(); }
     };
 
+    const toggleTech = (id) => {
+        if (selectedTechs.includes(id)) setSelectedTechs(selectedTechs.filter(t => t !== id));
+        else setSelectedTechs([...selectedTechs, id]);
+    };
+
+    const toggleAllTechs = () => {
+        if (selectedTechs.length === techs.length) setSelectedTechs([]);
+        else setSelectedTechs(techs.map(t => t.id));
+    };
+
     // --- POSITIONING ---
     const getPositionedEvents = (techId) => {
         let events = appointments.filter(a => a.technician_id === techId)
