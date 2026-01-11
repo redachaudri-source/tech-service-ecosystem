@@ -80,9 +80,16 @@ const ServiceDetailsModal = ({ ticket, onClose }) => {
                                 <span className="text-xs text-slate-400 uppercase font-bold">Aparato</span>
                                 <p className="font-semibold text-slate-700">{ticket.appliance_info?.type || '-'}</p>
                             </div>
-                            <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                                <span className="text-xs text-slate-400 uppercase font-bold">Marca</span>
-                                <p className="font-semibold text-slate-700">{ticket.appliance_info?.brand || '-'}</p>
+                            <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex flex-col justify-center">
+                                <span className="text-xs text-slate-400 uppercase font-bold mb-1">Marca</span>
+                                {ticket.brand_logo ? (
+                                    <div className="flex items-center gap-2">
+                                        <img src={ticket.brand_logo} alt="Brand" className="h-6 object-contain max-w-[80px]" />
+                                        <span className="font-semibold text-slate-700 text-sm hidden">{ticket.appliance_info?.brand}</span>
+                                    </div>
+                                ) : (
+                                    <p className="font-semibold text-slate-700">{ticket.appliance_info?.brand || '-'}</p>
+                                )}
                             </div>
                             <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 col-span-2">
                                 <span className="text-xs text-slate-400 uppercase font-bold">Modelo</span>

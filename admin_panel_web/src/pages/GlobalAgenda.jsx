@@ -75,6 +75,9 @@ const GlobalAgenda = () => {
                 setSelectedTechs(techData.map(t => t.id));
             }
 
+            // 1.5 Fetch Brands for Logos
+            const { data: brandsData } = await supabase.from('brands').select('name, logo_url');
+
             // 2. Fetch Appointments
             const { data: apptData, error } = await supabase
                 .from('tickets')
@@ -91,13 +94,20 @@ const GlobalAgenda = () => {
             // Transform & Filter
             const processed = (apptData || [])
                 .filter(a => !['cancelado', 'rechazado', 'anulado'].includes(a.status))
-                .map(a => ({
-                    ...a,
-                    start: new Date(a.scheduled_at),
-                    duration: a.estimated_duration || 60,
-                    profiles: a.client, // REMAP FOR MODAL COMPATIBILITY
-                    appliance_info: a.appliance // REMAP FOR MODAL COMPATIBILITY
-                }));
+                .map(a => {
+                    // Find Brand Logo
+                    const brandName = a.appliance?.brand || '';
+                    const brandInfo = brandsData?.find(b => b.name.toLowerCase() === brandName.toLowerCase());
+
+                    return {
+                        ...a,
+                        start: new Date(a.scheduled_at),
+                        duration: a.estimated_duration || 60,
+                        profiles: a.client, // REMAP FOR MODAL COMPATIBILITY
+                        appliance_info: a.appliance, // REMAP FOR MODAL COMPATIBILITY
+                        brand_logo: brandInfo?.logo_url || null // Enriched Data
+                    };
+                });
 
             setAppointments(processed || []);
         } catch (error) {
@@ -382,12 +392,19 @@ const GlobalAgenda = () => {
                                             {/* REAL DATA HIERARCHY */}
                                             <div className="flex flex-col gap-0.5">
                                                 {/* 1. Brand/Appliance - ROBUST */}
-                                                <div className="font-extrabold text-[10px] uppercase tracking-tight leading-none bg-white/60 backdrop-blur-sm self-start px-1 rounded mb-0.5 max-w-full truncate">
-                                                    {(appt.appliance && (appt.appliance.brand || appt.appliance.type)) ? (
-                                                        `${appt.appliance.type || ''} ${appt.appliance.brand || ''}`.trim()
+                                                <div className="flex items-center gap-1.5 mb-1 bg-white/60 backdrop-blur-sm self-start pr-2 rounded-md overflow-hidden max-w-full">
+                                                    {appt.brand_logo ? (
+                                                        <img src={appt.brand_logo} alt="Logo" className="w-4 h-4 object-contain" />
                                                     ) : (
-                                                        <span className="text-slate-400 opacity-80">DESCONOCIDO</span>
+                                                        <div className="w-1 h-4 bg-slate-300 rounded-full shrink-0"></div>
                                                     )}
+                                                    <div className="font-extrabold text-[10px] uppercase tracking-tight leading-none text-slate-700 truncate py-0.5">
+                                                        {(appt.appliance && (appt.appliance.brand || appt.appliance.type)) ? (
+                                                            `${appt.appliance.type || ''} ${appt.appliance.brand || ''}`.trim()
+                                                        ) : (
+                                                            <span className="text-slate-400 opacity-80 italic">DESCONOCIDO</span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 {/* 2. Problem */}
                                                 <div className="text-[9px] font-medium leading-tight line-clamp-2 text-slate-500 italic mb-1">
