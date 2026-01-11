@@ -9,7 +9,7 @@ const TechLocationTracker = ({ ticketStatus, technicianId }) => {
     useEffect(() => {
         if (!technicianId) return;
 
-        // 1. High Precision Tracking (Movement)
+        // 1. High Precision Tracking (Movement) - Only when 'en_camino'
         let watchId;
         if (ticketStatus === 'en_camino') {
             setTracking(true);
@@ -39,7 +39,7 @@ const TechLocationTracker = ({ ticketStatus, technicianId }) => {
             if (watchId) navigator.geolocation.clearWatch(watchId);
         }
 
-        // 2. Heartbeat (Presence) - Runs ALWAYS
+        // 2. Heartbeat (Presence) - Runs ALWAYS every 60s
         const heartbeat = setInterval(async () => {
             // Just update timestamp to show "Online"
             try {
@@ -51,7 +51,7 @@ const TechLocationTracker = ({ ticketStatus, technicianId }) => {
             }
         }, 60000); // 60 seconds
 
-        // Initial Ping
+        // Initial Ping on Mount
         supabase.from('profiles').update({ last_location_update: new Date().toISOString() }).eq('id', technicianId).then();
 
         return () => {

@@ -8,31 +8,63 @@ import { User, MapPin, Navigation, Clock, Sun, Moon, Battery, Signal } from 'luc
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyAzaTWQlJ7B2xqHvUrhcNUNuN_pN_QKKKQ';
 
 // --- SOLAR CLOCK WIDGET ---
-const SolarClock = () => {
+const SolarClock = ({ workingHours }) => {
     const [time, setTime] = useState(new Date());
-
-    // Config: Day Start/End (08:00 - 18:00)
-    const START_HOUR = 8;
-    const END_HOUR = 18;
 
     useEffect(() => {
         const timer = setInterval(() => setTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
 
-    // Calculate Sun Position (0 to 100%)
-    const getSunPosition = () => {
-        const currentHour = time.getHours() + time.getMinutes() / 60;
-        if (currentHour < START_HOUR) return 0;
-        if (currentHour > END_HOUR) return 100;
-        return ((currentHour - START_HOUR) / (END_HOUR - START_HOUR)) * 100;
+    // Helper: Weekday Key
+    const getWeekdayKey = (date) => {
+        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        return days[date.getDay()];
     };
 
-    const sunPos = getSunPosition();
-    const isNight = sunPos === 0 || sunPos === 100;
+    const todayKey = getWeekdayKey(time);
+    const dayConfig = workingHours?.[todayKey];
+
+    // Parse Config or Default (09:00 - 18:00)
+    const startStr = dayConfig?.start || '09:00';
+    const endStr = dayConfig?.end || '18:00';
+    const isClosed = !dayConfig;
+
+    const parseTime = (str) => {
+        const [h, m] = str.split(':').map(Number);
+        return h + m / 60;
+    };
+
+    const startH = parseTime(startStr);
+    const endH = parseTime(endStr);
+    const currentH = time.getHours() + time.getMinutes() / 60;
+
+    // Calculate Position
+    let sunPos = 0;
+    let statusText = 'FUERA DE TURNO';
+    let statusColor = 'bg-slate-700 text-slate-300 border-slate-600';
+
+    if (isClosed) {
+        sunPos = 0;
+        statusText = 'CERRADO (DOMINGO)';
+        statusColor = 'bg-red-900/50 text-red-300 border-red-700';
+    } else if (currentH < startH) {
+        sunPos = 0;
+        statusText = 'ESPERANDO APERTURA';
+    } else if (currentH > endH) {
+        sunPos = 100;
+        statusText = 'JORNADA FINALIZADA';
+        statusColor = 'bg-indigo-900/50 text-indigo-300 border-indigo-700';
+    } else {
+        sunPos = ((currentH - startH) / (endH - startH)) * 100;
+        statusText = 'JORNADA ACTIVA';
+        statusColor = 'bg-emerald-900/50 text-emerald-300 border-emerald-700';
+    }
+
+    const isNight = isClosed || currentH > endH || currentH < startH;
 
     return (
-        <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-4 rounded-xl shadow-lg border border-slate-700 text-white relative overflow-hidden mb-4">
+        <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-4 rounded-xl shadow-lg border border-slate-700 text-white relative overflow-hidden mb-4 transition-all duration-500">
             {/* Digital Clock */}
             <div className="flex justify-between items-start z-10 relative">
                 <div>
@@ -45,17 +77,17 @@ const SolarClock = () => {
                     </div>
                 </div>
                 {/* Status Badge */}
-                <div className={`px-2 py-1 rounded text-[10px] font-bold border ${isNight ? 'bg-indigo-900/50 border-indigo-700 text-indigo-300' : 'bg-amber-900/50 border-amber-700 text-amber-300'}`}>
-                    {isNight ? 'FUERA DE TURNO' : 'JORNADA ACTIVA'}
+                <div className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors ${statusColor}`}>
+                    {statusText}
                 </div>
             </div>
 
             {/* Solar Arch Visualization */}
-            <div className="mt-6 relative h-16 w-full">
+            <div className={`mt-6 relative h-16 w-full ${isClosed ? 'opacity-30 grayscale' : 'opacity-100'}`}>
                 {/* The Path */}
                 <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
                     <path
-                        d="M 10 60 Q 150 -30 290 60" // Simple quadratic curve approx
+                        d="M 10 60 Q 150 -30 290 60"
                         fill="none"
                         stroke="rgba(255,255,255,0.1)"
                         strokeWidth="2"
@@ -68,19 +100,19 @@ const SolarClock = () => {
                     className="absolute top-0 left-0 transition-all duration-1000 ease-out flex flex-col items-center"
                     style={{
                         left: `${sunPos}%`,
-                        top: `${50 - Math.sin(sunPos * Math.PI / 100) * 50}px`, // Simple parabolic trajectory math
+                        top: `${50 - Math.sin(sunPos * Math.PI / 100) * 50}px`,
                         transform: 'translate(-50%, -50%)'
                     }}
                 >
-                    <div className={`p-1.5 rounded-full shadow-[0_0_15px_rgba(255,255,0,0.5)] ${isNight ? 'bg-indigo-400 text-white' : 'bg-amber-400 text-white'}`}>
+                    <div className={`p-1.5 rounded-full shadow-[0_0_15px_rgba(255,255,0,0.5)] transition-colors ${isNight ? 'bg-indigo-400 text-white' : 'bg-amber-400 text-white'}`}>
                         {isNight ? <Moon size={14} fill="currentColor" /> : <Sun size={14} fill="currentColor" />}
                     </div>
-                    <div className="w-0.5 h-8 bg-gradient-to-b from-white/20 to-transparent"></div>
+                    {!isClosed && <div className="w-0.5 h-8 bg-gradient-to-b from-white/20 to-transparent"></div>}
                 </div>
 
                 {/* Markers */}
-                <div className="absolute bottom-0 left-0 text-[9px] text-slate-500 font-mono">08:00</div>
-                <div className="absolute bottom-0 right-0 text-[9px] text-slate-500 font-mono">18:00</div>
+                <div className="absolute bottom-0 left-0 text-[9px] text-slate-500 font-mono">{startStr}</div>
+                <div className="absolute bottom-0 right-0 text-[9px] text-slate-500 font-mono">{endStr}</div>
             </div>
         </div>
     );
@@ -88,20 +120,21 @@ const SolarClock = () => {
 
 // --- MAIN FLEET MAP COMPONENT ---
 const FleetMap = () => {
-    const [locations, setLocations] = useState([]);
+    const [techs, setTechs] = useState([]);
     const [selectedTech, setSelectedTech] = useState(null);
     const [mapInstance, setMapInstance] = useState(null);
     const [activeTechsCount, setActiveTechsCount] = useState(0);
+    const [workingHours, setWorkingHours] = useState(null);
 
     // Initial Load & Realtime
     useEffect(() => {
         fetchFleetData();
 
-        // 1. GPS Updates
-        const locSub = supabase
-            .channel('fleet-gps-updates')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'technician_locations' }, () => {
-                fetchFleetData(); // Refresh all data on movement
+        // 1. Tech Updates (Location/Status)
+        const profileSub = supabase
+            .channel('fleet-profile-updates')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+                fetchFleetData();
             })
             .subscribe();
 
@@ -115,61 +148,72 @@ const FleetMap = () => {
 
         // 3. Heartbeat Timer (Refresh 'Active' status every minute)
         const heartbeat = setInterval(() => {
-            fetchFleetData(); // Or just force re-render, but verify data
+            fetchFleetData(); // Or just force re-render
         }, 60000);
 
         return () => {
-            supabase.removeChannel(locSub);
+            supabase.removeChannel(profileSub);
             supabase.removeChannel(ticketSub);
             clearInterval(heartbeat);
         };
     }, []);
 
     const fetchFleetData = async () => {
-        // 1. Get Locations + Techs
-        const { data: locData, error } = await supabase
-            .from('technician_locations')
-            .select(`
-                *,
-                profiles:technician_id(id, full_name, avatar_url, role)
-            `);
+        // Parallel Fetch for efficiency
+        const [profilesRes, configRes, ticketsRes] = await Promise.all([
+            // 1. Techs
+            supabase.from('profiles').select('id, full_name, avatar_url, current_lat, current_lng, last_location_update').eq('role', 'tech').eq('is_active', true),
+            // 2. Config
+            supabase.from('business_config').select('value').eq('key', 'working_hours').single(),
+            // 3. Today's Workload
+            supabase.from('tickets')
+                .select('technician_id')
+                .gte('scheduled_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
+                .lte('scheduled_at', new Date(new Date().setHours(23, 59, 59, 999)).toISOString())
+                .neq('status', 'cancelado')
+        ]);
 
-        if (error || !locData) return;
+        if (configRes.data) setWorkingHours(configRes.data.value);
 
-        // 2. Get Today's Workload (Active Services Scheduled Today)
-        const todayStart = new Date();
-        todayStart.setHours(0, 0, 0, 0);
-        const todayEnd = new Date();
-        todayEnd.setHours(23, 59, 59, 999);
+        const techData = profilesRes.data || [];
+        const tickets = ticketsRes.data || [];
 
-        const { data: tickets } = await supabase
-            .from('tickets')
-            .select('technician_id')
-            .gte('scheduled_at', todayStart.toISOString())
-            .lte('scheduled_at', todayEnd.toISOString())
-            .neq('status', 'cancelado')
-            .neq('status', 'finalizado');
-
-        // 3. Merge Data
-        const merged = locData.map(loc => {
-            const workload = tickets?.filter(t => t.technician_id === loc.technician_id).length || 0;
+        // Merge Data
+        const merged = techData.map(t => {
+            const workload = tickets.filter(tk => tk.technician_id === t.id).length;
 
             // Calc Active Status (< 5 mins)
-            const lastUpdate = new Date(loc.updated_at);
-            const now = new Date();
-            const diffMins = (now - lastUpdate) / 1000 / 60;
-            const isActive = diffMins < 5; // 5 Minute Threshold
+            let isActive = false;
+            let lastUpdateDate = null;
 
-            return { ...loc, workload, isActive, lastUpdate };
+            if (t.last_location_update) {
+                lastUpdateDate = new Date(t.last_location_update);
+                const now = new Date();
+                const diffMins = (now - lastUpdateDate) / 1000 / 60;
+                isActive = diffMins < 5;
+            }
+
+            return {
+                technician_id: t.id,
+                profiles: t, // Keep consistent struct for display
+                latitude: t.current_lat || 36.7212, // User profile defaults
+                longitude: t.current_lng || -4.4217,
+                workload,
+                isActive,
+                lastUpdate: lastUpdateDate
+            };
         });
 
-        setLocations(merged);
+        // Sort: Active first, then by workload
+        merged.sort((a, b) => (b.isActive === a.isActive) ? b.workload - a.workload : b.isActive - a.isActive);
+
+        setTechs(merged);
         setActiveTechsCount(merged.filter(m => m.isActive).length);
     };
 
     const handleTechClick = (loc) => {
         setSelectedTech(loc);
-        if (mapInstance) {
+        if (mapInstance && loc.latitude) {
             mapInstance.panTo({ lat: loc.latitude, lng: loc.longitude });
             mapInstance.setZoom(14);
         }
@@ -180,10 +224,10 @@ const FleetMap = () => {
 
     return (
         <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-140px)] min-h-[600px]">
-            {/* RIGHT SIDEBAR (OPERATIONS) - Mobile: Top, Desktop: Right (Order adjusted via flex) */}
+            {/* RIGHT SIDEBAR (OPERATIONS) */}
             <div className="lg:order-2 w-full lg:w-1/3 xl:w-1/4 flex flex-col gap-4">
                 {/* WIDGET */}
-                <SolarClock />
+                <SolarClock workingHours={workingHours} />
 
                 {/* TECH LIST */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex-1 flex flex-col overflow-hidden">
@@ -198,7 +242,7 @@ const FleetMap = () => {
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                        {locations.map(tech => (
+                        {techs.map(tech => (
                             <div
                                 key={tech.technician_id}
                                 onClick={() => handleTechClick(tech)}
@@ -210,7 +254,7 @@ const FleetMap = () => {
                             >
                                 <div className="flex items-center gap-3">
                                     <div className="relative">
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm transition-colors
                                             ${tech.isActive ? 'bg-blue-600' : 'bg-slate-300 grayscale'}
                                         `}>
                                             {tech.profiles?.avatar_url ? (
@@ -233,7 +277,7 @@ const FleetMap = () => {
                                                 </span>
                                             ) : (
                                                 <span className="flex items-center gap-0.5">
-                                                    <Clock size={10} /> {formatDistanceToNow(tech.lastUpdate, { addSuffix: true, locale: es })}
+                                                    <Clock size={10} /> {tech.lastUpdate ? formatDistanceToNow(tech.lastUpdate, { addSuffix: true, locale: es }) : 'Sin señal'}
                                                 </span>
                                             )}
                                         </div>
@@ -253,7 +297,7 @@ const FleetMap = () => {
                             </div>
                         ))}
 
-                        {locations.length === 0 && (
+                        {techs.length === 0 && (
                             <div className="text-center py-10 text-slate-400 text-xs">
                                 No hay técnicos localizados.
                             </div>
@@ -272,18 +316,18 @@ const FleetMap = () => {
                         fullscreenControl={false}
                         streetViewControl={false}
                         mapTypeControl={false}
-                        onMapInit={({ map }) => setMapInstance(map)} // Save map instance
+                        onMapInit={({ map }) => setMapInstance(map)}
                     >
-                        {locations.map(loc => (
+                        {techs.map(loc => (
                             <AdvancedMarker
                                 key={loc.technician_id}
                                 position={{ lat: loc.latitude, lng: loc.longitude }}
                                 onClick={() => handleTechClick(loc)}
                             >
                                 <div className="relative group">
-                                    {/* Tooltip on Hover */}
+                                    {/* Tooltip */}
                                     <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur text-white text-[10px] font-bold px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition whitespace-nowrap z-20 pointer-events-none">
-                                        {loc.profiles?.full_name} ({Math.round(loc.speed || 0)} km/h)
+                                        {loc.profiles?.full_name}
                                     </div>
 
                                     {/* The Pin */}
@@ -297,7 +341,7 @@ const FleetMap = () => {
                                         )}
                                     </div>
 
-                                    {/* Radar Pulse for Active */}
+                                    {/* Radar Pulse */}
                                     {loc.isActive && (
                                         <div className="absolute top-0 left-0 w-8 h-8 bg-blue-500 rounded-full -z-10 animate-ping opacity-50"></div>
                                     )}
@@ -307,7 +351,7 @@ const FleetMap = () => {
                     </Map>
                 </APIProvider>
 
-                {/* Map Overlay Info */}
+                {/* Overlay Info */}
                 <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm p-3 rounded-xl shadow-lg border border-white/50 z-10 max-w-[200px]">
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Estado GSM</h4>
                     <div className="flex items-center gap-2">
@@ -317,7 +361,7 @@ const FleetMap = () => {
                                 {activeTechsCount} Online
                             </span>
                             <span className="text-[10px] text-slate-500">
-                                {locations.length - activeTechsCount} Offline
+                                {techs.length - activeTechsCount} Offline
                             </span>
                         </div>
                     </div>
@@ -326,5 +370,4 @@ const FleetMap = () => {
         </div>
     );
 };
-
 export default FleetMap;
