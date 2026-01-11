@@ -28,7 +28,7 @@ const createTechIcon = (color) => new L.DivIcon({
 const START_HOUR = 8;
 const END_HOUR = 20;
 const HOURS_COUNT = END_HOUR - START_HOUR + 1;
-const PIXELS_PER_HOUR = 160;
+const PIXELS_PER_HOUR = 110;
 const GRID_HEIGHT = HOURS_COUNT * PIXELS_PER_HOUR;
 
 const GlobalAgenda = () => {
@@ -392,11 +392,19 @@ const GlobalAgenda = () => {
                                     const width = 100 / appt.totalCols;
                                     const left = width * appt.col;
 
-                                    let colors = 'bg-white border-l-4 border-slate-300 text-slate-600 shadow-sm';
-                                    if (appt.status === 'confirmed') colors = 'bg-sky-50 border-l-4 border-sky-400 text-sky-900';
-                                    if (appt.status === 'pending') colors = 'bg-amber-50 border-l-4 border-amber-400 text-amber-900';
-                                    if (appt.status === 'en_camino') colors = 'bg-purple-50 border-l-4 border-purple-400 text-purple-900';
-                                    if (appt.status === 'in_progress') colors = 'bg-emerald-50 border-l-4 border-emerald-500 text-emerald-900';
+                                    // IMPROVED COLOR LOGIC
+                                    let colorClasses = 'bg-white border-l-[3px] border-slate-300 shadow-sm hover:shadow-md';
+                                    let statusBadge = null;
+
+                                    if (appt.status === 'confirmed') {
+                                        colorClasses = 'bg-gradient-to-br from-white to-sky-50 border-l-[3px] border-sky-500 shadow-sm shadow-sky-100/50';
+                                    } else if (appt.status === 'pending') {
+                                        colorClasses = 'bg-gradient-to-br from-white to-amber-50 border-l-[3px] border-amber-400 shadow-sm shadow-amber-100/50';
+                                    } else if (appt.status === 'en_camino') {
+                                        colorClasses = 'bg-gradient-to-br from-white to-purple-50 border-l-[3px] border-purple-500 shadow-sm shadow-purple-100/50';
+                                    } else if (appt.status === 'in_progress') {
+                                        colorClasses = 'bg-gradient-to-br from-white to-emerald-50 border-l-[3px] border-emerald-500 shadow-sm shadow-emerald-100/50';
+                                    }
 
                                     return (
                                         <div
@@ -404,43 +412,61 @@ const GlobalAgenda = () => {
                                             draggable
                                             onDragStart={(e) => handleDragStart(e, appt)}
                                             onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
-                                            className={`absolute rounded p-2 text-xs cursor-pointer transition-all duration-200 group flex flex-col justify-between overflow-hidden hover:z-50 hover:shadow-lg
-                                                     ${colors} ${selectedAppt?.id === appt.id ? 'ring-2 ring-indigo-500 z-40 transform scale-[1.02]' : 'z-10'}`}
-                                            style={{ top: `${top}px`, height: `${height - 3}px`, left: `${left}%`, width: `${width}%` }}
+                                            className={`absolute rounded-lg p-1.5 text-xs cursor-grab active:cursor-grabbing transition-all duration-200 group flex flex-col overflow-hidden hover:z-50 hover:scale-[1.02]
+                                                     ${colorClasses} ${selectedAppt?.id === appt.id ? 'ring-2 ring-indigo-500 z-40' : 'z-10'}`}
+                                            style={{ top: `${top}px`, height: `${height - 2}px`, left: `${left}%`, width: `${width}%` }}
                                         >
-                                            {/* REAL DATA HIERARCHY */}
-                                            <div className="flex flex-col gap-0.5">
-                                                {/* 1. Brand/Appliance - ROBUST */}
-                                                <div className="flex items-center gap-1.5 mb-1 bg-white/60 backdrop-blur-sm self-start pr-2 rounded-md overflow-hidden max-w-full">
-                                                    {appt.brand_logo ? (
-                                                        <img src={appt.brand_logo} alt="Logo" className="w-4 h-4 object-contain" />
-                                                    ) : (
-                                                        <div className="w-1 h-4 bg-slate-300 rounded-full shrink-0"></div>
-                                                    )}
-                                                    <div className="font-extrabold text-[10px] uppercase tracking-tight leading-none text-slate-700 truncate py-0.5">
-                                                        {(appt.appliance && (appt.appliance.brand || appt.appliance.type)) ? (
-                                                            `${appt.appliance.type || ''} ${appt.appliance.brand || ''}`.trim()
-                                                        ) : (
-                                                            <span className="text-slate-400 opacity-80 italic">DESCONOCIDO</span>
-                                                        )}
-                                                    </div>
+                                            {/* Drag Handle */}
+                                            <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-40 transition-opacity">
+                                                <div className="flex gap-0.5">
+                                                    <div className="w-0.5 h-0.5 rounded-full bg-black"></div>
+                                                    <div className="w-0.5 h-0.5 rounded-full bg-black"></div>
+                                                    <div className="w-0.5 h-0.5 rounded-full bg-black"></div>
                                                 </div>
-                                                {/* 2. Problem */}
-                                                <div className="text-[9px] font-medium leading-tight line-clamp-2 text-slate-500 italic mb-1">
-                                                    {appt.problem_description ? `"${appt.problem_description}"` : <span className="opacity-50">-</span>}
-                                                </div>
-                                                {/* 3. Client */}
-                                                <div className="font-bold text-[10px] leading-tight truncate text-slate-800">{appt.client?.full_name || 'Sin Cliente'}</div>
-                                                <div className="text-[9px] opacity-80 truncate leading-tight">{appt.client?.address}</div>
                                             </div>
 
-                                            {/* Footer: CP */}
-                                            <div className="mt-auto flex justify-between items-end border-t border-black/5 pt-1">
-                                                <span className="font-mono text-[9px] opacity-70">
-                                                    {appt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
-                                                {appt.client?.postal_code && (
-                                                    <span className="text-[8px] font-bold opacity-50 tracking-wider bg-black/5 px-1 rounded">CP {appt.client.postal_code}</span>
+                                            {/* Content Container */}
+                                            <div className="flex flex-col gap-0.5 h-full">
+                                                {/* Header: Brand & Time */}
+                                                <div className="flex items-center justify-between gap-1 mb-0.5">
+                                                    <div className="flex items-center gap-1.5 bg-white/80 backdrop-blur-md px-1.5 py-0.5 rounded shadow-sm max-w-[85%] overflow-hidden">
+                                                        {appt.brand_logo ? (
+                                                            <img src={appt.brand_logo} alt="Logo" className="w-3.5 h-3.5 object-contain shrink-0" />
+                                                        ) : (
+                                                            <div className="w-1 h-3 bg-slate-200 rounded-full shrink-0"></div>
+                                                        )}
+                                                        <span className="font-extrabold text-[9px] uppercase tracking-tighter leading-none text-slate-700 truncate">
+                                                            {(appt.appliance && (appt.appliance.brand || appt.appliance.type)) ? (
+                                                                `${appt.appliance.type || ''} ${appt.appliance.brand || ''}`.trim()
+                                                            ) : 'DESCONOCIDO'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Client Name */}
+                                                <div className="font-bold text-[10px] leading-tight truncate text-slate-800 px-0.5">
+                                                    {appt.client?.full_name || 'Sin Cliente'}
+                                                </div>
+
+                                                {/* Problem Description (Only if enough height) */}
+                                                {height > 40 && (
+                                                    <div className="text-[9px] leading-3 text-slate-500 line-clamp-2 px-0.5 italic opacity-80 mt-auto mb-1">
+                                                        "{appt.problem_description || '-'}"
+                                                    </div>
+                                                )}
+
+                                                {/* Footer: Time & CP */}
+                                                {(height > 55 || width > 50) && (
+                                                    <div className="mt-auto flex justify-between items-end pt-1 border-t border-black/5 opacity-70 px-0.5">
+                                                        <span className="font-mono text-[9px] font-bold tracking-tight">
+                                                            {appt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        </span>
+                                                        {appt.client?.postal_code && (
+                                                            <span className="text-[7px] font-black tracking-wider bg-slate-900/5 px-1 py-0.5 rounded text-slate-500">
+                                                                {appt.client.postal_code}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
