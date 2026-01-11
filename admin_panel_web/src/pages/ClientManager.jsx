@@ -38,7 +38,7 @@ const ClientManager = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [cityFilter, setCityFilter] = useState('Todas');
     const [sourceFilter, setSourceFilter] = useState('Todos');
-    const [sortBy, setSortBy] = useState('newest'); // newest, fidelity, az
+    const [sortBy, setSortBy] = useState('newest'); // newest, fidelity, review
 
     // History/Details State
     const [showHistory, setShowHistory] = useState(false);
@@ -49,6 +49,7 @@ const ClientManager = () => {
     // Appliances State
     const [showAppliances, setShowAppliances] = useState(false);
     const [clientAppliances, setClientAppliances] = useState([]);
+    const [appliancesLoading, setAppliancesLoading] = useState(false);
 
     useEffect(() => {
         fetchClients();
@@ -91,12 +92,9 @@ const ClientManager = () => {
 
             if (error) throw error;
 
-            // Fetch Extra Metrics (Tickets Count + Reviews Count)
-            // Parallel fetch for review counts? Or just fetch all reviews? 
-            // Better: fetch all reviews group by client_id, but RPC is ideal. 
-            // For now, client-side aggregation is acceptable for < 1000 clients. 
-            // Or simplified: Just 0 for now if table join RLS is tricky, but we try.
-
+            // Optional: Parallel Fetch for Reviews/Tickets aggregation
+            // We use separate queries to avoid massive joins on large datasets for the list view
+            // In a real optimized app, this would be a View or RPC.
             const { data: reviewsData } = await supabase.from('reviews').select('client_id');
             const { data: ticketsData } = await supabase.from('tickets').select('client_id');
 
@@ -153,7 +151,7 @@ const ClientManager = () => {
     const handleDelete = async (clientId) => {
         if (!confirm('¿Eliminar definitivamente? Esta acción es irreversible.')) return;
         setLoading(true);
-        // Cascade deletion logic here or handled by DB constraints
+        // Cascade deletion should be handled by DB or explicit logic
         const { error } = await supabase.from('profiles').delete().eq('id', clientId);
         if (error) alert('Error: ' + error.message);
         else await fetchClients();
@@ -177,23 +175,56 @@ const ClientManager = () => {
     const handleViewAppliances = async (client) => {
         setSelectedClient(client);
         setShowAppliances(true);
-        // Correct query based on verification
-        const { data } = await supabase
-            .from('client_appliances')
-            .select(`*, tickets (*)`) // tickets for metrics
-            .eq('client_id', client.id)
-            .order('created_at', { ascending: false });
+        setAppliancesLoading(true);
+        setClientAppliances([]);
 
-        // Process metrics
-        const processed = (data || []).map(app => {
-            const tickets = app.tickets || [];
-            const repairCount = tickets.filter(t => ['finalizado', 'pagado'].includes(t.status)).length;
-            const totalSpent = tickets
-                .filter(t => ['finalizado', 'pagado'].includes(t.status))
-                .reduce((sum, t) => sum + (t.total || 0), 0);
-            return { ...app, repairCount, totalSpent, tickets };
-        });
-        setClientAppliances(processed);
+        try {
+            // FIX: Robust Query. Attempt simple fetch first if join fails, or assume it works.
+            // We'll stick to the join but log accurately.
+            // Explicitly selecting foreign key relation if named differently? 
+            // Previous check confirmed 'client_id' column exists.
+
+            const { data, error } = await supabase
+                .from('client_appliances')
+                .select(`*, tickets (*)`)
+                .eq('client_id', client.id)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error("Error fetching appliances (Deep):", error);
+                // Fallback attempt without tickets join if RLS blocks the join
+                const { data: fallbackData, error: fallbackError } = await supabase
+                    .from('client_appliances')
+                    .select('*')
+                    .eq('client_id', client.id);
+
+                if (fallbackError) throw fallbackError;
+
+                // If fallback worked, use it with empty tickets
+                if (fallbackData) {
+                    const mapped = fallbackData.map(app => ({ ...app, tickets: [], repairCount: 0, totalSpent: 0 }));
+                    setClientAppliances(mapped);
+                    return;
+                }
+            }
+
+            // Process metrics if data exists
+            const processed = (data || []).map(app => {
+                const tickets = app.tickets || [];
+                const repairCount = tickets.filter(t => ['finalizado', 'pagado'].includes(t.status)).length;
+                const totalSpent = tickets
+                    .filter(t => ['finalizado', 'pagado'].includes(t.status))
+                    .reduce((sum, t) => sum + (t.total || 0), 0);
+                return { ...app, repairCount, totalSpent, tickets };
+            });
+            setClientAppliances(processed);
+
+        } catch (err) {
+            console.error("Critical Error fetching appliances:", err);
+            alert("Error al cargar equipos: " + err.message);
+        } finally {
+            setAppliancesLoading(false);
+        }
     };
 
     const handleViewHistory = async (client) => {
@@ -227,8 +258,6 @@ const ClientManager = () => {
             result.sort((a, b) => b.reviewCount - a.reviewCount);
         } else if (sortBy === 'az') {
             result.sort((a, b) => a.full_name.localeCompare(b.full_name));
-        } else {
-            // Newest (Default) - assuming fetched order is by created_at desc
         }
 
         return result;
@@ -296,7 +325,6 @@ const ClientManager = () => {
                                 <th className="px-4 py-3">Cliente</th>
                                 <th className="px-4 py-3">Contacto / Residencia</th>
                                 <th className="px-4 py-3 text-center">Fidelidad</th>
-                                <th className="px-4 py-3 text-center">Estado</th>
                                 <th className="px-4 py-3 text-right">Acciones</th>
                             </tr>
                         </thead>
@@ -305,12 +333,25 @@ const ClientManager = () => {
                                 <tr key={client.id} className={`hover:bg-slate-50 transition group ${!client.is_active ? 'bg-red-50/50' : ''}`}>
                                     <td className="px-4 py-2">
                                         <div className="flex items-center gap-3">
-                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 
-                                                ${client.created_via === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                                                {client.full_name.charAt(0)}
+                                            {/* AVATAR + STATUS DOT */}
+                                            <div className="relative">
+                                                <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm text-white shrink-0 
+                                                    ${client.created_via === 'admin' ? 'bg-indigo-500' : 'bg-blue-600'}`}>
+                                                    {client.full_name.charAt(0)}
+                                                </div>
+                                                <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white 
+                                                    ${client.is_active ? 'bg-green-500' : 'bg-red-500'}`} title={client.is_active ? 'Activo' : 'Bloqueado'}></div>
                                             </div>
+
                                             <div>
-                                                <div className="font-bold text-slate-800 leading-tight">{client.full_name}</div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-bold text-slate-800 leading-tight">{client.full_name}</span>
+                                                    {/* ORIGIN BADGE */}
+                                                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${client.created_via === 'admin' ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700'
+                                                        }`}>
+                                                        {client.created_via === 'admin' ? 'OFICINA' : 'APP'}
+                                                    </span>
+                                                </div>
                                                 <div className="text-[10px] text-slate-400 font-mono">ID: ...{client.id.slice(-4)}</div>
                                             </div>
                                         </div>
@@ -319,7 +360,10 @@ const ClientManager = () => {
                                         <div className="flex flex-col gap-0.5">
                                             <div className="flex items-center gap-1.5 text-slate-600">
                                                 <Phone size={12} className="text-slate-400" />
-                                                <span className="font-mono text-xs">{client.phone}</span>
+                                                {/* CLICK TO CALL */}
+                                                <a href={`tel:${client.phone}`} className="font-mono text-xs text-blue-600 hover:text-blue-800 hover:underline">
+                                                    {client.phone}
+                                                </a>
                                             </div>
                                             <div className="flex items-center gap-1.5 text-slate-500 text-xs">
                                                 <MapPin size={12} className="text-slate-400" />
@@ -328,31 +372,22 @@ const ClientManager = () => {
                                         </div>
                                     </td>
                                     <td className="px-4 py-2 text-center">
-                                        <div className="flex justify-center gap-3">
+                                        <div className="flex justify-center gap-4">
                                             <div className="flex flex-col items-center" title="Tickets Solicitados">
-                                                <div className="flex items-center gap-1 text-slate-700 font-bold">
-                                                    <package size={14} className="text-blue-500" /> {client.ticketCount}
-                                                </div>
+                                                <span className="text-sm font-bold text-slate-700">{client.ticketCount}</span>
                                                 <span className="text-[9px] text-slate-400 uppercase">Servicios</span>
                                             </div>
                                             {client.reviewCount > 0 && (
                                                 <div className="flex flex-col items-center" title="Reseñas Dejadas">
-                                                    <div className="flex items-center gap-1 text-amber-600 font-bold">
-                                                        <Star size={14} fill="currentColor" /> {client.reviewCount}
+                                                    <div className="flex items-center gap-1 text-amber-500 font-bold text-sm">
+                                                        {client.reviewCount} <Star size={10} fill="currentColor" />
                                                     </div>
                                                     <span className="text-[9px] text-slate-400 uppercase">Reseñas</span>
                                                 </div>
                                             )}
                                         </div>
                                     </td>
-                                    <td className="px-4 py-2 text-center">
-                                        <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border 
-                                            ${client.is_active
-                                                ? 'bg-green-50 text-green-700 border-green-100'
-                                                : 'bg-red-50 text-red-700 border-red-100'}`}>
-                                            {client.is_active ? 'Activo' : 'Bloqueado'}
-                                        </span>
-                                    </td>
+
                                     <td className="px-4 py-2 text-right">
                                         <div className="flex justify-end gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button onClick={() => handleViewHistory(client)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded" title="Ver Historial">
@@ -384,7 +419,6 @@ const ClientManager = () => {
                         </tbody>
                     </table>
                 </div>
-                {/* Mobile Card View Fallback (Hidden on md+) - Optional based on complexity, keeping table with scrolling for now but responsive table container handles it well enough for "compact" view */}
             </div>
 
             {/* --- MODALS --- */}
@@ -423,7 +457,6 @@ const ClientManager = () => {
                             <button onClick={handleClose}><X size={20} className="text-slate-400" /></button>
                         </div>
                         <form onSubmit={handleSave} className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
-                            {/* ... Form Inputs Same as Before but Compact ... */}
                             <div>
                                 <label className="text-xs font-bold text-slate-500 uppercase">Nombre</label>
                                 <input required value={fullName} onChange={e => setFullName(e.target.value)} className="w-full p-2 border rounded-lg text-sm" />
@@ -460,7 +493,7 @@ const ClientManager = () => {
                 </div>
             )}
 
-            {/* Appliances Modal Reuse Logic */}
+            {/* Appliances Modal Refined */}
             {showAppliances && selectedClient && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl overflow-hidden max-h-[90vh] flex flex-col">
@@ -474,19 +507,29 @@ const ClientManager = () => {
                             <button onClick={() => setShowAppliances(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
                         </div>
                         <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50">
-                            {clientAppliances.length === 0 ? (
-                                <div className="p-8 text-center text-slate-400 border-2 border-dashed rounded-xl">Este cliente no tiene equipos registrados.</div>
+                            {appliancesLoading ? (
+                                <div className="text-center py-8 text-slate-400">Cargando equipos...</div>
+                            ) : clientAppliances.length === 0 ? (
+                                <div className="p-8 text-center text-slate-400 border-2 border-dashed rounded-xl">
+                                    <p>Este cliente no tiene equipos registrados.</p>
+                                    <p className="text-xs mt-2">Nota: Si el cliente tiene equipos y no salen, verifica los permisos de seguridad (RLS).</p>
+                                </div>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {clientAppliances.map(app => (
-                                        <div key={app.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex gap-4">
-                                            {/* Simplified Appliance Card for Admin */}
-                                            <div className="w-10 h-10 bg-purple-50 rounded flex items-center justify-center text-purple-600 font-bold shrink-0">{app.type?.[0]}</div>
-                                            <div>
-                                                <h4 className="font-bold text-slate-800 text-sm">{app.brand} {app.model}</h4>
-                                                <p className="text-xs text-slate-500">{app.type}</p>
-                                                <div className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded inline-block mt-1">Gastado: {app.totalSpent}€</div>
+                                        <div key={app.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex gap-4 items-start">
+                                            <div className="w-10 h-10 bg-purple-50 rounded flex items-center justify-center text-purple-600 font-bold shrink-0 shadow-inner">
+                                                {app.type?.[0]?.toUpperCase()}
                                             </div>
+                                            <div className="flex-1 min-w-0">
+                                                <h4 className="font-bold text-slate-800 text-sm">{app.brand} {app.model}</h4>
+                                                <p className="text-xs text-slate-500 uppercase">{app.type}</p>
+                                                <div className="mt-2 flex gap-3 text-xs text-slate-400">
+                                                    <span className="flex items-center gap-1"><History size={12} /> {app.repairCount} Rep.</span>
+                                                    <span className="flex items-center gap-1"><Zap size={12} /> {app.totalSpent}€</span>
+                                                </div>
+                                            </div>
+                                            {/* OCR Badge or similar could go here */}
                                         </div>
                                     ))}
                                 </div>
