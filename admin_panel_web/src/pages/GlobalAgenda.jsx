@@ -79,33 +79,48 @@ const GlobalAgenda = () => {
             const { data: brandsData } = await supabase.from('brands').select('name, logo_url');
 
             // 2. Fetch Appointments
+            // Using simpler query syntax to avoid FK alias issues
             const { data: apptData, error } = await supabase
                 .from('tickets')
                 .select(`
                     *, 
                     client:profiles!client_id(full_name, address, phone, current_lat, current_lng, postal_code),
-                    appliance:client_appliances!appliance_id(brand, model, type)
+                    client_appliances (
+                        brand,
+                        model,
+                        type
+                    )
                 `)
                 .gte('scheduled_at', `${dateStr}T00:00:00`)
                 .lt('scheduled_at', `${dateStr}T23:59:59`)
                 .not('technician_id', 'is', null)
                 .neq('status', 'finalizado');
 
+            if (error) {
+                console.error("Error fetching tickets:", error);
+            }
+
             // Transform & Filter
             const processed = (apptData || [])
                 .filter(a => !['cancelado', 'rechazado', 'anulado'].includes(a.status))
                 .map(a => {
+                    // Robust Appliance Data Retrieval
+                    // Supabase might return it as array or object depending on relation type (One-to-One vs Many-to-One)
+                    // We treat it safely.
+                    const rawAppliance = Array.isArray(a.client_appliances) ? a.client_appliances[0] : a.client_appliances;
+
                     // Find Brand Logo
-                    const brandName = a.appliance?.brand || '';
+                    const brandName = rawAppliance?.brand || '';
                     const brandInfo = brandsData?.find(b => b.name.toLowerCase() === brandName.toLowerCase());
 
                     return {
                         ...a,
                         start: new Date(a.scheduled_at),
                         duration: a.estimated_duration || 60,
-                        profiles: a.client, // REMAP FOR MODAL COMPATIBILITY
-                        appliance_info: a.appliance, // REMAP FOR MODAL COMPATIBILITY
-                        brand_logo: brandInfo?.logo_url || null // Enriched Data
+                        profiles: a.client,
+                        appliance_info: rawAppliance, // Mapped for Modal
+                        appliance: rawAppliance, // Mapped for Card
+                        brand_logo: brandInfo?.logo_url || null
                     };
                 });
 
