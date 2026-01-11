@@ -441,7 +441,7 @@ const ServiceMonitor = () => {
                     isOpen={!!selectedTicketForAssign}
                     onClose={() => { setSelectedTicketForAssign(null); fetchData(); }}
                     ticket={selectedTicketForAssign}
-                    onAssignSuccess={() => { setSelectedTicketForAssign(null); fetchData(); }}
+                    onSuccess={() => { setSelectedTicketForAssign(null); fetchData(); }}
                 />
             )}
 
