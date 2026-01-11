@@ -94,7 +94,9 @@ const GlobalAgenda = () => {
                 .map(a => ({
                     ...a,
                     start: new Date(a.scheduled_at),
-                    duration: a.estimated_duration || 60
+                    duration: a.estimated_duration || 60,
+                    profiles: a.client, // REMAP FOR MODAL COMPATIBILITY
+                    appliance_info: a.appliance // REMAP FOR MODAL COMPATIBILITY
                 }));
 
             setAppointments(processed || []);
@@ -243,29 +245,47 @@ const GlobalAgenda = () => {
     return (
         <div className="h-[calc(100vh-80px)] flex flex-col bg-slate-50 relative overflow-hidden font-sans">
             {/* --- HEADER --- */}
-            <div className="bg-white border-b border-slate-200 px-4 py-3 z-30 shadow-sm shrink-0 flex flex-col gap-3">
-                <div className="flex flex-col md:flex-row justify-between items-center gap-3">
-                    <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-2 text-slate-800">
-                            <Calendar className="text-indigo-600" size={24} />
-                            <div>
-                                <h1 className="font-bold text-lg leading-tight">Agenda Global</h1>
-                                <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Panel de Control</p>
-                            </div>
-                        </div>
-                        {/* PREMIUM CLOCK WIDGET */}
-                        <div className="hidden md:block">
-                            <ClockWidget />
+            <div className="bg-white border-b border-slate-200 px-4 py-2 z-30 shadow-sm shrink-0 flex flex-col gap-2">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-2 relative">
+                    {/* Left: Title */}
+                    <div className="flex items-center gap-2 text-slate-800 w-1/3">
+                        <Calendar className="text-indigo-600" size={24} />
+                        <div>
+                            <h1 className="font-bold text-lg leading-tight">Agenda Global</h1>
+                            <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Panel de Control</p>
                         </div>
                     </div>
 
-                    <div className="flex items-center bg-slate-100 rounded-lg p-1 border border-slate-200 shadow-inner">
-                        <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(d); }} className="p-1 hover:bg-white rounded transition text-slate-600"><ChevronLeft size={18} /></button>
-                        <div className="px-4 text-center">
-                            <div className="text-xs font-bold text-slate-400 uppercase">{selectedDate.toLocaleDateString('es-ES', { weekday: 'long' })}</div>
-                            <div className="text-sm font-black text-slate-800">{selectedDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</div>
+                    {/* CENTER: CLOCK WITH GOLD BORDER */}
+                    {/* CENTER: CLOCK & DATE - GOLD CONTAINER */}
+                    <div className="flex flex-col md:flex-row items-center justify-center gap-4 p-2 rounded-2xl border border-amber-300/50 bg-gradient-to-b from-amber-50/50 to-white shadow-sm relative group w-2/4 hover:shadow-md transition-all">
+                        <div className="absolute -top-2.5 bg-white px-3 py-0.5 text-[8px] font-black tracking-[0.2em] text-amber-600 uppercase border border-amber-200 rounded-full flex items-center gap-1.5 z-20 shadow-sm">
+                            <Clock size={8} className="text-amber-500" /> CONTROL DE TIEMPO
                         </div>
-                        <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(d); }} className="p-1 hover:bg-white rounded transition text-slate-600"><ChevronRight size={18} /></button>
+
+                        {/* Clock */}
+                        <div className="shrink-0 relative z-10 scale-90">
+                            <ClockWidget />
+                        </div>
+
+                        {/* Separator */}
+                        <div className="hidden md:block w-px h-12 bg-amber-200/50"></div>
+
+                        {/* Date Selector (Moved Here) */}
+                        <div className="flex items-center gap-1">
+                            <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(d); }}
+                                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-amber-100 text-slate-400 hover:text-amber-700 transition active:scale-95">
+                                <ChevronLeft size={18} />
+                            </button>
+                            <div className="text-center w-32">
+                                <div className="text-[10px] font-bold text-amber-600/70 uppercase tracking-wide leading-none mb-1">{selectedDate.toLocaleDateString('es-ES', { weekday: 'long' })}</div>
+                                <div className="text-xl font-black text-slate-800 leading-none tracking-tight">{selectedDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</div>
+                            </div>
+                            <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(d); }}
+                                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-amber-100 text-slate-400 hover:text-amber-700 transition active:scale-95">
+                                <ChevronRight size={18} />
+                            </button>
+                        </div>
                     </div>
 
                     <div className="flex gap-2">
