@@ -347,7 +347,7 @@ const ClientManager = () => {
                                                 <div className="flex items-center gap-2">
                                                     <span className="font-bold text-slate-800 leading-tight">{client.full_name}</span>
                                                     {/* ORIGIN BADGE */}
-                                                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${client.created_via === 'admin' ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700'
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide ${client.created_via === 'admin' ? 'bg-lime-500 text-white' : 'bg-blue-600 text-white'
                                                         }`}>
                                                         {client.created_via === 'admin' ? 'OFICINA' : 'APP'}
                                                     </span>
