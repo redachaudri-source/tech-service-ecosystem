@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Save, Upload, Building, Palette, FileText, Briefcase, Plus, Trash2, Edit2, X, Check } from 'lucide-react';
+import BrandManager from '../components/BrandManager';
 
 const Settings = () => {
     const [loading, setLoading] = useState(true);
@@ -459,6 +460,11 @@ const Settings = () => {
                         )}
                     </div>
                 </div>
+            </div>
+
+            {/* Brands Manager Section */}
+            <div className="h-[600px]">
+                <BrandManager />
             </div>
 
             <div className="flex justify-end gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100 sticky bottom-4">
