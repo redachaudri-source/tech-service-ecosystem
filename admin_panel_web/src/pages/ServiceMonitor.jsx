@@ -7,9 +7,11 @@ import SmartAssignmentModal from '../components/SmartAssignmentModal'; // Import
 import ServiceDetailsModal from '../components/ServiceDetailsModal'; // Import Details Modal
 import BudgetManagerModal from '../components/BudgetManagerModal'; // Import Budget Modal
 import { useAuth } from '../context/AuthContext';
+import { useLocation } from 'react-router-dom';
 
 const ServiceMonitor = () => {
     const { user } = useAuth();
+    const location = useLocation();
     const [tickets, setTickets] = useState([]);
     const [techs, setTechs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -35,6 +37,14 @@ const ServiceMonitor = () => {
     // ... useEffect and fetch logic (Keep same) ...
     // Note: Copied only essential parts for fetch to avoid massive diff, assume fetch is preserved if I don't touch it. 
     // Wait, replace_file_content needs me to be careful. I will replace the whole component structure or targeted blocks.
+
+    useEffect(() => {
+        if (location.state?.openCreate) {
+            setShowCreateModal(true);
+            // Clear state history to prevent reopening on reload (optional but good practice)
+            window.history.replaceState({}, document.title);
+        }
+    }, [location]);
 
     useEffect(() => {
         let channel = null;
