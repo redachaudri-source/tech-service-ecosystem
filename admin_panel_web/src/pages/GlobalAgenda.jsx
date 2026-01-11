@@ -361,16 +361,20 @@ const GlobalAgenda = () => {
                                         >
                                             {/* REAL DATA HIERARCHY */}
                                             <div className="flex flex-col gap-0.5">
-                                                {/* 1. Brand/Appliance */}
-                                                <div className="font-extrabold text-[10px] uppercase tracking-tight leading-none bg-white/60 backdrop-blur-sm self-start px-1 rounded mb-0.5">
-                                                    {appt.appliance ? `${appt.appliance.type} ${appt.appliance.brand}` : 'REVISIÓN GENERAL'}
+                                                {/* 1. Brand/Appliance - ROBUST */}
+                                                <div className="font-extrabold text-[10px] uppercase tracking-tight leading-none bg-white/60 backdrop-blur-sm self-start px-1 rounded mb-0.5 max-w-full truncate">
+                                                    {(appt.appliance && (appt.appliance.brand || appt.appliance.type)) ? (
+                                                        `${appt.appliance.type || ''} ${appt.appliance.brand || ''}`.trim()
+                                                    ) : (
+                                                        <span className="text-slate-400 opacity-80">DESCONOCIDO</span>
+                                                    )}
                                                 </div>
                                                 {/* 2. Problem */}
                                                 <div className="text-[9px] font-medium leading-tight line-clamp-2 text-slate-500 italic mb-1">
-                                                    "{appt.problem_description || 'Sin detalles'}"
+                                                    {appt.problem_description ? `"${appt.problem_description}"` : <span className="opacity-50">-</span>}
                                                 </div>
                                                 {/* 3. Client */}
-                                                <div className="font-bold text-[10px] leading-tight truncate text-slate-800">{appt.client?.full_name}</div>
+                                                <div className="font-bold text-[10px] leading-tight truncate text-slate-800">{appt.client?.full_name || 'Sin Cliente'}</div>
                                                 <div className="text-[9px] opacity-80 truncate leading-tight">{appt.client?.address}</div>
                                             </div>
 
