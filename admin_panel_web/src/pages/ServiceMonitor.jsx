@@ -151,7 +151,7 @@ const ServiceMonitor = () => {
     return (
         <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-slate-50/50">
             {/* STICKY HEADER SECTION (RESTORED & ENHANCED) */}
-            <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-slate-200 shadow-sm shrink-0 px-6 py-4 space-y-4">
+            <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-slate-200 shadow-sm shrink-0 px-4 py-3 md:px-6 md:py-4 space-y-4">
                 {/* Header Title & Button */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
@@ -197,7 +197,7 @@ const ServiceMonitor = () => {
             </div>
 
             {/* MAIN TABLE CONTENT - RESTORED ORIGINAL COLUMNS & LAYOUT */}
-            <div className="flex-1 overflow-auto p-4 md:p-6 content-start">
+            <div className="flex-1 overflow-auto p-3 md:p-6 content-start">
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     {loading ? (
                         <div className="p-10 text-center text-slate-400">Cargando...</div>
@@ -205,16 +205,14 @@ const ServiceMonitor = () => {
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
                                 <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 font-semibold sticky top-0 z-20">
-                                    <tr>
-                                        <th className="px-4 py-3 min-w-[100px]">ID / Cita</th>
-                                        <th className="px-4 py-3 min-w-[180px]">Cliente</th>
-                                        <th className="px-4 py-3 text-center">Origen</th>
-                                        <th className="px-4 py-3 min-w-[150px]">Equipo</th>
-                                        <th className="px-4 py-3 text-center">Estado</th>
-                                        <th className="px-4 py-3 text-center">Doc</th>
-                                        <th className="px-4 py-3 min-w-[140px]">Asignación</th>
-                                        <th className="px-4 py-3 text-right">Acciones</th>
-                                    </tr>
+                                    <th className="px-3 py-2 md:px-4 md:py-3 min-w-[100px]">ID / Cita</th>
+                                    <th className="px-3 py-2 md:px-4 md:py-3 min-w-[180px]">Cliente</th>
+                                    <th className="px-3 py-2 md:px-4 md:py-3 text-center hidden sm:table-cell">Origen</th>
+                                    <th className="px-3 py-2 md:px-4 md:py-3 min-w-[150px]">Equipo</th>
+                                    <th className="px-3 py-2 md:px-4 md:py-3 text-center">Estado</th>
+                                    <th className="px-3 py-2 md:px-4 md:py-3 text-center hidden sm:table-cell">Doc</th>
+                                    <th className="px-3 py-2 md:px-4 md:py-3 min-w-[140px]">Asignación</th>
+                                    <th className="px-3 py-2 md:px-4 md:py-3 text-right">Acciones</th>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 text-sm"> {/* Small font applied here */}
                                     {tickets.filter(t => {
@@ -252,7 +250,7 @@ const ServiceMonitor = () => {
                                     }).map(ticket => (
                                         <tr key={ticket.id} className="hover:bg-slate-50 transition-colors">
                                             {/* ID / Cita (Enhanced based on screenshot) */}
-                                            <td className="px-4 py-3 sticky left-0 bg-white group-hover:bg-slate-50 transition-colors border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] align-top min-w-[140px]">
+                                            <td className="px-3 py-2 md:px-4 md:py-3 sticky left-0 bg-white group-hover:bg-slate-50 transition-colors border-r border-slate-100 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.1)] align-top min-w-[120px] md:min-w-[140px]">
                                                 <div className="font-mono font-bold text-lg text-slate-800 tracking-tight">#{ticket.ticket_number}</div>
 
                                                 {ticket.scheduled_at ? (
@@ -289,7 +287,7 @@ const ServiceMonitor = () => {
                                             </td>
 
                                             {/* Cliente */}
-                                            <td className="px-4 py-3 max-w-[220px] align-top">
+                                            <td className="px-3 py-2 md:px-4 md:py-3 max-w-[220px] align-top">
                                                 <div className="font-bold text-slate-800 text-sm mb-1">{ticket.profiles?.full_name || 'Sin nombre'}</div>
 
                                                 {ticket.profiles?.phone ? (
@@ -306,7 +304,7 @@ const ServiceMonitor = () => {
                                             </td>
 
                                             {/* Origen (Restored Column) */}
-                                            <td className="px-4 py-3 text-center">
+                                            <td className="px-3 py-2 md:px-4 md:py-3 text-center align-top hidden sm:table-cell">
                                                 <div className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border inline-block ${ticket.origin_source === 'client_web' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
                                                     ticket.origin_source === 'tech_app' ? 'bg-cyan-50 text-cyan-600 border-cyan-100' :
                                                         'bg-white text-slate-500 border-slate-200'
@@ -316,7 +314,7 @@ const ServiceMonitor = () => {
                                             </td>
 
                                             {/* Equipo */}
-                                            <td className="px-4 py-3">
+                                            <td className="px-3 py-2 md:px-4 md:py-3 max-w-[200px] align-top">
                                                 <div className="font-medium text-slate-700">
                                                     {ticket.appliance_info?.type} <span className="text-slate-400">|</span> {ticket.appliance_info?.brand}
                                                 </div>
@@ -326,12 +324,12 @@ const ServiceMonitor = () => {
                                             </td>
 
                                             {/* Estado */}
-                                            <td className="px-4 py-3 text-center">
+                                            <td className="px-3 py-2 md:px-4 md:py-3 text-center align-top">
                                                 <StatusBadge status={ticket.status} />
                                             </td>
 
                                             {/* Doc (Restored Column) */}
-                                            <td className="px-4 py-3 text-center">
+                                            <td className="px-3 py-2 md:px-4 md:py-3 text-center align-top hidden sm:table-cell">
                                                 <div className="flex justify-center gap-1">
                                                     {ticket.quote_pdf_url ? (
                                                         <a href={ticket.quote_pdf_url} target="_blank" className="p-1 text-amber-600 hover:bg-amber-50 rounded" title="Presupuesto">
@@ -347,7 +345,7 @@ const ServiceMonitor = () => {
                                             </td>
 
                                             {/* Asignación */}
-                                            <td className="px-4 py-3">
+                                            <td className="px-3 py-2 md:px-4 md:py-3 align-top">
                                                 {ticket.technician_id ? (
                                                     <div className="flex flex-col items-start gap-1">
                                                         <div className="font-medium text-slate-700 text-xs bg-slate-100 px-2 py-1 rounded">
@@ -365,15 +363,15 @@ const ServiceMonitor = () => {
                                             </td>
 
                                             {/* Acciones */}
-                                            <td className="px-4 py-3 text-right">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <button onClick={() => setSelectedTicketForDetails(ticket)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Ver">
+                                            <td className="px-3 py-2 md:px-4 md:py-3 text-right align-top">
+                                                <div className="flex items-center justify-end gap-2 md:gap-1">
+                                                    <button onClick={() => setSelectedTicketForDetails(ticket)} className="p-2 md:p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Ver">
                                                         <Eye size={16} />
                                                     </button>
-                                                    <button onClick={() => setSelectedTicketForBudget(ticket)} className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded" title="Gestionar Presupuesto">
+                                                    <button onClick={() => setSelectedTicketForBudget(ticket)} className="p-2 md:p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded" title="Gestionar Presupuesto">
                                                         <FileText size={16} />
                                                     </button>
-                                                    <button onClick={() => confirmDelete(ticket.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded" title="Eliminar">
+                                                    <button onClick={() => confirmDelete(ticket.id)} className="p-2 md:p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded" title="Eliminar">
                                                         <Trash2 size={16} />
                                                     </button>
                                                 </div>
