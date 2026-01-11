@@ -28,8 +28,33 @@ const createTechIcon = (color) => new L.DivIcon({
 const START_HOUR = 8;
 const END_HOUR = 20;
 const HOURS_COUNT = END_HOUR - START_HOUR + 1;
-const PIXELS_PER_HOUR = 110;
+const PIXELS_PER_HOUR = 90; // Compact for weekly view
 const GRID_HEIGHT = HOURS_COUNT * PIXELS_PER_HOUR;
+
+const APPLIANCE_COLORS = {
+    wash: 'bg-cyan-100 border-cyan-300 text-cyan-900', // Lavadora, Secadora
+    cold: 'bg-emerald-100 border-emerald-300 text-emerald-900', // Frigorífico
+    climate: 'bg-slate-200 border-slate-300 text-slate-800', // Aire
+    heat: 'bg-orange-100 border-orange-300 text-orange-900', // Horno
+    default: 'bg-gray-50 border-gray-200 text-gray-600'
+};
+
+const getApplianceCategory = (type) => {
+    if (!type) return 'default';
+    const t = type.toLowerCase();
+    if (t.includes('lavadora') || t.includes('secadora') || t.includes('lavavajillas')) return 'wash';
+    if (t.includes('frigor') || t.includes('congelador') || t.includes('never') || t.includes('vino')) return 'cold';
+    if (t.includes('aire') || t.includes('caldera') || t.includes('termo')) return 'climate';
+    if (t.includes('horno') || t.includes('vitro') || t.includes('micro') || t.includes('fuego')) return 'heat';
+    return 'default';
+};
+
+const getStartOfWeek = (d) => {
+    const date = new Date(d);
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+    return new Date(date.setDate(diff));
+};
 
 const GlobalAgenda = () => {
     // const navigate = useNavigate(); // Not needed for detail modal
@@ -46,11 +71,21 @@ const GlobalAgenda = () => {
     const [selectedAppt, setSelectedAppt] = useState(null); // For Popover
     const [detailTicket, setDetailTicket] = useState(null); // For Full Modal
 
+    // Week Calculation
+    const startOfWeek = useMemo(() => getStartOfWeek(selectedDate), [selectedDate]);
+    const weekDays = useMemo(() => {
+        return Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(startOfWeek);
+            d.setDate(d.getDate() + i);
+            return d;
+        });
+    }, [startOfWeek]);
+
     // Data Fetching
     useEffect(() => {
         fetchAgendaData();
         fetchBusinessConfig();
-    }, [selectedDate]);
+    }, [startOfWeek]); // Refetch when week changes
 
     const fetchBusinessConfig = async () => {
         const { data } = await supabase.from('business_config').select('*').single();
@@ -60,7 +95,11 @@ const GlobalAgenda = () => {
     const fetchAgendaData = async () => {
         setLoading(true);
         try {
-            const dateStr = selectedDate.toISOString().split('T')[0];
+            // Fetch range: Start of Week to End of Week
+            const startStr = startOfWeek.toISOString().split('T')[0];
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(endOfWeek.getDate() + 7);
+            const endStr = endOfWeek.toISOString().split('T')[0];
 
             // 1. Fetch Techs
             const { data: techData } = await supabase
@@ -75,45 +114,29 @@ const GlobalAgenda = () => {
                 setSelectedTechs(techData.map(t => t.id));
             }
 
-            // 1.5 Fetch Brands for Logos
+            // 1.5 Fetch Brands
             const { data: brandsData } = await supabase.from('brands').select('name, logo_url');
 
-            // 2. Fetch Appointments
-            // Reverting to explicit alias to guarantee FK resolution
+            // 2. Fetch Appointments (Week Range)
             const { data: apptData, error } = await supabase
                 .from('tickets')
                 .select(`
                     *, 
                     client:profiles!client_id(full_name, address, phone, current_lat, current_lng, postal_code),
-                    appliance:client_appliances!appliance_id (
-                        brand,
-                        model,
-                        type
-                    )
+                    appliance:client_appliances!appliance_id (brand, model, type)
                 `)
-                .gte('scheduled_at', `${dateStr}T00:00:00`)
-                .lt('scheduled_at', `${dateStr}T23:59:59`)
+                .gte('scheduled_at', `${startStr}T00:00:00`)
+                .lt('scheduled_at', `${endStr}T23:59:59`) // Full week
                 .not('technician_id', 'is', null)
                 .neq('status', 'finalizado');
 
-            if (error) {
-                console.error("Error fetching tickets:", error);
-            }
+            if (error) console.error("Error fetching tickets:", error);
 
-            // Transform & Filter
             const processed = (apptData || [])
                 .filter(a => !['cancelado', 'rechazado', 'anulado'].includes(a.status))
                 .map(a => {
-                    // Robust Appliance Data Retrieval
-                    // Prioritize explicit alias 'appliance', fallback to 'client_appliances'
                     let rawAppliance = a.appliance || a.client_appliances;
-
-                    // Normalize if array (One-to-Many vs Many-to-One ambiguity)
-                    if (Array.isArray(rawAppliance)) {
-                        rawAppliance = rawAppliance[0];
-                    }
-
-                    // Find Brand Logo
+                    if (Array.isArray(rawAppliance)) rawAppliance = rawAppliance[0];
                     const brandName = rawAppliance?.brand || '';
                     const brandInfo = brandsData?.find(b => b.name.toLowerCase() === brandName.toLowerCase());
 
@@ -122,8 +145,8 @@ const GlobalAgenda = () => {
                         start: new Date(a.scheduled_at),
                         duration: a.estimated_duration || 60,
                         profiles: a.client,
-                        appliance_info: rawAppliance, // Mapped for Modal
-                        appliance: rawAppliance, // Mapped for Card
+                        appliance_info: rawAppliance,
+                        appliance: rawAppliance,
                         brand_logo: brandInfo?.logo_url || null
                     };
                 });
@@ -166,19 +189,26 @@ const GlobalAgenda = () => {
         else setSelectedTechs(techs.map(t => t.id));
     };
 
-    // --- POSITIONING ---
-    const getPositionedEvents = (techId) => {
-        let events = appointments.filter(a => a.technician_id === techId)
-            .map(a => ({
-                ...a,
-                startMs: a.start.getTime(),
-                endMs: a.start.getTime() + (a.duration * 60000)
-            }))
-            .sort((a, b) => a.startMs - b.startMs);
+    // --- GRID LAYOUT LOGIC (BY DAY) ---
+    const getPositionedEvents = (dayDate) => {
+        // Filter: Must be on 'dayDate' AND assigned to 'selectedTechs'
+        const dayStartStr = dayDate.toISOString().split('T')[0];
 
-        if (events.length === 0) return [];
+        const events = appointments
+            .filter(a => {
+                const aDate = a.start.toISOString().split('T')[0];
+                return aDate === dayStartStr && selectedTechs.includes(a.technician_id);
+            })
+            .map(a => {
+                const startH = a.start.getHours();
+                const startM = a.start.getMinutes();
+                const startMs = startH * 60 + startM;
+                const duration = a.duration;
+                return { ...a, startMs, endMs: startMs + duration };
+            });
+
+        // Grouping/Column logic within the day...
         const expandedEvents = events.map(e => ({ ...e, col: 0, totalCols: 1 }));
-
         for (let i = 0; i < expandedEvents.length; i++) {
             let current = expandedEvents[i];
             const overlapping = expandedEvents.filter((other, idx) =>
@@ -198,11 +228,12 @@ const GlobalAgenda = () => {
     };
 
 
-    // --- DND HANDLERS ---
+    // --- DND HANDLERS (UPDATED FOR WEEK) ---
     const [dragState, setDragState] = useState({ id: null, offset: 0 });
     const [ghostState, setGhostState] = useState(null);
 
     const handleDragStart = (e, appt) => {
+        // ... (Same logic, simple ID transfer)
         if (isDayClosed) { e.preventDefault(); return; }
         const rect = e.currentTarget.getBoundingClientRect();
         const offset = e.clientY - rect.top;
@@ -211,7 +242,7 @@ const GlobalAgenda = () => {
         e.dataTransfer.setData("text/plain", appt.id);
     };
 
-    const handleDragOver = (e, techId) => {
+    const handleDragOver = (e, targetDate) => { // targetDate instead of techId
         e.preventDefault();
         if (isDayClosed) return;
         const rect = e.currentTarget.getBoundingClientRect();
@@ -220,24 +251,20 @@ const GlobalAgenda = () => {
         const snapPixels = PIXELS_PER_HOUR / 4;
         const snappedTop = Math.round(cardTopRaw / snapPixels) * snapPixels;
         const hoursToAdd = snappedTop / PIXELS_PER_HOUR;
-        const totalMinutes = Math.floor(hoursToAdd * 60);
 
-        if (totalMinutes < 0) return;
-        const maxMinutes = (END_HOUR - START_HOUR) * 60;
-        if (totalMinutes > maxMinutes) return;
-
-        const ghostTime = new Date(selectedDate);
+        // Calculate Ghost Time
+        const ghostTime = new Date(targetDate);
         ghostTime.setHours(START_HOUR + Math.floor(hoursToAdd), (hoursToAdd % 1) * 60);
 
         setGhostState({
             top: snappedTop,
             height: (dragState.duration / 60) * PIXELS_PER_HOUR,
-            techId,
+            targetDate: targetDate.toISOString(), // Store as string for compare
             timeStr: ghostTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         });
     };
 
-    const handleDrop = (e, techId) => {
+    const handleDrop = (e, targetDate) => {
         e.preventDefault();
         setGhostState(null);
         if (isDayClosed) return;
@@ -251,20 +278,21 @@ const GlobalAgenda = () => {
         const snapPixels = PIXELS_PER_HOUR / 4;
         const snappedTop = Math.round(cardTopRaw / snapPixels) * snapPixels;
         const hoursToAdd = snappedTop / PIXELS_PER_HOUR;
-        const newDate = new Date(selectedDate);
+
+        const newDate = new Date(targetDate);
         newDate.setHours(START_HOUR + Math.floor(hoursToAdd), (hoursToAdd % 1) * 60);
 
-        const maxMinutes = (END_HOUR - START_HOUR) * 60;
-        const totalMinutes = hoursToAdd * 60;
-        if (totalMinutes < 0 || totalMinutes > maxMinutes) return;
-
-        handleUpdateAppointment(apptId, techId, newDate);
+        // Update Hook (using existing tech ID, only changing date/time)
+        handleUpdateAppointment(apptId, appt.technician_id, newDate);
     };
 
     // --- UTILS ---
     const visibleTechs = useMemo(() => techs.filter(t => selectedTechs.includes(t.id)), [techs, selectedTechs]);
     const hours = Array.from({ length: HOURS_COUNT }, (_, i) => i + START_HOUR);
+
+    // Optimized Suggestions (Sort by CP, simple list for now)
     const optimizedSuggestions = useMemo(() => {
+        // ... (Keep existing logic, simplified)
         if (!showRoutePanel) return [];
         const all = [...appointments].filter(a => selectedTechs.includes(a.technician_id));
         return [...all].sort((a, b) => (a.client?.postal_code || '').localeCompare(b.client?.postal_code || ''));
@@ -276,60 +304,52 @@ const GlobalAgenda = () => {
             {/* --- HEADER --- */}
             <div className="bg-white border-b border-slate-200 px-4 py-2 z-30 shadow-sm shrink-0 flex flex-col gap-2">
                 <div className="flex flex-col md:flex-row justify-between items-center gap-2 relative">
-                    {/* Left: Title */}
-                    <div className="flex items-center gap-2 text-slate-800 w-1/3">
-                        <Calendar className="text-indigo-600" size={24} />
-                        <div>
-                            <h1 className="font-bold text-lg leading-tight">Agenda Global</h1>
-                            <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Panel de Control</p>
+                    {/* Left: Title & Buttons */}
+                    <div className="flex items-center gap-4 text-slate-800 w-1/3">
+                        <div className="flex items-center gap-2">
+                            <Calendar className="text-indigo-600" size={24} />
+                            <div>
+                                <h1 className="font-bold text-lg leading-tight">Agenda Semanal</h1>
+                                <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Vista Global</p>
+                            </div>
                         </div>
+                        <button onClick={() => setSelectedDate(new Date())} className="text-xs font-bold px-2 py-1 bg-indigo-50 text-indigo-700 rounded hover:bg-indigo-100 transition">
+                            Hoy
+                        </button>
                     </div>
 
-                    {/* CENTER: CLOCK WITH GOLD BORDER */}
-                    {/* CENTER: CLOCK & DATE - GOLD CONTAINER */}
-                    <div className="flex flex-col md:flex-row items-center justify-center gap-4 p-2 rounded-2xl border border-amber-300/50 bg-gradient-to-b from-amber-50/50 to-white shadow-sm relative group w-2/4 hover:shadow-md transition-all">
-                        <div className="absolute -top-2.5 bg-white px-3 py-0.5 text-[8px] font-black tracking-[0.2em] text-amber-600 uppercase border border-amber-200 rounded-full flex items-center gap-1.5 z-20 shadow-sm">
-                            <Clock size={8} className="text-amber-500" /> CONTROL DE TIEMPO
-                        </div>
-
-                        {/* Clock */}
-                        <div className="shrink-0 relative z-10 scale-90">
-                            <ClockWidget />
-                        </div>
-
-                        {/* Separator */}
-                        <div className="hidden md:block w-px h-12 bg-amber-200/50"></div>
-
-                        {/* Date Selector (Moved Here) */}
-                        <div className="flex items-center gap-1">
-                            <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(d); }}
-                                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-amber-100 text-slate-400 hover:text-amber-700 transition active:scale-95">
-                                <ChevronLeft size={18} />
-                            </button>
-                            <div className="text-center w-32">
-                                <div className="text-[10px] font-bold text-amber-600/70 uppercase tracking-wide leading-none mb-1">{selectedDate.toLocaleDateString('es-ES', { weekday: 'long' })}</div>
-                                <div className="text-xl font-black text-slate-800 leading-none tracking-tight">{selectedDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</div>
+                    {/* CENTER: Date Navigation */}
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 7); setSelectedDate(d); }} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-600 transition">
+                            <ChevronLeft size={20} />
+                        </button>
+                        <div className="text-center w-40">
+                            <div className="text-sm font-bold text-slate-800 capitalize">
+                                {startOfWeek.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
                             </div>
-                            <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(d); }}
-                                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-amber-100 text-slate-400 hover:text-amber-700 transition active:scale-95">
-                                <ChevronRight size={18} />
-                            </button>
+                            <div className="text-[10px] text-slate-400 font-mono tracking-wide">
+                                Semana {Math.ceil((((new Date(selectedDate) - new Date(new Date(selectedDate).getFullYear(), 0, 1)) / 86400000) + 1) / 7)}
+                            </div>
                         </div>
+                        <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 7); setSelectedDate(d); }} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-600 transition">
+                            <ChevronRight size={20} />
+                        </button>
                     </div>
 
                     <div className="flex gap-2">
-                        <button onClick={() => setShowRoutePanel(true)} className="flex items-center gap-2 bg-amber-100 text-amber-800 px-3 py-2 rounded-lg text-xs font-bold hover:bg-amber-200 border border-amber-200 shadow-sm transition active:scale-95">
-                            <Zap size={16} className="fill-current" /> Ruta Mágica
-                        </button>
-                        <button onClick={() => setShowMapModal(true)} className="flex items-center gap-2 bg-slate-100 text-slate-700 px-3 py-2 rounded-lg text-xs font-bold hover:bg-slate-200 border border-slate-200 shadow-sm transition active:scale-95">
-                            <MapIcon size={16} /> Mapa
-                        </button>
+                        {/* Legend Bar (Inline for now) */}
+                        <div className="flex gap-2 mr-4 bg-slate-100 px-3 py-1 rounded-full items-center">
+                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-cyan-400"></div><span className="text-[9px] font-bold text-slate-500">Lavado</span></div>
+                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-400"></div><span className="text-[9px] font-bold text-slate-500">Frío</span></div>
+                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-orange-400"></div><span className="text-[9px] font-bold text-slate-500">Cocción</span></div>
+                        </div>
                     </div>
                 </div>
 
+                {/* Tech Filter */}
                 <div className="flex flex-wrap gap-2 items-center">
                     <button onClick={toggleAllTechs} className={`text-[10px] font-bold px-2 py-1 rounded border flex items-center gap-1 transition-all ${selectedTechs.length === techs.length ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}>
-                        {selectedTechs.length === techs.length ? <CheckSquare size={12} /> : <Square size={12} />} EQUIPO COMPLETO
+                        {selectedTechs.length === techs.length ? <CheckSquare size={12} /> : <Square size={12} />} EQUIPO FILTRO
                     </button>
                     <div className="w-px h-4 bg-slate-200 mx-1"></div>
                     {techs.map(t => (
@@ -340,7 +360,7 @@ const GlobalAgenda = () => {
                 </div>
             </div>
 
-            {/* --- BODY --- */}
+            {/* --- BODY (WEEK GRID) --- */}
             <div className="flex-1 overflow-auto bg-slate-50 relative flex custom-scrollbar">
                 {isDayClosed && (
                     <div className="absolute inset-0 z-50 bg-slate-100/80 backdrop-blur-sm flex items-center justify-center">
@@ -353,128 +373,94 @@ const GlobalAgenda = () => {
                     </div>
                 )}
 
-                <div className="w-14 shrink-0 bg-white border-r border-slate-200 sticky left-0 z-20 select-none shadow-[4px_0_10px_rgba(0,0,0,0.02)]">
-                    <div className="h-10 border-b border-slate-200 bg-slate-50"></div>
+                {/* Time Axis */}
+                <div className="w-12 shrink-0 bg-white border-r border-slate-200 sticky left-0 z-20 select-none">
+                    <div className="h-8 border-b border-slate-200 bg-slate-50"></div>
                     {hours.map(h => (
                         <div key={h} className="text-right pr-2 text-[10px] text-slate-400 font-bold relative -top-2 font-mono" style={{ height: PIXELS_PER_HOUR }}>{h}:00</div>
                     ))}
                 </div>
 
-                <div className="flex-1 flex min-w-[600px] relative">
-                    <div className="absolute inset-0 mt-10 pointer-events-none z-0">
+                {/* Day Columns */}
+                <div className="flex-1 flex min-w-[800px] relative">
+                    <div className="absolute inset-0 mt-8 pointer-events-none z-0">
                         {hours.map(h => (<div key={h} className="border-b border-slate-200/50 w-full" style={{ height: PIXELS_PER_HOUR }}></div>))}
                     </div>
 
-                    {visibleTechs.map(tech => (
-                        <div key={tech.id} className="flex-1 border-r border-slate-100 min-w-[150px] relative transition-colors duration-300"
-                            style={{ backgroundColor: ghostState?.techId === tech.id ? 'rgba(99, 102, 241, 0.05)' : 'transparent' }}
-                            onDragOver={(e) => handleDragOver(e, tech.id)}
-                            onDrop={(e) => handleDrop(e, tech.id)}
-                        >
-                            <div className="h-10 border-b border-slate-200 bg-white/95 backdrop-blur sticky top-0 z-20 flex items-center justify-center shadow-sm">
-                                <div className="font-extrabold text-[10px] text-slate-700 uppercase tracking-widest">{tech.full_name}</div>
-                            </div>
+                    {weekDays.map(dayDate => {
+                        const isToday = dayDate.toDateString() === new Date().toDateString();
 
-                            {ghostState?.techId === tech.id && (
-                                <div className="absolute left-1 right-1 z-0 bg-indigo-50 border-2 border-dashed border-indigo-400 rounded transition-all duration-75 pointer-events-none flex items-center justify-center opacity-70"
-                                    style={{ top: `${ghostState.top}px`, height: `${ghostState.height}px` }}
-                                >
-                                    <span className="text-xs font-bold text-indigo-600 bg-white/80 px-2 py-1 rounded shadow-sm">{ghostState.timeStr}</span>
+                        return (
+                            <div key={dayDate.toISOString()} className={`flex-1 border-r border-slate-100 relative transition-colors duration-300 ${isToday ? 'bg-slate-50/80' : ''}`}
+                                onDragOver={(e) => handleDragOver(e, dayDate)}
+                                onDrop={(e) => handleDrop(e, dayDate)}
+                            >
+                                {/* Header: Day Name */}
+                                <div className={`h-8 border-b border-slate-200 sticky top-0 z-20 flex items-center justify-center gap-1 ${isToday ? 'bg-indigo-50 text-indigo-700' : 'bg-white text-slate-600'}`}>
+                                    <span className="font-bold text-xs uppercase">{dayDate.toLocaleDateString('es-ES', { weekday: 'short' })}</span>
+                                    <span className={`font-black text-xs ${isToday ? 'bg-indigo-600 text-white px-1.5 rounded-full' : ''}`}>
+                                        {dayDate.getDate()}
+                                    </span>
                                 </div>
-                            )}
 
-                            <div className="relative w-full z-10" style={{ height: GRID_HEIGHT }}>
-                                {getPositionedEvents(tech.id).map(appt => {
-                                    const startH = appt.start.getHours();
-                                    const startM = appt.start.getMinutes();
-                                    const top = ((startH - START_HOUR) + startM / 60) * PIXELS_PER_HOUR;
-                                    const height = (appt.duration / 60) * PIXELS_PER_HOUR;
-                                    const width = 100 / appt.totalCols;
-                                    const left = width * appt.col;
+                                {/* Ghost Event */}
+                                {ghostState?.targetDate === dayDate.toISOString() && (
+                                    <div className="absolute left-1 right-1 z-0 bg-indigo-50 border-2 border-dashed border-indigo-400 rounded opacity-70"
+                                        style={{ top: `${ghostState.top}px`, height: `${ghostState.height}px` }}
+                                    ></div>
+                                )}
 
-                                    // IMPROVED COLOR LOGIC
-                                    let colorClasses = 'bg-white border-l-[3px] border-slate-300 shadow-sm hover:shadow-md';
-                                    let statusBadge = null;
+                                {/* Events */}
+                                <div className="relative w-full z-10" style={{ height: GRID_HEIGHT }}>
+                                    {getPositionedEvents(dayDate).map(appt => {
+                                        const startH = appt.start.getHours();
+                                        const startM = appt.start.getMinutes();
+                                        const top = ((startH - START_HOUR) + startM / 60) * PIXELS_PER_HOUR;
+                                        const height = (appt.duration / 60) * PIXELS_PER_HOUR;
+                                        const width = 100 / appt.totalCols;
+                                        const left = width * appt.col;
 
-                                    if (appt.status === 'confirmed') {
-                                        colorClasses = 'bg-gradient-to-br from-white to-sky-50 border-l-[3px] border-sky-500 shadow-sm shadow-sky-100/50';
-                                    } else if (appt.status === 'pending') {
-                                        colorClasses = 'bg-gradient-to-br from-white to-amber-50 border-l-[3px] border-amber-400 shadow-sm shadow-amber-100/50';
-                                    } else if (appt.status === 'en_camino') {
-                                        colorClasses = 'bg-gradient-to-br from-white to-purple-50 border-l-[3px] border-purple-500 shadow-sm shadow-purple-100/50';
-                                    } else if (appt.status === 'in_progress') {
-                                        colorClasses = 'bg-gradient-to-br from-white to-emerald-50 border-l-[3px] border-emerald-500 shadow-sm shadow-emerald-100/50';
-                                    }
+                                        // COLOR BY APPLIANCE TYPE
+                                        const category = getApplianceCategory(appt.appliance_info?.type);
+                                        const colorClass = APPLIANCE_COLORS[category] || APPLIANCE_COLORS.default;
 
-                                    return (
-                                        <div
-                                            key={appt.id}
-                                            draggable
-                                            onDragStart={(e) => handleDragStart(e, appt)}
-                                            onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
-                                            className={`absolute rounded-lg p-1.5 text-xs cursor-grab active:cursor-grabbing transition-all duration-200 group flex flex-col overflow-hidden hover:z-50 hover:scale-[1.02]
-                                                     ${colorClasses} ${selectedAppt?.id === appt.id ? 'ring-2 ring-indigo-500 z-40' : 'z-10'}`}
-                                            style={{ top: `${top}px`, height: `${height - 2}px`, left: `${left}%`, width: `${width}%` }}
-                                        >
-                                            {/* Drag Handle */}
-                                            <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-40 transition-opacity">
-                                                <div className="flex gap-0.5">
-                                                    <div className="w-0.5 h-0.5 rounded-full bg-black"></div>
-                                                    <div className="w-0.5 h-0.5 rounded-full bg-black"></div>
-                                                    <div className="w-0.5 h-0.5 rounded-full bg-black"></div>
-                                                </div>
-                                            </div>
+                                        return (
+                                            <div
+                                                key={appt.id}
+                                                draggable
+                                                onDragStart={(e) => handleDragStart(e, appt)}
+                                                onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
+                                                className={`absolute rounded-md p-1 cursor-grab active:cursor-grabbing hover:z-50 hover:scale-[1.05] transition-transform shadow-sm overflow-hidden border
+                                                         ${colorClass} ${selectedAppt?.id === appt.id ? 'ring-2 ring-black z-40' : 'z-10'}`}
+                                                style={{ top: `${top}px`, height: `${height - 2}px`, left: `${left}%`, width: `${width}%` }}
+                                            >
+                                                {/* STICKER DESIGN: Logo Watermark & Text */}
+                                                <div className="relative h-full flex flex-col justify-center items-center text-center leading-none pointer-events-none">
+                                                    {/* Watermark Logo */}
+                                                    {appt.brand_logo && (
+                                                        <img src={appt.brand_logo} className="absolute inset-0 w-full h-full object-contain opacity-10 p-2 z-0" />
+                                                    )}
 
-                                            {/* Content Container */}
-                                            <div className="flex flex-col gap-0.5 h-full">
-                                                {/* Header: Brand & Time */}
-                                                <div className="flex items-center justify-between gap-1 mb-0.5">
-                                                    <div className="flex items-center gap-1.5 bg-white/80 backdrop-blur-md px-1.5 py-0.5 rounded shadow-sm max-w-[85%] overflow-hidden">
-                                                        {appt.brand_logo ? (
-                                                            <img src={appt.brand_logo} alt="Logo" className="w-3.5 h-3.5 object-contain shrink-0" />
-                                                        ) : (
-                                                            <div className="w-1 h-3 bg-slate-200 rounded-full shrink-0"></div>
-                                                        )}
-                                                        <span className="font-extrabold text-[9px] uppercase tracking-tighter leading-none text-slate-700 truncate">
-                                                            {(appt.appliance && (appt.appliance.brand || appt.appliance.type)) ? (
-                                                                `${appt.appliance.type || ''} ${appt.appliance.brand || ''}`.trim()
-                                                            ) : 'DESCONOCIDO'}
-                                                        </span>
-                                                    </div>
-                                                </div>
-
-                                                {/* Client Name */}
-                                                <div className="font-bold text-[10px] leading-tight truncate text-slate-800 px-0.5">
-                                                    {appt.client?.full_name || 'Sin Cliente'}
-                                                </div>
-
-                                                {/* Problem Description (Only if enough height) */}
-                                                {height > 40 && (
-                                                    <div className="text-[9px] leading-3 text-slate-500 line-clamp-2 px-0.5 italic opacity-80 mt-auto mb-1">
-                                                        "{appt.problem_description || '-'}"
-                                                    </div>
-                                                )}
-
-                                                {/* Footer: Time & CP */}
-                                                {(height > 55 || width > 50) && (
-                                                    <div className="mt-auto flex justify-between items-end pt-1 border-t border-black/5 opacity-70 px-0.5">
-                                                        <span className="font-mono text-[9px] font-bold tracking-tight">
+                                                    {/* Foreground Content */}
+                                                    <div className="relative z-10">
+                                                        <div className="font-extrabold text-[10px] uppercase tracking-tight mb-0.5">
+                                                            {appt.appliance_info?.type || 'AVISO'}
+                                                        </div>
+                                                        <div className="text-[10px] font-mono font-bold opacity-80">
                                                             {appt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                        </span>
-                                                        {appt.client?.postal_code && (
-                                                            <span className="text-[7px] font-black tracking-wider bg-slate-900/5 px-1 py-0.5 rounded text-slate-500">
-                                                                {appt.client.postal_code}
-                                                            </span>
+                                                        </div>
+                                                        {appt.brand_logo && (
+                                                            <img src={appt.brand_logo} className="w-4 h-4 object-contain mx-auto mt-1 opacity-90" />
                                                         )}
                                                     </div>
-                                                )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
 
