@@ -193,7 +193,7 @@ const ServiceMonitor = () => {
 
                         <input type="date" className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 outline-none text-slate-600 text-xs" onChange={(e) => setFilterDate(e.target.value)} />
 
-                        <select className="px-3 py-1.5 border border-slate-200 rounded-lg outline-none text-xs bg-white hidden md:block" value={filterOrigin} onChange={(e) => setFilterOrigin(e.target.value)}>
+                        <select className="px-3 py-1.5 border border-slate-200 rounded-lg outline-none text-xs bg-white hidden lg:block" value={filterOrigin} onChange={(e) => setFilterOrigin(e.target.value)}>
                             <option value="">Todos los Orígenes</option>
                             <option value="direct">Oficina</option>
                             <option value="client_web">Web Cliente</option>
@@ -201,7 +201,7 @@ const ServiceMonitor = () => {
                             <option value="budget">Presupuesto</option>
                         </select>
 
-                        <select className="px-3 py-1.5 border border-slate-200 rounded-lg outline-none text-xs bg-white hidden md:block" value={filterTech} onChange={(e) => setFilterTech(e.target.value)}>
+                        <select className="px-3 py-1.5 border border-slate-200 rounded-lg outline-none text-xs bg-white hidden lg:block" value={filterTech} onChange={(e) => setFilterTech(e.target.value)}>
                             <option value="">Todos los Técnicos</option>
                             {techs.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
                         </select>
@@ -217,7 +217,7 @@ const ServiceMonitor = () => {
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
-                                <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 font-semibold sticky top-0 z-20">
+                                <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase text-slate-500 font-semibold sticky top-0 z-30 shadow-sm">
                                     <th className="px-3 py-2 md:px-4 md:py-3 min-w-[100px]">ID / Cita</th>
                                     <th className="px-3 py-2 md:px-4 md:py-3 min-w-[180px]">Cliente</th>
                                     <th className="px-3 py-2 md:px-4 md:py-3 text-center hidden sm:table-cell">Origen</th>
@@ -305,14 +305,14 @@ const ServiceMonitor = () => {
 
                                             {/* Cliente */}
                                             <td className="px-3 py-2 md:px-4 md:py-3 max-w-[220px] align-top">
-                                                <div className="font-bold text-slate-800 text-sm mb-1">{ticket.profiles?.full_name || 'Sin nombre'}</div>
+                                                <div className="font-bold text-slate-800 text-xs mb-1">{ticket.profiles?.full_name || 'Sin nombre'}</div>
 
                                                 {ticket.profiles?.phone ? (
-                                                    <a href={`tel:${ticket.profiles.phone}`} className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-800 hover:underline transition-colors mb-1.5 w-fit">
-                                                        <Phone size={14} />
+                                                    <a href={`tel:${ticket.profiles.phone}`} className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline transition-colors mb-1.5 w-fit">
+                                                        <Phone size={12} />
                                                         {ticket.profiles.phone}
                                                     </a>
-                                                ) : <div className="text-xs text-slate-400 italic mb-1">Sin teléfono</div>}
+                                                ) : <div className="text-[10px] text-slate-400 italic mb-1">Sin teléfono</div>}
 
                                                 <div className="text-xs text-slate-500 flex items-start gap-1 leading-snug">
                                                     <span className="text-[10px] mt-0.5">📍</span>
