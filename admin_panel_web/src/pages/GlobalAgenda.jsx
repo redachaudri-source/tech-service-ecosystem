@@ -5,6 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip as MapTooltip } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import ClockWidget from '../components/ClockWidget'; // Premium Clock
+import ServiceDetailsModal from '../components/ServiceDetailsModal'; // Replica of ServiceTable logic
 
 // Fix Leaflet Icon
 delete L.Icon.Default.prototype._getIconUrl;
@@ -26,29 +28,23 @@ const createTechIcon = (color) => new L.DivIcon({
 const START_HOUR = 8;
 const END_HOUR = 20;
 const HOURS_COUNT = END_HOUR - START_HOUR + 1;
-const PIXELS_PER_HOUR = 160; // Increased for hierarchy
+const PIXELS_PER_HOUR = 160;
 const GRID_HEIGHT = HOURS_COUNT * PIXELS_PER_HOUR;
 
 const GlobalAgenda = () => {
-    const navigate = useNavigate();
+    // const navigate = useNavigate(); // Not needed for detail modal
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [techs, setTechs] = useState([]);
     const [selectedTechs, setSelectedTechs] = useState([]);
     const [appointments, setAppointments] = useState([]);
     const [businessConfig, setBusinessConfig] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [currentTime, setCurrentTime] = useState(new Date());
 
     // UI States
     const [showMapModal, setShowMapModal] = useState(false);
     const [showRoutePanel, setShowRoutePanel] = useState(false);
-    const [selectedAppt, setSelectedAppt] = useState(null);
-
-    // Clock
-    useEffect(() => {
-        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-        return () => clearInterval(timer);
-    }, []);
+    const [selectedAppt, setSelectedAppt] = useState(null); // For Popover
+    const [detailTicket, setDetailTicket] = useState(null); // For Full Modal
 
     // Data Fetching
     useEffect(() => {
@@ -90,15 +86,14 @@ const GlobalAgenda = () => {
                 .gte('scheduled_at', `${dateStr}T00:00:00`)
                 .lt('scheduled_at', `${dateStr}T23:59:59`)
                 .not('technician_id', 'is', null)
-                .neq('status', 'finalizado'); // Exclude finalised? Or maybe keep logic to exclude CANCELLED from render
+                .neq('status', 'finalizado');
 
             // Transform & Filter
             const processed = (apptData || [])
-                .filter(a => !['cancelado', 'rechazado', 'anulado'].includes(a.status)) // Point 2: Hide cancelled
+                .filter(a => !['cancelado', 'rechazado', 'anulado'].includes(a.status))
                 .map(a => ({
                     ...a,
                     start: new Date(a.scheduled_at),
-                    // Default 60 if null, else use ticket estimated duration if exists, else 60
                     duration: a.estimated_duration || 60
                 }));
 
@@ -115,16 +110,14 @@ const GlobalAgenda = () => {
         if (!businessConfig?.working_hours) return false;
         const dayName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
         const dayConfig = businessConfig.working_hours[dayName];
-        return dayConfig ? !dayConfig.isOpen : false; // Default Open if missing config? Or Closed? Assume Open.
+        return dayConfig ? !dayConfig.isOpen : false;
     }, [businessConfig, selectedDate]);
 
     const handleUpdateAppointment = async (apptId, newTechId, newDate) => {
-        // Business Rule Check
         if (isDayClosed) {
             alert("⛔ El negocio está CERRADO este día. No se pueden agendar citas.");
             return;
         }
-
         const iso = newDate.toISOString();
         setAppointments(prev => prev.map(a => a.id === apptId ? { ...a, technician_id: newTechId, scheduled_at: iso, start: newDate } : a));
 
@@ -153,10 +146,8 @@ const GlobalAgenda = () => {
             .sort((a, b) => a.startMs - b.startMs);
 
         if (events.length === 0) return [];
-
         const expandedEvents = events.map(e => ({ ...e, col: 0, totalCols: 1 }));
 
-        // Simple stacking logic
         for (let i = 0; i < expandedEvents.length; i++) {
             let current = expandedEvents[i];
             const overlapping = expandedEvents.filter((other, idx) =>
@@ -177,43 +168,33 @@ const GlobalAgenda = () => {
 
 
     // --- DND HANDLERS ---
-    const [dragState, setDragState] = useState({ id: null, offset: 0 }); // offset relative to card top
-    const [ghostState, setGhostState] = useState(null); // { top, height, techId, timeStr }
+    const [dragState, setDragState] = useState({ id: null, offset: 0 });
+    const [ghostState, setGhostState] = useState(null);
 
     const handleDragStart = (e, appt) => {
         if (isDayClosed) { e.preventDefault(); return; }
         const rect = e.currentTarget.getBoundingClientRect();
-        const offset = e.clientY - rect.top; // Grab point relative to card top
+        const offset = e.clientY - rect.top;
         setDragState({ id: appt.id, offset, duration: appt.duration });
         e.dataTransfer.effectAllowed = "move";
         e.dataTransfer.setData("text/plain", appt.id);
-        // Custom drag image could be set here
     };
 
     const handleDragOver = (e, techId) => {
         e.preventDefault();
         if (isDayClosed) return;
-
         const rect = e.currentTarget.getBoundingClientRect();
-        const y = e.clientY - rect.top; // Mouse Y in column
-        // We want the CARD TOP to be at Mouse Y - Offset.
-        // But for snapping, usually we snap the *Card Top* to the grid.
-        // Let's assume Card Top = Mouse Y - dragState.offset
+        const y = e.clientY - rect.top;
         const cardTopRaw = y - dragState.offset;
-
-        const snapPixels = PIXELS_PER_HOUR / 4; // 15 mins
+        const snapPixels = PIXELS_PER_HOUR / 4;
         const snappedTop = Math.round(cardTopRaw / snapPixels) * snapPixels;
-
-        // Convert to time
         const hoursToAdd = snappedTop / PIXELS_PER_HOUR;
         const totalMinutes = Math.floor(hoursToAdd * 60);
 
-        // Bounds
         if (totalMinutes < 0) return;
         const maxMinutes = (END_HOUR - START_HOUR) * 60;
         if (totalMinutes > maxMinutes) return;
 
-        // Update Ghost
         const ghostTime = new Date(selectedDate);
         ghostTime.setHours(START_HOUR + Math.floor(hoursToAdd), (hoursToAdd % 1) * 60);
 
@@ -229,7 +210,6 @@ const GlobalAgenda = () => {
         e.preventDefault();
         setGhostState(null);
         if (isDayClosed) return;
-
         const apptId = e.dataTransfer.getData("text/plain");
         const appt = appointments.find(a => a.id === apptId);
         if (!appt) return;
@@ -239,12 +219,10 @@ const GlobalAgenda = () => {
         const cardTopRaw = y - dragState.offset;
         const snapPixels = PIXELS_PER_HOUR / 4;
         const snappedTop = Math.round(cardTopRaw / snapPixels) * snapPixels;
-
         const hoursToAdd = snappedTop / PIXELS_PER_HOUR;
         const newDate = new Date(selectedDate);
         newDate.setHours(START_HOUR + Math.floor(hoursToAdd), (hoursToAdd % 1) * 60);
 
-        // Bounds Check again
         const maxMinutes = (END_HOUR - START_HOUR) * 60;
         const totalMinutes = hoursToAdd * 60;
         if (totalMinutes < 0 || totalMinutes > maxMinutes) return;
@@ -255,17 +233,9 @@ const GlobalAgenda = () => {
     // --- UTILS ---
     const visibleTechs = useMemo(() => techs.filter(t => selectedTechs.includes(t.id)), [techs, selectedTechs]);
     const hours = Array.from({ length: HOURS_COUNT }, (_, i) => i + START_HOUR);
-
-    // --- ROUTE OPTIMIZER LOGIC ---
     const optimizedSuggestions = useMemo(() => {
         if (!showRoutePanel) return [];
-        // Flatten visible appointments
         const all = [...appointments].filter(a => selectedTechs.includes(a.technician_id));
-        // Simple grouping by Postal Code to suggest clustering?
-        // Or sort by Start Time?
-        // Let's sort current schedule by CP just to show "Opportunities"
-        // Actually, user wants "Lista sugerida ordenando los servicios visibles por proximidad de Código Postal".
-        // Let's just sort by Postal Code.
         return [...all].sort((a, b) => (a.client?.postal_code || '').localeCompare(b.client?.postal_code || ''));
     }, [showRoutePanel, appointments, selectedTechs]);
 
@@ -275,7 +245,6 @@ const GlobalAgenda = () => {
             {/* --- HEADER --- */}
             <div className="bg-white border-b border-slate-200 px-4 py-3 z-30 shadow-sm shrink-0 flex flex-col gap-3">
                 <div className="flex flex-col md:flex-row justify-between items-center gap-3">
-                    {/* Title & Clock */}
                     <div className="flex items-center gap-6">
                         <div className="flex items-center gap-2 text-slate-800">
                             <Calendar className="text-indigo-600" size={24} />
@@ -284,16 +253,12 @@ const GlobalAgenda = () => {
                                 <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Panel de Control</p>
                             </div>
                         </div>
-                        {/* Digital Clock */}
-                        <div className="hidden md:flex flex-col items-center bg-slate-900 text-emerald-400 px-4 py-1 rounded-md shadow-inner border border-slate-700">
-                            <span className="font-mono text-xl font-bold tracking-widest leading-none">
-                                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                            <span className="text-[8px] text-slate-400 uppercase tracking-widest leading-none mt-0.5">Tiempo Real</span>
+                        {/* PREMIUM CLOCK WIDGET */}
+                        <div className="hidden md:block">
+                            <ClockWidget />
                         </div>
                     </div>
 
-                    {/* Date Nav */}
                     <div className="flex items-center bg-slate-100 rounded-lg p-1 border border-slate-200 shadow-inner">
                         <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(d); }} className="p-1 hover:bg-white rounded transition text-slate-600"><ChevronLeft size={18} /></button>
                         <div className="px-4 text-center">
@@ -303,7 +268,6 @@ const GlobalAgenda = () => {
                         <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(d); }} className="p-1 hover:bg-white rounded transition text-slate-600"><ChevronRight size={18} /></button>
                     </div>
 
-                    {/* Tools */}
                     <div className="flex gap-2">
                         <button onClick={() => setShowRoutePanel(true)} className="flex items-center gap-2 bg-amber-100 text-amber-800 px-3 py-2 rounded-lg text-xs font-bold hover:bg-amber-200 border border-amber-200 shadow-sm transition active:scale-95">
                             <Zap size={16} className="fill-current" /> Ruta Mágica
@@ -314,7 +278,6 @@ const GlobalAgenda = () => {
                     </div>
                 </div>
 
-                {/* Filters */}
                 <div className="flex flex-wrap gap-2 items-center">
                     <button onClick={toggleAllTechs} className={`text-[10px] font-bold px-2 py-1 rounded border flex items-center gap-1 transition-all ${selectedTechs.length === techs.length ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}>
                         {selectedTechs.length === techs.length ? <CheckSquare size={12} /> : <Square size={12} />} EQUIPO COMPLETO
@@ -337,28 +300,20 @@ const GlobalAgenda = () => {
                                 <Clock size={32} className="text-red-500" />
                             </div>
                             <h2 className="text-2xl font-black text-slate-800 mb-2">NEGOCIO CERRADO</h2>
-                            <p className="text-slate-500 text-sm">Hoy no es un día laborable según la configuración. La agenda está bloqueada para preservar el descanso del equipo.</p>
                         </div>
                     </div>
                 )}
 
-                {/* Sticky Time Column */}
                 <div className="w-14 shrink-0 bg-white border-r border-slate-200 sticky left-0 z-20 select-none shadow-[4px_0_10px_rgba(0,0,0,0.02)]">
                     <div className="h-10 border-b border-slate-200 bg-slate-50"></div>
                     {hours.map(h => (
-                        <div key={h} className="text-right pr-2 text-[10px] text-slate-400 font-bold relative -top-2 font-mono" style={{ height: PIXELS_PER_HOUR }}>
-                            {h}:00
-                        </div>
+                        <div key={h} className="text-right pr-2 text-[10px] text-slate-400 font-bold relative -top-2 font-mono" style={{ height: PIXELS_PER_HOUR }}>{h}:00</div>
                     ))}
                 </div>
 
-                {/* Columns */}
                 <div className="flex-1 flex min-w-[600px] relative">
-                    {/* Global Grid Lines */}
                     <div className="absolute inset-0 mt-10 pointer-events-none z-0">
-                        {hours.map(h => (
-                            <div key={h} className="border-b border-slate-200/50 w-full" style={{ height: PIXELS_PER_HOUR }}></div>
-                        ))}
+                        {hours.map(h => (<div key={h} className="border-b border-slate-200/50 w-full" style={{ height: PIXELS_PER_HOUR }}></div>))}
                     </div>
 
                     {visibleTechs.map(tech => (
@@ -371,7 +326,6 @@ const GlobalAgenda = () => {
                                 <div className="font-extrabold text-[10px] text-slate-700 uppercase tracking-widest">{tech.full_name}</div>
                             </div>
 
-                            {/* Ghost Preview */}
                             {ghostState?.techId === tech.id && (
                                 <div className="absolute left-1 right-1 z-0 bg-indigo-50 border-2 border-dashed border-indigo-400 rounded transition-all duration-75 pointer-events-none flex items-center justify-center opacity-70"
                                     style={{ top: `${ghostState.top}px`, height: `${ghostState.height}px` }}
@@ -380,20 +334,15 @@ const GlobalAgenda = () => {
                                 </div>
                             )}
 
-                            {/* Events */}
                             <div className="relative w-full z-10" style={{ height: GRID_HEIGHT }}>
                                 {getPositionedEvents(tech.id).map(appt => {
-                                    // Math
                                     const startH = appt.start.getHours();
                                     const startM = appt.start.getMinutes();
                                     const top = ((startH - START_HOUR) + startM / 60) * PIXELS_PER_HOUR;
                                     const height = (appt.duration / 60) * PIXELS_PER_HOUR;
-
-                                    // Layout
                                     const width = 100 / appt.totalCols;
                                     const left = width * appt.col;
 
-                                    // Style
                                     let colors = 'bg-white border-l-4 border-slate-300 text-slate-600 shadow-sm';
                                     if (appt.status === 'confirmed') colors = 'bg-sky-50 border-l-4 border-sky-400 text-sky-900';
                                     if (appt.status === 'pending') colors = 'bg-amber-50 border-l-4 border-amber-400 text-amber-900';
@@ -408,28 +357,30 @@ const GlobalAgenda = () => {
                                             onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
                                             className={`absolute rounded p-2 text-xs cursor-pointer transition-all duration-200 group flex flex-col justify-between overflow-hidden hover:z-50 hover:shadow-lg
                                                      ${colors} ${selectedAppt?.id === appt.id ? 'ring-2 ring-indigo-500 z-40 transform scale-[1.02]' : 'z-10'}`}
-                                            style={{
-                                                top: `${top}px`,
-                                                height: `${height - 3}px`,
-                                                left: `${left}%`,
-                                                width: `${width}%`
-                                            }}
+                                            style={{ top: `${top}px`, height: `${height - 3}px`, left: `${left}%`, width: `${width}%` }}
                                         >
-                                            {/* High End Card Content */}
+                                            {/* REAL DATA HIERARCHY */}
                                             <div className="flex flex-col gap-0.5">
-                                                <div className="font-extrabold text-[10px] uppercase tracking-tight leading-none bg-white/30 backdrop-blur-sm self-start px-1 rounded mb-0.5">
+                                                {/* 1. Brand/Appliance */}
+                                                <div className="font-extrabold text-[10px] uppercase tracking-tight leading-none bg-white/60 backdrop-blur-sm self-start px-1 rounded mb-0.5">
                                                     {appt.appliance ? `${appt.appliance.type} ${appt.appliance.brand}` : 'REVISIÓN GENERAL'}
                                                 </div>
-                                                <div className="font-bold text-[11px] leading-tight truncate">{appt.client?.full_name}</div>
-                                                <div className="text-[10px] opacity-80 truncate leading-tight">{appt.client?.address}</div>
+                                                {/* 2. Problem */}
+                                                <div className="text-[9px] font-medium leading-tight line-clamp-2 text-slate-500 italic mb-1">
+                                                    "{appt.problem_description || 'Sin detalles'}"
+                                                </div>
+                                                {/* 3. Client */}
+                                                <div className="font-bold text-[10px] leading-tight truncate text-slate-800">{appt.client?.full_name}</div>
+                                                <div className="text-[9px] opacity-80 truncate leading-tight">{appt.client?.address}</div>
                                             </div>
 
+                                            {/* Footer: CP */}
                                             <div className="mt-auto flex justify-between items-end border-t border-black/5 pt-1">
                                                 <span className="font-mono text-[9px] opacity-70">
                                                     {appt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </span>
                                                 {appt.client?.postal_code && (
-                                                    <span className="text-[8px] font-bold opacity-50 tracking-wider">CP {appt.client.postal_code}</span>
+                                                    <span className="text-[8px] font-bold opacity-50 tracking-wider bg-black/5 px-1 rounded">CP {appt.client.postal_code}</span>
                                                 )}
                                             </div>
                                         </div>
@@ -441,26 +392,17 @@ const GlobalAgenda = () => {
                 </div>
             </div>
 
-            {/* --- MAGIC ROUTE PANEL --- */}
+            {/* Magic Route Panel */}
             <div className={`fixed inset-y-0 right-0 w-80 bg-white shadow-2xl z-[60] transform transition-transform duration-300 flex flex-col border-l border-slate-200 ${showRoutePanel ? 'translate-x-0' : 'translate-x-full'}`}>
                 <div className="p-4 bg-slate-900 text-white flex justify-between items-center shrink-0">
                     <div className="flex items-center gap-2 font-bold text-amber-400">
-                        <Zap className="fill-current" size={18} />
-                        <span>Optimizador de Rutas</span>
+                        <Zap className="fill-current" size={18} /> <span>Optimizador</span>
                     </div>
                     <button onClick={() => setShowRoutePanel(false)} className="text-slate-400 hover:text-white"><X size={20} /></button>
                 </div>
-                <div className="p-4 bg-amber-50 border-b border-amber-100">
-                    <p className="text-xs text-amber-800 leading-snug">
-                        He analizado los servicios visibles. Aquí tienes una sugerencia de agrupación basada en <strong>Código Postal</strong> para minimizar desplazamientos.
-                    </p>
-                </div>
                 <div className="flex-1 overflow-auto p-2">
-                    {optimizedSuggestions.length === 0 ? (
-                        <div className="p-4 text-center text-slate-400 text-xs italic">No hay citas para optimizar.</div>
-                    ) : (
+                    {optimizedSuggestions.length === 0 ? (<div className="p-4 text-center text-slate-400 text-xs italic">Vacío</div>) : (
                         <div className="space-y-4">
-                            {/* Group by CP manually for render list */}
                             {Object.entries(optimizedSuggestions.reduce((acc, curr) => {
                                 const cp = curr.client?.postal_code || 'SIN CP';
                                 if (!acc[cp]) acc[cp] = [];
@@ -468,18 +410,12 @@ const GlobalAgenda = () => {
                                 return acc;
                             }, {})).map(([cp, list]) => (
                                 <div key={cp} className="bg-slate-50 rounded border border-slate-100 overflow-hidden">
-                                    <div className="bg-slate-200/50 px-3 py-1 text-xs font-bold text-slate-600 flex justify-between">
-                                        <span>CP {cp}</span>
-                                        <span className="bg-white px-1.5 rounded-full text-[10px]">{list.length}</span>
-                                    </div>
+                                    <div className="bg-slate-200/50 px-3 py-1 text-xs font-bold text-slate-600 flex justify-between"><span>CP {cp}</span><span>{list.length}</span></div>
                                     <div className="divide-y divide-slate-100">
                                         {list.map(item => (
-                                            <div key={item.id} className="p-2 flex justify-between items-center group hover:bg-white transition cursor-grab active:cursor-grabbing" draggable onDragStart={(e) => handleDragStart(e, item)}>
-                                                <div>
-                                                    <div className="font-bold text-xs text-slate-700">{item.client?.full_name}</div>
-                                                    <div className="text-[10px] text-slate-400">{new Date(item.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - Tech: {techs.find(t => t.id === item.technician_id)?.full_name.split(' ')[0]}</div>
-                                                </div>
-                                                <ArrowRight size={14} className="text-slate-300 group-hover:text-indigo-500" />
+                                            <div key={item.id} className="p-2 flex justify-between items-center group cursor-grab" draggable onDragStart={(e) => handleDragStart(e, item)}>
+                                                <div className="text-xs">{item.client?.full_name}</div>
+                                                <ArrowRight size={14} className="text-slate-300" />
                                             </div>
                                         ))}
                                     </div>
@@ -488,53 +424,33 @@ const GlobalAgenda = () => {
                         </div>
                     )}
                 </div>
-                <div className="p-4 border-t border-slate-100 bg-slate-50 text-center">
-                    <button className="w-full bg-indigo-600 text-white py-2 rounded font-bold text-xs hover:bg-indigo-700 shadow-sm">
-                        Aplicar Orden Inteligente
-                    </button>
-                    <p className="text-[9px] text-slate-400 mt-2">Esta acción reorganizará las citas automáticamente. (Simulado)</p>
-                </div>
             </div>
 
-            {/* --- POPOVER DETAILS --- */}
+            {/* POPOVER Details */}
             {selectedAppt && (
                 <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4 backdrop-blur-[1px]" onClick={() => setSelectedAppt(null)}>
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200 ring-4 ring-black/5" onClick={e => e.stopPropagation()}>
                         <div className="p-4 border-b flex justify-between items-start bg-slate-50">
-                            <div>
-                                <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 mb-1">Detalle del Servicio</div>
-                                <h3 className="font-bold text-slate-800 text-lg leading-tight">{selectedAppt.client?.full_name}</h3>
-                            </div>
+                            <div><div className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 mb-1">Detalle</div><h3 className="font-bold text-slate-800 text-lg">{selectedAppt.client?.full_name}</h3></div>
                             <button onClick={() => setSelectedAppt(null)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
                         </div>
                         <div className="p-5 space-y-5">
                             {selectedAppt.appliance && (
                                 <div className="flex gap-3 bg-indigo-50/50 p-3 rounded-lg border border-indigo-100/50 items-center">
                                     <div className="bg-white p-2 rounded shadow-sm text-indigo-600"><CheckSquare size={18} /></div>
-                                    <div>
-                                        <div className="text-[10px] font-bold text-slate-500 uppercase">Equipo Afectado</div>
-                                        <div className="font-bold text-slate-800 text-sm">{selectedAppt.appliance.type} {selectedAppt.appliance.brand}</div>
-                                    </div>
+                                    <div><div className="text-[10px] font-bold text-slate-500 uppercase">Equipo</div><div className="font-bold text-slate-800 text-sm">{selectedAppt.appliance.type} {selectedAppt.appliance.brand}</div></div>
                                 </div>
                             )}
-
                             <div className="space-y-3">
-                                <div className="flex items-start gap-3 text-sm text-slate-600 group cursor-pointer hover:bg-slate-50 p-2 -mx-2 rounded transition">
-                                    <MapPin size={18} className="text-red-400 mt-0.5 group-hover:scale-110 transition" />
-                                    <div>
-                                        <div className="font-medium text-slate-700">{selectedAppt.client?.address}</div>
-                                        <div className="text-xs text-slate-400">CP {selectedAppt.client?.postal_code || 'N/A'}</div>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3 text-sm text-slate-600 group cursor-pointer hover:bg-slate-50 p-2 -mx-2 rounded transition">
-                                    <Phone size={18} className="text-emerald-400 group-hover:scale-110 transition" />
-                                    <a href={`tel:${selectedAppt.client?.phone}`} className="font-mono font-bold text-slate-700 underline decoration-slate-300 underline-offset-2">{selectedAppt.client?.phone}</a>
-                                </div>
+                                <div className="flex items-start gap-3 text-sm text-slate-600"><MapPin size={18} className="text-red-400 mt-0.5" /> <div><div className="font-medium text-slate-700">{selectedAppt.client?.address}</div><div className="text-xs text-slate-400">CP {selectedAppt.client?.postal_code || 'N/A'}</div></div></div>
+                                <div className="flex items-center gap-3 text-sm text-slate-600"><Phone size={18} className="text-emerald-400" /><a href={`tel:${selectedAppt.client?.phone}`} className="font-mono font-bold text-slate-700 underline decoration-slate-300">{selectedAppt.client?.phone}</a></div>
                             </div>
-
                             <div className="pt-2">
                                 <button
-                                    onClick={() => navigate(`/services/${selectedAppt.id}`)}
+                                    onClick={() => {
+                                        setDetailTicket(selectedAppt);
+                                        setSelectedAppt(null); // Close popover
+                                    }}
                                     className="w-full bg-slate-900 text-white py-3 rounded-lg font-bold text-sm shadow hover:bg-black transition flex items-center justify-center gap-2"
                                 >
                                     <LayoutList size={16} /> Ver Ficha Completa
@@ -545,20 +461,26 @@ const GlobalAgenda = () => {
                 </div>
             )}
 
+            {/* FULL DETAIL MODAL (Replica of ServiceTable) */}
+            {detailTicket && (
+                <ServiceDetailsModal
+                    ticket={detailTicket}
+                    onClose={() => setDetailTicket(null)}
+                />
+            )}
+
             {/* Map Modal */}
             {showMapModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-white w-full h-full md:max-w-6xl rounded-2xl shadow-2xl flex flex-col overflow-hidden relative">
                         <div className="px-5 py-4 border-b flex justify-between items-center bg-white z-10 shrink-0">
-                            <h2 className="font-bold text-lg flex items-center gap-3"><MapIcon className="text-emerald-500" /> Rutas del Día</h2>
+                            <h2 className="font-bold text-lg flex items-center gap-3"><MapIcon className="text-emerald-500" /> Rutas</h2>
                             <button onClick={() => setShowMapModal(false)} className="bg-slate-100 hover:bg-slate-200 p-2 rounded-full"><X size={20} /></button>
                         </div>
                         <div className="flex-1 bg-slate-100 relative">
                             <MapContainer center={[36.7213, -4.4214]} zoom={11} style={{ height: '100%', width: '100%' }} attributionControl={false}>
                                 <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
-                                {/* Map Logic... */}
-                                {/* (Reusing previous map logic simplified for brevity in this step) */}
-                                <Marker position={[36.72, -4.42]} icon={createTechIcon('#3b82f6')}><Popup>Centro</Popup></Marker>
+                                {/* Map items ... */}
                             </MapContainer>
                         </div>
                     </div>
