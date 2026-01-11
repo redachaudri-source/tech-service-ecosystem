@@ -251,39 +251,65 @@ const ServiceMonitor = () => {
                                         return matchesSearch && matchesTech && matchesDate && matchesOrigin;
                                     }).map(ticket => (
                                         <tr key={ticket.id} className="hover:bg-slate-50 transition-colors">
-                                            {/* ID / Cita */}
-                                            <td className="px-4 py-3">
-                                                <div className="font-mono font-bold text-slate-700">#{ticket.ticket_number}</div>
-                                                <div className="text-xs text-slate-500 mt-1">
-                                                    {ticket.scheduled_at ? (
-                                                        <div className="flex items-center gap-1">
-                                                            <Clock size={10} />
-                                                            {new Date(ticket.scheduled_at).toLocaleDateString()}
-                                                            <br />
-                                                            {new Date(ticket.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            {/* ID / Cita (Enhanced based on screenshot) */}
+                                            <td className="px-4 py-3 sticky left-0 bg-white group-hover:bg-slate-50 transition-colors border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] align-top min-w-[140px]">
+                                                <div className="font-mono font-bold text-lg text-slate-800 tracking-tight">#{ticket.ticket_number}</div>
+
+                                                {ticket.scheduled_at ? (
+                                                    <div className="mt-2 space-y-1.5 leading-none">
+                                                        {/* Date Box */}
+                                                        <div className="bg-slate-100 rounded-md p-1.5 border border-slate-200 text-slate-600 flex items-start gap-1.5">
+                                                            <Clock size={12} className="mt-0.5 text-slate-400" />
+                                                            <div className="flex flex-col">
+                                                                <span className="text-xs font-semibold">
+                                                                    {new Date(ticket.scheduled_at).toLocaleDateString()}
+                                                                </span>
+                                                                <span className="text-[10px] font-mono text-slate-500">
+                                                                    {new Date(ticket.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                </span>
+                                                            </div>
                                                         </div>
-                                                    ) : (
-                                                        <span className="italic opacity-70">{new Date(ticket.created_at).toLocaleDateString()}</span>
-                                                    )}
-                                                </div>
+
+                                                        {/* Confirmation Badge */}
+                                                        {ticket.technician_id ? (
+                                                            <div className="flex items-center justify-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded px-1.5 py-1 text-[10px] font-black uppercase tracking-wide">
+                                                                <CheckCircle size={10} />
+                                                                CONFIRMADA
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center justify-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 rounded px-1.5 py-1 text-[10px] font-black uppercase tracking-wide">
+                                                                <Clock size={10} />
+                                                                PENDIENTE
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="mt-2 text-[10px] text-slate-400 italic">Sin cita</div>
+                                                )}
                                             </td>
 
                                             {/* Cliente */}
-                                            <td className="px-4 py-3">
-                                                <div className="font-bold text-slate-800">{ticket.profiles?.full_name || 'Sin nombre'}</div>
-                                                <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                                                    <span className="text-[10px]">📍</span> {ticket.profiles?.address || 'Sin dirección'}
+                                            <td className="px-4 py-3 max-w-[220px] align-top">
+                                                <div className="font-bold text-slate-800 text-sm mb-1">{ticket.profiles?.full_name || 'Sin nombre'}</div>
+
+                                                {ticket.profiles?.phone ? (
+                                                    <a href={`tel:${ticket.profiles.phone}`} className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-800 hover:underline transition-colors mb-1.5 w-fit">
+                                                        <Phone size={14} />
+                                                        {ticket.profiles.phone}
+                                                    </a>
+                                                ) : <div className="text-xs text-slate-400 italic mb-1">Sin teléfono</div>}
+
+                                                <div className="text-xs text-slate-500 flex items-start gap-1 leading-snug">
+                                                    <span className="text-[10px] mt-0.5">📍</span>
+                                                    <span className="line-clamp-2">{ticket.profiles?.address || 'Sin dirección'}</span>
                                                 </div>
-                                                {ticket.profiles?.phone && (
-                                                    <div className="text-xs text-blue-600 font-mono mt-0.5">{ticket.profiles.phone}</div>
-                                                )}
                                             </td>
 
                                             {/* Origen (Restored Column) */}
                                             <td className="px-4 py-3 text-center">
                                                 <div className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border inline-block ${ticket.origin_source === 'client_web' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
-                                                        ticket.origin_source === 'tech_app' ? 'bg-cyan-50 text-cyan-600 border-cyan-100' :
-                                                            'bg-white text-slate-500 border-slate-200'
+                                                    ticket.origin_source === 'tech_app' ? 'bg-cyan-50 text-cyan-600 border-cyan-100' :
+                                                        'bg-white text-slate-500 border-slate-200'
                                                     }`}>
                                                     {ticket.origin_source === 'client_web' ? 'WEB' : ticket.origin_source === 'tech_app' ? 'APP' : 'OFICINA'}
                                                 </div>
