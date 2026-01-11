@@ -79,13 +79,13 @@ const GlobalAgenda = () => {
             const { data: brandsData } = await supabase.from('brands').select('name, logo_url');
 
             // 2. Fetch Appointments
-            // Using simpler query syntax to avoid FK alias issues
+            // Reverting to explicit alias to guarantee FK resolution
             const { data: apptData, error } = await supabase
                 .from('tickets')
                 .select(`
                     *, 
                     client:profiles!client_id(full_name, address, phone, current_lat, current_lng, postal_code),
-                    client_appliances (
+                    appliance:client_appliances!appliance_id (
                         brand,
                         model,
                         type
@@ -105,9 +105,13 @@ const GlobalAgenda = () => {
                 .filter(a => !['cancelado', 'rechazado', 'anulado'].includes(a.status))
                 .map(a => {
                     // Robust Appliance Data Retrieval
-                    // Supabase might return it as array or object depending on relation type (One-to-One vs Many-to-One)
-                    // We treat it safely.
-                    const rawAppliance = Array.isArray(a.client_appliances) ? a.client_appliances[0] : a.client_appliances;
+                    // Prioritize explicit alias 'appliance', fallback to 'client_appliances'
+                    let rawAppliance = a.appliance || a.client_appliances;
+
+                    // Normalize if array (One-to-Many vs Many-to-One ambiguity)
+                    if (Array.isArray(rawAppliance)) {
+                        rawAppliance = rawAppliance[0];
+                    }
 
                     // Find Brand Logo
                     const brandName = rawAppliance?.brand || '';
