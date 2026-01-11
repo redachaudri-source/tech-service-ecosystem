@@ -210,8 +210,8 @@ const ServiceMonitor = () => {
             </div>
 
             {/* MAIN TABLE CONTENT - RESTORED ORIGINAL COLUMNS & LAYOUT */}
-            <div className="flex-1 overflow-hidden p-3 md:p-6 flex flex-col">
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full overflow-hidden">
+            <div className="flex-1 overflow-hidden flex flex-col">
+                <div className="bg-white flex flex-col h-full overflow-hidden">
                     {loading ? (
                         <div className="p-10 text-center text-slate-400">Cargando...</div>
                     ) : (
