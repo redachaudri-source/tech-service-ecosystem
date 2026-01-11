@@ -22,6 +22,7 @@ const Settings = () => {
     });
 
     useEffect(() => {
+        console.log("Settings Page Loaded with BrandManager v1");
         fetchSettings();
         fetchCatalog();
     }, []);
