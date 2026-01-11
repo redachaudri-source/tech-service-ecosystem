@@ -29,6 +29,7 @@ const ServiceMonitor = () => {
     const [filterOrigin, setFilterOrigin] = useState(''); // New Origin Filter
     const [filterCreator, setFilterCreator] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
+    const [sortOrder, setSortOrder] = useState('desc'); // Sorting state
 
     // Delete State
     const [deleteId, setDeleteId] = useState(null);
@@ -180,15 +181,27 @@ const ServiceMonitor = () => {
                         />
                     </div>
                     <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
-                        <input type="date" className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 outline-none text-slate-600 text-sm" onChange={(e) => setFilterDate(e.target.value)} />
-                        <select className="px-3 py-1.5 border border-slate-200 rounded-lg outline-none text-sm bg-white" value={filterOrigin} onChange={(e) => setFilterOrigin(e.target.value)}>
+                        {/* Sort Button */}
+                        <button
+                            onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                            className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-slate-600 text-xs hover:bg-slate-50 transition-colors"
+                            title={sortOrder === 'desc' ? "Más recientes primero" : "Más antiguos primero"}
+                        >
+                            <Clock size={14} />
+                            {sortOrder === 'desc' ? 'Recientes' : 'Antiguos'}
+                        </button>
+
+                        <input type="date" className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 outline-none text-slate-600 text-xs" onChange={(e) => setFilterDate(e.target.value)} />
+
+                        <select className="px-3 py-1.5 border border-slate-200 rounded-lg outline-none text-xs bg-white hidden md:block" value={filterOrigin} onChange={(e) => setFilterOrigin(e.target.value)}>
                             <option value="">Todos los Orígenes</option>
                             <option value="direct">Oficina</option>
                             <option value="client_web">Web Cliente</option>
                             <option value="tech_app">App Técnico</option>
                             <option value="budget">Presupuesto</option>
                         </select>
-                        <select className="px-3 py-1.5 border border-slate-200 rounded-lg outline-none text-sm bg-white" value={filterTech} onChange={(e) => setFilterTech(e.target.value)}>
+
+                        <select className="px-3 py-1.5 border border-slate-200 rounded-lg outline-none text-xs bg-white hidden md:block" value={filterTech} onChange={(e) => setFilterTech(e.target.value)}>
                             <option value="">Todos los Técnicos</option>
                             {techs.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
                         </select>
@@ -214,7 +227,7 @@ const ServiceMonitor = () => {
                                     <th className="px-3 py-2 md:px-4 md:py-3 min-w-[140px]">Asignación</th>
                                     <th className="px-3 py-2 md:px-4 md:py-3 text-right">Acciones</th>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100 text-sm"> {/* Small font applied here */}
+                                <tbody className="divide-y divide-slate-100 text-xs"> {/* XS font applied here */}
                                     {tickets.filter(t => {
                                         const s = searchTerm.toLowerCase();
                                         const brand = (t.appliance_info?.brand || '').toLowerCase();
@@ -247,6 +260,10 @@ const ServiceMonitor = () => {
                                         );
 
                                         return matchesSearch && matchesTech && matchesDate && matchesOrigin;
+                                    }).sort((a, b) => {
+                                        const dateA = new Date(a.created_at).getTime();
+                                        const dateB = new Date(b.created_at).getTime();
+                                        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
                                     }).map(ticket => (
                                         <tr key={ticket.id} className="hover:bg-slate-50 transition-colors">
                                             {/* ID / Cita (Enhanced based on screenshot) */}
