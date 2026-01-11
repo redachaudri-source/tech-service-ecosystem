@@ -151,7 +151,7 @@ const ServiceMonitor = () => {
     if (loading) return <div className="text-center p-10">Cargando...</div>;
 
     return (
-    return (
+
         <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-slate-50/50">
             {/* --- STICKY HEADER & CONTROLS --- */}
             <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200/60 shadow-sm shrink-0">
