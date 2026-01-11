@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { Calendar, ChevronLeft, ChevronRight, User, Clock, MapPin, Maximize2, Minimize2, AlertTriangle, TrendingUp } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { Calendar, ChevronLeft, ChevronRight, User, Clock, MapPin, Maximize2, Minimize2, AlertTriangle, TrendingUp, MoreVertical, X, Phone, Navigation } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip as MapTooltip } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -16,31 +16,31 @@ L.Icon.Default.mergeOptions({
 // Custom Icons
 const createTechIcon = (color) => new L.DivIcon({
     className: 'custom-div-icon',
-    html: `<div style="background-color: ${color}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.4);"></div>`,
-    iconSize: [12, 12],
-    iconAnchor: [6, 6]
+    html: `<div style="background-color: ${color}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>`,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7]
 });
 
-// --- MATH HELPERS ---
-const toRad = (x) => x * Math.PI / 180;
-const getDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371; // km
-    const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lon2 - lon1);
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-};
+// --- CONSTANTS ---
+const START_HOUR = 8;
+const END_HOUR = 21;
+const HOURS_COUNT = END_HOUR - START_HOUR;
+const PIXELS_PER_HOUR = 120; // Taller for better visibility
 
 const GlobalAgenda = () => {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [techs, setTechs] = useState([]);
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [showRouteMode, setShowRouteMode] = useState(false);
-    const [splitView, setSplitView] = useState(true);
+    const [selectedTechId, setSelectedTechId] = useState(null); // For Map Focus
+
+    // Drag & Drop State
+    const [draggedAppt, setDraggedAppt] = useState(null);
+    const [dragOverTech, setDragOverTech] = useState(null);
+    const [dragTime, setDragTime] = useState(null);
+
+    // Popover State
+    const [selectedAppt, setSelectedAppt] = useState(null);
 
     useEffect(() => {
         fetchAgendaData();
@@ -51,7 +51,7 @@ const GlobalAgenda = () => {
         try {
             const dateStr = selectedDate.toISOString().split('T')[0];
 
-            // 1. Fetch Techs (Clean & Active ONLY)
+            // 1. Fetch Techs
             const { data: techData } = await supabase
                 .from('profiles')
                 .select('*')
@@ -61,17 +61,25 @@ const GlobalAgenda = () => {
                 .order('full_name');
             setTechs(techData || []);
 
-            // 2. Fetch Appointments for Date
-            const { data: apptData } = await supabase
+            // 2. Fetch Appointments
+            const { data: apptData, error } = await supabase
                 .from('tickets')
-                .select(`*, client:profiles!client_id(full_name, address, current_lat, current_lng)`)
+                .select(`*, client:profiles!client_id(full_name, address, phone, current_lat, current_lng)`)
                 .gte('scheduled_at', `${dateStr}T00:00:00`)
-                .lte('scheduled_at', `${dateStr}T23:59:59`)
+                // .lte('scheduled_at', `${dateStr}T23:59:59`) // Allow overflow if needed
                 .not('technician_id', 'is', null)
-                .neq('status', 'finalizado');
+                .neq('status', 'finalizado'); // Show confirmed/pending/en_camino
 
-            setAppointments(apptData || []);
+            // Transform dates to local objects for math
+            const processed = (apptData || []).map(a => ({
+                ...a,
+                start: new Date(a.scheduled_at),
+                // Assume 1h duration default if not set, or diff between scheduled_at and something else?
+                // For now fixed duration 1h for visualization or logic
+                duration: 60 // minutes
+            }));
 
+            setAppointments(processed || []);
         } catch (error) {
             console.error(error);
         } finally {
@@ -79,276 +87,311 @@ const GlobalAgenda = () => {
         }
     };
 
-    const changeDate = (days) => {
-        const newDate = new Date(selectedDate);
-        newDate.setDate(selectedDate.getDate() + days);
-        setSelectedDate(newDate);
+    const handleUpdateAppointment = async (apptId, newTechId, newDate) => {
+        const iso = newDate.toISOString(); // Keep timezone in mind!
+
+        // Simple Optimistic Update
+        setAppointments(prev => prev.map(a => a.id === apptId ? { ...a, technician_id: newTechId, scheduled_at: iso, start: newDate } : a));
+
+        const { error } = await supabase
+            .from('tickets')
+            .update({ technician_id: newTechId, scheduled_at: iso })
+            .eq('id', apptId);
+
+        if (error) {
+            alert("Error al mover cita: " + error.message);
+            fetchAgendaData(); // Revert
+        }
     };
 
-    // Helper to generate consistent colors from Tech ID (for Map Routes)
+    // --- DND LOGIC (Custom) ---
+    const handleDragStart = (e, appt) => {
+        setDraggedAppt(appt);
+        e.dataTransfer.effectAllowed = "move";
+        // Hide ghost image if possible or custom styling
+    };
+
+    const handleDragOver = (e, techId) => {
+        e.preventDefault(); // Allow Drop
+        const container = e.currentTarget.getBoundingClientRect();
+        const offsetY = e.clientY - container.top;
+
+        // Snap to 15 mins
+        const hoursFromStart = offsetY / PIXELS_PER_HOUR;
+        const totalMinutes = Math.floor(hoursFromStart * 60 / 15) * 15;
+
+        const newDate = new Date(selectedDate);
+        newDate.setHours(START_HOUR + Math.floor(totalMinutes / 60));
+        newDate.setMinutes(totalMinutes % 60);
+
+        if (dragOverTech !== techId || dragTime?.getTime() !== newDate.getTime()) {
+            setDragOverTech(techId);
+            setDragTime(newDate);
+        }
+    };
+
+    const handleDrop = async (e, techId) => {
+        e.preventDefault();
+        if (draggedAppt && dragTime) {
+            // Validate: Don't allow past time? Or allow.
+            // Check overlaps? For now, allow "Tetris" placement.
+            await handleUpdateAppointment(draggedAppt.id, techId, dragTime);
+        }
+        setDraggedAppt(null);
+        setDragOverTech(null);
+        setDragTime(null);
+    };
+
+
+    // --- VISUALIZATION MARKERS ---
+    const hours = Array.from({ length: HOURS_COUNT + 1 }, (_, i) => i + START_HOUR);
+
+    // Now Line
+    const [nowPercent, setNowPercent] = useState(0);
+    useEffect(() => {
+        const calcNow = () => {
+            const now = new Date();
+            const startOfDay = new Date(selectedDate);
+            startOfDay.setHours(START_HOUR, 0, 0, 0);
+            const msPassed = now - startOfDay;
+            const totalMs = (END_HOUR - START_HOUR) * 60 * 60 * 1000;
+            const percent = (msPassed / totalMs) * 100;
+            return Math.max(0, Math.min(100, percent));
+        };
+        const interval = setInterval(() => setNowPercent(calcNow()), 60000);
+        setNowPercent(calcNow());
+        return () => clearInterval(interval);
+    }, [selectedDate]);
+
+    // Map Route Logic
     const getTechColor = (techId) => {
-        const colors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e'];
-        let hash = 0;
         if (!techId) return '#64748b';
+        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
+        let hash = 0;
         for (let i = 0; i < techId.length; i++) hash = techId.charCodeAt(i) + ((hash << 5) - hash);
         return colors[Math.abs(hash) % colors.length];
     };
 
-    const getCpColor = (cp) => {
-        if (!cp) return 'bg-slate-100 border-slate-200 text-slate-500';
-        const colors = ['bg-red-100 border-red-300 text-red-800', 'bg-orange-100 border-orange-300 text-orange-800', 'bg-amber-100 border-amber-300 text-amber-800', 'bg-green-100 border-green-300 text-green-800', 'bg-emerald-100 border-emerald-300 text-emerald-800', 'bg-teal-100 border-teal-300 text-teal-800', 'bg-cyan-100 border-cyan-300 text-cyan-800', 'bg-sky-100 border-sky-300 text-sky-800', 'bg-blue-100 border-blue-300 text-blue-800', 'bg-indigo-100 border-indigo-300 text-indigo-800', 'bg-violet-100 border-violet-300 text-violet-800', 'bg-purple-100 border-purple-300 text-purple-800', 'bg-fuchsia-100 border-fuchsia-300 text-fuchsia-800', 'bg-pink-100 border-pink-300 text-pink-800', 'bg-rose-100 border-rose-300 text-rose-800'];
-        let hash = 0;
-        for (let i = 0; i < cp.length; i++) hash = cp.charCodeAt(i) + ((hash << 5) - hash);
-        return colors[Math.abs(hash) % colors.length];
-    };
+    const activeRoute = useMemo(() => {
+        if (!selectedTechId) return null;
+        const techAppts = appointments
+            .filter(a => a.technician_id === selectedTechId)
+            .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
 
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'confirmed': return 'bg-green-100 border-green-200 text-green-800';
-            case 'rejected': return 'bg-red-100 border-red-200 text-red-800';
-            case 'pending': return 'bg-amber-100 border-amber-200 text-amber-800';
-            default: return 'bg-blue-100 border-blue-200 text-blue-800';
-        }
-    };
-    const getParamStatusIcon = (status) => {
-        if (status === 'confirmed') return '✅';
-        if (status === 'rejected') return '❌';
-        if (status === 'pending') return '⏳';
-        return '';
-    };
+        if (techAppts.length === 0) return null;
 
-    const getCpFromAppointment = (appt) => {
-        if (appt.client?.address) {
-            const match = appt.client.address.match(/\b\d{5}\b/);
-            return match ? match[0] : null;
-        }
-        return null;
-    };
+        return techAppts.map((a, i) => ({
+            ...a,
+            lat: a.client?.current_lat || 36.72 + (Math.random() * 0.05 - 0.025), // Mock if missing
+            lng: a.client?.current_lng || -4.42 + (Math.random() * 0.05 - 0.025)
+        }));
+    }, [selectedTechId, appointments]);
 
-    const getPosition = (dateStr) => {
-        const date = new Date(dateStr);
-        const startHour = 8;
-        const pixelsPerHour = 100;
-        const hour = date.getHours();
-        const minutes = date.getMinutes();
-        if (hour < startHour) return 0;
-        return ((hour - startHour) + (minutes / 60)) * pixelsPerHour;
-    };
-    const hours = Array.from({ length: 13 }, (_, i) => i + 8);
-    const techAppointmentsCount = (techId, appointments) => appointments.filter(a => a.technician_id === techId).length;
-
-
-    // --- MAP & AI LOGIC ---
-    // Calculates Route Efficiency (ZigZags + Total Distance)
-    const routeData = useMemo(() => {
-        return techs.map(tech => {
-            const techAppts = appointments
-                .filter(a => a.technician_id === tech.id)
-                .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
-
-            let totalDist = 0;
-            const path = techAppts.map((a, index) => {
-                // Determine Lat/Lng (Simulated for demo if missing)
-                // In real prod, this comes from geocoding 'a.client.address'
-                const lat = a.client?.current_lat || (36.72 + (Math.random() * 0.05 - 0.025));
-                const lng = a.client?.current_lng || (-4.42 + (Math.random() * 0.05 - 0.025));
-
-                return { lat, lng, ...a, index };
-            });
-
-            // Calculate Metrics
-            const badPoints = new Set();
-            for (let i = 0; i < path.length - 1; i++) {
-                const dist = getDistance(path[i].lat, path[i].lng, path[i + 1].lat, path[i + 1].lng);
-                totalDist += dist;
-
-                // Simple "Zig-Zag" heuristic: 
-                // Simplified for Demo: Flag legs > 8km as "Inefficient Alert"
-                if (dist > 8) {
-                    badPoints.add(path[i].id); // Leg start is culprit (or end?)
-                    // Let's flag the destination as "Far Reach"
-                    badPoints.add(path[i + 1].id);
-                }
-            }
-
-            // Efficiency Score (Inverse of avg distance per hop, normalized to 100)
-            const hopCount = Math.max(path.length - 1, 1);
-            const avgHop = totalDist / hopCount;
-            // Assume 2km avg is Perfect (100). 15km avg is Bad (0). 
-            let score = Math.max(0, Math.min(100, 100 - ((avgHop - 2) * 5)));
-            if (path.length === 0) score = 100; // Idle is efficient? Or N/A.
-
-            return { tech, path, color: getTechColor(tech.id), score: Math.round(score), badPoints, totalDist: totalDist.toFixed(1) };
-        });
-    }, [techs, appointments]);
-
-
-    if (loading) return <div className="p-8 text-center text-slate-500">Cargando agenda...</div>;
 
     return (
-        <div className="h-[calc(100vh-100px)] flex flex-col">
+        <div className="h-[calc(100vh-80px)] flex flex-col bg-slate-50">
             {/* Header */}
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                    <Calendar className="text-blue-600" />
-                    Agenda Global <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded-full uppercase tracking-wider font-bold">God Mode</span>
-                </h1>
-
+            <div className="px-6 py-4 bg-white border-b border-slate-200 flex justify-between items-center shadow-sm z-20">
                 <div className="flex items-center gap-4">
-                    <button
-                        onClick={() => setShowRouteMode(!showRouteMode)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg font-bold text-sm transition border ${showRouteMode ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-slate-600 border-slate-200'
-                            }`}
-                    >
-                        <MapPin size={16} /> CP
-                    </button>
-
-                    <button
-                        onClick={() => setSplitView(!splitView)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg font-bold text-sm transition border ${splitView ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-slate-600 border-slate-200'
-                            }`}
-                    >
-                        {splitView ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-                        {splitView ? 'Ocultar Mapa' : 'Ver Mapa'}
-                    </button>
-
-                    <div className="flex items-center gap-4 bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
-                        <button onClick={() => changeDate(-1)} className="p-2 hover:bg-slate-100 rounded-full"><ChevronLeft /></button>
-                        <div className="font-bold text-lg w-48 text-center">
-                            {selectedDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
-                        </div>
-                        <button onClick={() => changeDate(1)} className="p-2 hover:bg-slate-100 rounded-full"><ChevronRight /></button>
+                    <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <Calendar className="text-indigo-600" /> Tablero de Control
+                    </h1>
+                    <div className="flex items-center bg-slate-100 p-1 rounded-lg">
+                        <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(d); }} className="p-1 hover:bg-white hover:shadow-sm rounded transition"><ChevronLeft size={18} /></button>
+                        <span className="px-4 font-bold text-slate-700 min-w-[140px] text-center text-sm">
+                            {selectedDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })}
+                        </span>
+                        <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(d); }} className="p-1 hover:bg-white hover:shadow-sm rounded transition"><ChevronRight size={18} /></button>
                     </div>
+                </div>
+                <div className="flex items-center gap-3">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Hoy: {appointments.length} Servicios</span>
                 </div>
             </div>
 
-            {/* Split Content */}
-            <div className="flex-1 flex gap-4 overflow-hidden">
+            {/* Main Content: Agenda Grid */}
+            <div className="flex-1 overflow-hidden flex relative">
+                {/* Time Axis */}
+                <div className="w-16 bg-white border-r border-slate-200 shrink-0 flex flex-col pt-10 select-none">
+                    {hours.map(h => (
+                        <div key={h} className="text-xs text-slate-400 font-bold text-right pr-3 -mt-2" style={{ height: PIXELS_PER_HOUR }}>
+                            {h}:00
+                        </div>
+                    ))}
+                </div>
 
-                {/* LEFT: Agenda Grid */}
-                <div className={`flex-1 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col transition-all ${splitView ? 'w-1/2' : 'w-full'}`}>
-                    {/* Header Row (Techs) */}
-                    <div className="flex border-b border-slate-200 bg-slate-50 overflow-x-auto hide-scrollbar">
-                        <div className="w-14 border-r border-slate-200 shrink-0"></div>
-                        {techs.map(tech => {
-                            const stats = routeData.find(r => r.tech.id === tech.id);
-                            return (
-                                <div key={tech.id} className="flex-1 min-w-[120px] py-2 text-center border-r border-slate-200 last:border-0 font-semibold text-slate-700 px-2 group cursor-pointer hover:bg-blue-50 transition">
-                                    <div className="truncate">{tech.full_name.split(' ')[0]}</div>
+                {/* Grid */}
+                <div className="flex-1 overflow-auto bg-slate-50/50 relative custom-scrollbar">
+                    <div className="flex min-w-max" style={{ height: HOURS_COUNT * PIXELS_PER_HOUR + 50 }}>
+                        {/* Background Lines */}
+                        <div className="absolute inset-0 w-full pointer-events-none mt-10">
+                            {hours.map((h, i) => (
+                                <div key={h} className="border-b border-slate-200/60" style={{ height: PIXELS_PER_HOUR }}></div>
+                            ))}
+                        </div>
 
-                                    {/* Efficiency Score Badge */}
-                                    {stats && stats.path.length > 0 && (
-                                        <div className={`text-[10px] font-bold mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border ${stats.score > 80 ? 'bg-green-100 text-green-700 border-green-200' :
-                                                stats.score > 50 ? 'bg-yellow-100 text-yellow-700 border-yellow-200' :
-                                                    'bg-red-100 text-red-700 border-red-200'
-                                            }`}>
-                                            <TrendingUp size={10} />
-                                            {stats.score}% Eff
-                                        </div>
-                                    )}
-                                    <div className="text-[10px] text-slate-400 font-normal mt-0.5">{techAppointmentsCount(tech.id, appointments)} citas</div>
+                        {/* Current Time Line */}
+                        {nowPercent > 0 && nowPercent < 100 && (
+                            <div
+                                className="absolute left-0 right-0 border-t-2 border-red-500 z-30 pointer-events-none flex items-center"
+                                style={{ top: `${(nowPercent / 100) * (HOURS_COUNT * PIXELS_PER_HOUR) + 40}px` }}
+                            >
+                                <div className="bg-red-500 text-white text-[9px] px-1 rounded-r font-bold -ml-16">
+                                    {new Date().toLocaleTimeString().slice(0, 5)}
                                 </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* Body (Timeline) */}
-                    <div className="flex-1 overflow-y-auto relative bg-slate-50/30">
-                        <div className="flex min-h-[1300px]">
-                            <div className="absolute inset-0 flex flex-col pointer-events-none w-full">
-                                {hours.map(hour => (<div key={hour} className="h-[100px] border-b border-slate-100 w-full"></div>))}
+                                <div className="w-2 h-2 rounded-full bg-red-500 -ml-1"></div>
                             </div>
-                            <div className="w-14 border-r border-slate-200 shrink-0 bg-white z-10">
-                                {hours.map(hour => (<div key={hour} className="h-[100px] text-xs text-slate-400 text-center pt-2">{hour}:00</div>))}
-                            </div>
+                        )}
 
-                            {techs.map(tech => (
-                                <div key={tech.id} className="flex-1 min-w-[120px] border-r border-slate-100 relative group">
+                        {/* Tech Columns */}
+                        {techs.map(tech => (
+                            <div
+                                key={tech.id}
+                                className={`flex-1 min-w-[160px] border-r border-slate-200 py-2 relative transition ${dragOverTech === tech.id ? 'bg-indigo-50/50' : ''}`}
+                                onDragOver={(e) => handleDragOver(e, tech.id)}
+                                onDrop={(e) => handleDrop(e, tech.id)}
+                            >
+                                {/* Tech Header */}
+                                <div
+                                    className={`sticky top-0 z-40 bg-white/95 backdrop-blur p-2 text-center border-b-2 transition cursor-pointer ${selectedTechId === tech.id ? 'border-indigo-500' : 'border-slate-100 hover:border-slate-300'}`}
+                                    onClick={() => setSelectedTechId(selectedTechId === tech.id ? null : tech.id)}
+                                >
+                                    <div className="font-bold text-slate-700 text-sm truncate">{tech.full_name}</div>
+                                    <div className="text-[10px] text-slate-400">{appointments.filter(a => a.technician_id === tech.id).length} Citas</div>
+                                </div>
+
+                                {/* Drag Preview Ghost */}
+                                {dragOverTech === tech.id && dragTime && (
+                                    <div
+                                        className="absolute left-2 right-2 bg-indigo-200/40 border-2 border-dashed border-indigo-400 rounded-lg z-10 pointer-events-none"
+                                        style={{
+                                            top: `${((dragTime.getHours() - START_HOUR) + dragTime.getMinutes() / 60) * PIXELS_PER_HOUR + 40}px`,
+                                            height: `${1 * PIXELS_PER_HOUR}px`
+                                        }}
+                                    >
+                                        <div className="text-xs font-bold text-indigo-700 p-1">{dragTime.toLocaleTimeString().slice(0, 5)}</div>
+                                    </div>
+                                )}
+
+                                {/* Appointments */}
+                                <div className="mt-2 relative h-full">
                                     {appointments.filter(a => a.technician_id === tech.id).map(appt => {
-                                        const top = getPosition(appt.scheduled_at);
-                                        const cp = getCpFromAppointment(appt);
-                                        const styleClass = showRouteMode ? getCpColor(cp) : getStatusColor(appt.appointment_status);
+                                        const startH = appt.start.getHours();
+                                        const startM = appt.start.getMinutes();
+                                        const top = ((startH - START_HOUR) + startM / 60) * PIXELS_PER_HOUR;
+                                        const height = (appt.duration / 60) * PIXELS_PER_HOUR;
+                                        const isSelected = selectedAppt?.id === appt.id;
 
-                                        // Is Inefficient?
-                                        const stats = routeData.find(r => r.tech.id === tech.id);
-                                        const isInefficient = stats?.badPoints.has(appt.id);
+                                        // Tetris Style Colors
+                                        // Dynamic based on status or random color per client? Let's use Status.
+                                        const colors = {
+                                            'pending': 'bg-amber-100 border-l-4 border-amber-400 text-amber-900',
+                                            'confirmed': 'bg-blue-100 border-l-4 border-blue-500 text-blue-900',
+                                            'en_camino': 'bg-purple-100 border-l-4 border-purple-500 text-purple-900',
+                                            'in_progress': 'bg-green-100 border-l-4 border-green-500 text-green-900',
+                                            'paused': 'bg-red-50 border-l-4 border-red-500 text-red-900'
+                                        }[appt.appointment_status] || 'bg-slate-100 border-l-4 border-slate-400 text-slate-700';
 
                                         return (
                                             <div
                                                 key={appt.id}
-                                                className={`absolute left-1 right-1 p-2 rounded-md border text-xs shadow-sm hover:shadow-lg hover:z-20 transition cursor-pointer overflow-hidden ${styleClass}`}
-                                                style={{ top: `${top}px`, height: '90px' }}
-                                                title={`${appt.client?.full_name}\n${appt.profiles?.address}`}
+                                                draggable
+                                                onDragStart={(e) => handleDragStart(e, appt)}
+                                                onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
+                                                className={`absolute left-1 right-1 rounded-lg p-2 text-xs shadow-sm cursor-move transition-all active:scale-95 group hover:shadow-md hover:z-20 overflow-hidden ${colors} ${isSelected ? 'ring-2 ring-indigo-500 z-30' : ''}`}
+                                                style={{ top: `${top}px`, height: `${height - 4}px` }}
                                             >
-                                                <div className="font-bold flex justify-between">
-                                                    <span>{appt.scheduled_at.split('T')[1].slice(0, 5)}</span>
-                                                    {isInefficient && (
-                                                        <span className="text-amber-600 bg-amber-100 rounded-full px-1 animate-pulse" title="Ruta Ineficiente">
-                                                            <AlertTriangle size={12} />
-                                                        </span>
-                                                    )}
+                                                <div className="flex justify-between font-bold leading-tight">
+                                                    <span>{appt.start.toLocaleTimeString().slice(0, 5)}</span>
+                                                    {appt.client_id ? <User size={12} /> : <AlertTriangle size={12} className="text-red-500" />}
                                                 </div>
-                                                <div className="font-medium truncate mt-0.5">{appt.client?.full_name}</div>
-                                                {showRouteMode && cp && <div className="text-[9px] font-mono opacity-80">{cp}</div>}
-                                                <div className="absolute bottom-1 right-1">{getParamStatusIcon(appt.appointment_status)}</div>
+                                                <div className="font-semibold truncate mt-1">{appt.client?.full_name || 'Sin Cliente'}</div>
+                                                <div className="truncate opacity-75 text-[10px]">{appt.client?.address}</div>
+
+                                                {/* Hover Popover Hint */}
+                                                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition">
+                                                    <MoreVertical size={12} />
+                                                </div>
                                             </div>
                                         );
                                     })}
                                 </div>
-                            ))}
-                        </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
-                {/* RIGHT: Map View */}
-                {splitView && (
-                    <div className="w-1/3 min-w-[400px] bg-slate-100 rounded-xl border border-slate-300 shadow-inner overflow-hidden relative">
-                        <MapContainer
-                            center={[36.7213, -4.4214]}
-                            zoom={12}
-                            style={{ height: '100%', width: '100%' }}
-                            attributionControl={false}
-                        >
-                            <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
-                            {routeData.map((route, idx) => (
-                                route.path.length > 0 && (
-                                    <div key={route.tech.id}>
-                                        <Polyline
-                                            positions={route.path.map(p => [p.lat, p.lng])}
-                                            pathOptions={{ color: route.color, weight: 4, opacity: 0.7, dashArray: '5, 10' }}
-                                        />
-                                        {route.path.map((stop, i) => (
-                                            <Marker
-                                                key={stop.id}
-                                                position={[stop.lat, stop.lng]}
-                                                icon={createTechIcon(route.color)}
-                                            >
-                                                <Popup className="text-xs font-sans">
-                                                    <strong>{stop.scheduled_at.split('T')[1].slice(0, 5)}</strong> <br />
-                                                    Tech: {route.tech.full_name} <br />
-                                                    Client: {stop.client?.full_name} <br />
-                                                    {route.badPoints.has(stop.id) && <span className="text-red-600 font-bold">⚠️ Ineficiente (+8km)</span>}
-                                                </Popup>
-                                            </Marker>
-                                        ))}
-                                    </div>
-                                )
-                            ))}
-                        </MapContainer>
-                        <div className="absolute top-4 right-4 bg-white/90 backdrop-blur p-2 rounded-lg shadow-md z-[1000] text-xs max-w-[150px]">
-                            <h4 className="font-bold mb-1 border-b pb-1">Técnicos</h4>
-                            {routeData.filter(r => r.path.length > 0).map(r => (
-                                <div key={r.tech.id} className="flex justify-between items-center mb-1">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: r.color }}></div>
-                                        <span className="truncate w-16">{r.tech.full_name.split(' ')[0]}</span>
-                                    </div>
-                                    <span className={`font-bold ${r.score < 50 ? 'text-red-500' : 'text-green-600'}`}>{r.score}%</span>
-                                </div>
-                            ))}
+                {/* Popover Details */}
+                {selectedAppt && (
+                    <div className="absolute top-20 right-4 w-72 bg-white rounded-xl shadow-2xl border border-slate-200 z-50 animate-in fade-in slide-in-from-right-5">
+                        <div className="p-4 border-b border-slate-100 flex justify-between items-start">
+                            <div>
+                                <h3 className="font-bold text-slate-800">{selectedAppt.client?.full_name}</h3>
+                                <p className="text-xs text-slate-500">{new Date(selectedAppt.scheduled_at).toLocaleString()}</p>
+                            </div>
+                            <button onClick={() => setSelectedAppt(null)} className="text-slate-400 hover:text-slate-600"><X size={16} /></button>
+                        </div>
+                        <div className="p-4 space-y-3">
+                            <div className="flex items-start gap-2 text-sm text-slate-600">
+                                <MapPin size={16} className="text-slate-400 mt-0.5 shrink-0" />
+                                <span>{selectedAppt.client?.address || 'Sin dirección'}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-slate-600">
+                                <Phone size={16} className="text-slate-400 shrink-0" />
+                                <a href={`tel:${selectedAppt.client?.phone}`} className="hover:text-blue-600 underline decoration-dotted">{selectedAppt.client?.phone || 'Sin teléfono'}</a>
+                            </div>
+                            <div className="bg-slate-50 p-2 rounded text-xs text-slate-500 italic border border-slate-100">
+                                {selectedAppt.problem_description || "Sin descripción"}
+                            </div>
+                            <div className="pt-2 flex gap-2">
+                                <button className="flex-1 bg-indigo-600 text-white py-1.5 rounded text-xs font-bold hover:bg-indigo-700">Ver Servicio</button>
+                                <button className="flex-1 bg-white border border-slate-200 text-slate-600 py-1.5 rounded text-xs font-bold hover:bg-slate-50">Editar</button>
+                            </div>
                         </div>
                     </div>
                 )}
+            </div>
+
+            {/* Footer: Map View */}
+            <div className="h-48 bg-white border-t border-slate-200 flex shrink-0 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] z-20">
+                <div className="w-full relative">
+                    {!selectedTechId && <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-[1000] flex items-center justify-center pointer-events-none">
+                        <div className="bg-white px-4 py-2 rounded-full shadow-lg border border-slate-200 flex items-center gap-2 text-sm font-bold text-slate-500">
+                            <Navigation size={16} className="text-blue-500" />
+                            Selecciona un técnico arriba para ver su ruta
+                        </div>
+                    </div>}
+
+                    <MapContainer
+                        center={[36.7213, -4.4214]}
+                        zoom={11}
+                        style={{ height: '100%', width: '100%' }}
+                        attributionControl={false}
+                        zoomControl={false}
+                    >
+                        <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+                        {activeRoute && (
+                            <>
+                                <Polyline
+                                    positions={activeRoute.map(a => [a.lat, a.lng])}
+                                    pathOptions={{ color: '#3b82f6', weight: 4, opacity: 0.8 }}
+                                />
+                                {activeRoute.map((stop, i) => (
+                                    <Marker
+                                        key={stop.id}
+                                        position={[stop.lat, stop.lng]}
+                                        icon={createTechIcon('#f59e0b')} // Yellow dots
+                                    >
+                                        <Popup>{stop.client?.full_name} ({new Date(stop.scheduled_at).toLocaleTimeString().slice(0, 5)})</Popup>
+                                        <MapTooltip direction="top" offset={[0, -10]} opacity={1}>
+                                            <span className="font-bold text-xs">{i + 1}</span>
+                                        </MapTooltip>
+                                    </Marker>
+                                ))}
+                            </>
+                        )}
+                    </MapContainer>
+                </div>
             </div>
         </div>
     );
