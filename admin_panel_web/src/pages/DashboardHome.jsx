@@ -10,11 +10,11 @@ import { useTicketNotifications } from '../hooks/useTicketNotifications'; // NEW
 
 // --- CONFIGURATION ---
 const AVAILABLE_SHORTCUTS = [
-    { id: 'new_service', label: 'Nuevo Servicio', icon: Wrench, path: '/services/new', color: 'bg-blue-600' },
+    { id: 'new_service', label: 'Nuevo Servicio', icon: Wrench, path: '/services', color: 'bg-blue-600' }, // Path updated to /services
     { id: 'agenda_today', label: 'Agenda Hoy', icon: Calendar, path: '/agenda', color: 'bg-indigo-600' },
     { id: 'clients', label: 'Clientes', icon: Users, path: '/clients', color: 'bg-emerald-600' },
     { id: 'stock', label: 'REPUESTOS PENDIENTES', icon: Package, path: '/materials', color: 'bg-amber-600' },
-    { id: 'billing', label: 'Facturación', icon: FileText, path: '/analytics', color: 'bg-slate-700' },
+    // "Facturación" REMOVED
     { id: 'team', label: 'Equipo Técnico', icon: Users, path: '/team', color: 'bg-pink-600' },
     { id: 'budgets', label: 'Presupuestos', icon: FileText, path: '/budgets', color: 'bg-cyan-600' },
 ];
@@ -102,7 +102,7 @@ const ShortcutSelectionModal = ({ isOpen, onClose, selectedIds, onToggle }) => {
 // --- MAIN PAGE ---
 const DashboardHome = () => {
     const navigate = useNavigate();
-    const [stats, setStats] = useState({ todayServices: 0, monthlyIncome: 0, topTech: 'N/A', activeServices: 0 });
+    const [stats, setStats] = useState({ todayServices: 0, monthlyIncome: 0, topTech: 'N/A', activeServices: 0, techsActive: 0 }); // Added techsActive
     const [chartData, setChartData] = useState([]);
     const [alerts, setAlerts] = useState([]);
 
@@ -193,7 +193,7 @@ const DashboardHome = () => {
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
 
         // 1. Parallel Fetching
-        const [today, income, active, week] = await Promise.all([
+        const [today, income, active, week, techsCount] = await Promise.all([
             // Today Count
             supabase.from('tickets').select('*', { count: 'exact', head: true }).gte('created_at', startOfDay),
             // Monthly Income (paid/final only)
@@ -201,7 +201,9 @@ const DashboardHome = () => {
             // Active Services (pending/assigned/in_progress)
             supabase.from('tickets').select('*', { count: 'exact', head: true }).in('status', ['pendiente', 'asignado', 'en_proceso']),
             // Week Data (last 7 days logic simplified)
-            supabase.from('tickets').select('created_at').gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+            supabase.from('tickets').select('created_at').gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
+            // Real Tech Count (Role 'tech' is_active true)
+            supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'tech').eq('is_active', true)
         ]);
 
         const totalIncome = income.data?.reduce((acc, curr) => acc + (Number(curr.total_price) || 0), 0) || 0;
@@ -223,7 +225,8 @@ const DashboardHome = () => {
             todayServices: today.count || 0,
             monthlyIncome: totalIncome,
             topTech: 'N/A',
-            activeServices: active.count || 0
+            activeServices: active.count || 0,
+            techsActive: techsCount.count || 0 // Corrected
         });
         setChartData(Object.keys(daysMap).reverse().map(k => ({ name: k, services: daysMap[k] })));
     };
@@ -272,7 +275,7 @@ const DashboardHome = () => {
                 <CompactStatCard title="Servicios Hoy" value={stats.todayServices} icon={Calendar} colorClass="bg-blue-500" trend="+2" />
                 <CompactStatCard title="En Curso" value={stats.activeServices} icon={Clock} colorClass="bg-amber-500" />
                 <CompactStatCard title="Ingresos Mes" value={`${(stats.monthlyIncome / 1000).toFixed(1)}k€`} icon={DollarSign} colorClass="bg-emerald-500" trend="+12%" />
-                <CompactStatCard title="Tecnicos Activos" value="5" icon={Users} colorClass="bg-purple-500" />
+                <CompactStatCard title="Tecnicos Activos" value={stats.techsActive} icon={Users} colorClass="bg-purple-500" /> {/* Corrected */}
             </div>
 
             {/* Dynamic Shortcuts Section */}
@@ -293,7 +296,19 @@ const DashboardHome = () => {
                     {myShortcuts.map(id => {
                         const sc = AVAILABLE_SHORTCUTS.find(s => s.id === id);
                         if (!sc) return null;
-                        return <ShortcutButton key={id} shortcut={sc} onClick={() => navigate(sc.path)} />;
+                        return (
+                            <ShortcutButton
+                                key={id}
+                                shortcut={sc}
+                                onClick={() => {
+                                    if (sc.id === 'new_service') {
+                                        navigate('/services', { state: { openCreate: true } });
+                                    } else {
+                                        navigate(sc.path);
+                                    }
+                                }}
+                            />
+                        );
                     })}
                     <button
                         onClick={() => setIsShortcutModalOpen(true)}
