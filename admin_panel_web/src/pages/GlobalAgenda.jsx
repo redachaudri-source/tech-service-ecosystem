@@ -233,24 +233,44 @@ const GlobalAgenda = () => {
     const [ghostState, setGhostState] = useState(null);
 
     const handleDragStart = (e, appt) => {
-        // ... (Same logic, simple ID transfer)
         if (isDayClosed) { e.preventDefault(); return; }
+        // Capture interaction point relative to card to prevent "jumping" on drag start
         const rect = e.currentTarget.getBoundingClientRect();
         const offset = e.clientY - rect.top;
+
         setDragState({ id: appt.id, offset, duration: appt.duration });
         e.dataTransfer.effectAllowed = "move";
         e.dataTransfer.setData("text/plain", appt.id);
+
+        // Hide default ghost image to use our custom ghost
+        const emptyImg = new Image();
+        emptyImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+        e.dataTransfer.setDragImage(emptyImg, 0, 0);
     };
 
-    const handleDragOver = (e, targetDate) => { // targetDate instead of techId
+    const handleDragOver = (e, targetDate) => {
         e.preventDefault();
+        e.stopPropagation(); // Critical for nested elements
         if (isDayClosed) return;
+
         const rect = e.currentTarget.getBoundingClientRect();
         const y = e.clientY - rect.top;
-        const cardTopRaw = y - dragState.offset;
-        const snapPixels = PIXELS_PER_HOUR / 4;
-        const snappedTop = Math.round(cardTopRaw / snapPixels) * snapPixels;
+
+        // "Buttery Smooth" Physics: Use precise rounding for 15 min snaps
+        const snapMinutes = 15;
+        const snapPixels = PIXELS_PER_HOUR * (snapMinutes / 60);
+
+        const rawTop = y - dragState.offset;
+        const snappedTop = Math.round(rawTop / snapPixels) * snapPixels;
+
         const hoursToAdd = snappedTop / PIXELS_PER_HOUR;
+
+        // Limits Check
+        const totalMinutes = hoursToAdd * 60;
+        const maxMinutes = (END_HOUR - START_HOUR) * 60 - dragState.duration; // Ensure failsafe within day
+
+        // Visual Bounds (Optional, clamping)
+        // if (totalMinutes < 0 || totalMinutes > maxMinutes) return; 
 
         // Calculate Ghost Time
         const ghostTime = new Date(targetDate);
@@ -259,30 +279,32 @@ const GlobalAgenda = () => {
         setGhostState({
             top: snappedTop,
             height: (dragState.duration / 60) * PIXELS_PER_HOUR,
-            targetDate: targetDate.toISOString(), // Store as string for compare
+            targetDate: targetDate.toISOString(),
             timeStr: ghostTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         });
     };
 
     const handleDrop = (e, targetDate) => {
         e.preventDefault();
+        e.stopPropagation();
         setGhostState(null);
         if (isDayClosed) return;
         const apptId = e.dataTransfer.getData("text/plain");
         const appt = appointments.find(a => a.id === apptId);
         if (!appt) return;
 
+        // Re-calculate one last time to ensure sync with visual ghost
         const rect = e.currentTarget.getBoundingClientRect();
         const y = e.clientY - rect.top;
-        const cardTopRaw = y - dragState.offset;
-        const snapPixels = PIXELS_PER_HOUR / 4;
-        const snappedTop = Math.round(cardTopRaw / snapPixels) * snapPixels;
+        const snapMinutes = 15;
+        const snapPixels = PIXELS_PER_HOUR * (snapMinutes / 60);
+        const rawTop = y - dragState.offset;
+        const snappedTop = Math.round(rawTop / snapPixels) * snapPixels;
         const hoursToAdd = snappedTop / PIXELS_PER_HOUR;
 
         const newDate = new Date(targetDate);
         newDate.setHours(START_HOUR + Math.floor(hoursToAdd), (hoursToAdd % 1) * 60);
 
-        // Update Hook (using existing tech ID, only changing date/time)
         handleUpdateAppointment(apptId, appt.technician_id, newDate);
     };
 
@@ -290,9 +312,8 @@ const GlobalAgenda = () => {
     const visibleTechs = useMemo(() => techs.filter(t => selectedTechs.includes(t.id)), [techs, selectedTechs]);
     const hours = Array.from({ length: HOURS_COUNT }, (_, i) => i + START_HOUR);
 
-    // Optimized Suggestions (Sort by CP, simple list for now)
+    // Optimized Suggestions
     const optimizedSuggestions = useMemo(() => {
-        // ... (Keep existing logic, simplified)
         if (!showRoutePanel) return [];
         const all = [...appointments].filter(a => selectedTechs.includes(a.technician_id));
         return [...all].sort((a, b) => (a.client?.postal_code || '').localeCompare(b.client?.postal_code || ''));
@@ -337,11 +358,12 @@ const GlobalAgenda = () => {
                     </div>
 
                     <div className="flex gap-2">
-                        {/* Legend Bar (Inline for now) */}
-                        <div className="flex gap-2 mr-4 bg-slate-100 px-3 py-1 rounded-full items-center">
-                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-cyan-400"></div><span className="text-[9px] font-bold text-slate-500">Lavado</span></div>
-                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-400"></div><span className="text-[9px] font-bold text-slate-500">Frío</span></div>
-                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-orange-400"></div><span className="text-[9px] font-bold text-slate-500">Cocción</span></div>
+                        {/* Legend Bar */}
+                        <div className="flex gap-2 mr-4 bg-slate-100 px-3 py-1 rounded-full items-center shadow-inner">
+                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-cyan-400 ring-2 ring-cyan-100"></div><span className="text-[9px] font-bold text-slate-500">Lavado</span></div>
+                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-emerald-100"></div><span className="text-[9px] font-bold text-slate-500">Frío</span></div>
+                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-orange-400 ring-2 ring-orange-100"></div><span className="text-[9px] font-bold text-slate-500">Cocción</span></div>
+                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-slate-400 ring-2 ring-slate-100"></div><span className="text-[9px] font-bold text-slate-500">Clima</span></div>
                         </div>
                     </div>
                 </div>
@@ -374,7 +396,7 @@ const GlobalAgenda = () => {
                 )}
 
                 {/* Time Axis */}
-                <div className="w-12 shrink-0 bg-white border-r border-slate-200 sticky left-0 z-20 select-none">
+                <div className="w-12 shrink-0 bg-white border-r border-slate-200 sticky left-0 z-20 select-none shadow-[4px_0_10px_rgba(0,0,0,0.02)]">
                     <div className="h-8 border-b border-slate-200 bg-slate-50"></div>
                     {hours.map(h => (
                         <div key={h} className="text-right pr-2 text-[10px] text-slate-400 font-bold relative -top-2 font-mono" style={{ height: PIXELS_PER_HOUR }}>{h}:00</div>
@@ -391,23 +413,27 @@ const GlobalAgenda = () => {
                         const isToday = dayDate.toDateString() === new Date().toDateString();
 
                         return (
-                            <div key={dayDate.toISOString()} className={`flex-1 border-r border-slate-100 relative transition-colors duration-300 ${isToday ? 'bg-slate-50/80' : ''}`}
+                            <div key={dayDate.toISOString()} className={`flex-1 border-r border-slate-100 relative transition-colors duration-300 ${isToday ? 'bg-white' : 'bg-slate-50/30'}`}
                                 onDragOver={(e) => handleDragOver(e, dayDate)}
                                 onDrop={(e) => handleDrop(e, dayDate)}
                             >
                                 {/* Header: Day Name */}
-                                <div className={`h-8 border-b border-slate-200 sticky top-0 z-20 flex items-center justify-center gap-1 ${isToday ? 'bg-indigo-50 text-indigo-700' : 'bg-white text-slate-600'}`}>
+                                <div className={`h-8 border-b border-slate-200 sticky top-0 z-20 flex items-center justify-center gap-1 shadow-sm ${isToday ? 'bg-indigo-50 text-indigo-700' : 'bg-white text-slate-600'}`}>
                                     <span className="font-bold text-xs uppercase">{dayDate.toLocaleDateString('es-ES', { weekday: 'short' })}</span>
-                                    <span className={`font-black text-xs ${isToday ? 'bg-indigo-600 text-white px-1.5 rounded-full' : ''}`}>
+                                    <span className={`font-black text-xs ${isToday ? 'bg-indigo-600 text-white px-1.5 py-0.5 rounded-full' : ''}`}>
                                         {dayDate.getDate()}
                                     </span>
                                 </div>
 
                                 {/* Ghost Event */}
                                 {ghostState?.targetDate === dayDate.toISOString() && (
-                                    <div className="absolute left-1 right-1 z-0 bg-indigo-50 border-2 border-dashed border-indigo-400 rounded opacity-70"
+                                    <div className="absolute left-1 right-1 z-50 bg-indigo-600/10 border-2 border-dashed border-indigo-500 rounded-md pointer-events-none transition-all duration-75"
                                         style={{ top: `${ghostState.top}px`, height: `${ghostState.height}px` }}
-                                    ></div>
+                                    >
+                                        <div className="bg-indigo-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-br absolute top-0 left-0">
+                                            {ghostState.timeStr}
+                                        </div>
+                                    </div>
                                 )}
 
                                 {/* Events */}
@@ -423,6 +449,7 @@ const GlobalAgenda = () => {
                                         // COLOR BY APPLIANCE TYPE
                                         const category = getApplianceCategory(appt.appliance_info?.type);
                                         const colorClass = APPLIANCE_COLORS[category] || APPLIANCE_COLORS.default;
+                                        const techName = techs.find(t => t.id === appt.technician_id)?.full_name.split(' ')[0] || '???';
 
                                         return (
                                             <div
@@ -430,28 +457,31 @@ const GlobalAgenda = () => {
                                                 draggable
                                                 onDragStart={(e) => handleDragStart(e, appt)}
                                                 onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
-                                                className={`absolute rounded-md p-1 cursor-grab active:cursor-grabbing hover:z-50 hover:scale-[1.05] transition-transform shadow-sm overflow-hidden border
-                                                         ${colorClass} ${selectedAppt?.id === appt.id ? 'ring-2 ring-black z-40' : 'z-10'}`}
+                                                className={`absolute rounded-md cursor-grab active:cursor-grabbing hover:z-50 hover:scale-[1.02] hover:shadow-lg transition-all shadow-sm overflow-hidden border flex flex-col
+                                                         ${colorClass} ${selectedAppt?.id === appt.id ? 'ring-2 ring-indigo-600 z-40' : 'z-10'}`}
                                                 style={{ top: `${top}px`, height: `${height - 2}px`, left: `${left}%`, width: `${width}%` }}
                                             >
-                                                {/* STICKER DESIGN: Logo Watermark & Text */}
-                                                <div className="relative h-full flex flex-col justify-center items-center text-center leading-none pointer-events-none">
+                                                {/* --- BODY: LOGO & TYPE --- */}
+                                                <div className="relative flex-1 flex flex-col items-center justify-center p-0.5 overflow-hidden">
                                                     {/* Watermark Logo */}
                                                     {appt.brand_logo && (
-                                                        <img src={appt.brand_logo} className="absolute inset-0 w-full h-full object-contain opacity-10 p-2 z-0" />
+                                                        <img src={appt.brand_logo} className="absolute top-1 left-1 w-5 h-5 object-contain opacity-40 mix-blend-multiply pointer-events-none" />
                                                     )}
 
-                                                    {/* Foreground Content */}
-                                                    <div className="relative z-10">
-                                                        <div className="font-extrabold text-[10px] uppercase tracking-tight mb-0.5">
-                                                            {appt.appliance_info?.type || 'AVISO'}
-                                                        </div>
-                                                        <div className="text-[10px] font-mono font-bold opacity-80">
-                                                            {appt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                        </div>
-                                                        {appt.brand_logo && (
-                                                            <img src={appt.brand_logo} className="w-4 h-4 object-contain mx-auto mt-1 opacity-90" />
-                                                        )}
+                                                    <div className="font-black text-[10px] uppercase tracking-tighter text-center leading-none z-10 px-1 line-clamp-2">
+                                                        {appt.appliance_info?.type || 'AVISO'}
+                                                    </div>
+                                                </div>
+
+                                                {/* --- FOOTER: MATRÍCULA (Tech & CP) --- */}
+                                                <div className="shrink-0 h-5 bg-black/5 border-t border-black/5 flex items-center justify-between px-1.5">
+                                                    <div className="flex items-center gap-1 max-w-[60%]">
+                                                        <span className="text-[9px] font-bold text-slate-700 truncate">👤 {techName}</span>
+                                                    </div>
+                                                    <div className="flex items-center">
+                                                        <span className="text-[8px] font-mono font-black text-slate-500 opacity-90 tracking-wide">
+                                                            {appt.client?.postal_code || '---'}
+                                                        </span>
                                                     </div>
                                                 </div>
                                             </div>
