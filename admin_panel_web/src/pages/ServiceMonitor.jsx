@@ -210,12 +210,12 @@ const ServiceMonitor = () => {
             </div>
 
             {/* MAIN TABLE CONTENT - RESTORED ORIGINAL COLUMNS & LAYOUT */}
-            <div className="flex-1 overflow-auto p-3 md:p-6 content-start">
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="flex-1 overflow-hidden p-3 md:p-6 flex flex-col">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full overflow-hidden">
                     {loading ? (
                         <div className="p-10 text-center text-slate-400">Cargando...</div>
                     ) : (
-                        <div className="overflow-x-auto">
+                        <div className="flex-1 overflow-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
                             <table className="w-full text-left">
                                 <thead className="text-[10px] uppercase text-slate-500 font-semibold">
                                     <tr>
