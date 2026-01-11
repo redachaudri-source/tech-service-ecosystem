@@ -34,9 +34,7 @@ const ServiceMonitor = () => {
     const [deleteId, setDeleteId] = useState(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-    // ... useEffect and fetch logic (Keep same) ...
-    // Note: Copied only essential parts for fetch to avoid massive diff, assume fetch is preserved if I don't touch it. 
-    // Wait, replace_file_content needs me to be careful. I will replace the whole component structure or targeted blocks.
+    const { addToast } = useToast();
 
     useEffect(() => {
         if (location.state?.openCreate) {
@@ -151,106 +149,74 @@ const ServiceMonitor = () => {
     if (loading) return <div className="text-center p-10">Cargando...</div>;
 
     return (
-
         <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-slate-50/50">
-            {/* --- STICKY HEADER & CONTROLS --- */}
-            <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200/60 shadow-sm shrink-0">
-                <div className="p-4 flex flex-col gap-4">
+            {/* STICKY HEADER SECTION (RESTORED & ENHANCED) */}
+            <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-slate-200 shadow-sm shrink-0 px-6 py-4 space-y-4">
+                {/* Header Title & Button */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
+                        Monitor de Servicios
+                        {isConnected && (
+                            <span className="flex items-center gap-1 text-[10px] bg-green-100 text-green-600 px-2 py-0.5 rounded-full border border-green-200 animate-pulse">
+                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                                EN VIVO
+                            </span>
+                        )}
+                    </h1>
+                    <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-2 bg-slate-900 text-white px-6 py-2 rounded-lg hover:bg-slate-800 transition shadow-lg shadow-slate-900/10 font-medium text-sm w-full md:w-auto justify-center">
+                        <Plus size={18} /> Nuevo Servicio
+                    </button>
+                </div>
 
-                    {/* Top Row: Title & Create Action */}
-                    <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                        <div className="flex items-center gap-3">
-                            <h1 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
-                                Monitor de Servicios
-                                {isConnected && (
-                                    <span className="flex items-center gap-1.5 text-[9px] font-bold bg-emerald-50 text-emerald-600 px-2.5 py-1 rounded-full border border-emerald-100/50 shadow-sm animate-pulse">
-                                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span> EN VIVO
-                                    </span>
-                                )}
-                            </h1>
-                        </div>
-                        <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-lg hover:bg-black transition shadow-lg shadow-slate-900/10 font-medium text-sm w-full md:w-auto justify-center active:scale-95 group">
-                            <Plus size={16} className="text-slate-400 group-hover:text-white transition-colors" /> Nuevo Servicio
-                        </button>
+                {/* Filters & Search - SAME FUNCTIONALITY, RESTORED LAYOUT */}
+                <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+                    <div className="relative w-full md:w-1/3">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <input
+                            type="text"
+                            placeholder="Buscar: Cliente, Tlf, Dirección, Marca, ID..."
+                            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 text-sm"
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
                     </div>
-
-                    {/* Bottom Row: Omni-Search & Filters */}
-                    <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
-                        {/* Omni-Search Input */}
-                        <div className="relative w-full md:w-96 group">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <Search className="text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={16} />
-                            </div>
-                            <input
-                                type="text"
-                                placeholder="Buscar: Cliente, Tlf, Dirección, Marca, ID..."
-                                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:bg-white transition-all shadow-sm placeholder:text-slate-400"
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-
-                        {/* Filters */}
-                        <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end overflow-x-auto pb-1 md:pb-0 hide-scrollbar">
-                            <input type="date" className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 outline-none text-slate-600 text-sm shadow-sm focus:border-indigo-400 hover:border-slate-300 transition-colors" onChange={(e) => setFilterDate(e.target.value)} />
-
-                            <select className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg outline-none text-slate-600 text-sm shadow-sm focus:border-indigo-400 hover:border-slate-300 transition-colors" value={filterOrigin} onChange={(e) => setFilterOrigin(e.target.value)}>
-                                <option value="">Todos los Orígenes</option>
-                                <option value="direct">Oficina</option>
-                                <option value="client_web">Web Cliente</option>
-                                <option value="tech_app">App Técnico</option>
-                                <option value="budget">Presupuesto</option>
-                            </select>
-
-                            <select className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg outline-none text-slate-600 text-sm shadow-sm focus:border-indigo-400 hover:border-slate-300 transition-colors max-w-[160px]" value={filterTech} onChange={(e) => setFilterTech(e.target.value)}>
-                                <option value="">Todos los Técnicos</option>
-                                {techs.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
-                            </select>
-                        </div>
+                    <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
+                        <input type="date" className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 outline-none text-slate-600 text-sm" onChange={(e) => setFilterDate(e.target.value)} />
+                        <select className="px-3 py-1.5 border border-slate-200 rounded-lg outline-none text-sm bg-white" value={filterOrigin} onChange={(e) => setFilterOrigin(e.target.value)}>
+                            <option value="">Todos los Orígenes</option>
+                            <option value="direct">Oficina</option>
+                            <option value="client_web">Web Cliente</option>
+                            <option value="tech_app">App Técnico</option>
+                            <option value="budget">Presupuesto</option>
+                        </select>
+                        <select className="px-3 py-1.5 border border-slate-200 rounded-lg outline-none text-sm bg-white" value={filterTech} onChange={(e) => setFilterTech(e.target.value)}>
+                            <option value="">Todos los Técnicos</option>
+                            {techs.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
+                        </select>
                     </div>
                 </div>
             </div>
 
-            {showCreateModal && (
-                <CreateTicketModal
-                    onClose={() => setShowCreateModal(false)}
-                    onSuccess={(newTicket, shouldOpenSmart) => {
-                        fetchData();
-                        setShowCreateModal(false);
-                        if (shouldOpenSmart && newTicket) {
-                            // Opens the Smart Assignment Modal instantly
-                            setTimeout(() => {
-                                setSelectedTicketForAssign(newTicket);
-                            }, 100); // Small delay to allow modal transition
-                        } else if (newTicket) {
-                            addToast(`Ticket #${newTicket.ticket_number} creado correctamente.`, 'success', true);
-                        }
-                    }}
-                />
-            )}
-
-            {/* --- MAIN CONTENT: TABLE --- */}
-            <div className="flex-1 overflow-auto p-4 content-start">
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative">
+            {/* MAIN TABLE CONTENT - RESTORED ORIGINAL COLUMNS & LAYOUT */}
+            <div className="flex-1 overflow-auto p-4 md:p-6 content-start">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     {loading ? (
-                        <div className="p-12 text-center text-slate-400 flex flex-col items-center gap-3">
-                            <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                            <p className="text-xs font-mono uppercase tracking-widest animate-pulse">Cargando Datos...</p>
-                        </div>
+                        <div className="p-10 text-center text-slate-400">Cargando...</div>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                                <thead className="bg-slate-50/50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider sticky top-0 z-10 backdrop-blur-sm">
+                            <table className="w-full text-left">
+                                <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 font-semibold sticky top-0 z-20">
                                     <tr>
-                                        <th className="px-4 py-3 sticky left-0 bg-slate-50 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] text-center w-20">ID</th>
-                                        <th className="px-4 py-3">Cliente / Dirección</th>
-                                        <th className="px-4 py-3">Equipo / Avería</th>
-                                        <th className="px-4 py-3 text-center">Estado</th>
-                                        <th className="px-4 py-3 text-center">Técnico</th>
+                                        <th className="px-4 py-3 min-w-[100px]">ID / Cita</th>
+                                        <th className="px-4 py-3 min-w-[180px]">Cliente</th>
                                         <th className="px-4 py-3 text-center">Origen</th>
+                                        <th className="px-4 py-3 min-w-[150px]">Equipo</th>
+                                        <th className="px-4 py-3 text-center">Estado</th>
+                                        <th className="px-4 py-3 text-center">Doc</th>
+                                        <th className="px-4 py-3 min-w-[140px]">Asignación</th>
                                         <th className="px-4 py-3 text-right">Acciones</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                                <tbody className="divide-y divide-slate-100 text-sm"> {/* Small font applied here */}
                                     {tickets.filter(t => {
                                         const s = searchTerm.toLowerCase();
                                         const brand = (t.appliance_info?.brand || '').toLowerCase();
@@ -260,7 +226,7 @@ const ServiceMonitor = () => {
                                         const clientAddr = (t.profiles?.address || '').toLowerCase();
                                         const ticketId = (t.ticket_number?.toString() || '');
 
-                                        // OMNI-SEARCH LOGIC
+                                        // OMNI-SEARCH LOGIC (PRESERVED)
                                         const matchesSearch = !searchTerm || (
                                             ticketId.includes(s) ||
                                             clientName.includes(s) ||
@@ -284,106 +250,104 @@ const ServiceMonitor = () => {
 
                                         return matchesSearch && matchesTech && matchesDate && matchesOrigin;
                                     }).map(ticket => (
-                                        <tr key={ticket.id} className="hover:bg-slate-50/80 transition-colors group">
-                                            {/* ID (Sticky) */}
-                                            <td className="px-4 py-3 font-mono text-xs font-bold text-slate-500 sticky left-0 bg-white group-hover:bg-slate-50 transition-colors border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] text-center">
-                                                #{ticket.ticket_number}
-                                                <div className="mt-1 text-[10px] text-slate-400 font-sans font-normal opacity-70">
-                                                    {new Date(ticket.created_at).toLocaleDateString()}
+                                        <tr key={ticket.id} className="hover:bg-slate-50 transition-colors">
+                                            {/* ID / Cita */}
+                                            <td className="px-4 py-3">
+                                                <div className="font-mono font-bold text-slate-700">#{ticket.ticket_number}</div>
+                                                <div className="text-xs text-slate-500 mt-1">
+                                                    {ticket.scheduled_at ? (
+                                                        <div className="flex items-center gap-1">
+                                                            <Clock size={10} />
+                                                            {new Date(ticket.scheduled_at).toLocaleDateString()}
+                                                            <br />
+                                                            {new Date(ticket.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="italic opacity-70">{new Date(ticket.created_at).toLocaleDateString()}</span>
+                                                    )}
                                                 </div>
                                             </td>
 
-                                            {/* Client */}
-                                            <td className="px-4 py-3 max-w-[220px]">
-                                                <div className="font-bold text-slate-800 truncate mb-0.5">{ticket.profiles?.full_name || 'Sin nombre'}</div>
-                                                <div className="text-xs text-slate-500 truncate flex items-center gap-1 group-hover:text-indigo-500 transition-colors">
+                                            {/* Cliente */}
+                                            <td className="px-4 py-3">
+                                                <div className="font-bold text-slate-800">{ticket.profiles?.full_name || 'Sin nombre'}</div>
+                                                <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                                                     <span className="text-[10px]">📍</span> {ticket.profiles?.address || 'Sin dirección'}
                                                 </div>
                                                 {ticket.profiles?.phone && (
-                                                    <div className="text-[10px] bg-slate-100 inline-block px-1.5 py-0.5 rounded text-slate-500 font-mono mt-1">{ticket.profiles.phone}</div>
+                                                    <div className="text-xs text-blue-600 font-mono mt-0.5">{ticket.profiles.phone}</div>
                                                 )}
                                             </td>
 
-                                            {/* Appliance */}
-                                            <td className="px-4 py-3 max-w-[200px]">
-                                                <div className="font-medium text-slate-700 truncate">
-                                                    {ticket.appliance_info?.type} <span className="text-slate-400 mx-1">|</span> {ticket.appliance_info?.brand}
-                                                </div>
-                                                <div className="text-xs text-slate-500 italic mt-0.5 truncate max-w-full opacity-80" title={ticket.description_failure}>
-                                                    "{ticket.description_failure || 'Sin descripción'}"
-                                                </div>
-                                            </td>
-
-                                            {/* Status Badge */}
+                                            {/* Origen (Restored Column) */}
                                             <td className="px-4 py-3 text-center">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide border
-                                                    ${ticket.status === 'solicitado' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                                                        ticket.status === 'asignado' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                                            ticket.status === 'presupuesto_pendiente' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                                                ticket.status === 'presupuesto_aceptado' ? 'bg-green-50 text-green-700 border-green-200' :
-                                                                    ticket.status === 'en_reparacion' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                                                                        ticket.status === 'finalizado' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                                                            'bg-gray-50 text-gray-600 border-gray-200'
+                                                <div className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border inline-block ${ticket.origin_source === 'client_web' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
+                                                        ticket.origin_source === 'tech_app' ? 'bg-cyan-50 text-cyan-600 border-cyan-100' :
+                                                            'bg-white text-slate-500 border-slate-200'
                                                     }`}>
-                                                    {ticket.status.replace('_', ' ')}
-                                                </span>
+                                                    {ticket.origin_source === 'client_web' ? 'WEB' : ticket.origin_source === 'tech_app' ? 'APP' : 'OFICINA'}
+                                                </div>
                                             </td>
 
-                                            {/* Technician */}
+                                            {/* Equipo */}
+                                            <td className="px-4 py-3">
+                                                <div className="font-medium text-slate-700">
+                                                    {ticket.appliance_info?.type} <span className="text-slate-400">|</span> {ticket.appliance_info?.brand}
+                                                </div>
+                                                <div className="text-xs text-slate-500 italic mt-0.5 line-clamp-2 max-w-[200px]" title={ticket.description_failure}>
+                                                    "{ticket.description_failure}"
+                                                </div>
+                                            </td>
+
+                                            {/* Estado */}
                                             <td className="px-4 py-3 text-center">
+                                                <StatusBadge status={ticket.status} />
+                                            </td>
+
+                                            {/* Doc (Restored Column) */}
+                                            <td className="px-4 py-3 text-center">
+                                                <div className="flex justify-center gap-1">
+                                                    {ticket.quote_pdf_url ? (
+                                                        <a href={ticket.quote_pdf_url} target="_blank" className="p-1 text-amber-600 hover:bg-amber-50 rounded" title="Presupuesto">
+                                                            <FileText size={14} />
+                                                        </a>
+                                                    ) : <span className="text-slate-200">-</span>}
+                                                    {ticket.pdf_url ? (
+                                                        <a href={ticket.pdf_url} target="_blank" className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Factura/Informe">
+                                                            <FileText size={14} />
+                                                        </a>
+                                                    ) : <span className="text-slate-200">-</span>}
+                                                </div>
+                                            </td>
+
+                                            {/* Asignación */}
+                                            <td className="px-4 py-3">
                                                 {ticket.technician_id ? (
-                                                    techs.find(t => t.id === ticket.technician_id)?.full_name ? (
-                                                        <div className="text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-1 rounded-md inline-block">
-                                                            {techs.find(t => t.id === ticket.technician_id).full_name.split(' ')[0]}
+                                                    <div className="flex flex-col items-start gap-1">
+                                                        <div className="font-medium text-slate-700 text-xs bg-slate-100 px-2 py-1 rounded">
+                                                            {techs.find(t => t.id === ticket.technician_id)?.full_name || 'Desconocido'}
                                                         </div>
-                                                    ) : <span className="text-xs text-slate-400 font-mono">ID:{ticket.technician_id.slice(0, 4)}</span>
-                                                ) : (
-                                                    <span className="text-xs text-slate-400 italic">--</span>
-                                                )}
-                                                {ticket.scheduled_at && (
-                                                    <div className="text-[10px] text-indigo-500 font-bold mt-1 flex items-center justify-center gap-1">
-                                                        <Clock size={10} /> {new Date(ticket.scheduled_at).toLocaleDateString()}
+                                                        <button onClick={() => setSelectedTicketForAssign(ticket)} className="text-[10px] text-blue-500 hover:underline">
+                                                            Reasignar
+                                                        </button>
                                                     </div>
+                                                ) : (
+                                                    <button onClick={() => setSelectedTicketForAssign(ticket)} className="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded hover:bg-slate-200 font-medium">
+                                                        Asignar
+                                                    </button>
                                                 )}
                                             </td>
 
-                                            {/* Origin */}
-                                            <td className="px-4 py-3 text-center">
-                                                <div className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase inline-block border ${ticket.origin_source === 'client_web' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
-                                                    ticket.origin_source === 'tech_app' ? 'bg-cyan-50 text-cyan-600 border-cyan-100' :
-                                                        'bg-white text-slate-500 border-slate-200'
-                                                    }`}>
-                                                    {ticket.origin_source === 'client_web' ? 'WEB' :
-                                                        ticket.origin_source === 'tech_app' ? 'APP' :
-                                                            'OFFICE'}
-                                                </div>
-                                            </td>
-
-                                            {/* Actions */}
+                                            {/* Acciones */}
                                             <td className="px-4 py-3 text-right">
-                                                <div className="flex items-center justify-end gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
-                                                    <button onClick={() => setSelectedTicketForDetails(ticket)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-all" title="Ver Ficha">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <button onClick={() => setSelectedTicketForDetails(ticket)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Ver">
                                                         <Eye size={16} />
                                                     </button>
-
-                                                    {/* Budget Action */}
-                                                    <button onClick={() => setSelectedTicketForBudget(ticket)} className={`p-1.5 rounded transition-all ${ticket.status.includes('presupuesto') ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-400 hover:text-amber-600 hover:bg-amber-50'}`} title="Presupuesto">
+                                                    <button onClick={() => setSelectedTicketForBudget(ticket)} className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded" title="Gestionar Presupuesto">
                                                         <FileText size={16} />
                                                     </button>
-
-                                                    {/* Assign Action */}
-                                                    <button onClick={() => setSelectedTicketForAssign(ticket)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all" title="Reasignar">
-                                                        <AlertTriangle size={16} />
-                                                    </button>
-
-                                                    {/* Reviews Star */}
-                                                    {ticket.reviews && ticket.reviews.length > 0 && (
-                                                        <div className="p-1.5 text-yellow-500">
-                                                            <Star size={14} fill="currentColor" />
-                                                        </div>
-                                                    )}
-
-                                                    <button onClick={() => confirmDelete(ticket.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-all" title="Eliminar">
+                                                    <button onClick={() => confirmDelete(ticket.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded" title="Eliminar">
                                                         <Trash2 size={16} />
                                                     </button>
                                                 </div>
@@ -391,9 +355,7 @@ const ServiceMonitor = () => {
                                         </tr>
                                     ))}
                                     {tickets.length === 0 && (
-                                        <tr>
-                                            <td colSpan="7" className="p-12 text-center text-slate-400 italic">No se encontraron servicios.</td>
-                                        </tr>
+                                        <tr><td colSpan="8" className="p-12 text-center text-slate-400">No se encontraron resultados</td></tr>
                                     )}
                                 </tbody>
                             </table>
@@ -402,71 +364,80 @@ const ServiceMonitor = () => {
                 </div>
             </div>
 
-
             {/* MODALS */}
-            {
-                showCreateModal && (
-                    <CreateTicketModal
-                        onClose={() => setShowCreateModal(false)}
-                        onSuccess={(newTicket, shouldOpenSmart) => {
-                            fetchData();
-                            setShowCreateModal(false);
-                            if (shouldOpenSmart && newTicket) {
-                                setTimeout(() => { setSelectedTicketForAssign(newTicket); }, 100);
-                            } else if (newTicket) {
-                                addToast(`Ticket #${newTicket.ticket_number} creado correctamente.`, 'success', true);
-                            }
-                        }}
-                    />
-                )
-            }
+            {showCreateModal && (
+                <CreateTicketModal
+                    onClose={() => setShowCreateModal(false)}
+                    onSuccess={(newTicket, shouldOpenSmart) => {
+                        fetchData();
+                        setShowCreateModal(false);
+                        if (shouldOpenSmart && newTicket) {
+                            setTimeout(() => { setSelectedTicketForAssign(newTicket); }, 100);
+                        } else if (newTicket) {
+                            addToast(`Ticket #${newTicket.ticket_number} creado correctamente.`, 'success', true);
+                        }
+                    }}
+                />
+            )}
 
-            {
-                showDeleteModal && (
-                    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl">
-                            <h3 className="text-lg font-bold text-slate-900 mb-2">¿Eliminar Servicio?</h3>
-                            <p className="text-sm text-slate-600 mb-6">Esta acción no se puede deshacer. El ticket será eliminado permanentemente.</p>
-                            <div className="flex justify-end gap-3">
-                                <button onClick={() => setShowDeleteModal(false)} className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded">Cancelar</button>
-                                <button onClick={handleDelete} className="px-4 py-2 bg-red-600 text-white font-bold rounded hover:bg-red-700">Eliminar</button>
-                            </div>
+            {showDeleteModal && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl">
+                        <h3 className="text-lg font-bold text-slate-900 mb-2">¿Eliminar Servicio?</h3>
+                        <p className="text-sm text-slate-600 mb-6">Esta acción no se puede deshacer. El ticket será eliminado permanentemente.</p>
+                        <div className="flex justify-end gap-3">
+                            <button onClick={() => setShowDeleteModal(false)} className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded">Cancelar</button>
+                            <button onClick={handleDelete} className="px-4 py-2 bg-red-600 text-white font-bold rounded hover:bg-red-700">Eliminar</button>
                         </div>
                     </div>
-                )
-            }
+                </div>
+            )}
 
-            {
-                selectedTicketForAssign && (
-                    <SmartAssignmentModal
-                        isOpen={!!selectedTicketForAssign}
-                        onClose={() => { setSelectedTicketForAssign(null); fetchData(); }}
-                        ticket={selectedTicketForAssign}
-                        onAssignSuccess={() => { setSelectedTicketForAssign(null); fetchData(); }}
-                    />
-                )
-            }
+            {selectedTicketForAssign && (
+                <SmartAssignmentModal
+                    isOpen={!!selectedTicketForAssign}
+                    onClose={() => { setSelectedTicketForAssign(null); fetchData(); }}
+                    ticket={selectedTicketForAssign}
+                    onAssignSuccess={() => { setSelectedTicketForAssign(null); fetchData(); }}
+                />
+            )}
 
-            {
-                selectedTicketForDetails && (
-                    <ServiceDetailsModal
-                        ticket={selectedTicketForDetails}
-                        onClose={() => setSelectedTicketForDetails(null)}
-                    />
-                )
-            }
+            {selectedTicketForDetails && (
+                <ServiceDetailsModal
+                    ticket={selectedTicketForDetails}
+                    onClose={() => setSelectedTicketForDetails(null)}
+                />
+            )}
 
-            {
-                selectedTicketForBudget && (
-                    <BudgetManagerModal
-                        isOpen={!!selectedTicketForBudget}
-                        onClose={() => setSelectedTicketForBudget(null)}
-                        ticket={selectedTicketForBudget}
-                        onUpdate={() => fetchData()}
-                    />
-                )
-            }
-        </div >
+            {selectedTicketForBudget && (
+                <BudgetManagerModal
+                    isOpen={!!selectedTicketForBudget}
+                    onClose={() => setSelectedTicketForBudget(null)}
+                    ticket={selectedTicketForBudget}
+                    onUpdate={() => fetchData()}
+                />
+            )}
+        </div>
+    );
+};
+
+const StatusBadge = ({ status }) => {
+    const colors = {
+        solicitado: 'bg-yellow-100 text-yellow-800',
+        asignado: 'bg-blue-100 text-blue-800',
+        en_camino: 'bg-indigo-100 text-indigo-800',
+        en_diagnostico: 'bg-purple-100 text-purple-800',
+        presupuesto_pendiente: 'bg-amber-100 text-amber-800',
+        presupuesto_aceptado: 'bg-green-100 text-green-800',
+        en_reparacion: 'bg-pink-100 text-pink-800',
+        finalizado: 'bg-green-100 text-green-800',
+        pagado: 'bg-green-100 text-green-800',
+        cancelado: 'bg-red-100 text-red-800'
+    };
+    return (
+        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status] || 'bg-gray-100 text-gray-800'}`}>
+            {status === 'cancelado' ? 'CANCELADO POR CLIENTE' : (status ? status.toUpperCase().replace('_', ' ') : 'UNKNOWN')}
+        </span>
     );
 };
 
