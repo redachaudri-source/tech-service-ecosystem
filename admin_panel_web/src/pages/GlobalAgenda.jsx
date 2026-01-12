@@ -32,11 +32,11 @@ const PIXELS_PER_HOUR = 90; // Compact for weekly view
 const GRID_HEIGHT = HOURS_COUNT * PIXELS_PER_HOUR;
 
 const APPLIANCE_COLORS = {
-    wash: 'bg-cyan-100 border-cyan-300 text-cyan-900', // Lavadora, Secadora
-    cold: 'bg-emerald-100 border-emerald-300 text-emerald-900', // Frigorífico
-    climate: 'bg-slate-200 border-slate-300 text-slate-800', // Aire
-    heat: 'bg-orange-100 border-orange-300 text-orange-900', // Horno
-    default: 'bg-gray-50 border-gray-200 text-gray-600'
+    wash: 'bg-cyan-300 border-l-4 border-cyan-600 text-slate-900', // Lavado (Fresh)
+    cold: 'bg-violet-300 border-l-4 border-violet-600 text-slate-900', // Frío (Premium)
+    climate: 'bg-lime-300 border-l-4 border-lime-600 text-slate-900', // Clima (Acid)
+    heat: 'bg-rose-300 border-l-4 border-rose-600 text-slate-900', // Cocción (Alert)
+    default: 'bg-yellow-300 border-l-4 border-yellow-600 text-slate-900' // Otros (Banana)
 };
 
 const getApplianceCategory = (type) => {
@@ -377,12 +377,13 @@ const GlobalAgenda = () => {
                     </div>
 
                     <div className="flex gap-2">
-                        {/* Legend Bar */}
-                        <div className="flex gap-2 mr-4 bg-slate-100 px-3 py-1 rounded-full items-center shadow-inner">
-                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-cyan-400 ring-2 ring-cyan-100"></div><span className="text-[9px] font-bold text-slate-500">Lavado</span></div>
-                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-emerald-100"></div><span className="text-[9px] font-bold text-slate-500">Frío</span></div>
-                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-orange-400 ring-2 ring-orange-100"></div><span className="text-[9px] font-bold text-slate-500">Cocción</span></div>
-                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-slate-400 ring-2 ring-slate-100"></div><span className="text-[9px] font-bold text-slate-500">Clima</span></div>
+                        {/* Legend Bar (Candy Shop Style) */}
+                        <div className="flex gap-2 mr-4 bg-white/50 backdrop-blur-sm px-3 py-1 rounded-full items-center shadow-sm border border-slate-100">
+                            <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-cyan-300 ring-2 ring-cyan-100"></div><span className="text-[10px] font-bold text-cyan-700">Lavado</span></div>
+                            <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-violet-300 ring-2 ring-violet-100"></div><span className="text-[10px] font-bold text-violet-700">Frío</span></div>
+                            <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-rose-300 ring-2 ring-rose-100"></div><span className="text-[10px] font-bold text-rose-700">Cocción</span></div>
+                            <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-lime-300 ring-2 ring-lime-100"></div><span className="text-[10px] font-bold text-lime-700 font-black">Clima</span></div>
+                            <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-yellow-300 ring-2 ring-yellow-100"></div><span className="text-[10px] font-bold text-yellow-700">Otros</span></div>
                         </div>
                     </div>
                 </div>
@@ -494,43 +495,43 @@ const GlobalAgenda = () => {
                                                 draggable
                                                 onDragStart={(e) => handleDragStart(e, appt)}
                                                 onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
-                                                className={`absolute rounded-md cursor-grab active:cursor-grabbing hover:z-50 hover:scale-[1.02] hover:shadow-lg transition-all shadow-sm overflow-hidden border flex flex-col
+                                                className={`absolute rounded-lg cursor-grab active:cursor-grabbing hover:z-50 hover:scale-[1.05] hover:shadow-xl transition-all shadow-md overflow-hidden flex flex-col font-sans
                                                          ${colorClass} ${selectedAppt?.id === appt.id ? 'ring-2 ring-indigo-600 z-40' : 'z-10'}`}
                                                 style={{ top: `${top}px`, height: `${height - 2}px`, left: `${left}%`, width: `${width}%` }}
                                             >
                                                 {/* --- BODY: LOGO, TYPE, CONCEPT --- */}
-                                                <div className="relative flex-1 flex flex-col items-center justify-center p-0.5 overflow-hidden text-center">
+                                                <div className="relative flex-1 flex flex-col items-center justify-center p-1 overflow-hidden text-center">
 
                                                     {/* A) Watermark Logo (Brand) */}
                                                     {appt.brand_logo && (
-                                                        <img src={appt.brand_logo} className="absolute inset-0 w-full h-full object-contain opacity-20 p-2 pointer-events-none mix-blend-multiply" />
+                                                        <img src={appt.brand_logo} className="absolute inset-0 w-full h-full object-contain opacity-15 p-2 pointer-events-none mix-blend-multiply" />
                                                     )}
 
-                                                    <div className="relative z-10 w-full px-1">
-                                                        {/* B) APPLIANCE TYPE (Equipo) */}
-                                                        <div className="font-extrabold text-[11px] uppercase tracking-tight leading-none text-slate-800 drop-shadow-sm mb-0.5 truncate">
+                                                    <div className="relative z-10 w-full">
+                                                        {/* B) APPLIANCE TYPE (Equipo) - Pop Text */}
+                                                        <div className="font-black text-[11px] uppercase tracking-tight leading-none text-slate-900 drop-shadow-sm mb-0.5 truncate">
                                                             {displayType}
                                                         </div>
 
-                                                        {/* C) CONCEPT (Avería) */}
-                                                        <div className="text-[9px] font-medium leading-tight text-slate-600 line-clamp-2 bg-white/40 rounded px-1 backdrop-blur-[1px]">
+                                                        {/* C) CONCEPT (Avería) - Sticker Label */}
+                                                        <div className="text-[9px] font-bold leading-tight text-slate-800/90 line-clamp-2 bg-white/30 rounded px-1.5 py-0.5 backdrop-blur-[2px] mt-0.5 inline-block">
                                                             {displayConcept}
                                                         </div>
 
                                                         {/* Brand Text if No Logo */}
                                                         {!appt.brand_logo && displayBrand && (
-                                                            <div className="text-[8px] font-bold text-slate-400 uppercase mt-0.5 tracking-wider">{displayBrand}</div>
+                                                            <div className="text-[8px] font-bold text-slate-600 uppercase mt-0.5 tracking-wider opacity-80">{displayBrand}</div>
                                                         )}
                                                     </div>
                                                 </div>
 
                                                 {/* --- FOOTER: MATRÍCULA (Tech & CP) --- */}
-                                                <div className="shrink-0 h-5 bg-black/5 border-t border-black/5 flex items-center justify-between px-1.5 backdrop-blur-sm">
+                                                <div className="shrink-0 h-5 bg-black/10 flex items-center justify-between px-2 backdrop-blur-sm">
                                                     <div className="flex items-center gap-1 max-w-[60%]">
-                                                        <span className="text-[9px] font-bold text-slate-700 truncate">👤 {techName}</span>
+                                                        <span className="text-[9px] font-black text-slate-900 truncate">👤 {techName}</span>
                                                     </div>
                                                     <div className="flex items-center">
-                                                        <span className="text-[8px] font-mono font-black text-slate-500 opacity-80 tracking-wide">
+                                                        <span className="text-[9px] font-mono font-black text-slate-800 opacity-90 tracking-wide">
                                                             {appt.profiles?.postal_code || '---'}
                                                         </span>
                                                     </div>
