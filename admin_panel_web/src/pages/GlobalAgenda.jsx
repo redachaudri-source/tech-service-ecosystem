@@ -117,8 +117,8 @@ const GlobalAgenda = () => {
             // 1.5 Fetch Brands
             const { data: brandsData } = await supabase.from('brands').select('name, logo_url');
 
-            // 2. Fetch Appointments (SAFE MODE)
-            // Using standard left joins to prevent data loss if relations are missing
+            // 2. Fetch Appointments (SAFE MODE - NO ENUM FILTERS)
+            // We remove server-side status filters to avoid 400 Bad Request if Enums don't match
             const { data: apptData, error } = await supabase
                 .from('tickets')
                 .select(`
@@ -128,41 +128,42 @@ const GlobalAgenda = () => {
                 `)
                 .gte('scheduled_at', `${startStr}T00:00:00`)
                 .lt('scheduled_at', `${endStr}T23:59:59`)
-                .neq('status', 'finalizado')
                 .order('scheduled_at', { ascending: true });
 
             if (error) {
                 console.error("Error fetching tickets:", error);
-                // Don't throw, let it return empty so UI doesn't crash
-            }
-
-            // DEBUG: Check what we actually got
-            if (apptData?.length > 0) {
-                console.log('Sample Ticket Data:', apptData[0]);
-            } else {
-                console.log('No tickets found for range:', startStr, endStr);
             }
 
             const processed = (apptData || [])
-                .filter(a => !['cancelado', 'rechazado', 'anulado'].includes(a.status))
+                .filter(a => {
+                    // Client-side filtering to bypass Enum strictness
+                    const s = a.status?.toLowerCase() || '';
+                    return !['cancelado', 'rechazado', 'anulado', 'finalizado'].includes(s) && a.technician_id;
+                })
                 .map(a => {
-                    // Defensive Appliance Extraction
+                    // Defensive Data Extraction
                     let raw = a.client_appliances;
-                    if (Array.isArray(raw)) raw = raw[0]; // Handle if returned as array
+                    if (Array.isArray(raw)) raw = raw[0];
 
-                    // Fallbacks for critical data
+                    // Brand & Logo
                     const brandName = raw?.brand || 'Generico';
                     const brandInfo = brandsData?.find(b => b.name?.toLowerCase() === brandName?.toLowerCase());
 
+                    // TITLE CASCADE: Appliance -> Title -> Descr -> Fallback
+                    // We explicitly check for "AVISO" to override it if possible
+                    let mainTitle = raw?.type || raw?.name;
+                    if (!mainTitle || mainTitle === 'AVISO') mainTitle = a.title;
+                    if (!mainTitle) mainTitle = a.description;
+                    if (!mainTitle) mainTitle = 'Servicio General';
+
                     return {
                         ...a,
-                        start: new Date(a.scheduled_at), // ISO string to Date
+                        start: new Date(a.scheduled_at),
                         duration: a.estimated_duration || 60,
-
-                        // Map flatten data for easier access in UI
                         profiles: a.client || {},
-                        appliance_info: raw || { type: 'Aviso', brand: '?' }, // Never Null
-                        brand_logo: brandInfo?.logo_url || null
+                        appliance_info: raw || {},
+                        brand_logo: brandInfo?.logo_url || null,
+                        display_title: mainTitle // Ready for Card
                     };
                 });
 
@@ -468,7 +469,7 @@ const GlobalAgenda = () => {
                                         const left = width * appt.col;
 
                                         // COLOR BY APPLIANCE TYPE
-                                        const category = getApplianceCategory(appt.appliance_info?.type);
+                                        const category = getApplianceCategory(appt.display_title); // Use proper title for color
                                         const colorClass = APPLIANCE_COLORS[category] || APPLIANCE_COLORS.default;
                                         const techName = techs.find(t => t.id === appt.technician_id)?.full_name.split(' ')[0] || '???';
 
@@ -490,7 +491,7 @@ const GlobalAgenda = () => {
                                                     )}
 
                                                     <div className="font-black text-[10px] uppercase tracking-tighter text-center leading-none z-10 px-1 line-clamp-2">
-                                                        {appt.appliance_info?.type || 'AVISO'}
+                                                        {appt.display_title}
                                                     </div>
                                                 </div>
 
@@ -501,7 +502,7 @@ const GlobalAgenda = () => {
                                                     </div>
                                                     <div className="flex items-center">
                                                         <span className="text-[8px] font-mono font-black text-slate-500 opacity-90 tracking-wide">
-                                                            {appt.client?.postal_code || '---'}
+                                                            {appt.profiles?.postal_code || '---'}
                                                         </span>
                                                     </div>
                                                 </div>
