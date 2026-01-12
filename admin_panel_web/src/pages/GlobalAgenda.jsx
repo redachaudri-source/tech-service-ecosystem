@@ -76,7 +76,6 @@ const GlobalAgenda = () => {
     const gridHeight = hoursCount * PIXELS_PER_HOUR;
     // Explicitly define hours array based on DYNAMIC limits to ensure sync
     const dynamicHours = Array.from({ length: hoursCount }, (_, i) => startHour + i);
-    console.log("🔄 GRID RENDER DEBUG:", { startHour, endHour, gridHeight, openH, businessConfig, hoursLen: dynamicHours.length });
 
     // UI States
     const [showMapModal, setShowMapModal] = useState(false);
@@ -337,14 +336,8 @@ const GlobalAgenda = () => {
 
         const hoursToAdd = snappedTop / PIXELS_PER_HOUR;
 
-        // 🕵️ CÓDIGO ESPÍA (FORENSIC DEBUG)
-        const ghostHour = startHour + Math.floor(hoursToAdd);
-        if (ghostHour >= 12) {
-            console.log(`⚡ MOVIMIENTO DETECTADO > 12:00`);
-            console.log(`   📍 Target: ${ghostHour}:00h`);
-            console.log(`   🚧 Límites Reales: Start=${startHour} -> End=${endHour}`);
-            console.log(`   🔓 Bloqueos: isDayClosed=${isDayClosed} (Ignorado)`);
-        }
+        // Check Limits (Optional)
+        // const ghostHour = startHour + Math.floor(hoursToAdd);
 
         // Limits Check - DISABLED (Brute Force Mode)
         // const totalMinutes = hoursToAdd * 60;
@@ -466,14 +459,6 @@ const GlobalAgenda = () => {
 
             {/* --- BODY (WEEK GRID) --- */}
             <div ref={scrollContainerRef} className="flex-1 overflow-auto bg-slate-50 relative flex custom-scrollbar">
-                {/* DEBUG HUD */}
-                <div className="fixed bottom-4 right-4 bg-black/80 text-white p-3 rounded z-[999] text-xs font-mono border-2 border-red-500 shadow-xl" style={{ pointerEvents: 'none' }}>
-                    <p className="font-bold text-yellow-400">🛑 DEBUGGER ACTIVO</p>
-                    <p>Start: {startHour} | End: {endHour}</p>
-                    <p>Count: {hoursCount}</p>
-                    <p>GridH: {gridHeight}px</p>
-                    <p>Cols: {dynamicHours.length}</p>
-                </div>
                 {isDayClosed && (
                     <div className="absolute inset-0 z-50 bg-slate-100/80 backdrop-blur-sm flex items-center justify-center">
                         <div className="bg-white p-6 rounded-2xl shadow-2xl border border-red-100 text-center max-w-md transform rotate-2">
@@ -517,7 +502,7 @@ const GlobalAgenda = () => {
                                 {/* DROP ZONE CONTAINER (Calculations relative to THIS) */}
                                 <div
                                     className="relative w-full z-10 shrink-0"
-                                    style={{ height: gridHeight, minHeight: gridHeight, border: '2px dashed red' }}
+                                    style={{ height: gridHeight, minHeight: gridHeight }}
                                     onDragOver={(e) => handleDragOver(e, dayDate)}
                                     onDrop={(e) => handleDrop(e, dayDate)}
                                 >
