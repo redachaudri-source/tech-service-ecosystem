@@ -295,10 +295,27 @@ const GlobalAgenda = () => {
         e.dataTransfer.setDragImage(emptyImg, 0, 0);
     };
 
+    // --- AUTO SCROLL REF ---
+    const scrollContainerRef = useRef(null);
+
     const handleDragOver = (e, targetDate) => {
         e.preventDefault();
         e.stopPropagation(); // Prevent bubbling to parent columns
         if (isDayClosed) return;
+
+        // Auto Scroll
+        const container = scrollContainerRef.current;
+        if (container) {
+            const { top, bottom, height } = container.getBoundingClientRect();
+            const threshold = 100;
+            const scrollSpeed = 20;
+
+            if (e.clientY > bottom - threshold) {
+                container.scrollTop += scrollSpeed;
+            } else if (e.clientY < top + threshold) {
+                container.scrollTop -= scrollSpeed;
+            }
+        }
 
         // Use currentTarget to ensure we measure the DROP ZONE (Grid), not the internal elements
         const rect = e.currentTarget.getBoundingClientRect();
@@ -386,11 +403,6 @@ const GlobalAgenda = () => {
                         <button onClick={() => setSelectedDate(new Date())} className="text-xs font-bold px-2 py-1 bg-indigo-50 text-indigo-700 rounded hover:bg-indigo-100 transition">
                             Hoy
                         </button>
-
-                        {/* DEBUG DATA (Temporary) */}
-                        <div className="absolute -bottom-4 left-0 text-[9px] font-mono text-red-500 bg-yellow-100 px-1 whitespace-nowrap z-50 pointer-events-none">
-                            DEBUG: Start={startHour} End={endHour} Count={hoursCount} H={gridHeight}px JSON={businessConfig?.opening_time || 'No'}
-                        </div>
                     </div>
 
                     {/* CENTER: Date Navigation */}
@@ -438,7 +450,7 @@ const GlobalAgenda = () => {
             </div>
 
             {/* --- BODY (WEEK GRID) --- */}
-            <div className="flex-1 overflow-auto bg-slate-50 relative flex custom-scrollbar">
+            <div ref={scrollContainerRef} className="flex-1 overflow-auto bg-slate-50 relative flex custom-scrollbar">
                 {isDayClosed && (
                     <div className="absolute inset-0 z-50 bg-slate-100/80 backdrop-blur-sm flex items-center justify-center">
                         <div className="bg-white p-6 rounded-2xl shadow-2xl border border-red-100 text-center max-w-md transform rotate-2">
