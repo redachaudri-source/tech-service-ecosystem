@@ -311,7 +311,9 @@ const GlobalAgenda = () => {
         if (!businessConfig?.working_hours) return { isOpen: true, closeHour: defaultClose };
 
         const dayName = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-        const config = businessConfig.working_hours[dayName];
+        // FIX: The row from DB has the JSON in the 'value' column. 
+        // We also check 'working_hours' property just in case of migration, but 'value' is primary.
+        const config = businessConfig?.value?.[dayName] || businessConfig?.working_hours?.[dayName];
 
         // LOGIC FIX: In BusinessSettings, null/undefined means CLOSED (unchecked).
         // Previous logic assumed missing = open (default), which caused Saturday (null) to be open.
