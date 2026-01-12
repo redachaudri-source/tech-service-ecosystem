@@ -286,14 +286,14 @@ const GlobalAgenda = () => {
 
         // Limits Check
         const totalMinutes = hoursToAdd * 60;
-        const maxMinutes = (END_HOUR - START_HOUR) * 60 - dragState.duration; // Ensure failsafe within day
+        const maxMinutes = (endHour - startHour) * 60 - dragState.duration; // Ensure failsafe within day
 
         // Visual Bounds (Optional, clamping)
         // if (totalMinutes < 0 || totalMinutes > maxMinutes) return; 
 
         // Calculate Ghost Time
         const ghostTime = new Date(targetDate);
-        ghostTime.setHours(START_HOUR + Math.floor(hoursToAdd), (hoursToAdd % 1) * 60);
+        ghostTime.setHours(startHour + Math.floor(hoursToAdd), (hoursToAdd % 1) * 60);
 
         setGhostState({
             top: snappedTop,
@@ -322,14 +322,14 @@ const GlobalAgenda = () => {
         const hoursToAdd = snappedTop / PIXELS_PER_HOUR;
 
         const newDate = new Date(targetDate);
-        newDate.setHours(START_HOUR + Math.floor(hoursToAdd), (hoursToAdd % 1) * 60);
+        newDate.setHours(startHour + Math.floor(hoursToAdd), (hoursToAdd % 1) * 60);
 
         handleUpdateAppointment(apptId, appt.technician_id, newDate);
     };
 
     // --- UTILS ---
     const visibleTechs = useMemo(() => techs.filter(t => selectedTechs.includes(t.id)), [techs, selectedTechs]);
-    const hours = Array.from({ length: HOURS_COUNT }, (_, i) => i + START_HOUR);
+    const hours = Array.from({ length: hoursCount }, (_, i) => i + startHour);
 
     // Optimized Suggestions
     const optimizedSuggestions = useMemo(() => {
@@ -446,7 +446,7 @@ const GlobalAgenda = () => {
                                 {/* DROP ZONE CONTAINER (Calculations relative to THIS) */}
                                 <div
                                     className="relative w-full z-10 flex-1"
-                                    style={{ height: GRID_HEIGHT }}
+                                    style={{ height: gridHeight }}
                                     onDragOver={(e) => handleDragOver(e, dayDate)}
                                     onDrop={(e) => handleDrop(e, dayDate)}
                                 >
