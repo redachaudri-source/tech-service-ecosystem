@@ -11,7 +11,7 @@ export const useTicketNotifications = () => {
             const { data, error } = await supabase
                 .from('tickets')
                 .select('status')
-                .not('status', 'in', '("finalizado","pagado","cancelado","entregado")');
+                .not('status', 'in', '("finalizado","pagado","cancelado")'); // Removed "entregado" to fix 400 Error
 
             if (error) throw error;
 

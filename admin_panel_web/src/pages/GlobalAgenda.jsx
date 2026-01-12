@@ -117,13 +117,13 @@ const GlobalAgenda = () => {
             // 1.5 Fetch Brands
             const { data: brandsData } = await supabase.from('brands').select('name, logo_url');
 
-            // 2. Fetch Appointments (SAFE MODE - NO ENUM FILTERS)
-            // We remove server-side status filters to avoid 400 Bad Request if Enums don't match
+            // 2. Fetch Appointments (FULL SYNC WITH SERVICE MONITOR)
             const { data: apptData, error } = await supabase
                 .from('tickets')
                 .select(`
                     *, 
                     client:profiles!client_id(*),
+                    creator:created_by(full_name),
                     client_appliances(*)
                 `)
                 .gte('scheduled_at', `${startStr}T00:00:00`)
@@ -136,36 +136,38 @@ const GlobalAgenda = () => {
 
             const processed = (apptData || [])
                 .filter(a => {
-                    // Client-side filtering to bypass Enum strictness
                     const s = a.status?.toLowerCase() || '';
                     return !['cancelado', 'rechazado', 'anulado', 'finalizado'].includes(s) && a.technician_id;
                 })
                 .map(a => {
-                    // Defensive Data Extraction
-                    let raw = a.client_appliances;
-                    if (Array.isArray(raw)) raw = raw[0];
+                    // RESOLVE "THE TRINITY": JSON vs DB
+                    let dbAppliance = a.client_appliances;
+                    if (Array.isArray(dbAppliance)) dbAppliance = dbAppliance[0];
+                    const jsonAppliance = a.appliance_info;
+
+                    // Priority: JSON (Service Snapshot) > DB Relation (Live Data) > Empty
+                    const bestAppliance = (jsonAppliance?.type || jsonAppliance?.brand) ? jsonAppliance : (dbAppliance || {});
 
                     // Brand & Logo
-                    const brandName = raw?.brand || 'Generico';
+                    const brandName = bestAppliance?.brand || 'Generico';
                     const brandInfo = brandsData?.find(b => b.name?.toLowerCase() === brandName?.toLowerCase());
 
-                    // TITLE CASCADE: Appliance -> Title -> Descr -> Fallback
-                    // We explicitly check for "AVISO" to override it if possible
-                    let mainTitle = raw?.type || raw?.name;
-                    if (!mainTitle || mainTitle === 'AVISO') mainTitle = a.title;
-                    if (!mainTitle) mainTitle = a.description;
-                    if (!mainTitle) mainTitle = 'Servicio General';
+                    // Debug
+                    // console.log('Resolved Ticket:', { id: a.id, type: bestAppliance.type, brand: bestAppliance.brand });
+                    console.log('Processed Agenda Item:', { id: a.id, appliance: bestAppliance, title: a.title });
 
                     return {
                         ...a,
                         start: new Date(a.scheduled_at),
                         duration: a.estimated_duration || 60,
                         profiles: a.client || {},
-                        appliance_info: raw || {},
+                        appliance_info: bestAppliance, // The Truth
                         brand_logo: brandInfo?.logo_url || null,
-                        display_title: mainTitle // Ready for Card
+                        creator: a.creator
                     };
                 });
+
+            if (processed.length > 0) console.log('Agenda Data Loaded:', processed.length, 'items. Sample:', processed[0]);
 
             setAppointments(processed || []);
         } catch (error) {
@@ -468,10 +470,24 @@ const GlobalAgenda = () => {
                                         const width = 100 / appt.totalCols;
                                         const left = width * appt.col;
 
+                                        // Robust Appliance Resolver
+                                        const dbAppliance = Array.isArray(appt.client_appliances) ? appt.client_appliances[0] : appt.client_appliances;
+                                        const jsonAppliance = appt.appliance_info; // This is what Service Monitor uses!
+                                        const bestAppliance = jsonAppliance?.type ? jsonAppliance : (dbAppliance || {});
+
                                         // COLOR BY APPLIANCE TYPE
-                                        const category = getApplianceCategory(appt.display_title); // Use proper title for color
+                                        // Use the Resolved Appliance Type for color, fallback to default
+                                        const category = getApplianceCategory(bestAppliance.type || bestAppliance.name);
                                         const colorClass = APPLIANCE_COLORS[category] || APPLIANCE_COLORS.default;
                                         const techName = techs.find(t => t.id === appt.technician_id)?.full_name.split(' ')[0] || '???';
+
+                                        // "The Trinity" Display Data
+                                        const displayType = bestAppliance.type || bestAppliance.name || 'SIN EQUIPO ASIGNADO';
+                                        const displayBrand = bestAppliance.brand;
+                                        const displayConcept = appt.title || appt.description || 'Sin concepto';
+
+                                        // Debug for User
+                                        console.log('Agenda Item Full:', appt);
 
                                         return (
                                             <div
@@ -483,25 +499,39 @@ const GlobalAgenda = () => {
                                                          ${colorClass} ${selectedAppt?.id === appt.id ? 'ring-2 ring-indigo-600 z-40' : 'z-10'}`}
                                                 style={{ top: `${top}px`, height: `${height - 2}px`, left: `${left}%`, width: `${width}%` }}
                                             >
-                                                {/* --- BODY: LOGO & TYPE --- */}
-                                                <div className="relative flex-1 flex flex-col items-center justify-center p-0.5 overflow-hidden">
-                                                    {/* Watermark Logo */}
+                                                {/* --- BODY: LOGO, TYPE, CONCEPT --- */}
+                                                <div className="relative flex-1 flex flex-col items-center justify-center p-0.5 overflow-hidden text-center">
+
+                                                    {/* A) Watermark Logo (Brand) */}
                                                     {appt.brand_logo && (
-                                                        <img src={appt.brand_logo} className="absolute top-1 left-1 w-5 h-5 object-contain opacity-40 mix-blend-multiply pointer-events-none" />
+                                                        <img src={appt.brand_logo} className="absolute inset-0 w-full h-full object-contain opacity-20 p-2 pointer-events-none mix-blend-multiply" />
                                                     )}
 
-                                                    <div className="font-black text-[10px] uppercase tracking-tighter text-center leading-none z-10 px-1 line-clamp-2">
-                                                        {appt.display_title}
+                                                    <div className="relative z-10 w-full px-1">
+                                                        {/* B) APPLIANCE TYPE (Equipo) */}
+                                                        <div className="font-extrabold text-[11px] uppercase tracking-tight leading-none text-slate-800 drop-shadow-sm mb-0.5 truncate">
+                                                            {displayType}
+                                                        </div>
+
+                                                        {/* C) CONCEPT (Avería) */}
+                                                        <div className="text-[9px] font-medium leading-tight text-slate-600 line-clamp-2 bg-white/40 rounded px-1 backdrop-blur-[1px]">
+                                                            {displayConcept}
+                                                        </div>
+
+                                                        {/* Brand Text if No Logo */}
+                                                        {!appt.brand_logo && displayBrand && (
+                                                            <div className="text-[8px] font-bold text-slate-400 uppercase mt-0.5 tracking-wider">{displayBrand}</div>
+                                                        )}
                                                     </div>
                                                 </div>
 
                                                 {/* --- FOOTER: MATRÍCULA (Tech & CP) --- */}
-                                                <div className="shrink-0 h-5 bg-black/5 border-t border-black/5 flex items-center justify-between px-1.5">
+                                                <div className="shrink-0 h-5 bg-black/5 border-t border-black/5 flex items-center justify-between px-1.5 backdrop-blur-sm">
                                                     <div className="flex items-center gap-1 max-w-[60%]">
                                                         <span className="text-[9px] font-bold text-slate-700 truncate">👤 {techName}</span>
                                                     </div>
                                                     <div className="flex items-center">
-                                                        <span className="text-[8px] font-mono font-black text-slate-500 opacity-90 tracking-wide">
+                                                        <span className="text-[8px] font-mono font-black text-slate-500 opacity-80 tracking-wide">
                                                             {appt.profiles?.postal_code || '---'}
                                                         </span>
                                                     </div>
