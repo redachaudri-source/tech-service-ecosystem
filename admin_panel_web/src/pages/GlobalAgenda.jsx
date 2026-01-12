@@ -305,26 +305,26 @@ const GlobalAgenda = () => {
 
     // --- HELPER: PER-DAY CONFIG ---
     const getDayConfig = (date) => {
-        // Default: Open, Local Default Close (20)
-        // Note: Global 'endHour' is redundant here if we parse rigorously, but useful as fallback
         const defaultClose = 20;
+
+        // Safety: If no config explicitly loaded, assume Open (Fallback)
         if (!businessConfig?.working_hours) return { isOpen: true, closeHour: defaultClose };
 
         const dayName = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
         const config = businessConfig.working_hours[dayName];
 
-        if (!config) return { isOpen: true, closeHour: defaultClose }; // Default open if config missing
+        // LOGIC FIX: In BusinessSettings, null/undefined means CLOSED (unchecked).
+        // Previous logic assumed missing = open (default), which caused Saturday (null) to be open.
+        if (!config) return { isOpen: false, closeHour: defaultClose };
 
+        // Extract Close Hour from "19:00" string in 'end' property
         let closeHour = defaultClose;
-        if (config.timeRange) {
-            const parts = config.timeRange.split('-');
-            if (parts.length === 2) {
-                const h = parseInt(parts[1].trim().split(':')[0]);
-                if (!isNaN(h)) closeHour = h;
-            }
+        if (config.end) {
+            const h = parseInt(config.end.split(':')[0]);
+            if (!isNaN(h)) closeHour = h;
         }
 
-        return { isOpen: config.isOpen, closeHour };
+        return { isOpen: true, closeHour };
     };
 
     const handleDragOver = (e, targetDate) => {
