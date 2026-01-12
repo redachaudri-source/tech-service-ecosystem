@@ -75,8 +75,8 @@ const GlobalAgenda = () => {
     const hoursCount = Math.max(1, endHour - startHour + 1);
     const gridHeight = hoursCount * PIXELS_PER_HOUR;
     // Explicitly define hours array based on DYNAMIC limits to ensure sync
-    const hours = Array.from({ length: hoursCount }, (_, i) => startHour + i);
-    console.log("🔄 GRID RENDER DEBUG:", { startHour, endHour, gridHeight, openH, businessConfig, hoursLen: hours.length });
+    const dynamicHours = Array.from({ length: hoursCount }, (_, i) => startHour + i);
+    console.log("🔄 GRID RENDER DEBUG:", { startHour, endHour, gridHeight, openH, businessConfig, hoursLen: dynamicHours.length });
 
     // UI States
     const [showMapModal, setShowMapModal] = useState(false);
@@ -466,6 +466,14 @@ const GlobalAgenda = () => {
 
             {/* --- BODY (WEEK GRID) --- */}
             <div ref={scrollContainerRef} className="flex-1 overflow-auto bg-slate-50 relative flex custom-scrollbar">
+                {/* DEBUG HUD */}
+                <div className="fixed bottom-4 right-4 bg-black/80 text-white p-3 rounded z-[999] text-xs font-mono border-2 border-red-500 shadow-xl" style={{ pointerEvents: 'none' }}>
+                    <p className="font-bold text-yellow-400">🛑 DEBUGGER ACTIVO</p>
+                    <p>Start: {startHour} | End: {endHour}</p>
+                    <p>Count: {hoursCount}</p>
+                    <p>GridH: {gridHeight}px</p>
+                    <p>Cols: {dynamicHours.length}</p>
+                </div>
                 {isDayClosed && (
                     <div className="absolute inset-0 z-50 bg-slate-100/80 backdrop-blur-sm flex items-center justify-center">
                         <div className="bg-white p-6 rounded-2xl shadow-2xl border border-red-100 text-center max-w-md transform rotate-2">
@@ -480,7 +488,7 @@ const GlobalAgenda = () => {
                 {/* Time Axis */}
                 <div className="w-12 shrink-0 bg-white border-r border-slate-200 sticky left-0 z-20 select-none shadow-[4px_0_10px_rgba(0,0,0,0.02)]">
                     <div className="h-8 border-b border-slate-200 bg-slate-50"></div>
-                    {hours.map(h => (
+                    {dynamicHours.map(h => (
                         <div key={h} className="text-right pr-2 text-[10px] text-slate-400 font-bold relative -top-2 font-mono" style={{ height: PIXELS_PER_HOUR }}>{h}:00</div>
                     ))}
                 </div>
@@ -488,7 +496,7 @@ const GlobalAgenda = () => {
                 {/* Day Columns */}
                 <div className="flex-1 flex min-w-[800px] relative">
                     <div className="absolute inset-0 mt-8 pointer-events-none z-0">
-                        {hours.map(h => (<div key={h} className="border-b border-slate-200/50 w-full" style={{ height: PIXELS_PER_HOUR }}></div>))}
+                        {dynamicHours.map(h => (<div key={h} className="border-b border-slate-200/50 w-full" style={{ height: PIXELS_PER_HOUR }}></div>))}
                     </div>
 
                     {weekDays.map(dayDate => {
