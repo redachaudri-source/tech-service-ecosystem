@@ -74,6 +74,7 @@ const GlobalAgenda = () => {
 
     const hoursCount = Math.max(1, endHour - startHour + 1);
     const gridHeight = hoursCount * PIXELS_PER_HOUR;
+    console.log("🔄 GRID RENDER DEBUG:", { startHour, endHour, gridHeight, openH, businessConfig });
 
     // UI States
     const [showMapModal, setShowMapModal] = useState(false);
@@ -505,7 +506,7 @@ const GlobalAgenda = () => {
                                 {/* DROP ZONE CONTAINER (Calculations relative to THIS) */}
                                 <div
                                     className="relative w-full z-10 flex-1"
-                                    style={{ height: gridHeight }}
+                                    style={{ height: gridHeight, border: '2px dashed red' }}
                                     onDragOver={(e) => handleDragOver(e, dayDate)}
                                     onDrop={(e) => handleDrop(e, dayDate)}
                                 >
