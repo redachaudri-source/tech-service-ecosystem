@@ -465,7 +465,8 @@ const GlobalAgenda = () => {
                                     {getPositionedEvents(dayDate).map(appt => {
                                         const startH = appt.start.getHours();
                                         const startM = appt.start.getMinutes();
-                                        const top = ((startH - START_HOUR) + startM / 60) * PIXELS_PER_HOUR;
+                                        // Use dynamic startHour
+                                        const top = ((startH - startHour) + startM / 60) * PIXELS_PER_HOUR;
                                         const height = (appt.duration / 60) * PIXELS_PER_HOUR;
                                         const width = 100 / appt.totalCols;
                                         const left = width * appt.col;
