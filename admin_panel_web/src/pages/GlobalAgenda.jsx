@@ -312,12 +312,12 @@ const GlobalAgenda = () => {
         // 🔒 BUSINESS CONSTRAINT: Closed Day
         if (isDayClosed) return;
 
-        // Auto Scroll (Premium Tuned - Slower/Smoother)
+        // Auto Scroll (Premium Tuned - Freno de Mano)
         const container = scrollContainerRef.current;
         if (container) {
             const { top, bottom } = container.getBoundingClientRect();
-            const threshold = 80; // Reduced trigger area (More precision)
-            const scrollSpeed = 12; // Slower scroll (Premium feel)
+            const threshold = 30; // 🎯 High Precision Threshold (Requires intent)
+            const scrollSpeed = 10; // 🐢 Slow & Steady (No escaping tickets)
 
             if (e.clientY > bottom - threshold) {
                 container.scrollTop += scrollSpeed;
@@ -340,15 +340,35 @@ const GlobalAgenda = () => {
 
         const hoursToAdd = snappedTop / PIXELS_PER_HOUR;
 
-        // 🔒 BUSINESS CONSTRAINT: Opening Hours
+        // 🔒 BUSINESS CONSTRAINT: Per-Day Logic (Advanced Mapping)
+        let dayLimitHour = endHour; // Default to global configuration
+
+        if (businessConfig?.working_hours) {
+            // Map Date to English Day Name (DB Keys)
+            const dayName = targetDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+            const dayConfig = businessConfig.working_hours[dayName];
+
+            if (dayConfig && dayConfig.timeRange) {
+                // Parse "09:00-15:00" -> Extract Closing Hour
+                const parts = dayConfig.timeRange.split('-');
+                if (parts.length === 2) {
+                    const closeStr = parts[1].trim(); // "15:00"
+                    const parsedH = parseInt(closeStr.split(':')[0]);
+                    if (!isNaN(parsedH)) {
+                        dayLimitHour = parsedH;
+                    }
+                }
+            }
+        }
+
         // Calculate total minutes from START of grid (0 = startHour)
         const totalMinutes = hoursToAdd * 60;
-        // Max minutes available in the grid
-        const maxMinutes = (endHour - startHour) * 60;
+        // Max minutes specific to THIS day
+        const maxMinutes = (dayLimitHour - startHour) * 60;
 
-        // Ensure event fits within bounds (Start >= 0 AND End <= Max)
+        // Ensure event fits within bounds (Start >= 0 AND End <= DayMax)
+        // Note: We clamp visual movement to the limit
         if (totalMinutes < 0 || (totalMinutes + dragState.duration) > maxMinutes) {
-            // Out of bounds: Don't update ghost, effectively blocking visual feedback
             return;
         }
 
