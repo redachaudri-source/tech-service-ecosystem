@@ -102,7 +102,13 @@ const GlobalAgenda = () => {
     }, [startOfWeek]); // Refetch when week changes
 
     const fetchBusinessConfig = async () => {
-        const { data } = await supabase.from('business_config').select('*').single();
+        // Explicitly fetch the 'working_hours' configuration row to avoid ambiguity
+        const { data } = await supabase
+            .from('business_config')
+            .select('*')
+            .eq('key', 'working_hours')
+            .single();
+
         if (data) setBusinessConfig(data);
     };
 
