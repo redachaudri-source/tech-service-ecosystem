@@ -334,9 +334,9 @@ const GlobalAgenda = () => {
 
         const hoursToAdd = snappedTop / PIXELS_PER_HOUR;
 
-        // Limits Check
-        const totalMinutes = hoursToAdd * 60;
-        const maxMinutes = (endHour - startHour) * 60 - dragState.duration; // Ensure failsafe within day
+        // Limits Check - DISABLED (Brute Force Mode)
+        // const totalMinutes = hoursToAdd * 60;
+        // const maxMinutes = (endHour - startHour) * 60 - dragState.duration; 
 
         // Visual Bounds (Optional, clamping)
         // if (totalMinutes < 0 || totalMinutes > maxMinutes) return; 
@@ -357,7 +357,7 @@ const GlobalAgenda = () => {
         e.preventDefault();
         e.stopPropagation();
         setGhostState(null);
-        if (isDayClosed) return;
+        // if (isDayClosed) return; // FORCE OPEN - User Request
         const apptId = e.dataTransfer.getData("text/plain");
         const appt = appointments.find(a => a.id === apptId);
         if (!appt) return;
