@@ -196,11 +196,34 @@ const GlobalAgenda = () => {
             alert("⛔ El negocio está CERRADO este día. No se pueden agendar citas.");
             return;
         }
-        const iso = newDate.toISOString();
-        setAppointments(prev => prev.map(a => a.id === apptId ? { ...a, technician_id: newTechId, scheduled_at: iso, start: newDate } : a));
 
-        const { error } = await supabase.from('tickets').update({ technician_id: newTechId, scheduled_at: iso }).eq('id', apptId);
-        if (error) { alert("Error: " + error.message); fetchAgendaData(); }
+        // 1. Snapshot for Rollback
+        const previousAppointments = [...appointments];
+        const iso = newDate.toISOString();
+
+        // 2. Optimistic Update (Immediate Feedback)
+        setAppointments(prev => prev.map(a =>
+            a.id === apptId ? { ...a, technician_id: newTechId, scheduled_at: iso, start: newDate } : a
+        ));
+
+        try {
+            const { error } = await supabase
+                .from('tickets')
+                .update({
+                    scheduled_at: iso,
+                    technician_id: newTechId
+                })
+                .eq('id', apptId);
+
+            if (error) throw error;
+            // Success: Silent
+
+        } catch (error) {
+            console.error("Error moving appointment:", error);
+            // 3. Rollback on Critical Fail
+            setAppointments(previousAppointments);
+            alert("⚠️ No se pudo mover la cita. Se ha revertido el cambio.");
+        }
     };
 
     const toggleTech = (id) => {
