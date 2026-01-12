@@ -495,7 +495,8 @@ const GlobalAgenda = () => {
 
                 {/* Day Columns */}
                 <div className="flex-1 flex min-w-[800px] relative">
-                    <div className="absolute inset-0 mt-8 pointer-events-none z-0">
+                    {/* BACKGROUND LINES: Force explicit height to ensure scroll */}
+                    <div className="absolute top-0 left-0 w-full mt-8 pointer-events-none z-0" style={{ height: gridHeight }}>
                         {dynamicHours.map(h => (<div key={h} className="border-b border-slate-200/50 w-full" style={{ height: PIXELS_PER_HOUR }}></div>))}
                     </div>
 
@@ -515,8 +516,8 @@ const GlobalAgenda = () => {
 
                                 {/* DROP ZONE CONTAINER (Calculations relative to THIS) */}
                                 <div
-                                    className="relative w-full z-10 flex-1"
-                                    style={{ height: gridHeight, border: '2px dashed red' }}
+                                    className="relative w-full z-10 shrink-0"
+                                    style={{ height: gridHeight, minHeight: gridHeight, border: '2px dashed red' }}
                                     onDragOver={(e) => handleDragOver(e, dayDate)}
                                     onDrop={(e) => handleDrop(e, dayDate)}
                                 >
