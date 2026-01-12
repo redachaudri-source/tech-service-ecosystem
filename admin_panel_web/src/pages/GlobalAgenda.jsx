@@ -117,43 +117,58 @@ const GlobalAgenda = () => {
             // 1.5 Fetch Brands
             const { data: brandsData } = await supabase.from('brands').select('name, logo_url');
 
-            // 2. Fetch Appointments (Week Range)
+            // 2. Fetch Appointments (SAFE MODE)
+            // Using standard left joins to prevent data loss if relations are missing
             const { data: apptData, error } = await supabase
                 .from('tickets')
                 .select(`
                     *, 
-                    client:profiles!client_id(full_name, address, phone, current_lat, current_lng, postal_code),
-                    appliance:client_appliances!appliance_id (brand, model, type)
+                    client:profiles!client_id(*),
+                    client_appliances(*)
                 `)
                 .gte('scheduled_at', `${startStr}T00:00:00`)
-                .lt('scheduled_at', `${endStr}T23:59:59`) // Full week
-                .not('technician_id', 'is', null)
-                .neq('status', 'finalizado');
+                .lt('scheduled_at', `${endStr}T23:59:59`)
+                .neq('status', 'finalizado')
+                .order('scheduled_at', { ascending: true });
 
-            if (error) console.error("Error fetching tickets:", error);
+            if (error) {
+                console.error("Error fetching tickets:", error);
+                // Don't throw, let it return empty so UI doesn't crash
+            }
+
+            // DEBUG: Check what we actually got
+            if (apptData?.length > 0) {
+                console.log('Sample Ticket Data:', apptData[0]);
+            } else {
+                console.log('No tickets found for range:', startStr, endStr);
+            }
 
             const processed = (apptData || [])
                 .filter(a => !['cancelado', 'rechazado', 'anulado'].includes(a.status))
                 .map(a => {
-                    let rawAppliance = a.appliance || a.client_appliances;
-                    if (Array.isArray(rawAppliance)) rawAppliance = rawAppliance[0];
-                    const brandName = rawAppliance?.brand || '';
-                    const brandInfo = brandsData?.find(b => b.name.toLowerCase() === brandName.toLowerCase());
+                    // Defensive Appliance Extraction
+                    let raw = a.client_appliances;
+                    if (Array.isArray(raw)) raw = raw[0]; // Handle if returned as array
+
+                    // Fallbacks for critical data
+                    const brandName = raw?.brand || 'Generico';
+                    const brandInfo = brandsData?.find(b => b.name?.toLowerCase() === brandName?.toLowerCase());
 
                     return {
                         ...a,
-                        start: new Date(a.scheduled_at),
+                        start: new Date(a.scheduled_at), // ISO string to Date
                         duration: a.estimated_duration || 60,
-                        profiles: a.client,
-                        profiles: a.client,
-                        appliance_info: raw, // Store the full object
-                        brand_logo: brandInfo?.logo_url || null // Resolved Logo
+
+                        // Map flatten data for easier access in UI
+                        profiles: a.client || {},
+                        appliance_info: raw || { type: 'Aviso', brand: '?' }, // Never Null
+                        brand_logo: brandInfo?.logo_url || null
                     };
                 });
 
             setAppointments(processed || []);
         } catch (error) {
-            console.error(error);
+            console.error("Fatal Error in fetchAgendaData:", error);
         } finally {
             setLoading(false);
         }
