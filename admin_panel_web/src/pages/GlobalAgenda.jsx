@@ -191,12 +191,10 @@ const GlobalAgenda = () => {
     };
 
     // --- BUSINESS LOGIC ---
-    const isDayClosed = useMemo(() => {
-        if (!businessConfig?.working_hours) return false;
-        const dayName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-        const dayConfig = businessConfig.working_hours[dayName];
-        return dayConfig ? !dayConfig.isOpen : false;
-    }, [businessConfig, selectedDate]);
+    // --- BUSINESS LOGIC DEPRECATED (Replaced by getDayConfig) ---
+    // const isDayClosed = useMemo(...) -> No longer used for Drag. 
+    // Kept only if needed for UI Alerts (which we might want to refactor later)
+    const isDayClosed = false; // Disable global block to allow per-day logic
 
     const handleUpdateAppointment = async (apptId, newTechId, newDate) => {
         if (isDayClosed) {
@@ -305,19 +303,44 @@ const GlobalAgenda = () => {
     // --- AUTO SCROLL REF ---
     const scrollContainerRef = useRef(null);
 
+    // --- HELPER: PER-DAY CONFIG ---
+    const getDayConfig = (date) => {
+        // Default: Open, Local Default Close (20)
+        // Note: Global 'endHour' is redundant here if we parse rigorously, but useful as fallback
+        const defaultClose = 20;
+        if (!businessConfig?.working_hours) return { isOpen: true, closeHour: defaultClose };
+
+        const dayName = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+        const config = businessConfig.working_hours[dayName];
+
+        if (!config) return { isOpen: true, closeHour: defaultClose }; // Default open if config missing
+
+        let closeHour = defaultClose;
+        if (config.timeRange) {
+            const parts = config.timeRange.split('-');
+            if (parts.length === 2) {
+                const h = parseInt(parts[1].trim().split(':')[0]);
+                if (!isNaN(h)) closeHour = h;
+            }
+        }
+
+        return { isOpen: config.isOpen, closeHour };
+    };
+
     const handleDragOver = (e, targetDate) => {
         e.preventDefault();
-        e.stopPropagation(); // Prevent bubbling to parent columns
+        e.stopPropagation();
 
-        // 🔒 BUSINESS CONSTRAINT: Closed Day
-        if (isDayClosed) return;
+        // 1. 🔒 PER-DATE CONSTRAINT: Check if THAT day is closed
+        const dayConfig = getDayConfig(targetDate);
+        if (!dayConfig.isOpen) return;
 
         // Auto Scroll (Premium Tuned - Freno de Mano)
         const container = scrollContainerRef.current;
         if (container) {
             const { top, bottom } = container.getBoundingClientRect();
-            const threshold = 30; // 🎯 High Precision Threshold (Requires intent)
-            const scrollSpeed = 10; // 🐢 Slow & Steady (No escaping tickets)
+            const threshold = 30;
+            const scrollSpeed = 10;
 
             if (e.clientY > bottom - threshold) {
                 container.scrollTop += scrollSpeed;
@@ -326,53 +349,30 @@ const GlobalAgenda = () => {
             }
         }
 
-        // Use currentTarget to ensure we measure the DROP ZONE (Grid), not the internal elements
         const rect = e.currentTarget.getBoundingClientRect();
         const y = e.clientY - rect.top;
 
-        // "Buttery Smooth" Physics: Use precise rounding for 15 min snaps
+        // "Buttery Smooth" Physics
         const snapMinutes = 15;
         const snapPixels = PIXELS_PER_HOUR * (snapMinutes / 60);
 
-        // Correct Y using the offset captured at DragStart
         const rawTop = y - dragState.offset;
         const snappedTop = Math.round(rawTop / snapPixels) * snapPixels;
 
         const hoursToAdd = snappedTop / PIXELS_PER_HOUR;
 
-        // 🔒 BUSINESS CONSTRAINT: Per-Day Logic (Advanced Mapping)
-        let dayLimitHour = endHour; // Default to global configuration
+        // 2. 🔒 PER-DATE CONSTRAINT: Check Hours Limit
+        // Use the specific closeHour for THIS day
+        const dayLimitHour = dayConfig.closeHour;
 
-        if (businessConfig?.working_hours) {
-            // Map Date to English Day Name (DB Keys)
-            const dayName = targetDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-            const dayConfig = businessConfig.working_hours[dayName];
-
-            if (dayConfig && dayConfig.timeRange) {
-                // Parse "09:00-15:00" -> Extract Closing Hour
-                const parts = dayConfig.timeRange.split('-');
-                if (parts.length === 2) {
-                    const closeStr = parts[1].trim(); // "15:00"
-                    const parsedH = parseInt(closeStr.split(':')[0]);
-                    if (!isNaN(parsedH)) {
-                        dayLimitHour = parsedH;
-                    }
-                }
-            }
-        }
-
-        // Calculate total minutes from START of grid (0 = startHour)
         const totalMinutes = hoursToAdd * 60;
-        // Max minutes specific to THIS day
         const maxMinutes = (dayLimitHour - startHour) * 60;
 
-        // Ensure event fits within bounds (Start >= 0 AND End <= DayMax)
-        // Note: We clamp visual movement to the limit
+        // Ensure event fits within bounds
         if (totalMinutes < 0 || (totalMinutes + dragState.duration) > maxMinutes) {
             return;
         }
 
-        // Calculate Ghost Time
         const ghostTime = new Date(targetDate);
         ghostTime.setHours(startHour + Math.floor(hoursToAdd), (hoursToAdd % 1) * 60);
 
@@ -388,12 +388,16 @@ const GlobalAgenda = () => {
         e.preventDefault();
         e.stopPropagation();
         setGhostState(null);
-        if (isDayClosed) return; // 🔒 BUSINESS CONSTRAINT (Closed Check)
+
+        // 🔒 PER-DATE CHECK (Strict)
+        const dayConfig = getDayConfig(targetDate);
+        if (!dayConfig.isOpen) return;
+
         const apptId = e.dataTransfer.getData("text/plain");
         const appt = appointments.find(a => a.id === apptId);
         if (!appt) return;
 
-        // Re-calculate one last time to ensure sync with visual ghost
+        // 🔒 PER-DATE DROP LIMIT CHECK
         const rect = e.currentTarget.getBoundingClientRect();
         const y = e.clientY - rect.top;
         const snapMinutes = 15;
@@ -517,8 +521,8 @@ const GlobalAgenda = () => {
                         return (
                             <div key={dayDate.toISOString()} className={`flex-1 border-r border-slate-100 relative transition-colors duration-300 flex flex-col ${isToday ? 'bg-white' : 'bg-slate-50/30'}`}>
 
-                                {/* Header: Day Name (NO DRAG INTERACTION HERE) */}
-                                <div className={`h-8 border-b border-slate-200 sticky top-0 z-20 flex items-center justify-center gap-1 shadow-sm shrink-0 ${isToday ? 'bg-indigo-50 text-indigo-700' : 'bg-white text-slate-600'}`}>
+                                {/* Header: Day Name (STICKY FIX) */}
+                                <div className={`h-8 border-b border-slate-200 sticky top-0 z-40 flex items-center justify-center gap-1 shadow-sm shrink-0 ${isToday ? 'bg-indigo-50 text-indigo-700' : 'bg-white text-slate-600'}`}>
                                     <span className="font-bold text-xs uppercase">{dayDate.toLocaleDateString('es-ES', { weekday: 'short' })}</span>
                                     <span className={`font-black text-xs ${isToday ? 'bg-indigo-600 text-white px-1.5 py-0.5 rounded-full' : ''}`}>
                                         {dayDate.getDate()}
