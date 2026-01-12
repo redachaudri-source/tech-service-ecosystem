@@ -68,10 +68,9 @@ const GlobalAgenda = () => {
     // --- DYNAMIC TIME CONFIGURATION ---
     // Reads from Business Settings (e.g. 09:00 - 19:00) and adds padding (-1 / +1)
     const openH = businessConfig?.opening_time ? parseInt(businessConfig.opening_time.split(':')[0]) : 8;
-    const closeH = businessConfig?.closing_time ? parseInt(businessConfig.closing_time.split(':')[0]) : 20;
-
+    // FORCE BRUTE MODE: Always show full day until 23:00 to remove "The Wall" (User Request)
     const startHour = Math.max(0, (isNaN(openH) ? 8 : openH) - 1);
-    const endHour = Math.min(23, (isNaN(closeH) ? 20 : closeH) + 1);
+    const endHour = 23;
 
     const hoursCount = Math.max(1, endHour - startHour + 1);
     const gridHeight = hoursCount * PIXELS_PER_HOUR;
