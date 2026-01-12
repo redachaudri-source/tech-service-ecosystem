@@ -308,7 +308,7 @@ const GlobalAgenda = () => {
         const defaultClose = 20;
 
         // Safety: If no config explicitly loaded, assume Open (Fallback)
-        if (!businessConfig?.working_hours) return { isOpen: true, closeHour: defaultClose };
+        if (!businessConfig?.value && !businessConfig?.working_hours) return { isOpen: true, closeHour: defaultClose };
 
         const dayName = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
         // FIX: The row from DB has the JSON in the 'value' column. 
