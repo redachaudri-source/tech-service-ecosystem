@@ -386,6 +386,11 @@ const GlobalAgenda = () => {
                         <button onClick={() => setSelectedDate(new Date())} className="text-xs font-bold px-2 py-1 bg-indigo-50 text-indigo-700 rounded hover:bg-indigo-100 transition">
                             Hoy
                         </button>
+
+                        {/* DEBUG DATA (Temporary) */}
+                        <div className="absolute -bottom-4 left-0 text-[9px] font-mono text-red-500 bg-yellow-100 px-1 whitespace-nowrap z-50 pointer-events-none">
+                            DEBUG: Start={startHour} End={endHour} Count={hoursCount} H={gridHeight}px JSON={businessConfig?.opening_time || 'No'}
+                        </div>
                     </div>
 
                     {/* CENTER: Date Navigation */}
