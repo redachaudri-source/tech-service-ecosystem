@@ -145,9 +145,9 @@ const GlobalAgenda = () => {
                         start: new Date(a.scheduled_at),
                         duration: a.estimated_duration || 60,
                         profiles: a.client,
-                        appliance_info: rawAppliance,
-                        appliance: rawAppliance,
-                        brand_logo: brandInfo?.logo_url || null
+                        profiles: a.client,
+                        appliance_info: raw, // Store the full object
+                        brand_logo: brandInfo?.logo_url || null // Resolved Logo
                     };
                 });
 
@@ -228,13 +228,13 @@ const GlobalAgenda = () => {
     };
 
 
-    // --- DND HANDLERS (UPDATED FOR WEEK) ---
+    // --- DND HANDLERS ---
     const [dragState, setDragState] = useState({ id: null, offset: 0 });
     const [ghostState, setGhostState] = useState(null);
 
     const handleDragStart = (e, appt) => {
         if (isDayClosed) { e.preventDefault(); return; }
-        // Capture interaction point relative to card to prevent "jumping" on drag start
+        // Calculate offset relative to the CARD, not the column
         const rect = e.currentTarget.getBoundingClientRect();
         const offset = e.clientY - rect.top;
 
@@ -242,7 +242,7 @@ const GlobalAgenda = () => {
         e.dataTransfer.effectAllowed = "move";
         e.dataTransfer.setData("text/plain", appt.id);
 
-        // Hide default ghost image to use our custom ghost
+        // Transparent Ghost
         const emptyImg = new Image();
         emptyImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
         e.dataTransfer.setDragImage(emptyImg, 0, 0);
@@ -250,9 +250,10 @@ const GlobalAgenda = () => {
 
     const handleDragOver = (e, targetDate) => {
         e.preventDefault();
-        e.stopPropagation(); // Critical for nested elements
+        e.stopPropagation(); // Prevent bubbling to parent columns
         if (isDayClosed) return;
 
+        // Use currentTarget to ensure we measure the DROP ZONE (Grid), not the internal elements
         const rect = e.currentTarget.getBoundingClientRect();
         const y = e.clientY - rect.top;
 
@@ -260,6 +261,7 @@ const GlobalAgenda = () => {
         const snapMinutes = 15;
         const snapPixels = PIXELS_PER_HOUR * (snapMinutes / 60);
 
+        // Correct Y using the offset captured at DragStart
         const rawTop = y - dragState.offset;
         const snappedTop = Math.round(rawTop / snapPixels) * snapPixels;
 
@@ -413,31 +415,35 @@ const GlobalAgenda = () => {
                         const isToday = dayDate.toDateString() === new Date().toDateString();
 
                         return (
-                            <div key={dayDate.toISOString()} className={`flex-1 border-r border-slate-100 relative transition-colors duration-300 ${isToday ? 'bg-white' : 'bg-slate-50/30'}`}
-                                onDragOver={(e) => handleDragOver(e, dayDate)}
-                                onDrop={(e) => handleDrop(e, dayDate)}
-                            >
-                                {/* Header: Day Name */}
-                                <div className={`h-8 border-b border-slate-200 sticky top-0 z-20 flex items-center justify-center gap-1 shadow-sm ${isToday ? 'bg-indigo-50 text-indigo-700' : 'bg-white text-slate-600'}`}>
+                            <div key={dayDate.toISOString()} className={`flex-1 border-r border-slate-100 relative transition-colors duration-300 flex flex-col ${isToday ? 'bg-white' : 'bg-slate-50/30'}`}>
+
+                                {/* Header: Day Name (NO DRAG INTERACTION HERE) */}
+                                <div className={`h-8 border-b border-slate-200 sticky top-0 z-20 flex items-center justify-center gap-1 shadow-sm shrink-0 ${isToday ? 'bg-indigo-50 text-indigo-700' : 'bg-white text-slate-600'}`}>
                                     <span className="font-bold text-xs uppercase">{dayDate.toLocaleDateString('es-ES', { weekday: 'short' })}</span>
                                     <span className={`font-black text-xs ${isToday ? 'bg-indigo-600 text-white px-1.5 py-0.5 rounded-full' : ''}`}>
                                         {dayDate.getDate()}
                                     </span>
                                 </div>
 
-                                {/* Ghost Event */}
-                                {ghostState?.targetDate === dayDate.toISOString() && (
-                                    <div className="absolute left-1 right-1 z-50 bg-indigo-600/10 border-2 border-dashed border-indigo-500 rounded-md pointer-events-none transition-all duration-75"
-                                        style={{ top: `${ghostState.top}px`, height: `${ghostState.height}px` }}
-                                    >
-                                        <div className="bg-indigo-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-br absolute top-0 left-0">
-                                            {ghostState.timeStr}
+                                {/* DROP ZONE CONTAINER (Calculations relative to THIS) */}
+                                <div
+                                    className="relative w-full z-10 flex-1"
+                                    style={{ height: GRID_HEIGHT }}
+                                    onDragOver={(e) => handleDragOver(e, dayDate)}
+                                    onDrop={(e) => handleDrop(e, dayDate)}
+                                >
+                                    {/* Ghost Event (Rendered relative to Drop Zone) */}
+                                    {ghostState?.targetDate === dayDate.toISOString() && (
+                                        <div className="absolute left-1 right-1 z-50 bg-indigo-600/10 border-2 border-dashed border-indigo-500 rounded-md pointer-events-none transition-all duration-75"
+                                            style={{ top: `${ghostState.top}px`, height: `${ghostState.height}px` }}
+                                        >
+                                            <div className="bg-indigo-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-br absolute top-0 left-0">
+                                                {ghostState.timeStr}
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
+                                    )}
 
-                                {/* Events */}
-                                <div className="relative w-full z-10" style={{ height: GRID_HEIGHT }}>
+                                    {/* Events */}
                                     {getPositionedEvents(dayDate).map(appt => {
                                         const startH = appt.start.getHours();
                                         const startM = appt.start.getMinutes();
