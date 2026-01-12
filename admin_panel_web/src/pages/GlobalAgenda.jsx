@@ -66,10 +66,14 @@ const GlobalAgenda = () => {
     const [loading, setLoading] = useState(true);
 
     // --- DYNAMIC TIME CONFIGURATION ---
-    // GENEROUS Padding (-2 / +2) to prevent "Wall" feeling and allow drag past limits
-    const startHour = businessConfig?.opening_time ? Math.max(0, parseInt(businessConfig.opening_time.split(':')[0]) - 2) : 7;
-    const endHour = businessConfig?.closing_time ? Math.min(23, parseInt(businessConfig.closing_time.split(':')[0]) + 2) : 22;
-    const hoursCount = endHour - startHour + 1;
+    // Reads from Business Settings (e.g. 09:00 - 19:00) and adds padding (-1 / +1)
+    const openH = businessConfig?.opening_time ? parseInt(businessConfig.opening_time.split(':')[0]) : 8;
+    const closeH = businessConfig?.closing_time ? parseInt(businessConfig.closing_time.split(':')[0]) : 20;
+
+    const startHour = Math.max(0, (isNaN(openH) ? 8 : openH) - 1);
+    const endHour = Math.min(23, (isNaN(closeH) ? 20 : closeH) + 1);
+
+    const hoursCount = Math.max(1, endHour - startHour + 1);
     const gridHeight = hoursCount * PIXELS_PER_HOUR;
 
     // UI States
