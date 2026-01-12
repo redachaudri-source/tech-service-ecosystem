@@ -68,9 +68,11 @@ const GlobalAgenda = () => {
     // --- DYNAMIC TIME CONFIGURATION ---
     // Reads from Business Settings (e.g. 09:00 - 19:00) and adds padding (-1 / +1)
     const openH = businessConfig?.opening_time ? parseInt(businessConfig.opening_time.split(':')[0]) : 8;
-    // FORCE BRUTE MODE: Always show full day until 23:00 to remove "The Wall" (User Request)
+    const closeH = businessConfig?.closing_time ? parseInt(businessConfig.closing_time.split(':')[0]) : 20;
+
+    // DYNAMIC MODE: Adjust to Business Hours + Padding
     const startHour = Math.max(0, (isNaN(openH) ? 8 : openH) - 1);
-    const endHour = 23;
+    const endHour = Math.min(23, (isNaN(closeH) ? 20 : closeH) + 1);
 
     const hoursCount = Math.max(1, endHour - startHour + 1);
     const gridHeight = hoursCount * PIXELS_PER_HOUR;
@@ -306,14 +308,16 @@ const GlobalAgenda = () => {
     const handleDragOver = (e, targetDate) => {
         e.preventDefault();
         e.stopPropagation(); // Prevent bubbling to parent columns
-        // if (isDayClosed) return; // FORCE OPEN (Nuclear Option)
 
-        // Auto Scroll (Enhanced Sensitivity)
+        // 🔒 BUSINESS CONSTRAINT: Closed Day
+        if (isDayClosed) return;
+
+        // Auto Scroll (Premium Tuned - Slower/Smoother)
         const container = scrollContainerRef.current;
         if (container) {
             const { top, bottom } = container.getBoundingClientRect();
-            const threshold = 150; // Increased trigger area
-            const scrollSpeed = 25;  // Faster scroll
+            const threshold = 80; // Reduced trigger area (More precision)
+            const scrollSpeed = 12; // Slower scroll (Premium feel)
 
             if (e.clientY > bottom - threshold) {
                 container.scrollTop += scrollSpeed;
@@ -336,15 +340,17 @@ const GlobalAgenda = () => {
 
         const hoursToAdd = snappedTop / PIXELS_PER_HOUR;
 
-        // Check Limits (Optional)
-        // const ghostHour = startHour + Math.floor(hoursToAdd);
+        // 🔒 BUSINESS CONSTRAINT: Opening Hours
+        // Calculate total minutes from START of grid (0 = startHour)
+        const totalMinutes = hoursToAdd * 60;
+        // Max minutes available in the grid
+        const maxMinutes = (endHour - startHour) * 60;
 
-        // Limits Check - DISABLED (Brute Force Mode)
-        // const totalMinutes = hoursToAdd * 60;
-        // const maxMinutes = (endHour - startHour) * 60 - dragState.duration; 
-
-        // Visual Bounds (Optional, clamping)
-        // if (totalMinutes < 0 || totalMinutes > maxMinutes) return; 
+        // Ensure event fits within bounds (Start >= 0 AND End <= Max)
+        if (totalMinutes < 0 || (totalMinutes + dragState.duration) > maxMinutes) {
+            // Out of bounds: Don't update ghost, effectively blocking visual feedback
+            return;
+        }
 
         // Calculate Ghost Time
         const ghostTime = new Date(targetDate);
@@ -362,7 +368,7 @@ const GlobalAgenda = () => {
         e.preventDefault();
         e.stopPropagation();
         setGhostState(null);
-        // if (isDayClosed) return; // FORCE OPEN - User Request
+        if (isDayClosed) return; // 🔒 BUSINESS CONSTRAINT (Closed Check)
         const apptId = e.dataTransfer.getData("text/plain");
         const appt = appointments.find(a => a.id === apptId);
         if (!appt) return;
