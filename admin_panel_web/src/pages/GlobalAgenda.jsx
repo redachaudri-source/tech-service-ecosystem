@@ -117,13 +117,13 @@ const GlobalAgenda = () => {
             // 1.5 Fetch Brands
             const { data: brandsData } = await supabase.from('brands').select('name, logo_url');
 
-            // 2. Fetch Appointments (FULL SYNC WITH SERVICE MONITOR)
+            // 2. Fetch Appointments (SAFE MODE - "TRINITY" LOGIC)
+            // Reverting query to avoid ambiguous relationship errors, but relying on 'appliance_info' JSON for rich data
             const { data: apptData, error } = await supabase
                 .from('tickets')
                 .select(`
                     *, 
                     client:profiles!client_id(*),
-                    creator:created_by(full_name),
                     client_appliances(*)
                 `)
                 .gte('scheduled_at', `${startStr}T00:00:00`)
@@ -141,6 +141,7 @@ const GlobalAgenda = () => {
                 })
                 .map(a => {
                     // RESOLVE "THE TRINITY": JSON vs DB
+                    // ServiceMonitor uses 'appliance_info' JSON column. We prioritize it.
                     let dbAppliance = a.client_appliances;
                     if (Array.isArray(dbAppliance)) dbAppliance = dbAppliance[0];
                     const jsonAppliance = a.appliance_info;
@@ -153,7 +154,6 @@ const GlobalAgenda = () => {
                     const brandInfo = brandsData?.find(b => b.name?.toLowerCase() === brandName?.toLowerCase());
 
                     // Debug
-                    // console.log('Resolved Ticket:', { id: a.id, type: bestAppliance.type, brand: bestAppliance.brand });
                     console.log('Processed Agenda Item:', { id: a.id, appliance: bestAppliance, title: a.title });
 
                     return {
@@ -162,12 +162,11 @@ const GlobalAgenda = () => {
                         duration: a.estimated_duration || 60,
                         profiles: a.client || {},
                         appliance_info: bestAppliance, // The Truth
-                        brand_logo: brandInfo?.logo_url || null,
-                        creator: a.creator
+                        brand_logo: brandInfo?.logo_url || null
                     };
                 });
 
-            if (processed.length > 0) console.log('Agenda Data Loaded:', processed.length, 'items. Sample:', processed[0]);
+            if (processed.length > 0) console.log('Agenda Data Loaded:', processed.length, 'items.');
 
             setAppointments(processed || []);
         } catch (error) {
