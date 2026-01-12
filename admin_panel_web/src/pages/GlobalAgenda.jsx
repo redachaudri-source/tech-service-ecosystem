@@ -66,9 +66,9 @@ const GlobalAgenda = () => {
     const [loading, setLoading] = useState(true);
 
     // --- DYNAMIC TIME CONFIGURATION ---
-    // Reads from Business Settings (e.g. 09:00 - 19:00) and adds padding (-1 / +1)
-    const startHour = businessConfig?.opening_time ? Math.max(0, parseInt(businessConfig.opening_time.split(':')[0]) - 1) : 8;
-    const endHour = businessConfig?.closing_time ? Math.min(23, parseInt(businessConfig.closing_time.split(':')[0]) + 1) : 21;
+    // GENEROUS Padding (-2 / +2) to prevent "Wall" feeling and allow drag past limits
+    const startHour = businessConfig?.opening_time ? Math.max(0, parseInt(businessConfig.opening_time.split(':')[0]) - 2) : 7;
+    const endHour = businessConfig?.closing_time ? Math.min(23, parseInt(businessConfig.closing_time.split(':')[0]) + 2) : 22;
     const hoursCount = endHour - startHour + 1;
     const gridHeight = hoursCount * PIXELS_PER_HOUR;
 
@@ -303,12 +303,12 @@ const GlobalAgenda = () => {
         e.stopPropagation(); // Prevent bubbling to parent columns
         if (isDayClosed) return;
 
-        // Auto Scroll
+        // Auto Scroll (Enhanced Sensitivity)
         const container = scrollContainerRef.current;
         if (container) {
-            const { top, bottom, height } = container.getBoundingClientRect();
-            const threshold = 100;
-            const scrollSpeed = 20;
+            const { top, bottom } = container.getBoundingClientRect();
+            const threshold = 150; // Increased trigger area
+            const scrollSpeed = 25;  // Faster scroll
 
             if (e.clientY > bottom - threshold) {
                 container.scrollTop += scrollSpeed;
