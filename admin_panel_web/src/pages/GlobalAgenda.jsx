@@ -334,6 +334,15 @@ const GlobalAgenda = () => {
 
         const hoursToAdd = snappedTop / PIXELS_PER_HOUR;
 
+        // 🕵️ CÓDIGO ESPÍA (FORENSIC DEBUG)
+        const ghostHour = startHour + Math.floor(hoursToAdd);
+        if (ghostHour >= 12) {
+            console.log(`⚡ MOVIMIENTO DETECTADO > 12:00`);
+            console.log(`   📍 Target: ${ghostHour}:00h`);
+            console.log(`   🚧 Límites Reales: Start=${startHour} -> End=${endHour}`);
+            console.log(`   🔓 Bloqueos: isDayClosed=${isDayClosed} (Ignorado)`);
+        }
+
         // Limits Check - DISABLED (Brute Force Mode)
         // const totalMinutes = hoursToAdd * 60;
         // const maxMinutes = (endHour - startHour) * 60 - dragState.duration; 
