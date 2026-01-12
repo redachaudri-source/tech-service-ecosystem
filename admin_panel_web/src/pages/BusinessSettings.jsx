@@ -35,6 +35,13 @@ const BusinessSettings = () => {
     };
 
     const handleSaveHours = async () => {
+        // 🕵️ RASTREO: ¿QUÉ ESTAMOS GUARDANDO Y DÓNDE?
+        console.group("🚨 AUDITORÍA DE GUARDADO DE HORARIO");
+        console.log("📦 Payload (Datos Crudos):", workingHours);
+        console.log("🗄️ Tabla Objetivo (Hardcoded en código):", "business_config");
+        console.log("📝 Estructura enviada:", JSON.stringify(workingHours, null, 2));
+        console.groupEnd();
+
         try {
             const { error } = await supabase
                 .from('business_config')
