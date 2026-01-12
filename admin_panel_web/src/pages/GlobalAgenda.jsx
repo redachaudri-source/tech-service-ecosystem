@@ -74,7 +74,9 @@ const GlobalAgenda = () => {
 
     const hoursCount = Math.max(1, endHour - startHour + 1);
     const gridHeight = hoursCount * PIXELS_PER_HOUR;
-    console.log("🔄 GRID RENDER DEBUG:", { startHour, endHour, gridHeight, openH, businessConfig });
+    // Explicitly define hours array based on DYNAMIC limits to ensure sync
+    const hours = Array.from({ length: hoursCount }, (_, i) => startHour + i);
+    console.log("🔄 GRID RENDER DEBUG:", { startHour, endHour, gridHeight, openH, businessConfig, hoursLen: hours.length });
 
     // UI States
     const [showMapModal, setShowMapModal] = useState(false);
