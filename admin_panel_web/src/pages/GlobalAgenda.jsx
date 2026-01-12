@@ -65,6 +65,13 @@ const GlobalAgenda = () => {
     const [businessConfig, setBusinessConfig] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    // --- DYNAMIC TIME CONFIGURATION ---
+    // Reads from Business Settings (e.g. 09:00 - 19:00) and adds padding (-1 / +1)
+    const startHour = businessConfig?.opening_time ? Math.max(0, parseInt(businessConfig.opening_time.split(':')[0]) - 1) : 8;
+    const endHour = businessConfig?.closing_time ? Math.min(23, parseInt(businessConfig.closing_time.split(':')[0]) + 1) : 21;
+    const hoursCount = endHour - startHour + 1;
+    const gridHeight = hoursCount * PIXELS_PER_HOUR;
+
     // UI States
     const [showMapModal, setShowMapModal] = useState(false);
     const [showRoutePanel, setShowRoutePanel] = useState(false);
