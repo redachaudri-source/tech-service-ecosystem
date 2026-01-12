@@ -304,7 +304,7 @@ const GlobalAgenda = () => {
     const handleDragOver = (e, targetDate) => {
         e.preventDefault();
         e.stopPropagation(); // Prevent bubbling to parent columns
-        if (isDayClosed) return;
+        // if (isDayClosed) return; // FORCE OPEN (Nuclear Option)
 
         // Auto Scroll (Enhanced Sensitivity)
         const container = scrollContainerRef.current;
