@@ -1299,7 +1299,7 @@ const GlobalAgenda = () => {
 
                                                             {/* C) CONCEPT (Avería) - Sticker Label */}
                                                             <div className="text-[9px] font-bold leading-tight text-slate-800/90 line-clamp-2 bg-white/30 rounded px-1.5 py-0.5 backdrop-blur-[2px] mt-0.5 inline-block">
-                                                                {displayConcept}
+                                                                {appt.ticket_id ? `#${appt.ticket_id}` : (displayConcept || 'Sin concepto')}
                                                             </div>
 
                                                             {/* Brand Text if No Logo */}
