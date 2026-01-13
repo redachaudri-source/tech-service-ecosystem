@@ -552,8 +552,8 @@ const GlobalAgenda = () => {
                                         key={opt.label}
                                         onClick={() => setZoomLevel(opt.val)}
                                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wide transition-all ${isActive
-                                                ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5'
-                                                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/50'
+                                            ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5'
+                                            : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/50'
                                             }`}
                                     >
                                         {opt.icon}
@@ -651,10 +651,10 @@ const GlobalAgenda = () => {
                                 >
                                     {/* Ghost Event (Rendered relative to Drop Zone) */}
                                     {ghostState?.targetDate === dayDate.toISOString() && (
-                                        <div className="absolute left-1 right-1 z-50 bg-indigo-600/10 border-2 border-dashed border-indigo-500 rounded-md pointer-events-none transition-all duration-75"
+                                        <div className="absolute left-1 right-1 z-[100] bg-indigo-600/60 border-2 border-indigo-400 rounded-md pointer-events-none transition-all duration-75 shadow-lg backdrop-blur-[1px]"
                                             style={{ top: `${ghostState.top}px`, height: `${ghostState.height}px` }}
                                         >
-                                            <div className="bg-indigo-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-br absolute top-0 left-0">
+                                            <div className="bg-indigo-600 text-white text-[10px] font-black px-2 py-0.5 rounded shadow absolute -top-3 -right-2 transform scale-110">
                                                 {ghostState.timeStr}
                                             </div>
                                         </div>
@@ -662,12 +662,14 @@ const GlobalAgenda = () => {
 
                                     {/* Events (Conditional Render) */}
                                     {viewMode === 'month' ? (
-                                        <div className="flex flex-col gap-0.5 p-1 h-full overflow-hidden">
+                                        <div className="flex flex-col gap-1 p-1 h-full overflow-hidden">
                                             {getPositionedEvents(dayDate).map(appt => (
-                                                <div key={appt.id} onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }} className="h-4 min-h-[16px] bg-white border border-slate-200 rounded text-[8px] flex items-center px-1 shadow-sm hover:border-indigo-400 cursor-pointer">
-                                                    <div className={`w-1.5 h-1.5 rounded-full mr-1 ${APPLIANCE_COLORS[getApplianceCategory(appt.appliance_info?.type)].split(' ')[0]}`}></div>
-                                                    <span className="font-bold mr-1">{appt.start.getHours()}:00</span>
-                                                    <span className="truncate text-slate-500">{appt.appliance_info?.type || 'Servicio'}</span>
+                                                <div key={appt.id} onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
+                                                    className="h-5 min-h-[20px] bg-indigo-100/80 border border-indigo-200/50 hover:bg-white hover:border-indigo-400 rounded-md text-[9px] flex items-center px-1.5 shadow-sm cursor-pointer transition-all group"
+                                                >
+                                                    <div className={`w-1.5 h-1.5 rounded-full mr-1.5 shrink-0 shadow-sm ${APPLIANCE_COLORS[getApplianceCategory(appt.appliance_info?.type)].split(' ')[0]}`}></div>
+                                                    <span className="font-bold mr-1 text-slate-700 group-hover:text-indigo-700">{appt.start.getHours()}:{String(appt.start.getMinutes()).padStart(2, '0')}</span>
+                                                    <span className="truncate text-slate-500 font-medium group-hover:text-slate-800">{appt.appliance_info?.type || 'Servicio'}</span>
                                                 </div>
                                             ))}
                                         </div>
