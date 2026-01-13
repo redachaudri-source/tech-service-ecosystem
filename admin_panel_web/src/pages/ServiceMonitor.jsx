@@ -307,8 +307,8 @@ const ServiceMonitor = () => {
                                                         )}
                                                     </div>
                                                 ) : (
-                                                    <div className="mt-2 flex items-center justify-center gap-1 bg-rose-50 text-rose-700 border border-rose-200 rounded px-2 py-1 text-[10px] font-black uppercase tracking-wide animate-pulse shadow-sm">
-                                                        <AlertCircle size={10} />
+                                                    <div className="mt-2 flex items-center justify-center gap-1 bg-amber-50 text-amber-600 border border-amber-200 rounded px-2 py-0.5 text-[9px] font-black uppercase tracking-wide animate-pulse shadow-sm">
+                                                        <AlertCircle size={9} />
                                                         PENDIENTE DE CITA
                                                     </div>
                                                 )}
