@@ -488,12 +488,7 @@ const GlobalAgenda = () => {
 
             if (error) throw error;
 
-            // Calculate new End Time for Feedback
-            const updatedAppt = previousAppointments.find(a => a.id === apptId);
-            const endTime = new Date(updatedAppt.start.getTime() + newDuration * 60000);
-            const endStr = endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-            addToast(`⏱️ Duración actualizada: Fin a las ${endStr}`, 'success');
+            addToast(`⏱️ Duración actualizada a ${newDuration} minutos`, 'success');
 
         } catch (err) {
             console.error(err);
