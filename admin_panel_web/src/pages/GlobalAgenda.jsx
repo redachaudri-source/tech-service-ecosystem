@@ -527,7 +527,7 @@ const GlobalAgenda = () => {
                         </button>
                         <div className="text-center w-40">
                             <div className="text-sm font-bold text-slate-800 capitalize">
-                                {startOfWeek.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+                                {gridStart.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
                             </div>
                             <div className="text-[10px] text-slate-400 font-mono tracking-wide">
                                 Semana {Math.ceil((((new Date(selectedDate) - new Date(new Date(selectedDate).getFullYear(), 0, 1)) / 86400000) + 1) / 7)}
