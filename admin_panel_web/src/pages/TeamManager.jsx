@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { createClient } from '@supabase/supabase-js'; // For creating users without killing session
 import { Plus, User, MapPin, Trash2, Edit2, X, Shield, ShieldAlert, Lock, Unlock, Smartphone, Upload, RotateCcw, Star, MessageSquare } from 'lucide-react';
 import AdminReviewModal from '../components/AdminReviewModal';
+import PermissionsModal from '../components/PermissionsModal';
 
 import { useToast } from '../components/ToastProvider';
 import { useAuth } from '../context/AuthContext';
@@ -97,6 +98,7 @@ const TeamManager = () => {
     const [showPermsModal, setShowPermsModal] = useState(false);
     const [viewingReviews, setViewingReviews] = useState(null); // For Review Modal
     const [targetAdmin, setTargetAdmin] = useState(null);
+    const [perms, setPerms] = useState({});
 
     const handleOpenPermissions = (admin) => {
         setTargetAdmin(admin);
@@ -601,7 +603,7 @@ const TeamManager = () => {
                                                     className="ml-auto text-slate-300 hover:text-purple-600 p-1.5 hover:bg-purple-50 rounded-lg transition"
                                                     title="Gestionar Permisos"
                                                 >
-                                                    <ShieldAlert size={18} />
+                                                    <Shield size={18} />
                                                 </button>
                                             )}
                                         </>
@@ -947,29 +949,26 @@ const TeamManager = () => {
                                     className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg"
                                 >
                                     Cancelar
-                                </button>
-                                <button
-                                    onClick={handleSavePermissions}
-                                    className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 font-medium"
-                                >
-                                    Guardar Permisos
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                                    <PermissionsModal
+                                        admin={targetAdmin}
+                                        permissions={perms}
+                                        onToggle={handleTogglePermission}
+                                        onSave={handleSavePermissions}
+                                        onClose={() => setShowPermsModal(false)}
+                                        saving={loading}
+                                    />
             )}
 
-            {/* REVIEWS MODAL */}
-            {viewingReviews && (
-                <AdminReviewModal
-                    technician={viewingReviews}
-                    onClose={() => setViewingReviews(null)}
-                />
-            )}
-        </div>
-    );
+                                    {/* REVIEWS MODAL */}
+                                    {viewingReviews && (
+                                        <AdminReviewModal
+                                            technician={viewingReviews}
+                                            onClose={() => setViewingReviews(null)}
+                                        />
+                                    )}
+                            </div>
+                            );
 };
 
 
-export default TeamManager;
+                            export default TeamManager;
