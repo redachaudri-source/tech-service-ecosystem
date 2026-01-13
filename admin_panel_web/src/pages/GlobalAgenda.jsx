@@ -748,7 +748,7 @@ const GlobalAgenda = () => {
                                                     </div>
                                                 </div>
                                             );
-                                        })}
+                                        })
                                     )} {/* End Ternary */}
                                 </div>
                             </div>
