@@ -1180,8 +1180,8 @@ const GlobalAgenda = () => {
                                     onDrop={(e) => handleDrop(e, dayDate)}
                                 >
 
-                                    {/* 🚨 GHOST DE RESCATE: ELÁSTICO Y VISIBLE (Flexbox) */}
-                                    {ghostState?.targetDate === dayDate.toISOString() && (
+                                    {/* 🚨 GHOST DE RESCATE: ELÁSTICO Y VISIBLE (Flexbox + Loose Matching) */}
+                                    {ghostState?.targetDate?.split('T')[0] === dayDate.toISOString().split('T')[0] && (
                                         <div
                                             className="absolute left-1 right-1 flex items-center justify-center rounded-lg pointer-events-none"
                                             style={{
