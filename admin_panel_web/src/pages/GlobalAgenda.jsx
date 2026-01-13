@@ -26,11 +26,9 @@ const createTechIcon = (color) => new L.DivIcon({
 });
 
 // --- CONSTANTS ---
+// Default range if config fails
 const START_HOUR = 8;
 const END_HOUR = 20;
-const HOURS_COUNT = END_HOUR - START_HOUR + 1;
-const PIXELS_PER_HOUR = 90; // Compact for weekly view
-const GRID_HEIGHT = HOURS_COUNT * PIXELS_PER_HOUR;
 
 const APPLIANCE_COLORS = {
     wash: 'bg-cyan-300 border-l-4 border-cyan-600 text-slate-900', // Lavado (Fresh)
@@ -67,6 +65,9 @@ const GlobalAgenda = () => {
     const [businessConfig, setBusinessConfig] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    // 🔍 ZOOM STATE (Pixel Density)
+    const [pixelsPerHour, setPixelsPerHour] = useState(90);
+
     // --- DYNAMIC TIME CONFIGURATION ---
     // Reads from Business Settings (e.g. 09:00 - 19:00) and adds padding (-1 / +1)
     const openH = businessConfig?.opening_time ? parseInt(businessConfig.opening_time.split(':')[0]) : 8;
@@ -77,7 +78,7 @@ const GlobalAgenda = () => {
     const endHour = Math.min(23, (isNaN(closeH) ? 20 : closeH) + 1);
 
     const hoursCount = Math.max(1, endHour - startHour + 1);
-    const gridHeight = hoursCount * PIXELS_PER_HOUR;
+    const gridHeight = hoursCount * pixelsPerHour;
     // Explicitly define hours array based on DYNAMIC limits to ensure sync
     const dynamicHours = Array.from({ length: hoursCount }, (_, i) => startHour + i);
 
@@ -392,7 +393,7 @@ const GlobalAgenda = () => {
 
         // Recalculate Snapped Visuals based on CLAMPED value
         const clampedHours = clampedMinutes / 60;
-        const clampedTop = clampedHours * PIXELS_PER_HOUR;
+        const clampedTop = clampedHours * pixelsPerHour;
 
         // Calculate Ghost Time for UI
         const ghostTime = new Date(targetDate);
@@ -400,7 +401,7 @@ const GlobalAgenda = () => {
 
         setGhostState({
             top: clampedTop, // Use Clamped Top
-            height: (dragState.duration / 60) * PIXELS_PER_HOUR,
+            height: (dragState.duration / 60) * pixelsPerHour,
             targetDate: targetDate.toISOString(),
             timeStr: ghostTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         });
@@ -426,11 +427,11 @@ const GlobalAgenda = () => {
         const rect = e.currentTarget.getBoundingClientRect();
         const y = e.clientY - rect.top;
         const snapMinutes = 15;
-        const snapPixels = PIXELS_PER_HOUR * (snapMinutes / 60);
+        const snapPixels = pixelsPerHour * (snapMinutes / 60);
         // Correct position
         const rawTop = y - dragState.offset;
         const snappedTop = Math.round(rawTop / snapPixels) * snapPixels;
-        const hoursToAdd = snappedTop / PIXELS_PER_HOUR;
+        const hoursToAdd = snappedTop / pixelsPerHour;
 
         const totalMinutes = hoursToAdd * 60;
         const maxMinutes = (dayConfig.closeHour - startHour) * 60;
@@ -542,9 +543,9 @@ const GlobalAgenda = () => {
 
                 {/* Time Axis */}
                 <div className="w-12 shrink-0 bg-white border-r border-slate-200 sticky left-0 z-20 select-none shadow-[4px_0_10px_rgba(0,0,0,0.02)]">
-                    <div className="h-8 border-b border-slate-200 bg-slate-50"></div>
+                    <div className="h-8 border-b border-slate-200 bg-slate-50 sticky top-0 z-50"></div>
                     {dynamicHours.map(h => (
-                        <div key={h} className="text-right pr-2 text-[10px] text-slate-400 font-bold relative -top-2 font-mono" style={{ height: PIXELS_PER_HOUR }}>{h}:00</div>
+                        <div key={h} className="text-right pr-2 text-[10px] text-slate-400 font-bold relative -top-2 font-mono" style={{ height: pixelsPerHour }}>{h}:00</div>
                     ))}
                 </div>
 
@@ -552,7 +553,7 @@ const GlobalAgenda = () => {
                 <div className="flex-1 flex min-w-[800px] relative">
                     {/* BACKGROUND LINES: Force explicit height to ensure scroll */}
                     <div className="absolute top-0 left-0 w-full mt-8 pointer-events-none z-0" style={{ height: gridHeight }}>
-                        {dynamicHours.map(h => (<div key={h} className="border-b border-slate-200/50 w-full" style={{ height: PIXELS_PER_HOUR }}></div>))}
+                        {dynamicHours.map(h => (<div key={h} className="border-b border-slate-200/50 w-full" style={{ height: pixelsPerHour }}></div>))}
                     </div>
 
                     {weekDays.map(dayDate => {
@@ -592,8 +593,8 @@ const GlobalAgenda = () => {
                                         const startH = appt.start.getHours();
                                         const startM = appt.start.getMinutes();
                                         // Use dynamic startHour
-                                        const top = ((startH - startHour) + startM / 60) * PIXELS_PER_HOUR;
-                                        const height = (appt.duration / 60) * PIXELS_PER_HOUR;
+                                        const top = ((startH - startHour) + startM / 60) * pixelsPerHour;
+                                        const height = (appt.duration / 60) * pixelsPerHour;
                                         const width = 100 / appt.totalCols;
                                         const left = width * appt.col;
 
@@ -613,6 +614,10 @@ const GlobalAgenda = () => {
                                         const displayBrand = bestAppliance.brand;
                                         const displayConcept = appt.title || appt.description || 'Sin concepto';
 
+                                        // Calculate End Time for Badge
+                                        const endD = new Date(appt.start.getTime() + appt.duration * 60000);
+                                        const endTimeStr = endD.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
                                         // Debug for User
                                         console.log('Agenda Item Full:', appt);
 
@@ -626,6 +631,12 @@ const GlobalAgenda = () => {
                                                          ${colorClass} ${selectedAppt?.id === appt.id ? 'ring-2 ring-indigo-600 z-40' : 'z-10'}`}
                                                 style={{ top: `${top}px`, height: `${height - 2}px`, left: `${left}%`, width: `${width}%` }}
                                             >
+                                                {/* 🏷️ TIME BADGE HEADER */}
+                                                <div className="flex justify-between items-center text-[10px] font-black opacity-90 border-b border-black/10 pb-1 mb-1 leading-none">
+                                                    <span>{appt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {endTimeStr}</span>
+                                                    <span className='opacity-50 text-[8px]'>{appt.duration}m</span>
+                                                </div>
+
                                                 {/* --- BODY: LOGO, TYPE, CONCEPT --- */}
                                                 <div className="relative flex-1 flex flex-col items-center justify-center p-1 overflow-hidden text-center">
 
