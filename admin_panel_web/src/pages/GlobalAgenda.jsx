@@ -108,6 +108,14 @@ const GlobalAgenda = () => {
     const [businessConfig, setBusinessConfig] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    // 🕒 DIGITAL CLOCK STATE
+    const [currentTime, setCurrentTime] = useState(new Date());
+
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(new Date()), 1000); // Update every second
+        return () => clearInterval(timer);
+    }, []);
+
     // 🔍 ZOOM STATE (Pixel Density)
     // 0-33: Month | 34-66: Fortnight | 67-100: Week
     const [zoomLevel, setZoomLevel] = useState(100);
@@ -905,20 +913,11 @@ const GlobalAgenda = () => {
                             <Zap size={14} className={showOptimizer ? 'animate-pulse' : 'fill-white'} />
                             <span>Optimizar Ruta IA</span>
                         </button>
-                        {/* Legend Bar (Compact Dots) */}
-                        <div className="flex gap-2 mr-4 bg-white/40 backdrop-blur-sm px-3 py-1.5 rounded-full items-center border border-white/50">
-                            {[
-                                { color: 'bg-blue-500', label: 'Lavado' },
-                                { color: 'bg-rose-600', label: 'Calefacción' },
-                                { color: 'bg-emerald-500', label: 'Clima' },
-                                { color: 'bg-amber-500', label: 'Frío' },
-                                { color: 'bg-violet-500', label: 'Cocción' }
-                            ].map(l => (
-                                <div key={l.label} className="flex items-center gap-1">
-                                    <div className={`w-2 h-2 rounded-full ${l.color}`}></div>
-                                    <span className="text-[9px] font-bold text-slate-500 hidden xl:block">{l.label}</span>
-                                </div>
-                            ))}
+                        {/* 🕰️ Header ClocK (Replaces Legend) */}
+                        <div className="flex items-center justify-center mr-6 select-none bg-white/40 px-4 py-1 rounded-xl border border-white/50 shadow-sm backdrop-blur-sm">
+                            <span className="text-3xl font-black text-slate-800 tracking-tighter tabular-nums leading-none">
+                                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
                         </div>
                     </div>
                 </div>
