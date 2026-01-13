@@ -626,6 +626,7 @@ const GlobalAgenda = () => {
     const handleResizeStart = (e, appt) => {
         e.preventDefault();
         e.stopPropagation(); // Stop Drag Start
+        isInteractionBusy.current = true; // 🔒 LOCK
 
         const rect = e.currentTarget.parentElement.getBoundingClientRect(); // Parent is the Card
         setResizingState({
