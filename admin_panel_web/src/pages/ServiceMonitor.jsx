@@ -307,7 +307,10 @@ const ServiceMonitor = () => {
                                                         )}
                                                     </div>
                                                 ) : (
-                                                    <div className="mt-2 text-[10px] text-slate-400 italic">Sin cita</div>
+                                                    <div className="mt-2 flex items-center justify-center gap-1 bg-rose-50 text-rose-700 border border-rose-200 rounded px-2 py-1 text-[10px] font-black uppercase tracking-wide animate-pulse shadow-sm">
+                                                        <AlertCircle size={10} />
+                                                        PENDIENTE DE CITA
+                                                    </div>
                                                 )}
                                             </td>
 
