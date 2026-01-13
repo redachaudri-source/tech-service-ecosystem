@@ -43,9 +43,7 @@ const Layout = () => {
     ];
 
     const settingsNav = [
-        { icon: Tag, label: 'Tipos Electro.', path: '/appliance-types', help: 'Define catálogo de aparatos y averías comunes.' },
-        { icon: Briefcase, label: 'Ajustes de Negocio', path: '/business-settings', help: 'Configuración fiscal y datos de empresa.' },
-        { icon: SettingsIcon, label: 'Ajustes Panel', path: '/settings', help: 'Preferencias generales del sistema.' },
+        { icon: SettingsIcon, label: 'Configuración', path: '/settings', help: 'Gestión integral del sistema (Identidad, Reglas, Catálogos).' },
     ];
 
     // Close mobile menu when route changes
