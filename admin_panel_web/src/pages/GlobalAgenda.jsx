@@ -602,13 +602,16 @@ const GlobalAgenda = () => {
                 </div>
 
                 {/* Day Columns */}
-                <div className="flex-1 flex min-w-[800px] relative">
-                    {/* BACKGROUND LINES: Force explicit height to ensure scroll */}
-                    <div className="absolute top-0 left-0 w-full mt-8 pointer-events-none z-0" style={{ height: gridHeight }}>
-                        {dynamicHours.map(h => (<div key={h} className="border-b border-slate-200/50 w-full" style={{ height: pixelsPerHour }}></div>))}
-                    </div>
+                <div className={`flex-1 min-w-[800px] relative ${viewMode === 'month' ? 'grid grid-cols-7 border-t border-l border-slate-200' : 'flex'}`}>
 
-                    {weekDays.map(dayDate => {
+                    {/* BACKGROUND LINES (Only for Week/Fortnight) */}
+                    {viewMode !== 'month' && (
+                        <div className="absolute top-0 left-0 w-full mt-8 pointer-events-none z-0" style={{ height: gridHeight }}>
+                            {dynamicHours.map(h => (<div key={h} className="border-b border-slate-200/50 w-full" style={{ height: pixelsPerHour }}></div>))}
+                        </div>
+                    )}
+
+                    {gridDates.map(dayDate => {
                         const isToday = dayDate.toDateString() === new Date().toDateString();
 
                         return (
