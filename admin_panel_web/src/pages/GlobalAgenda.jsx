@@ -490,6 +490,24 @@ const GlobalAgenda = () => {
         const newDate = new Date(targetDate);
         newDate.setHours(startHour + Math.floor(hoursToAdd), (hoursToAdd % 1) * 60);
 
+        // Calculate End Date for Confirmation
+        const newEndDate = new Date(newDate.getTime() + (appt.duration || 60) * 60000);
+
+        // 🛡️ DROP GUARD: Security Confirmation
+        const timeStr = `${newDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${newEndDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        const dateStr = newDate.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
+
+        const isConfirmed = window.confirm(
+            `⚠️ CONFIRMACIÓN DE CAMBIO\n\n` +
+            `¿Mover ticket a ${dateStr}?\n` +
+            `Horario: ${timeStr}`
+        );
+
+        if (!isConfirmed) {
+            addToast('Cambio cancelado por el usuario.', 'info', 2000);
+            return; // ⛔ Revert (Do nothing, React state remains unchanged)
+        }
+
         handleUpdateAppointment(apptId, appt.technician_id, newDate);
     };
 
