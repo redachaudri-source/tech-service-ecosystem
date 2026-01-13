@@ -657,11 +657,12 @@ const GlobalAgenda = () => {
 
                                 {/* DROP ZONE CONTAINER */}
                                 <div
-                                    className="relative w-full z-10 shrink-0"
+                                    className="relative w-full shrink-0"
                                     style={viewMode === 'month' ? { height: '100%' } : { height: gridHeight, minHeight: gridHeight }}
                                     onDragOver={(e) => handleDragOver(e, dayDate)}
                                     onDrop={(e) => handleDrop(e, dayDate)}
                                 >
+
                                     {/* Ghost Event (Blue Mode) */}
                                     {ghostState?.targetDate === dayDate.toISOString() && (
                                         <div className="absolute left-1 right-1 flex items-center justify-center rounded-md pointer-events-none transition-all duration-75 p-1"
