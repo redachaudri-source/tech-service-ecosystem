@@ -55,6 +55,20 @@ const getStartOfWeek = (d) => {
     return new Date(date.setDate(diff));
 };
 
+// Helper for Month View Grid Start
+const getStartOfMonthGrid = (d) => {
+    const date = new Date(d);
+    date.setDate(1); // 1st of month
+    const day = date.getDay(); // 0=Sun, 1=Mon
+    // We want Mon as col 1.
+    // If 1st is Mon (1), diff 0.
+    // If 1st is Sun (0), diff -6.
+    const diff = day === 0 ? -6 : 1 - day;
+    const startObj = new Date(date);
+    startObj.setDate(date.getDate() + diff);
+    return startObj;
+};
+
 const GlobalAgenda = () => {
     const { addToast } = useToast();
     const navigate = useNavigate(); // Not needed for detail modal
@@ -66,7 +80,24 @@ const GlobalAgenda = () => {
     const [loading, setLoading] = useState(true);
 
     // 🔍 ZOOM STATE (Pixel Density)
-    const [pixelsPerHour, setPixelsPerHour] = useState(90);
+    // 0-33: Month | 34-66: Fortnight | 67-100: Week
+    const [zoomLevel, setZoomLevel] = useState(100);
+
+    // Derived States
+    const viewMode = useMemo(() => {
+        if (zoomLevel <= 33) return 'month';
+        if (zoomLevel <= 66) return 'fortnight';
+        return 'week';
+    }, [zoomLevel]);
+
+    const pixelsPerHour = useMemo(() => {
+        // Only affect pixel density in Week/Fortnight mode
+        // Map 67-100 to 60px-120px
+        if (viewMode === 'month') return 30; // Min for month
+        if (viewMode === 'fortnight') return 60; // Compact
+        // Linear map 67->60, 100->100
+        return Math.max(50, zoomLevel);
+    }, [zoomLevel, viewMode]);
 
     // --- DYNAMIC TIME CONFIGURATION ---
     // Reads from Business Settings (e.g. 09:00 - 19:00) and adds padding (-1 / +1)
@@ -88,21 +119,26 @@ const GlobalAgenda = () => {
     const [selectedAppt, setSelectedAppt] = useState(null); // For Popover
     const [detailTicket, setDetailTicket] = useState(null); // For Full Modal
 
-    // Week Calculation
-    const startOfWeek = useMemo(() => getStartOfWeek(selectedDate), [selectedDate]);
-    const weekDays = useMemo(() => {
-        return Array.from({ length: 7 }, (_, i) => {
-            const d = new Date(startOfWeek);
+    // Date Calculations
+    const gridStart = useMemo(() => {
+        if (viewMode === 'month') return getStartOfMonthGrid(selectedDate);
+        return getStartOfWeek(selectedDate);
+    }, [selectedDate, viewMode]);
+
+    const gridDates = useMemo(() => {
+        const days = viewMode === 'week' ? 7 : (viewMode === 'fortnight' ? 14 : 42); // 6 weeks for month
+        return Array.from({ length: days }, (_, i) => {
+            const d = new Date(gridStart);
             d.setDate(d.getDate() + i);
             return d;
         });
-    }, [startOfWeek]);
+    }, [gridStart, viewMode]);
 
     // Data Fetching
     useEffect(() => {
         fetchAgendaData();
         fetchBusinessConfig();
-    }, [startOfWeek]); // Refetch when week changes
+    }, [gridStart, gridDates.length]); // Refetch when grid changes
 
     const fetchBusinessConfig = async () => {
         // Explicitly fetch the 'working_hours' configuration row to avoid ambiguity
@@ -118,11 +154,11 @@ const GlobalAgenda = () => {
     const fetchAgendaData = async () => {
         setLoading(true);
         try {
-            // Fetch range: Start of Week to End of Week
-            const startStr = startOfWeek.toISOString().split('T')[0];
-            const endOfWeek = new Date(startOfWeek);
-            endOfWeek.setDate(endOfWeek.getDate() + 7);
-            const endStr = endOfWeek.toISOString().split('T')[0];
+            // Fetch range: Based on Grid Start and Grid Length
+            const startStr = gridStart.toISOString().split('T')[0];
+            const endDate = new Date(gridStart);
+            endDate.setDate(endDate.getDate() + gridDates.length);
+            const endStr = endDate.toISOString().split('T')[0];
 
             // 1. Fetch Techs
             const { data: techData } = await supabase
@@ -504,16 +540,16 @@ const GlobalAgenda = () => {
                         <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 rounded-lg border border-slate-200 ml-2">
                             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
                                 <LayoutList size={12} />
-                                Zoom
+                                Vista: <span className="text-indigo-600">{viewMode === 'month' ? 'Mensual' : viewMode === 'fortnight' ? 'Quincenal' : 'Semanal'}</span>
                             </div>
                             <input
                                 type="range"
-                                min="40"
-                                max="180"
-                                step="10"
-                                value={pixelsPerHour}
-                                onChange={(e) => setPixelsPerHour(parseInt(e.target.value))}
-                                className="w-20 accent-indigo-600 h-1 bg-slate-300 rounded-lg appearance-none cursor-pointer"
+                                min="0"
+                                max="100"
+                                step="1"
+                                value={zoomLevel}
+                                onChange={(e) => setZoomLevel(parseInt(e.target.value))}
+                                className="w-24 accent-indigo-600 h-1 bg-slate-300 rounded-lg appearance-none cursor-pointer"
                             />
                         </div>
                     </div>
