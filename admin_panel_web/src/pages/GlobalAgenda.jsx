@@ -648,216 +648,215 @@ const GlobalAgenda = () => {
                                                 {ghostState.timeStr}
                                             </div>
                                         </div>
-                                        </div>
                                     )}
 
-                                {/* Events (Conditional Render) */}
-                                {viewMode === 'month' ? (
-                                    <div className="flex flex-col gap-0.5 p-1 h-full overflow-hidden">
-                                        {getPositionedEvents(dayDate).map(appt => (
-                                            <div key={appt.id} onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }} className="h-4 min-h-[16px] bg-white border border-slate-200 rounded text-[8px] flex items-center px-1 shadow-sm hover:border-indigo-400 cursor-pointer">
-                                                <div className={`w-1.5 h-1.5 rounded-full mr-1 ${APPLIANCE_COLORS[getApplianceCategory(appt.appliance_info?.type)].split(' ')[0]}`}></div>
-                                                <span className="font-bold mr-1">{appt.start.getHours()}:00</span>
-                                                <span className="truncate text-slate-500">{appt.appliance_info?.type || 'Servicio'}</span>
+                                    {/* Events (Conditional Render) */}
+                                    {viewMode === 'month' ? (
+                                        <div className="flex flex-col gap-0.5 p-1 h-full overflow-hidden">
+                                            {getPositionedEvents(dayDate).map(appt => (
+                                                <div key={appt.id} onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }} className="h-4 min-h-[16px] bg-white border border-slate-200 rounded text-[8px] flex items-center px-1 shadow-sm hover:border-indigo-400 cursor-pointer">
+                                                    <div className={`w-1.5 h-1.5 rounded-full mr-1 ${APPLIANCE_COLORS[getApplianceCategory(appt.appliance_info?.type)].split(' ')[0]}`}></div>
+                                                    <span className="font-bold mr-1">{appt.start.getHours()}:00</span>
+                                                    <span className="truncate text-slate-500">{appt.appliance_info?.type || 'Servicio'}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        getPositionedEvents(dayDate).map(appt => {
+                                            const startH = appt.start.getHours();
+                                            const startM = appt.start.getMinutes();
+                                            const top = ((startH - startHour) + startM / 60) * pixelsPerHour;
+                                            const height = (appt.duration / 60) * pixelsPerHour;
+                                            const width = 100 / appt.totalCols;
+                                            const left = width * appt.col;
+
+                                            // Robust Appliance Resolver
+                                            const dbAppliance = Array.isArray(appt.client_appliances) ? appt.client_appliances[0] : appt.client_appliances;
+                                            const jsonAppliance = appt.appliance_info; // This is what Service Monitor uses!
+                                            const bestAppliance = jsonAppliance?.type ? jsonAppliance : (dbAppliance || {});
+
+                                            // COLOR BY APPLIANCE TYPE
+                                            // Use the Resolved Appliance Type for color, fallback to default
+                                            const category = getApplianceCategory(bestAppliance.type || bestAppliance.name);
+                                            const colorClass = APPLIANCE_COLORS[category] || APPLIANCE_COLORS.default;
+                                            const techName = techs.find(t => t.id === appt.technician_id)?.full_name.split(' ')[0] || '???';
+
+                                            // "The Trinity" Display Data
+                                            const displayType = bestAppliance.type || bestAppliance.name || 'SIN EQUIPO ASIGNADO';
+                                            const displayBrand = bestAppliance.brand;
+                                            const displayConcept = appt.title || appt.description || 'Sin concepto';
+
+                                            // Calculate End Time for Badge
+                                            const endD = new Date(appt.start.getTime() + appt.duration * 60000);
+                                            const endTimeStr = endD.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                                            // Debug for User
+                                            console.log('Agenda Item Full:', appt);
+
+                                            return (
+                                                <div
+                                                    key={appt.id}
+                                                    draggable
+                                                    onDragStart={(e) => handleDragStart(e, appt)}
+                                                    onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
+                                                    className={`absolute rounded-lg cursor-grab active:cursor-grabbing hover:z-50 hover:scale-[1.05] hover:shadow-xl transition-all shadow-md overflow-hidden flex flex-col font-sans
+                                                         ${colorClass} ${selectedAppt?.id === appt.id ? 'ring-2 ring-indigo-600 z-40' : 'z-10'}`}
+                                                    style={{ top: `${top}px`, height: `${height - 2}px`, left: `${left}%`, width: `${width}%` }}
+                                                >
+                                                    {/* 🏷️ TIME BADGE HEADER */}
+                                                    <div className="flex justify-between items-center text-[10px] font-black opacity-90 border-b border-black/10 pb-1 mb-1 leading-none">
+                                                        <span>{appt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {endTimeStr}</span>
+                                                        <span className='opacity-50 text-[8px]'>{appt.duration}m</span>
+                                                    </div>
+
+                                                    {/* --- BODY: LOGO, TYPE, CONCEPT --- */}
+                                                    <div className="relative flex-1 flex flex-col items-center justify-center p-1 overflow-hidden text-center">
+
+                                                        {/* A) Watermark Logo (Brand) */}
+                                                        {appt.brand_logo && (
+                                                            <img src={appt.brand_logo} className="absolute inset-0 w-full h-full object-contain opacity-15 p-2 pointer-events-none mix-blend-multiply" />
+                                                        )}
+
+                                                        <div className="relative z-10 w-full">
+                                                            {/* B) APPLIANCE TYPE (Equipo) - Pop Text */}
+                                                            <div className="font-black text-[11px] uppercase tracking-tight leading-none text-slate-900 drop-shadow-sm mb-0.5 truncate">
+                                                                {displayType}
+                                                            </div>
+
+                                                            {/* C) CONCEPT (Avería) - Sticker Label */}
+                                                            <div className="text-[9px] font-bold leading-tight text-slate-800/90 line-clamp-2 bg-white/30 rounded px-1.5 py-0.5 backdrop-blur-[2px] mt-0.5 inline-block">
+                                                                {displayConcept}
+                                                            </div>
+
+                                                            {/* Brand Text if No Logo */}
+                                                            {!appt.brand_logo && displayBrand && (
+                                                                <div className="text-[8px] font-bold text-slate-600 uppercase mt-0.5 tracking-wider opacity-80">{displayBrand}</div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* --- FOOTER: MATRÍCULA (Tech & CP) --- */}
+                                                    <div className="shrink-0 h-5 bg-black/10 flex items-center justify-between px-2 backdrop-blur-sm">
+                                                        <div className="flex items-center gap-1 max-w-[60%]">
+                                                            <span className="text-[9px] font-black text-slate-900 truncate">👤 {techName}</span>
+                                                        </div>
+                                                        <div className="flex items-center">
+                                                            <span className="text-[9px] font-mono font-black text-slate-800 opacity-90 tracking-wide">
+                                                                {appt.profiles?.postal_code || '---'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    )} {/* End Ternary */}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Magic Route Panel */}
+            <div className={`fixed inset-y-0 right-0 w-80 bg-white shadow-2xl z-[60] transform transition-transform duration-300 flex flex-col border-l border-slate-200 ${showRoutePanel ? 'translate-x-0' : 'translate-x-full'}`}>
+                <div className="p-4 bg-slate-900 text-white flex justify-between items-center shrink-0">
+                    <div className="flex items-center gap-2 font-bold text-amber-400">
+                        <Zap className="fill-current" size={18} /> <span>Optimizador</span>
+                    </div>
+                    <button onClick={() => setShowRoutePanel(false)} className="text-slate-400 hover:text-white"><X size={20} /></button>
+                </div>
+                <div className="flex-1 overflow-auto p-2">
+                    {optimizedSuggestions.length === 0 ? (<div className="p-4 text-center text-slate-400 text-xs italic">Vacío</div>) : (
+                        <div className="space-y-4">
+                            {Object.entries(optimizedSuggestions.reduce((acc, curr) => {
+                                const cp = curr.client?.postal_code || 'SIN CP';
+                                if (!acc[cp]) acc[cp] = [];
+                                acc[cp].push(curr);
+                                return acc;
+                            }, {})).map(([cp, list]) => (
+                                <div key={cp} className="bg-slate-50 rounded border border-slate-100 overflow-hidden">
+                                    <div className="bg-slate-200/50 px-3 py-1 text-xs font-bold text-slate-600 flex justify-between"><span>CP {cp}</span><span>{list.length}</span></div>
+                                    <div className="divide-y divide-slate-100">
+                                        {list.map(item => (
+                                            <div key={item.id} className="p-2 flex justify-between items-center group cursor-grab" draggable onDragStart={(e) => handleDragStart(e, item)}>
+                                                <div className="text-xs">{item.client?.full_name}</div>
+                                                <ArrowRight size={14} className="text-slate-300" />
                                             </div>
                                         ))}
                                     </div>
-                                ) : (
-                                    getPositionedEvents(dayDate).map(appt => {
-                                        const startH = appt.start.getHours();
-                                        const startM = appt.start.getMinutes();
-                                        const top = ((startH - startHour) + startM / 60) * pixelsPerHour;
-                                        const height = (appt.duration / 60) * pixelsPerHour;
-                                        const width = 100 / appt.totalCols;
-                                        const left = width * appt.col;
-
-                                        // Robust Appliance Resolver
-                                        const dbAppliance = Array.isArray(appt.client_appliances) ? appt.client_appliances[0] : appt.client_appliances;
-                                        const jsonAppliance = appt.appliance_info; // This is what Service Monitor uses!
-                                        const bestAppliance = jsonAppliance?.type ? jsonAppliance : (dbAppliance || {});
-
-                                        // COLOR BY APPLIANCE TYPE
-                                        // Use the Resolved Appliance Type for color, fallback to default
-                                        const category = getApplianceCategory(bestAppliance.type || bestAppliance.name);
-                                        const colorClass = APPLIANCE_COLORS[category] || APPLIANCE_COLORS.default;
-                                        const techName = techs.find(t => t.id === appt.technician_id)?.full_name.split(' ')[0] || '???';
-
-                                        // "The Trinity" Display Data
-                                        const displayType = bestAppliance.type || bestAppliance.name || 'SIN EQUIPO ASIGNADO';
-                                        const displayBrand = bestAppliance.brand;
-                                        const displayConcept = appt.title || appt.description || 'Sin concepto';
-
-                                        // Calculate End Time for Badge
-                                        const endD = new Date(appt.start.getTime() + appt.duration * 60000);
-                                        const endTimeStr = endD.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-                                        // Debug for User
-                                        console.log('Agenda Item Full:', appt);
-
-                                        return (
-                                            <div
-                                                key={appt.id}
-                                                draggable
-                                                onDragStart={(e) => handleDragStart(e, appt)}
-                                                onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
-                                                className={`absolute rounded-lg cursor-grab active:cursor-grabbing hover:z-50 hover:scale-[1.05] hover:shadow-xl transition-all shadow-md overflow-hidden flex flex-col font-sans
-                                                         ${colorClass} ${selectedAppt?.id === appt.id ? 'ring-2 ring-indigo-600 z-40' : 'z-10'}`}
-                                                style={{ top: `${top}px`, height: `${height - 2}px`, left: `${left}%`, width: `${width}%` }}
-                                            >
-                                                {/* 🏷️ TIME BADGE HEADER */}
-                                                <div className="flex justify-between items-center text-[10px] font-black opacity-90 border-b border-black/10 pb-1 mb-1 leading-none">
-                                                    <span>{appt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {endTimeStr}</span>
-                                                    <span className='opacity-50 text-[8px]'>{appt.duration}m</span>
-                                                </div>
-
-                                                {/* --- BODY: LOGO, TYPE, CONCEPT --- */}
-                                                <div className="relative flex-1 flex flex-col items-center justify-center p-1 overflow-hidden text-center">
-
-                                                    {/* A) Watermark Logo (Brand) */}
-                                                    {appt.brand_logo && (
-                                                        <img src={appt.brand_logo} className="absolute inset-0 w-full h-full object-contain opacity-15 p-2 pointer-events-none mix-blend-multiply" />
-                                                    )}
-
-                                                    <div className="relative z-10 w-full">
-                                                        {/* B) APPLIANCE TYPE (Equipo) - Pop Text */}
-                                                        <div className="font-black text-[11px] uppercase tracking-tight leading-none text-slate-900 drop-shadow-sm mb-0.5 truncate">
-                                                            {displayType}
-                                                        </div>
-
-                                                        {/* C) CONCEPT (Avería) - Sticker Label */}
-                                                        <div className="text-[9px] font-bold leading-tight text-slate-800/90 line-clamp-2 bg-white/30 rounded px-1.5 py-0.5 backdrop-blur-[2px] mt-0.5 inline-block">
-                                                            {displayConcept}
-                                                        </div>
-
-                                                        {/* Brand Text if No Logo */}
-                                                        {!appt.brand_logo && displayBrand && (
-                                                            <div className="text-[8px] font-bold text-slate-600 uppercase mt-0.5 tracking-wider opacity-80">{displayBrand}</div>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                {/* --- FOOTER: MATRÍCULA (Tech & CP) --- */}
-                                                <div className="shrink-0 h-5 bg-black/10 flex items-center justify-between px-2 backdrop-blur-sm">
-                                                    <div className="flex items-center gap-1 max-w-[60%]">
-                                                        <span className="text-[9px] font-black text-slate-900 truncate">👤 {techName}</span>
-                                                    </div>
-                                                    <div className="flex items-center">
-                                                        <span className="text-[9px] font-mono font-black text-slate-800 opacity-90 tracking-wide">
-                                                            {appt.profiles?.postal_code || '---'}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                    )} {/* End Ternary */}
-                            </div>
-                            </div>
-                );
-                    })}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
-        </div>
 
-            {/* Magic Route Panel */ }
-    <div className={`fixed inset-y-0 right-0 w-80 bg-white shadow-2xl z-[60] transform transition-transform duration-300 flex flex-col border-l border-slate-200 ${showRoutePanel ? 'translate-x-0' : 'translate-x-full'}`}>
-        <div className="p-4 bg-slate-900 text-white flex justify-between items-center shrink-0">
-            <div className="flex items-center gap-2 font-bold text-amber-400">
-                <Zap className="fill-current" size={18} /> <span>Optimizador</span>
-            </div>
-            <button onClick={() => setShowRoutePanel(false)} className="text-slate-400 hover:text-white"><X size={20} /></button>
-        </div>
-        <div className="flex-1 overflow-auto p-2">
-            {optimizedSuggestions.length === 0 ? (<div className="p-4 text-center text-slate-400 text-xs italic">Vacío</div>) : (
-                <div className="space-y-4">
-                    {Object.entries(optimizedSuggestions.reduce((acc, curr) => {
-                        const cp = curr.client?.postal_code || 'SIN CP';
-                        if (!acc[cp]) acc[cp] = [];
-                        acc[cp].push(curr);
-                        return acc;
-                    }, {})).map(([cp, list]) => (
-                        <div key={cp} className="bg-slate-50 rounded border border-slate-100 overflow-hidden">
-                            <div className="bg-slate-200/50 px-3 py-1 text-xs font-bold text-slate-600 flex justify-between"><span>CP {cp}</span><span>{list.length}</span></div>
-                            <div className="divide-y divide-slate-100">
-                                {list.map(item => (
-                                    <div key={item.id} className="p-2 flex justify-between items-center group cursor-grab" draggable onDragStart={(e) => handleDragStart(e, item)}>
-                                        <div className="text-xs">{item.client?.full_name}</div>
-                                        <ArrowRight size={14} className="text-slate-300" />
+            {/* POPOVER Details */}
+            {
+                selectedAppt && (
+                    <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4 backdrop-blur-[1px]" onClick={() => setSelectedAppt(null)}>
+                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200 ring-4 ring-black/5" onClick={e => e.stopPropagation()}>
+                            <div className="p-4 border-b flex justify-between items-start bg-slate-50">
+                                <div><div className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 mb-1">Detalle</div><h3 className="font-bold text-slate-800 text-lg">{selectedAppt.client?.full_name}</h3></div>
+                                <button onClick={() => setSelectedAppt(null)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+                            </div>
+                            <div className="p-5 space-y-5">
+                                {selectedAppt.appliance && (
+                                    <div className="flex gap-3 bg-indigo-50/50 p-3 rounded-lg border border-indigo-100/50 items-center">
+                                        <div className="bg-white p-2 rounded shadow-sm text-indigo-600"><CheckSquare size={18} /></div>
+                                        <div><div className="text-[10px] font-bold text-slate-500 uppercase">Equipo</div><div className="font-bold text-slate-800 text-sm">{selectedAppt.appliance.type} {selectedAppt.appliance.brand}</div></div>
                                     </div>
-                                ))}
+                                )}
+                                <div className="space-y-3">
+                                    <div className="flex items-start gap-3 text-sm text-slate-600"><MapPin size={18} className="text-red-400 mt-0.5" /> <div><div className="font-medium text-slate-700">{selectedAppt.client?.address}</div><div className="text-xs text-slate-400">CP {selectedAppt.client?.postal_code || 'N/A'}</div></div></div>
+                                    <div className="flex items-center gap-3 text-sm text-slate-600"><Phone size={18} className="text-emerald-400" /><a href={`tel:${selectedAppt.client?.phone}`} className="font-mono font-bold text-slate-700 underline decoration-slate-300">{selectedAppt.client?.phone}</a></div>
+                                </div>
+                                <div className="pt-2">
+                                    <button
+                                        onClick={() => {
+                                            setDetailTicket(selectedAppt);
+                                            setSelectedAppt(null); // Close popover
+                                        }}
+                                        className="w-full bg-slate-900 text-white py-3 rounded-lg font-bold text-sm shadow hover:bg-black transition flex items-center justify-center gap-2"
+                                    >
+                                        <LayoutList size={16} /> Ver Ficha Completa
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    ))}
-                </div>
-            )}
-        </div>
-    </div>
-
-    {/* POPOVER Details */ }
-    {
-        selectedAppt && (
-            <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4 backdrop-blur-[1px]" onClick={() => setSelectedAppt(null)}>
-                <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200 ring-4 ring-black/5" onClick={e => e.stopPropagation()}>
-                    <div className="p-4 border-b flex justify-between items-start bg-slate-50">
-                        <div><div className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 mb-1">Detalle</div><h3 className="font-bold text-slate-800 text-lg">{selectedAppt.client?.full_name}</h3></div>
-                        <button onClick={() => setSelectedAppt(null)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
                     </div>
-                    <div className="p-5 space-y-5">
-                        {selectedAppt.appliance && (
-                            <div className="flex gap-3 bg-indigo-50/50 p-3 rounded-lg border border-indigo-100/50 items-center">
-                                <div className="bg-white p-2 rounded shadow-sm text-indigo-600"><CheckSquare size={18} /></div>
-                                <div><div className="text-[10px] font-bold text-slate-500 uppercase">Equipo</div><div className="font-bold text-slate-800 text-sm">{selectedAppt.appliance.type} {selectedAppt.appliance.brand}</div></div>
+                )
+            }
+
+            {/* FULL DETAIL MODAL (Replica of ServiceTable) */}
+            {
+                detailTicket && (
+                    <ServiceDetailsModal
+                        ticket={detailTicket}
+                        onClose={() => setDetailTicket(null)}
+                    />
+                )
+            }
+
+            {/* Map Modal */}
+            {
+                showMapModal && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+                        <div className="bg-white w-full h-full md:max-w-6xl rounded-2xl shadow-2xl flex flex-col overflow-hidden relative">
+                            <div className="px-5 py-4 border-b flex justify-between items-center bg-white z-10 shrink-0">
+                                <h2 className="font-bold text-lg flex items-center gap-3"><MapIcon className="text-emerald-500" /> Rutas</h2>
+                                <button onClick={() => setShowMapModal(false)} className="bg-slate-100 hover:bg-slate-200 p-2 rounded-full"><X size={20} /></button>
                             </div>
-                        )}
-                        <div className="space-y-3">
-                            <div className="flex items-start gap-3 text-sm text-slate-600"><MapPin size={18} className="text-red-400 mt-0.5" /> <div><div className="font-medium text-slate-700">{selectedAppt.client?.address}</div><div className="text-xs text-slate-400">CP {selectedAppt.client?.postal_code || 'N/A'}</div></div></div>
-                            <div className="flex items-center gap-3 text-sm text-slate-600"><Phone size={18} className="text-emerald-400" /><a href={`tel:${selectedAppt.client?.phone}`} className="font-mono font-bold text-slate-700 underline decoration-slate-300">{selectedAppt.client?.phone}</a></div>
-                        </div>
-                        <div className="pt-2">
-                            <button
-                                onClick={() => {
-                                    setDetailTicket(selectedAppt);
-                                    setSelectedAppt(null); // Close popover
-                                }}
-                                className="w-full bg-slate-900 text-white py-3 rounded-lg font-bold text-sm shadow hover:bg-black transition flex items-center justify-center gap-2"
-                            >
-                                <LayoutList size={16} /> Ver Ficha Completa
-                            </button>
+                            <div className="flex-1 bg-slate-100 relative">
+                                <MapContainer center={[36.7213, -4.4214]} zoom={11} style={{ height: '100%', width: '100%' }} attributionControl={false}>
+                                    <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+                                    {/* Map items ... */}
+                                </MapContainer>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        )
-    }
-
-    {/* FULL DETAIL MODAL (Replica of ServiceTable) */ }
-    {
-        detailTicket && (
-            <ServiceDetailsModal
-                ticket={detailTicket}
-                onClose={() => setDetailTicket(null)}
-            />
-        )
-    }
-
-    {/* Map Modal */ }
-    {
-        showMapModal && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-                <div className="bg-white w-full h-full md:max-w-6xl rounded-2xl shadow-2xl flex flex-col overflow-hidden relative">
-                    <div className="px-5 py-4 border-b flex justify-between items-center bg-white z-10 shrink-0">
-                        <h2 className="font-bold text-lg flex items-center gap-3"><MapIcon className="text-emerald-500" /> Rutas</h2>
-                        <button onClick={() => setShowMapModal(false)} className="bg-slate-100 hover:bg-slate-200 p-2 rounded-full"><X size={20} /></button>
-                    </div>
-                    <div className="flex-1 bg-slate-100 relative">
-                        <MapContainer center={[36.7213, -4.4214]} zoom={11} style={{ height: '100%', width: '100%' }} attributionControl={false}>
-                            <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
-                            {/* Map items ... */}
-                        </MapContainer>
-                    </div>
-                </div>
-            </div>
-        )
-    }
+                )
+            }
         </div >
     );
 };
