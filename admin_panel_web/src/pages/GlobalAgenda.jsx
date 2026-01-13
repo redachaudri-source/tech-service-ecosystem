@@ -1180,26 +1180,26 @@ const GlobalAgenda = () => {
                                     onDrop={(e) => handleDrop(e, dayDate)}
                                 >
 
-                                    {/* Ghost Event (High-Performance Blue Mode) */}
+                                    {/* 🚨 GHOST DE RESCATE: ELÁSTICO Y VISIBLE (Flexbox) */}
                                     {ghostState?.targetDate === dayDate.toISOString() && (
                                         <div
-                                            className="absolute left-1 right-1 rounded-md pointer-events-none overflow-hidden"
+                                            className="absolute left-1 right-1 flex items-center justify-center rounded-lg pointer-events-none"
                                             style={{
                                                 top: `${ghostState.top}px`,
-                                                height: `${ghostState.height}px`,
+                                                height: `${ghostState.height}px`, // El tamaño lo dicta el Drag/Resize
                                                 zIndex: 9999,
-                                                backgroundColor: 'rgba(59, 130, 246, 0.5)', // Blue-500 @ 50%
-                                                border: '2px dashed #1d4ed8',             // Blue-700
+
+                                                // ESTILOS VISUALES (Rescue Palette)
+                                                backgroundColor: 'rgba(37, 99, 235, 0.6)', // Azul intenso (blue-600)
+                                                border: '2px dashed #1e40af',            // Borde visible
                                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                                                // 🚀 PERF: No transitions here for 1:1 mouse tracking
+                                                boxSizing: 'border-box'
                                             }}
                                         >
-                                            {/* Absolute Center for Label (Avoids Flex Layout Trashing) */}
-                                            <div className="absolute inset-0 flex items-center justify-center p-1">
-                                                <span className="text-white font-bold text-sm bg-blue-700/90 px-3 py-1 rounded-full shadow-sm tracking-wide whitespace-nowrap">
-                                                    {ghostState.timeStr}
-                                                </span>
-                                            </div>
+                                            {/* Etiqueta flotante centrada */}
+                                            <span className="text-white font-bold text-xs bg-blue-800/90 px-2 py-1 rounded shadow-sm whitespace-nowrap z-10">
+                                                {ghostState.timeStr}
+                                            </span>
                                         </div>
                                     )}
 
