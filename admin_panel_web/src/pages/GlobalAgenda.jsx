@@ -470,6 +470,32 @@ const GlobalAgenda = () => {
         }
     };
 
+    // 🕒 HANDLE DURATION CHANGE (Resize)
+    const handleUpdateDuration = async (apptId, newDuration) => {
+        // 1. Snapshot
+        const previousAppointments = [...appointments];
+
+        // 2. Optimistic Update
+        setAppointments(prev => prev.map(a =>
+            a.id === apptId ? { ...a, duration: newDuration } : a
+        ));
+
+        try {
+            const { error } = await supabase
+                .from('tickets')
+                .update({ estimated_duration: newDuration })
+                .eq('id', apptId);
+
+            if (error) throw error;
+            addToast('⏱️ Duración actualizada', 'success');
+
+        } catch (err) {
+            console.error(err);
+            setAppointments(previousAppointments);
+            addToast('Error al actualizar duración', 'error');
+        }
+    };
+
     const toggleTech = (id) => {
         if (selectedTechs.includes(id)) setSelectedTechs(selectedTechs.filter(t => t !== id));
         else setSelectedTechs([...selectedTechs, id]);
@@ -522,6 +548,86 @@ const GlobalAgenda = () => {
     // --- DND HANDLERS ---
     const [dragState, setDragState] = useState({ id: null, offset: 0 });
     const [ghostState, setGhostState] = useState(null);
+
+    // 📏 RESIZE STATE
+    const [resizingState, setResizingState] = useState(null); // { id, startY, startHeight, appt }
+
+    // GLOBAL MOUSE LISTENERS (For Resize)
+    useEffect(() => {
+        const handleGlobalMove = (e) => {
+            if (!resizingState) return;
+            e.preventDefault(); // Prevent text selection
+
+            const deltaY = e.clientY - resizingState.startY;
+            // Calculate new height based on delta
+            // Snap to 15 mins (which is 15/60 * pixelsPerHour)
+            const snapPixels = pixelsPerHour * (15 / 60);
+
+            const rawHeight = resizingState.startHeight + deltaY;
+            const snappedHeight = Math.max(snapPixels, Math.round(rawHeight / snapPixels) * snapPixels);
+
+            // Calculate Duration in Minutes
+            const newDuration = Math.round((snappedHeight / pixelsPerHour) * 60);
+
+            // Update Ghost State
+            const ghostTime = new Date(resizingState.appt.start);
+            const ghostEnd = new Date(ghostTime.getTime() + newDuration * 60000);
+            const timeStr = `${ghostTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${ghostEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
+            setGhostState({
+                top: ((resizingState.appt.start.getHours() - startHour) + resizingState.appt.start.getMinutes() / 60) * pixelsPerHour,
+                height: snappedHeight,
+                targetDate: resizingState.appt.start.toISOString().split('T')[0] + 'T00:00:00.000Z', // Fake date string match for renderer
+                timeStr: timeStr,
+                isResizing: true // Flag to render differently if needed
+            });
+        };
+
+        const handleGlobalUp = (e) => {
+            if (!resizingState) return;
+
+            // Get final duration from Ghost
+            const finalDuration = Math.round((parseFloat(ghostState?.height || resizingState.startHeight) / pixelsPerHour) * 60);
+
+            setResizingState(null);
+            setGhostState(null);
+
+            if (finalDuration === resizingState.appt.duration) return; // No change
+
+            // ⚠️ CONFIRMATION
+            const newEnd = new Date(resizingState.appt.start.getTime() + finalDuration * 60000);
+            const confirmMsg = `⏱️ CAMBIO DE DURACIÓN\n\n` +
+                `¿Confirmas el nuevo horario para "${resizingState.appt.client?.full_name || 'Servicio'}"?\n` +
+                `⏳ Ahora será: ${resizingState.appt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${newEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} (${finalDuration} min)`;
+
+            if (window.confirm(confirmMsg)) {
+                handleUpdateDuration(resizingState.id, finalDuration);
+            }
+        };
+
+        if (resizingState) {
+            window.addEventListener('mousemove', handleGlobalMove);
+            window.addEventListener('mouseup', handleGlobalUp);
+        }
+
+        return () => {
+            window.removeEventListener('mousemove', handleGlobalMove);
+            window.removeEventListener('mouseup', handleGlobalUp);
+        };
+    }, [resizingState, ghostState, pixelsPerHour]);
+
+    const handleResizeStart = (e, appt) => {
+        e.preventDefault();
+        e.stopPropagation(); // Stop Drag Start
+
+        const rect = e.currentTarget.parentElement.getBoundingClientRect(); // Parent is the Card
+        setResizingState({
+            id: appt.id,
+            startY: e.clientY,
+            startHeight: rect.height,
+            appt: appt
+        });
+    };
 
     const handleDragStart = (e, appt) => {
         if (isDayClosed) { e.preventDefault(); return; }
@@ -1191,6 +1297,14 @@ const GlobalAgenda = () => {
                                                                 {appt.profiles?.postal_code || '---'}
                                                             </span>
                                                         </div>
+                                                    </div>
+
+                                                    {/* 📏 RESIZE HANDLE */}
+                                                    <div
+                                                        className="absolute bottom-0 left-0 w-full h-2 cursor-ns-resize z-50 hover:bg-black/10 flex justify-center items-end pb-0.5 group-hover:bg-black/5"
+                                                        onMouseDown={(e) => handleResizeStart(e, appt)}
+                                                    >
+                                                        <div className="w-8 h-1 bg-slate-400/50 rounded-full"></div>
                                                     </div>
                                                 </div>
                                             );
