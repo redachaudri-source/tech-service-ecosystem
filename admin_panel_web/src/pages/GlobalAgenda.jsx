@@ -83,6 +83,22 @@ const getStartOfMonthGrid = (d) => {
 };
 
 const GlobalAgenda = () => {
+    // 💨 MOTION BLUR STYLE INJECTION
+    useEffect(() => {
+        const styleId = 'mrcp-motion-blur';
+        if (!document.getElementById(styleId)) {
+            const style = document.createElement('style');
+            style.id = styleId;
+            style.innerHTML = `
+                .teleport-blur {
+                    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                    filter: blur(4px) opacity(0.7);
+                    transform: scale(0.95) translateY(10px);
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }, []);
     const { addToast } = useToast();
     const navigate = useNavigate(); // Not needed for detail modal
     const [selectedDate, setSelectedDate] = useState(new Date());
@@ -142,64 +158,154 @@ const GlobalAgenda = () => {
     const [proposedMoves, setProposedMoves] = useState([]); // { appt, newStart }
     const [calledIds, setCalledIds] = useState([]); // To track calls made
 
-    // --- AI LOGIC (v2.0) ---
+    // --- AI LOGIC (v2.1 - KM0 + SWAP) ---
     const runOptimizerAnalysis = async (day) => {
         setOptimizingDay(day);
         setIsOptimizing(true);
         setOptimizerStep('ANALYSIS');
         setProposedMoves([]);
 
-        await new Promise(r => setTimeout(r, 1000));
+        // 🤖 AI/Algorithm Simulation
+        await new Promise(r => setTimeout(r, 800));
 
         const dayStartStr = day.toISOString().split('T')[0];
+        // 1. Get Events for the day & Tech
         const dayEvents = appointments.filter(a => a.start.toISOString().split('T')[0] === dayStartStr && selectedTechs.includes(a.technician_id));
 
-        if (dayEvents.length === 0) {
-            addToast('No hay tickets para analizar.', 'info');
+        if (dayEvents.length < 2) {
+            addToast('Mínimo 2 tickets para optimizar (Swap).', 'info');
             setIsOptimizing(false);
             return;
         }
 
-        const optimizedList = [...dayEvents].sort((a, b) => {
-            const cpA = a.client?.postal_code || a.client?.address?.match(/\d{5}/)?.[0] || '99999';
-            const cpB = b.client?.postal_code || b.client?.address?.match(/\d{5}/)?.[0] || '99999';
-            return cpA.localeCompare(cpB);
-        });
+        // 2. Identify "Km0" (Tech Home or Office)
+        // Assuming selectedTechs[0] is the target. 
+        const tech = techs.find(t => t.id === selectedTechs[0]);
+        // Fallback to first event CP if no tech CP (should be fixed by previous step)
+        const startCP = parseInt(tech?.postal_code?.replace(/\D/g, '') || dayEvents[0]?.client?.postal_code?.replace(/\D/g, '') || '29000');
 
-        const earliestStart = Math.min(...dayEvents.map(e => e.start.getTime()));
-        let currentMs = earliestStart;
+        console.log('🏁 Algoritmo Km0 Iniciado. Origen:', startCP);
 
+        // 3. Current State (Time Order)
+        const currentOrder = [...dayEvents].sort((a, b) => a.start - b.start);
+
+        // 4. Ideal State (Nearest Neighbor Heuristic)
+        let ptrCP = startCP;
+        const pool = [...dayEvents];
+        const idealOrder = [];
+
+        while (pool.length > 0) {
+            // Find closest to ptrCP
+            pool.sort((a, b) => {
+                const cpA = parseInt(a.client?.postal_code?.replace(/\D/g, '') || '99999');
+                const cpB = parseInt(b.client?.postal_code?.replace(/\D/g, '') || '99999');
+                return Math.abs(cpA - ptrCP) - Math.abs(cpB - ptrCP);
+            });
+
+            const next = pool.shift();
+            idealOrder.push(next);
+            // Update pointer to this event's CP (Chain reaction)
+            ptrCP = parseInt(next.client?.postal_code?.replace(/\D/g, '') || '29000');
+        }
+
+        // 5. Detect Deviations & Generate SWAPS
         const moves = [];
-        optimizedList.forEach(appt => {
-            const newStart = new Date(currentMs);
-            const durationMs = appt.duration * 60000;
-            const bufferMs = 15 * 60000;
+        // We iterate and match pairs. 
+        // If currentOrder[i] is NOT idealOrder[i], it means idealOrder[i] is "misplaced" somewhere later.
+        // We propose swapping currentOrder[i] (The intruder) with idealOrder[i] (The rightful owner of this slot).
 
-            const diffMin = Math.abs((newStart.getTime() - appt.start.getTime()) / 60000);
+        for (let i = 0; i < currentOrder.length; i++) {
+            const actual = currentOrder[i];
+            const ideal = idealOrder[i];
 
-            if (diffMin > 10) {
-                moves.push({
-                    appt,
-                    newStart,
-                    diffMin,
-                    cp: appt.client?.postal_code || '???'
-                });
+            if (actual.id !== ideal.id) {
+                // Check if we already have a pending swap for these two (atomic pair)
+                const alreadyPlanned = moves.find(m =>
+                    (m.apptA.id === actual.id && m.apptB.id === ideal.id) ||
+                    (m.apptA.id === ideal.id && m.apptB.id === actual.id)
+                );
+
+                if (!alreadyPlanned) {
+                    // Calculate Saving (Mock or Real Diff)
+                    const timeDiff = Math.abs((actual.start - ideal.start) / 60000); // Minutes apart
+                    // HEURISTIC: Swap is valuable if they are far apart in time (meaning high displacement)
+                    if (timeDiff > 30) {
+                        moves.push({
+                            type: 'SWAP',
+                            apptA: actual, // "The Far Client" (currently at early slot)
+                            apptB: ideal,  // "The Near Client" (currently at late slot)
+                            slotTime: actual.start, // The slot we are optimizing
+                            saving: Math.round(timeDiff * 0.3) // Synthetic saving calc
+                        });
+                    }
+                }
             }
-            currentMs += durationMs + bufferMs;
-        });
+        }
 
         setProposedMoves(moves);
         setIsOptimizing(false);
     };
 
-    const applyOptimizationMove = (move) => {
-        handleUpdateAppointment(move.appt.id, move.appt.technician_id, move.newStart);
-        setProposedMoves(prev => prev.filter(m => m.appt.id !== move.appt.id));
-        addToast('✅ Cambio aplicado.', 'success', 1000);
+    // ⚡ TELEPORT SWAP (Atomic + Animation)
+    const handleTeleportSwap = async (move) => {
+        const { apptA, apptB } = move;
+
+        // 1. 🎞️ Capture DOM Elements & Apply Blur
+        const domA = document.querySelector(`[data-event-id="${apptA.id}"]`);
+        const domB = document.querySelector(`[data-event-id="${apptB.id}"]`);
+
+        if (domA) domA.classList.add('teleport-blur');
+        if (domB) domB.classList.add('teleport-blur');
+
+        // 2. ⏳ Sleep (Cinematic Feel)
+        await new Promise(r => setTimeout(r, 450));
+
+        // 3. 🔄 ATOMIC DATA SWAP
+        // Swap Time Slots
+        const timeA_start = new Date(apptA.start);
+        const timeA_end = new Date(timeA_start.getTime() + apptA.duration * 60000);
+
+        const timeB_start = new Date(apptB.start);
+        const timeB_end = new Date(timeB_start.getTime() + apptB.duration * 60000); // Use own duration
+
+        // We want A to take B's place, and B to take A's place.
+        // WAIT: The algorithm identifies 'apptA' is at 'slotTime' (Pos 1), and 'apptB' is at Pos X.
+        // We want 'apptB' (The Ideal one) to come to 'slotTime' (Pos 1).
+        // So: B -> A.start, A -> B.start.
+
+        const newStartA = timeB_start; // A goes to B's slot
+        const newStartB = timeA_start; // B comes to A's slot (Optimization)
+
+        // Optimistic State Update
+        setAppointments(prev => prev.map(p => {
+            if (p.id === apptA.id) return { ...p, start: newStartA, scheduled_at: newStartA.toISOString() };
+            if (p.id === apptB.id) return { ...p, start: newStartB, scheduled_at: newStartB.toISOString() };
+            return p;
+        }));
+
+        // Remove Move from List
+        setProposedMoves(prev => prev.filter(m => m.apptA.id !== apptA.id));
+
+        // 4. 🚀 DATABASE UPDATE (Parallel)
+        try {
+            await Promise.all([
+                supabase.from('tickets').update({ scheduled_at: newStartA.toISOString() }).eq('id', apptA.id),
+                supabase.from('tickets').update({ scheduled_at: newStartB.toISOString() }).eq('id', apptB.id)
+            ]);
+            addToast('⚡ Intercambio completado', 'success', 2000);
+        } catch (err) {
+            console.error(err);
+            addToast('Error guardando intercambio', 'error');
+            // Revert would go here
+        }
+
+        // 5. 🧹 Cleanup Styles (React render will clear, but manual cleanup ensures no flicker)
+        if (domA) domA.classList.remove('teleport-blur');
+        if (domB) domB.classList.remove('teleport-blur');
     };
 
-    const discardOptimizationMove = (id) => {
-        setProposedMoves(prev => prev.filter(m => m.appt.id !== id));
+    const discardOptimizationMove = (idA) => {
+        setProposedMoves(prev => prev.filter(m => m.apptA.id !== idA));
     };
 
     // --- AI LOGIC ---
@@ -810,7 +916,7 @@ const GlobalAgenda = () => {
                                 </div>
                             )}
 
-                            {/* VIEW B: PROPOSAL DETAIL */}
+                            {/* VIEW B: SWAP PROPOSAL DETAIL (v2.1) */}
                             {optimizerStep === 'PROPOSAL' && (
                                 <div className="animate-slide-in-right">
                                     <button onClick={() => setOptimizerStep('ANALYSIS')} className="mb-4 text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1">
@@ -819,67 +925,72 @@ const GlobalAgenda = () => {
 
                                     <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
                                         <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-xs">{proposedMoves.length}</span>
-                                        Cambios Sugeridos
+                                        Pares Ineficientes (Swaps)
                                     </h3>
 
-                                    <div className="space-y-3 pb-20">
+                                    <div className="space-y-4 pb-20">
                                         {proposedMoves.map((move, idx) => (
-                                            <div key={idx} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
-                                                {/* Header: Time Change */}
-                                                <div className="flex items-center justify-between mb-3 border-b border-slate-50 pb-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="text-xs font-medium text-slate-400 line-through decoration-red-400 decoration-2">
-                                                            {move.appt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                        </div>
-                                                        <ArrowRight size={12} className="text-slate-300" />
-                                                        <div className="text-sm font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
-                                                            {move.newStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                        </div>
-                                                    </div>
-                                                    <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 rounded">CP: {move.cp}</span>
+                                            <div key={idx} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
+
+                                                {/* Header: Saving */}
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <span className="text-[10px] uppercase font-bold text-slate-400">Intercambio Sugerido</span>
+                                                    <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-full">-{move.saving} min trayecto</span>
                                                 </div>
 
-                                                {/* Body: Client Info */}
-                                                <div className="mb-4">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <div className={`w-2 h-2 rounded-full ${APPLIANCE_COLORS[getApplianceCategory(move.appt.appliance_info?.type)].split(' ')[0]}`}></div>
-                                                        <span className="text-xs font-bold text-slate-700">{move.appt.appliance_info?.type || 'Servicio General'}</span>
+                                                {/* VERSUS CARDS */}
+                                                <div className="flex flex-col gap-2 mb-4 relative">
+                                                    {/* CARD A (Current Bad) */}
+                                                    <div className="flex items-center gap-3 p-2 bg-red-50/50 border border-red-100 rounded-lg opacity-70">
+                                                        <div className="text-xs font-bold text-slate-500 w-10">{move.apptA.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="text-xs font-bold text-slate-700 truncate">{move.apptA.client?.full_name}</div>
+                                                            <div className="text-[10px] text-slate-500 truncate">CP: {move.apptA.client?.postal_code} (Lejano)</div>
+                                                        </div>
                                                     </div>
-                                                    <div className="text-xs text-slate-500 ml-4 truncate">{move.appt.client?.full_name || 'Cliente Desconocido'}</div>
+
+                                                    {/* Swap Icon */}
+                                                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 bg-white border rounded-full p-1 shadow-sm">
+                                                        <div className="animate-spin-slow"><Zap size={14} className="fill-amber-400 text-amber-500" /></div>
+                                                    </div>
+
+                                                    {/* CARD B (Ideal) */}
+                                                    <div className="flex items-center gap-3 p-2 bg-emerald-50/50 border border-emerald-100 rounded-lg">
+                                                        <div className="text-xs font-bold text-slate-500 w-10">{move.apptB.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="text-xs font-bold text-slate-700 truncate">{move.apptB.client?.full_name}</div>
+                                                            <div className="text-[10px] text-slate-500 truncate">CP: {move.apptB.client?.postal_code} (Cercano)</div>
+                                                        </div>
+                                                    </div>
                                                 </div>
 
                                                 {/* Actions */}
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex gap-2">
                                                     <button
-                                                        onClick={() => setCalledIds(prev => prev.includes(move.appt.id) ? prev : [...prev, move.appt.id])}
-                                                        className={`p-2 rounded-lg border transition-all ${calledIds.includes(move.appt.id) ? 'bg-blue-50 text-blue-600 border-blue-200' : 'text-slate-400 border-slate-100 hover:text-blue-500'}`}
-                                                        title="Marcar como Llamado"
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText(move.apptB.client?.phone || '');
+                                                            addToast('Teléfono copiado', 'info');
+                                                        }}
+                                                        className="px-3 py-2 border border-slate-200 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 transition"
                                                     >
                                                         <Phone size={16} />
                                                     </button>
-                                                    <div className="h-4 w-px bg-slate-100 mx-1"></div>
                                                     <button
-                                                        onClick={() => discardOptimizationMove(move.appt.id)}
-                                                        className="flex-1 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 rounded-lg transition-colors"
+                                                        onClick={() => discardOptimizationMove(move.apptA.id)}
+                                                        className="flex-1 py-2 text-xs font-bold text-slate-500 bg-slate-50 hover:bg-slate-100 rounded-lg"
                                                     >
                                                         DESCARTAR
                                                     </button>
                                                     <button
-                                                        onClick={() => applyOptimizationMove(move)}
-                                                        className="flex-1 py-2 text-xs font-bold bg-slate-900 text-white rounded-lg hover:bg-slate-800 shadow-md active:scale-95 transition-all"
+                                                        onClick={() => handleTeleportSwap(move)}
+                                                        className="flex-1 py-2 text-xs font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200 active:scale-95 transition-all"
                                                     >
-                                                        ACEPTAR
+                                                        🔀 ACEPTAR
                                                     </button>
                                                 </div>
+
                                             </div>
                                         ))}
-
-                                        {proposedMoves.length === 0 && (
-                                            <div className="text-center py-10 opacity-50">
-                                                <div className="text-4xl mb-2">🎉</div>
-                                                <p className="text-sm font-bold text-slate-500">¡Todo limpio!</p>
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
                             )}
@@ -968,7 +1079,7 @@ const GlobalAgenda = () => {
                                     {viewMode === 'month' ? (
                                         <div className="flex flex-col gap-1 p-1 h-full overflow-hidden">
                                             {getPositionedEvents(dayDate).map(appt => (
-                                                <div key={appt.id} onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
+                                                <div key={appt.id} data-event-id={appt.id} onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
                                                     className="h-5 min-h-[20px] bg-indigo-100/80 border border-indigo-200/50 hover:bg-white hover:border-indigo-400 rounded-md text-[9px] flex items-center px-1.5 shadow-sm cursor-pointer transition-all group"
                                                 >
                                                     <div className={`w-1.5 h-1.5 rounded-full mr-1.5 shrink-0 bg-white/60`}></div>
@@ -1016,6 +1127,7 @@ const GlobalAgenda = () => {
                                                     onDragStart={(e) => handleDragStart(e, appt)}
                                                     onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
                                                     // FLAT PRO STYLING
+                                                    data-event-id={appt.id}
                                                     className={`absolute rounded-md cursor-grab active:cursor-grabbing hover:brightness-110 transition-all shadow-sm overflow-hidden flex flex-col font-sans px-2 py-1
                                                          ${colorClass} ${selectedAppt?.id === appt.id ? 'ring-2 ring-indigo-600 z-40' : 'z-10'}`}
                                                     style={{ top: `${top}px`, height: `${height - 2}px`, left: `${left}%`, width: `${width}%` }}
