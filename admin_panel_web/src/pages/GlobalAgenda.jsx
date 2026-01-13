@@ -435,11 +435,15 @@ const GlobalAgenda = () => {
         const ghostTime = new Date(targetDate);
         ghostTime.setHours(startHour + Math.floor(clampedHours), (clampedHours % 1) * 60);
 
+        // Calculate End Time for Range
+        const ghostEndTime = new Date(ghostTime.getTime() + dragState.duration * 60000);
+        const timeRangeStr = `${ghostTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${ghostEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
         setGhostState({
             top: clampedTop, // Use Clamped Top
             height: (dragState.duration / 60) * pixelsPerHour,
             targetDate: targetDate.toISOString(),
-            timeStr: ghostTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            timeStr: timeRangeStr
         });
     };
 
@@ -660,10 +664,10 @@ const GlobalAgenda = () => {
                                 >
                                     {/* Ghost Event (Rendered relative to Drop Zone) */}
                                     {ghostState?.targetDate === dayDate.toISOString() && (
-                                        <div className="absolute left-1 right-1 z-[100] bg-indigo-600/60 border-2 border-indigo-400 rounded-md pointer-events-none transition-all duration-75 shadow-lg backdrop-blur-[1px]"
+                                        <div className="absolute left-1 right-1 z-[9999] bg-blue-600/60 border-2 border-dashed border-blue-500 rounded-md pointer-events-none transition-all duration-75 shadow-xl backdrop-blur-[1px] flex items-center justify-center p-1"
                                             style={{ top: `${ghostState.top}px`, height: `${ghostState.height}px` }}
                                         >
-                                            <div className="bg-indigo-600 text-white text-[10px] font-black px-2 py-0.5 rounded shadow absolute -top-3 -right-2 transform scale-110">
+                                            <div className="text-white text-xs font-black drop-shadow-md text-center leading-none">
                                                 {ghostState.timeStr}
                                             </div>
                                         </div>
