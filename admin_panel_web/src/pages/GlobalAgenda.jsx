@@ -401,12 +401,12 @@ const GlobalAgenda = () => {
 
         // "Buttery Smooth" Physics
         const snapMinutes = 15;
-        const snapPixels = PIXELS_PER_HOUR * (snapMinutes / 60);
+        const snapPixels = pixelsPerHour * (snapMinutes / 60);
 
         const rawTop = y - dragState.offset;
         const snappedTop = Math.round(rawTop / snapPixels) * snapPixels;
 
-        const hoursToAdd = snappedTop / PIXELS_PER_HOUR;
+        const hoursToAdd = snappedTop / pixelsPerHour;
 
         // 2. 🔒 PER-DATE CONSTRAINT: Check Hours Limit
         // Use the specific closeHour for THIS day
