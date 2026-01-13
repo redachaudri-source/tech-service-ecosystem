@@ -603,16 +603,25 @@ const GlobalAgenda = () => {
                     </div>
                 )}
 
-                {/* Time Axis */}
-                <div className="w-12 shrink-0 bg-white border-r border-slate-200 sticky left-0 z-20 select-none shadow-[4px_0_10px_rgba(0,0,0,0.02)]">
-                    <div className="h-8 border-b border-slate-200 bg-slate-50 sticky top-0 z-50"></div>
-                    {dynamicHours.map(h => (
-                        <div key={h} className="text-right pr-2 text-[10px] text-slate-400 font-bold relative -top-2 font-mono" style={{ height: pixelsPerHour }}>{h}:00</div>
-                    ))}
-                </div>
+                {/* Time Axis (Hidden in Month) */}
+                {viewMode !== 'month' && (
+                    <div className="w-12 shrink-0 bg-white border-r border-slate-200 sticky left-0 z-20 select-none shadow-[4px_0_10px_rgba(0,0,0,0.02)]">
+                        <div className="h-8 border-b border-slate-200 bg-slate-50 sticky top-0 z-50"></div>
+                        {dynamicHours.map(h => (
+                            <div key={h} className="text-right pr-2 text-[10px] text-slate-400 font-bold relative -top-2 font-mono" style={{ height: pixelsPerHour }}>{h}:00</div>
+                        ))}
+                    </div>
+                )}
 
                 {/* Day Columns */}
                 <div className={`flex-1 min-w-[800px] relative ${viewMode === 'month' ? 'grid grid-cols-7 border-t border-l border-slate-200' : 'flex'}`}>
+
+                    {/* MONTH HEADER (Static Row) */}
+                    {viewMode === 'month' && (
+                        ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'].map(d => (
+                            <div key={d} className="text-center text-[10px] font-bold text-slate-400 py-1.5 border-b border-r border-slate-200 bg-slate-50 uppercase tracking-widest">{d}</div>
+                        ))
+                    )}
 
                     {/* BACKGROUND LINES (Only for Week/Fortnight) */}
                     {viewMode !== 'month' && (
@@ -627,17 +636,17 @@ const GlobalAgenda = () => {
                         return (
                             <div key={dayDate.toISOString()}
                                 className={`${viewMode === 'month'
-                                    ? `border-b border-r border-slate-100 h-28 relative flex flex-col overflow-hidden ${isToday ? 'bg-indigo-50/50' : 'bg-white'}`
+                                    ? `border-b border-r border-slate-200 min-h-[120px] relative flex flex-col ${isToday ? 'bg-indigo-50/30' : 'bg-white'}`
                                     : `flex-1 border-r border-slate-100 relative transition-colors duration-300 flex flex-col ${isToday ? 'bg-white' : 'bg-slate-50/30'}`}`}
                             >
 
                                 {/* Header: Day Name */}
-                                <div className={`border-b border-slate-100 ${viewMode === 'month' ? 'h-6 flex justify-end px-2 items-center' : 'h-8 sticky top-0 z-40 flex items-center justify-center shadow-sm shrink-0'} gap-1 ${isToday ? 'bg-indigo-50 text-indigo-700' : 'bg-white text-slate-600'}`}>
-                                    {/* Only show weekday name in Week/Fortnight or First Row of Month */}
-                                    {(viewMode !== 'month' || dayDate.getDate() <= 7) && (
-                                        <span className="font-bold text-[10px] uppercase">{dayDate.toLocaleDateString('es-ES', { weekday: viewMode === 'month' ? 'short' : 'short' })}</span>
+                                <div className={`${viewMode === 'month' ? 'p-2 flex justify-end items-start' : 'h-8 border-b border-slate-100 sticky top-0 z-40 flex items-center justify-center shadow-sm shrink-0 gap-1'} ${isToday ? 'bg-indigo-50 text-indigo-700' : 'bg-white text-slate-600'}`}>
+                                    {/* Weekday Name (Week/Fortnight only) */}
+                                    {viewMode !== 'month' && (
+                                        <span className="font-bold text-[10px] uppercase">{dayDate.toLocaleDateString('es-ES', { weekday: 'short' })}</span>
                                     )}
-                                    <span className={`font-black text-xs ${isToday ? 'bg-indigo-600 text-white px-1.5 py-0.5 rounded-full' : ''}`}>
+                                    <span className={`font-black text-xs ${isToday ? 'bg-indigo-600 text-white px-1.5 py-0.5 rounded-full' : (viewMode === 'month' ? 'text-slate-400' : '')}`}>
                                         {dayDate.getDate()}
                                     </span>
                                 </div>
