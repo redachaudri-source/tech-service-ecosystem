@@ -537,20 +537,30 @@ const GlobalAgenda = () => {
                             <ChevronRight size={20} />
                         </button>
 
-                        <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 rounded-lg border border-slate-200 ml-2">
-                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                                <LayoutList size={12} />
-                                Vista: <span className="text-indigo-600">{viewMode === 'month' ? 'Mensual' : viewMode === 'fortnight' ? 'Quincenal' : 'Semanal'}</span>
-                            </div>
-                            <input
-                                type="range"
-                                min="0"
-                                max="100"
-                                step="1"
-                                value={zoomLevel}
-                                onChange={(e) => setZoomLevel(parseInt(e.target.value))}
-                                className="w-24 accent-indigo-600 h-1 bg-slate-300 rounded-lg appearance-none cursor-pointer"
-                            />
+                        {/* 🔘 SEGMENTED CONTROL ZOOM */}
+                        <div className="flex items-center p-1 bg-slate-100 rounded-lg border border-slate-200 ml-2">
+                            {[
+                                { label: 'Semanal', val: 100, icon: <LayoutList size={12} /> },
+                                { label: 'Quincenal', val: 50, icon: <LayoutList size={12} className="rotate-90" /> },
+                                { label: 'Mensual', val: 0, icon: <Calendar size={12} /> }
+                            ].map(opt => {
+                                const isActive = (viewMode === 'week' && opt.val === 100) ||
+                                    (viewMode === 'fortnight' && opt.val === 50) ||
+                                    (viewMode === 'month' && opt.val === 0);
+                                return (
+                                    <button
+                                        key={opt.label}
+                                        onClick={() => setZoomLevel(opt.val)}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wide transition-all ${isActive
+                                                ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5'
+                                                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/50'
+                                            }`}
+                                    >
+                                        {opt.icon}
+                                        {opt.label}
+                                    </button>
+                                )
+                            })}
                         </div>
                     </div>
 
