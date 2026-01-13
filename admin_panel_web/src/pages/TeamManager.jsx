@@ -51,7 +51,14 @@ const TeamManager = () => {
         phone: '',
         address: '',
         avatarUrl: '',
-        role: 'admin' // Default based on tab, but tracked here
+        role: 'admin',
+        // Geo-Ready Fields
+        streetType: 'Calle',
+        streetName: '',
+        streetNumber: '',
+        postalCode: '',
+        city: '',
+        province: ''
     });
 
     const [creatingUser, setCreatingUser] = useState(false);
@@ -207,21 +214,35 @@ const TeamManager = () => {
                 dni: member.dni || '',
                 username: member.username || '',
                 contactEmail: member.contact_email || '',
-                loginEmail: member.email || '' // For editing, assume current email is login email
+                loginEmail: member.email || '',
+                // Geo-Ready
+                streetType: member.street_type || 'Calle',
+                streetName: member.street_name || '',
+                streetNumber: member.street_number || '',
+                postalCode: member.postal_code || '',
+                city: member.city || '',
+                province: member.province || ''
             });
         } else {
             setFormData({
                 id: null,
                 fullName: '',
-                username: '', // New field for simple login
-                contactEmail: '', // New optional field for notifications
+                username: '',
+                contactEmail: '',
                 password: '',
                 phone: '',
                 address: '',
                 avatarUrl: '',
                 role: activeTab === 'admins' ? 'admin' : 'tech',
                 dni: '',
-                loginEmail: ''
+                loginEmail: '',
+                // Geo-Ready
+                streetType: 'Calle',
+                streetName: '',
+                streetNumber: '',
+                postalCode: '',
+                city: '',
+                province: ''
             });
             setShowEmailOverride(false);
         }
@@ -280,14 +301,22 @@ const TeamManager = () => {
 
                 if (authError) throw authError;
 
-                // 3. Update Profile with Contact Email
+                // 3. Update Profile with Contact Email & Geo Data
                 if (authData.user) {
+                    const fullAddress = `${formData.streetType} ${formData.streetName}, ${formData.streetNumber}, ${formData.postalCode} ${formData.city}`;
                     await supabase.from('profiles').update({
                         phone: formData.phone,
-                        address: formData.address,
+                        address: fullAddress,
                         avatar_url: formData.avatarUrl,
-                        email: contactEmail, // Store real contact email in profile 
-                        is_active: true
+                        email: contactEmail,
+                        is_active: true,
+                        // Geo-Ready
+                        street_type: formData.streetType,
+                        street_name: formData.streetName,
+                        street_number: formData.streetNumber,
+                        postal_code: formData.postalCode,
+                        city: formData.city,
+                        province: formData.province
                     }).eq('id', authData.user.id);
                 }
 
@@ -298,14 +327,22 @@ const TeamManager = () => {
                 alert(`Usuario creado correctamente.\n\n${displayLogin}`);
             } else {
                 // UPDATE EXISTING PROFILE
+                const fullAddress = `${formData.streetType} ${formData.streetName}, ${formData.streetNumber}, ${formData.postalCode} ${formData.city}`;
                 const { error } = await supabase.from('profiles').update({
                     full_name: formData.fullName,
                     phone: formData.phone,
-                    address: formData.address,
+                    address: fullAddress,
                     avatar_url: formData.avatarUrl,
                     dni: formData.dni,
                     username: formData.username,
-                    contact_email: formData.contactEmail
+                    contact_email: formData.contactEmail,
+                    // Geo-Ready
+                    street_type: formData.streetType,
+                    street_name: formData.streetName,
+                    street_number: formData.streetNumber,
+                    postal_code: formData.postalCode,
+                    city: formData.city,
+                    province: formData.province
                 }).eq('id', formData.id);
 
                 if (error) throw error;
@@ -383,7 +420,13 @@ const TeamManager = () => {
                                 avatarUrl: '',
                                 role: activeTab === 'admins' ? 'admin' : 'tech',
                                 dni: '',
-                                loginEmail: ''
+                                loginEmail: '',
+                                streetType: 'Calle',
+                                streetName: '',
+                                streetNumber: '',
+                                postalCode: '',
+                                city: '',
+                                province: ''
                             });
                             // Reset override
                             if (typeof setShowEmailOverride === 'function') setShowEmailOverride(false);
@@ -739,14 +782,88 @@ const TeamManager = () => {
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Dirección / Base</label>
-                                <input
-                                    type="text"
-                                    className="w-full p-2 border border-slate-200 rounded-lg"
-                                    value={formData.address}
-                                    onChange={e => setFormData({ ...formData, address: e.target.value })}
-                                />
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                <div className="flex justify-between items-center mb-3">
+                                    <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                        <MapPin size={16} className="text-indigo-600" /> Base de Operaciones
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({
+                                            ...formData,
+                                            // Mock default (could be fetched from config)
+                                            streetType: 'Calle',
+                                            streetName: 'Central',
+                                            streetNumber: '1',
+                                            postalCode: '29000',
+                                            city: 'Málaga',
+                                            province: 'Málaga'
+                                        })}
+                                        className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 bg-indigo-50 px-2 py-1 rounded cursor-pointer"
+                                    >
+                                        ✅ Usar Central
+                                    </button>
+                                </div>
+                                <p className="text-xs text-slate-500 mb-3 block">Ubicación de partida para el cálculo de rutas (MRCP).</p>
+
+                                <div className="grid grid-cols-6 gap-2 mb-2">
+                                    <div className="col-span-2">
+                                        <select
+                                            className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-white"
+                                            value={formData.streetType}
+                                            onChange={e => setFormData({ ...formData, streetType: e.target.value })}
+                                        >
+                                            <option value="Calle">Calle</option>
+                                            <option value="Avenida">Avenida</option>
+                                            <option value="Plaza">Plaza</option>
+                                            <option value="Camino">Camino</option>
+                                            <option value="Carretera">Ctra.</option>
+                                            <option value="Poligono">Polígono</option>
+                                        </select>
+                                    </div>
+                                    <div className="col-span-4">
+                                        <input
+                                            type="text"
+                                            placeholder="Nombre de la vía (Ej: Larios)"
+                                            className="w-full p-2 border border-slate-200 rounded-lg text-sm"
+                                            value={formData.streetName}
+                                            onChange={e => setFormData({ ...formData, streetName: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-6 gap-2">
+                                    <div className="col-span-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Nº"
+                                            className="w-full p-2 border border-slate-200 rounded-lg text-sm"
+                                            value={formData.streetNumber}
+                                            onChange={e => setFormData({ ...formData, streetNumber: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="col-span-2">
+                                        <input
+                                            type="text"
+                                            placeholder="CP (5 dig)"
+                                            maxLength={5}
+                                            className={`w-full p-2 border rounded-lg text-sm ${formData.postalCode.length === 5 ? 'border-green-200 bg-green-50' : 'border-slate-200'}`}
+                                            value={formData.postalCode}
+                                            onChange={e => {
+                                                const val = e.target.value.replace(/\D/g, '');
+                                                setFormData({ ...formData, postalCode: val });
+                                            }}
+                                        />
+                                    </div>
+                                    <div className="col-span-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Ciudad"
+                                            className="w-full p-2 border border-slate-200 rounded-lg text-sm"
+                                            value={formData.city}
+                                            onChange={e => setFormData({ ...formData, city: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
                             </div>
 
                             <div>
