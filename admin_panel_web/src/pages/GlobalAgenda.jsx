@@ -31,20 +31,33 @@ const START_HOUR = 8;
 const END_HOUR = 20;
 
 const APPLIANCE_COLORS = {
-    wash: 'bg-cyan-300 border-l-4 border-cyan-600 text-slate-900', // Lavado (Fresh)
-    cold: 'bg-violet-300 border-l-4 border-violet-600 text-slate-900', // Frío (Premium)
-    climate: 'bg-lime-300 border-l-4 border-lime-600 text-slate-900', // Clima (Acid)
-    heat: 'bg-rose-300 border-l-4 border-rose-600 text-slate-900', // Cocción (Alert)
-    default: 'bg-yellow-300 border-l-4 border-yellow-600 text-slate-900' // Otros (Banana)
+    wash: 'bg-blue-500 border border-blue-600 text-white',      // Lavado (Blue-500)
+    cold: 'bg-amber-500 border border-amber-600 text-white',    // Frío (Amber-500)
+    climate: 'bg-emerald-500 border border-emerald-600 text-white', // Clima (Emerald-500)
+    heat: 'bg-rose-600 border border-rose-700 text-white',      // Calefacción (Rose-600)
+    cooking: 'bg-violet-500 border border-violet-600 text-white', // Cocción (Violet-500)
+    default: 'bg-slate-500 border border-slate-600 text-white'  // Otros (Slate-500)
 };
 
 const getApplianceCategory = (type) => {
     if (!type) return 'default';
     const t = type.toLowerCase();
+
+    // Lavado
     if (t.includes('lavadora') || t.includes('secadora') || t.includes('lavavajillas')) return 'wash';
+
+    // Frío (Neveras) - User Request: Amber
     if (t.includes('frigor') || t.includes('congelador') || t.includes('never') || t.includes('vino')) return 'cold';
-    if (t.includes('aire') || t.includes('caldera') || t.includes('termo')) return 'climate';
-    if (t.includes('horno') || t.includes('vitro') || t.includes('micro') || t.includes('fuego')) return 'heat';
+
+    // Clima (Aire) - User Request: Emerald
+    if (t.includes('aire') || t.includes('split') || t.includes('conductos')) return 'climate';
+
+    // Calefacción (Termos, Calderas) - User Request: Rose
+    if (t.includes('caldera') || t.includes('termo') || t.includes('calentador') || t.includes('radiador')) return 'heat';
+
+    // Cocción (Hornos, Vitros) - User Request: Violet
+    if (t.includes('horno') || t.includes('vitro') || t.includes('micro') || t.includes('fuego') || t.includes('campana') || t.includes('encimera')) return 'cooking';
+
     return 'default';
 };
 
@@ -587,13 +600,13 @@ const GlobalAgenda = () => {
                     </div>
 
                     <div className="flex gap-2">
-                        {/* Legend Bar (Candy Shop Style) */}
-                        <div className="flex gap-2 mr-4 bg-white/50 backdrop-blur-sm px-3 py-1 rounded-full items-center shadow-sm border border-slate-100">
-                            <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-cyan-300 ring-2 ring-cyan-100"></div><span className="text-[10px] font-bold text-cyan-700">Lavado</span></div>
-                            <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-violet-300 ring-2 ring-violet-100"></div><span className="text-[10px] font-bold text-violet-700">Frío</span></div>
-                            <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-rose-300 ring-2 ring-rose-100"></div><span className="text-[10px] font-bold text-rose-700">Cocción</span></div>
-                            <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-lime-300 ring-2 ring-lime-100"></div><span className="text-[10px] font-bold text-lime-700 font-black">Clima</span></div>
-                            <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-yellow-300 ring-2 ring-yellow-100"></div><span className="text-[10px] font-bold text-yellow-700">Otros</span></div>
+                        {/* Legend Bar (Flat Semantics) */}
+                        <div className="flex gap-3 mr-4 bg-white/50 backdrop-blur-sm px-4 py-1.5 rounded-full items-center shadow-sm border border-slate-100">
+                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div><span className="text-[10px] font-bold text-slate-600">Lavado</span></div>
+                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-rose-600"></div><span className="text-[10px] font-bold text-slate-600">Calefacción</span></div>
+                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div><span className="text-[10px] font-bold text-slate-600">Clima</span></div>
+                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div><span className="text-[10px] font-bold text-slate-600">Frío</span></div>
+                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-violet-500"></div><span className="text-[10px] font-bold text-slate-600">Cocción</span></div>
                         </div>
                     </div>
                 </div>
@@ -706,9 +719,9 @@ const GlobalAgenda = () => {
                                                 <div key={appt.id} onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
                                                     className="h-5 min-h-[20px] bg-indigo-100/80 border border-indigo-200/50 hover:bg-white hover:border-indigo-400 rounded-md text-[9px] flex items-center px-1.5 shadow-sm cursor-pointer transition-all group"
                                                 >
-                                                    <div className={`w-1.5 h-1.5 rounded-full mr-1.5 shrink-0 shadow-sm ${APPLIANCE_COLORS[getApplianceCategory(appt.appliance_info?.type)].split(' ')[0]}`}></div>
-                                                    <span className="font-bold mr-1 text-slate-700 group-hover:text-indigo-700">{appt.start.getHours()}:{String(appt.start.getMinutes()).padStart(2, '0')}</span>
-                                                    <span className="truncate text-slate-500 font-medium group-hover:text-slate-800">{appt.appliance_info?.type || 'Servicio'}</span>
+                                                    <div className={`w-1.5 h-1.5 rounded-full mr-1.5 shrink-0 bg-white/60`}></div>
+                                                    <span className="font-bold mr-1 text-white">{appt.start.getHours()}:{String(appt.start.getMinutes()).padStart(2, '0')}</span>
+                                                    <span className="truncate text-white/90 font-medium">{appt.appliance_info?.type || 'Servicio'}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -750,12 +763,13 @@ const GlobalAgenda = () => {
                                                     draggable
                                                     onDragStart={(e) => handleDragStart(e, appt)}
                                                     onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
-                                                    className={`absolute rounded-lg cursor-grab active:cursor-grabbing hover:z-50 hover:scale-[1.05] hover:shadow-xl transition-all shadow-md overflow-hidden flex flex-col font-sans
+                                                    // FLAT PRO STYLING
+                                                    className={`absolute rounded-md cursor-grab active:cursor-grabbing hover:brightness-110 transition-all shadow-sm overflow-hidden flex flex-col font-sans px-2 py-1
                                                          ${colorClass} ${selectedAppt?.id === appt.id ? 'ring-2 ring-indigo-600 z-40' : 'z-10'}`}
                                                     style={{ top: `${top}px`, height: `${height - 2}px`, left: `${left}%`, width: `${width}%` }}
                                                 >
                                                     {/* 🏷️ TIME BADGE HEADER */}
-                                                    <div className="flex justify-between items-center text-[10px] font-black opacity-90 border-b border-black/10 pb-1 mb-1 leading-none">
+                                                    <div className="flex justify-between items-center text-[10px] font-bold opacity-90 mb-0.5 leading-none">
                                                         <span>{appt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {endTimeStr}</span>
                                                         <span className='opacity-50 text-[8px]'>{appt.duration}m</span>
                                                     </div>
