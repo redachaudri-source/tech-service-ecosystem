@@ -549,6 +549,9 @@ const GlobalAgenda = () => {
     const [dragState, setDragState] = useState({ id: null, offset: 0 });
     const [ghostState, setGhostState] = useState(null);
 
+    // 🛡️ INTERACTION SEMAPHORE (Prevents Ghost Clicks)
+    const isInteractionBusy = useRef(false);
+
     // 📏 RESIZE STATE
     const [resizingState, setResizingState] = useState(null); // { id, startY, startHeight, appt }
 
@@ -557,6 +560,7 @@ const GlobalAgenda = () => {
         const handleGlobalMove = (e) => {
             if (!resizingState) return;
             e.preventDefault(); // Prevent text selection
+            isInteractionBusy.current = true; // Ensure busy during move
 
             const deltaY = e.clientY - resizingState.startY;
             // Calculate new height based on delta
@@ -591,6 +595,9 @@ const GlobalAgenda = () => {
 
             setResizingState(null);
             setGhostState(null);
+
+            // 🛡️ COOLDOWN: Release lock after 200ms
+            setTimeout(() => { isInteractionBusy.current = false; }, 200);
 
             if (finalDuration === resizingState.appt.duration) return; // No change
 
