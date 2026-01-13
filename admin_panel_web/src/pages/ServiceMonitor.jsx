@@ -281,8 +281,14 @@ const ServiceMonitor = () => {
                                                                 <span className="text-[10px] font-semibold">
                                                                     {new Date(ticket.scheduled_at).toLocaleDateString()}
                                                                 </span>
-                                                                <span className="text-[9px] font-mono text-slate-500">
-                                                                    {new Date(ticket.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                <span className="text-[9px] font-mono text-slate-500 whitespace-nowrap">
+                                                                    {(() => {
+                                                                        const start = new Date(ticket.scheduled_at);
+                                                                        const end = new Date(start.getTime() + (ticket.estimated_duration || 60) * 60000);
+                                                                        const startStr = start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                                                        const endStr = end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                                                        return `${startStr} - ${endStr}`;
+                                                                    })()}
                                                                 </span>
                                                             </div>
                                                         </div>
