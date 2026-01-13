@@ -662,14 +662,21 @@ const GlobalAgenda = () => {
                                     onDragOver={(e) => handleDragOver(e, dayDate)}
                                     onDrop={(e) => handleDrop(e, dayDate)}
                                 >
-                                    {/* Ghost Event (Rendered relative to Drop Zone) */}
+                                    {/* Ghost Event (Blue Mode) */}
                                     {ghostState?.targetDate === dayDate.toISOString() && (
-                                        <div className="absolute left-1 right-1 z-[9999] bg-blue-600/60 border-2 border-dashed border-blue-500 rounded-md pointer-events-none transition-all duration-75 shadow-xl backdrop-blur-[1px] flex items-center justify-center p-1"
-                                            style={{ top: `${ghostState.top}px`, height: `${ghostState.height}px` }}
+                                        <div className="absolute left-1 right-1 flex items-center justify-center rounded-md pointer-events-none transition-all duration-75 p-1"
+                                            style={{
+                                                top: `${ghostState.top}px`,
+                                                height: `${ghostState.height}px`,
+                                                zIndex: 9999,
+                                                backgroundColor: 'rgba(59, 130, 246, 0.6)', // blue-500 @ 0.6
+                                                border: '2px dashed #1d4ed8', // blue-700
+                                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                            }}
                                         >
-                                            <div className="text-white text-xs font-black drop-shadow-md text-center leading-none">
+                                            <span className="text-white font-bold text-sm bg-blue-700/80 px-2 py-1 rounded shadow-sm backdrop-blur-sm">
                                                 {ghostState.timeStr}
-                                            </div>
+                                            </span>
                                         </div>
                                     )}
 
