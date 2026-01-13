@@ -153,6 +153,7 @@ const BrandsSection = () => (
 const RatesSection = () => {
     const [catalog, setCatalog] = useState([]);
     const [newItem, setNewItem] = useState({ name: '', base_price: '' });
+    const [editingItem, setEditingItem] = useState(null); // Track item being edited
 
     useEffect(() => { fetchCatalog(); }, []);
 
@@ -161,11 +162,49 @@ const RatesSection = () => {
         setCatalog(data || []);
     };
 
-    // ... CRUD Handlers similar to before ...
+    // ADD NEW
     const handleAdd = async () => {
         if (!newItem.name) return;
-        await supabase.from('service_catalog').insert([{ name: newItem.name, base_price: newItem.base_price, active: true }]);
-        setNewItem({ name: '', base_price: '' }); fetchCatalog();
+
+        if (editingItem) {
+            // UPDATE EXISTING
+            const { error } = await supabase.from('service_catalog')
+                .update({ name: newItem.name, base_price: newItem.base_price })
+                .eq('id', editingItem.id);
+
+            if (!error) {
+                setEditingItem(null);
+                setNewItem({ name: '', base_price: '' });
+                fetchCatalog();
+            } else {
+                alert('Error al actualizar: ' + error.message);
+            }
+        } else {
+            // CREATE NEW
+            await supabase.from('service_catalog').insert([{ name: newItem.name, base_price: newItem.base_price, active: true }]);
+            setNewItem({ name: '', base_price: '' });
+            fetchCatalog();
+        }
+    };
+
+    // EDIT MODE
+    const handleEdit = (item) => {
+        setNewItem({ name: item.name, base_price: item.base_price });
+        setEditingItem(item);
+    };
+
+    // CANCEL EDIT
+    const handleCancelEdit = () => {
+        setEditingItem(null);
+        setNewItem({ name: '', base_price: '' });
+    };
+
+    // DELETE
+    const handleDelete = async (id) => {
+        if (window.confirm('¿Seguro que deseas eliminar esta tarifa? Esta acción no se puede deshacer.')) {
+            await supabase.from('service_catalog').delete().eq('id', id);
+            fetchCatalog();
+        }
     };
 
     return (
@@ -175,18 +214,68 @@ const RatesSection = () => {
                 <p className="text-slate-500 text-sm">Catálogo base de mano de obra y desplazamientos.</p>
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <div className="flex gap-2 mb-6 p-4 bg-slate-50 rounded-lg border border-slate-100">
-                    <input placeholder="Concepto" className="flex-1 p-2 border rounded text-sm" value={newItem.name} onChange={e => setNewItem({ ...newItem, name: e.target.value })} />
-                    <input type="number" placeholder="€" className="w-24 p-2 border rounded text-sm" value={newItem.base_price} onChange={e => setNewItem({ ...newItem, base_price: e.target.value })} />
-                    <button onClick={handleAdd} className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700"><Plus size={20} /></button>
+                <div className={`flex gap-2 mb-6 p-4 rounded-lg border transition-colors ${editingItem ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-100'}`}>
+                    <input
+                        placeholder="Concepto"
+                        className="flex-1 p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={newItem.name}
+                        onChange={e => setNewItem({ ...newItem, name: e.target.value })}
+                    />
+                    <input
+                        type="number"
+                        placeholder="€"
+                        className="w-24 p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={newItem.base_price}
+                        onChange={e => setNewItem({ ...newItem, base_price: e.target.value })}
+                    />
+
+                    <button
+                        onClick={handleAdd}
+                        className={`p-2 rounded text-white transition flex items-center gap-2 ${editingItem ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'}`}
+                    >
+                        {editingItem ? <Check size={20} /> : <Plus size={20} />}
+                        {editingItem && <span className="text-xs font-bold px-1">Guardar</span>}
+                    </button>
+
+                    {editingItem && (
+                        <button onClick={handleCancelEdit} className="p-2 text-slate-500 hover:bg-slate-200 rounded" title="Cancelar Edición">
+                            <X size={20} />
+                        </button>
+                    )}
                 </div>
+
                 <div className="space-y-2">
                     {catalog.map(c => (
-                        <div key={c.id} className="flex justify-between p-3 border-b border-slate-50 last:border-0 hover:bg-slate-50">
+                        <div key={c.id} className={`flex justify-between items-center p-3 border-b border-slate-50 last:border-0 hover:bg-slate-50 group rounded transition ${editingItem?.id === c.id ? 'bg-blue-50/50' : ''}`}>
                             <span className="font-medium text-slate-700">{c.name}</span>
-                            <span className="font-mono">{c.base_price} €</span>
+                            <div className="flex items-center gap-4">
+                                <span className="font-mono font-bold text-slate-600">{c.base_price} €</span>
+
+                                {/* Action Buttons */}
+                                <div className="flex items-center gap-1 border-l pl-3 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                        onClick={() => handleEdit(c)}
+                                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition"
+                                        title="Editar"
+                                    >
+                                        <Edit2 size={16} />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDelete(c.id)}
+                                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition"
+                                        title="Eliminar"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     ))}
+                    {catalog.length === 0 && (
+                        <div className="p-8 text-center text-slate-400 text-sm italic">
+                            No hay tarifas definidas. Añade la primera arriba.
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
