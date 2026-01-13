@@ -60,9 +60,12 @@ const Layout = () => {
     useEffect(() => {
         if (notificationCount > prevCount) {
             try {
-                const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-                audio.volume = 0.5;
-                audio.play().catch(e => console.log('Audio blocked', e));
+                const isMuted = localStorage.getItem('mute_notifications') === 'true';
+                if (!isMuted) {
+                    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+                    audio.volume = 0.5;
+                    audio.play().catch(e => console.log('Audio blocked', e));
+                }
             } catch (e) { }
         }
         setPrevCount(notificationCount);
