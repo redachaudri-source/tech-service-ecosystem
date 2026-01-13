@@ -903,72 +903,28 @@ const TeamManager = () => {
                 </div>
             )}
 
-            {/* PERMISSIONS MATRIX MODAL */}
+            {/* PERMISSIONS MODAL */}
             {showPermsModal && targetAdmin && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
-                        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <div>
-                                <h2 className="text-lg font-bold text-slate-800">Matrix de Permisos</h2>
-                                <p className="text-xs text-slate-500">Configurando a: {targetAdmin.full_name}</p>
-                            </div>
-                            <button onClick={() => setShowPermsModal(false)} className="text-slate-400 hover:text-slate-600">
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        <div className="p-6">
-                            <div className="bg-yellow-50 text-yellow-800 p-3 rounded-lg text-xs mb-4 flex gap-2">
-                                <ShieldAlert size={16} className="shrink-0" />
-                                Estos permisos afectan lo que este administrador puede ver y borrar.
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-2">
-                                {[
-                                    { key: 'can_manage_team', label: 'Gestionar Equipo (Crear/Bloquear Usuarios)' },
-                                    { key: 'can_manage_inventory', label: 'Gestión Total de Inventario' },
-                                    { key: 'can_view_all_tickets', label: 'Ver TODOS los Tickets (No solo los asignados)' },
-                                    { key: 'can_view_all_clients', label: 'Ver TODA la Cartera de Clientes' },
-                                    { key: 'can_delete_tickets', label: 'Eliminar Tickets y Registros' },
-                                ].map(p => (
-                                    <div key={p.key} className="flex items-center justify-between p-3 border border-slate-100 rounded-lg hover:bg-slate-50 transition">
-                                        <span className="font-medium text-slate-700 text-sm">{p.label}</span>
-                                        <button
-                                            onClick={() => handleTogglePermission(p.key)}
-                                            className={`w-12 h-6 flex items-center rounded-full px-1 transition-colors ${perms[p.key] ? 'bg-green-500 justify-end' : 'bg-slate-200 justify-start'}`}
-                                        >
-                                            <div className="w-4 h-4 bg-white rounded-full shadow-sm"></div>
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="mt-6 flex justify-end gap-3">
-                                <button
-                                    onClick={() => setShowPermsModal(false)}
-                                    className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg"
-                                >
-                                    Cancelar
-                                    <PermissionsModal
-                                        admin={targetAdmin}
-                                        permissions={perms}
-                                        onToggle={handleTogglePermission}
-                                        onSave={handleSavePermissions}
-                                        onClose={() => setShowPermsModal(false)}
-                                        saving={loading}
-                                    />
+                <PermissionsModal
+                    admin={targetAdmin}
+                    permissions={perms}
+                    onToggle={handleTogglePermission}
+                    onSave={handleSavePermissions}
+                    onClose={() => setShowPermsModal(false)}
+                    saving={loading}
+                />
             )}
 
-                                    {/* REVIEWS MODAL */}
-                                    {viewingReviews && (
-                                        <AdminReviewModal
-                                            technician={viewingReviews}
-                                            onClose={() => setViewingReviews(null)}
-                                        />
-                                    )}
-                            </div>
-                            );
+            {/* REVIEWS MODAL */}
+            {viewingReviews && (
+                <AdminReviewModal
+                    technician={viewingReviews}
+                    onClose={() => setViewingReviews(null)}
+                />
+            )}
+        </div>
+    );
 };
 
 
-                            export default TeamManager;
+export default TeamManager;
