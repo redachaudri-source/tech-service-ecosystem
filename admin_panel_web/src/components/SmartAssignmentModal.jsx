@@ -12,6 +12,7 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
     const [selectedDate, setSelectedDate] = useState('');
     const [smartSlots, setSmartSlots] = useState([]); // Results from DB RPC
     const [loadingSlots, setLoadingSlots] = useState(false);
+    const [businessConfig, setBusinessConfig] = useState(null); // 🕒 Business Hours
 
     // Manual Override Filter
     const [selectedTechFilter, setSelectedTechFilter] = useState('');
@@ -28,6 +29,14 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
     }, []);
 
     const fetchInitialData = async () => {
+        // 0. Fetch Business Config (For Smart Filtering)
+        const { data: bConfig } = await supabase
+            .from('business_config')
+            .select('*')
+            .eq('key', 'working_hours')
+            .single();
+        if (bConfig) setBusinessConfig(bConfig);
+
         // 1. Fetch Service Types
         const { data: types } = await supabase.from('service_types').select('*').eq('is_active', true);
         if (types) {
@@ -75,7 +84,7 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
         if (selectedDate && duration) {
             fetchSmartSlots();
         }
-    }, [selectedDate, duration, selectedServiceType]);
+    }, [selectedDate, duration, selectedServiceType, businessConfig]); // Add businessConfig dep
 
     const fetchSmartSlots = async () => {
         setLoadingSlots(true);
@@ -103,7 +112,46 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
 
             // Transform data for UI
             // Data shape: [{ technician_id, technician_name, slot_start, is_optimal_cp, efficiency_score }, ...]
-            setSmartSlots(data || []);
+
+            // 🛑 GOD MODE FILTER: Apply Per-Day Business Hours
+            let filteredData = data || [];
+
+            if (businessConfig && businessConfig.value) {
+                // Determine Day Name
+                const dateObj = new Date(selectedDate);
+                const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+                const dayConfig = businessConfig.value[dayName]; // Access JSON directly
+
+                if (!dayConfig) {
+                    // If day is NULL/Undefined in config -> It's CLOSED (e.g. Saturday)
+                    // We should filter OUT all slots.
+                    filteredData = [];
+                    console.log(`[SmartAssistant] Blocked all slots for ${dayName} (Closed Day)`);
+                } else if (dayConfig.end) {
+                    // Check Closing Time
+                    // "15:00" -> 15
+                    const closeHour = parseInt(dayConfig.end.split(':')[0]);
+
+                    if (!isNaN(closeHour)) {
+                        filteredData = filteredData.filter(slot => {
+                            // Check if Slot End (Start + Duration) > Close Hour
+                            const slotStart = new Date(slot.slot_start);
+                            const slotEnd = new Date(slotStart.getTime() + duration * 60000);
+
+                            // We only care if the END hour exceeds the limit
+                            // Example: 14:00 (60min) -> Ends 15:00. Allowed? 
+                            // If limit is 15:00. 15:00 <= 15:00 is OK.
+                            // 14:30 (60min) -> Ends 15:30. 15.5 > 15. Blocked.
+
+                            const endHourDecimal = slotEnd.getHours() + (slotEnd.getMinutes() / 60);
+                            return endHourDecimal <= closeHour;
+                        });
+                        console.log(`[SmartAssistant] Filtered slots for ${dayName} (Close: ${closeHour}:00). Remaining: ${filteredData.length}`);
+                    }
+                }
+            }
+
+            setSmartSlots(filteredData);
 
         } catch (err) {
             console.error("Error fetching smart slots:", err);
