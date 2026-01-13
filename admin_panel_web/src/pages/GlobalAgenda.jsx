@@ -1180,21 +1180,26 @@ const GlobalAgenda = () => {
                                     onDrop={(e) => handleDrop(e, dayDate)}
                                 >
 
-                                    {/* Ghost Event (Blue Mode) */}
+                                    {/* Ghost Event (High-Performance Blue Mode) */}
                                     {ghostState?.targetDate === dayDate.toISOString() && (
-                                        <div className="absolute left-1 right-1 flex items-center justify-center rounded-md pointer-events-none transition-all duration-75 p-1"
+                                        <div
+                                            className="absolute left-1 right-1 rounded-md pointer-events-none overflow-hidden"
                                             style={{
                                                 top: `${ghostState.top}px`,
                                                 height: `${ghostState.height}px`,
                                                 zIndex: 9999,
-                                                backgroundColor: 'rgba(59, 130, 246, 0.6)', // blue-500 @ 0.6
-                                                border: '2px dashed #1d4ed8', // blue-700
-                                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                                backgroundColor: 'rgba(59, 130, 246, 0.5)', // Blue-500 @ 50%
+                                                border: '2px dashed #1d4ed8',             // Blue-700
+                                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                                                // 🚀 PERF: No transitions here for 1:1 mouse tracking
                                             }}
                                         >
-                                            <span className="text-white font-bold text-sm bg-blue-700/80 px-2 py-1 rounded shadow-sm backdrop-blur-sm">
-                                                {ghostState.timeStr}
-                                            </span>
+                                            {/* Absolute Center for Label (Avoids Flex Layout Trashing) */}
+                                            <div className="absolute inset-0 flex items-center justify-center p-1">
+                                                <span className="text-white font-bold text-sm bg-blue-700/90 px-3 py-1 rounded-full shadow-sm tracking-wide whitespace-nowrap">
+                                                    {ghostState.timeStr}
+                                                </span>
+                                            </div>
                                         </div>
                                     )}
 
