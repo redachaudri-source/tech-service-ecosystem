@@ -203,915 +203,1079 @@ const GlobalAgenda = () => {
     };
 
     // --- AI LOGIC ---
-    const handleOptimizeRoute = async () => {
-        if (!optimizingDay) return;
-        setIsOptimizing(true);
 
-        // 🤖 AI Simulation (Thinking...)
-        await new Promise(r => setTimeout(r, 1200));
 
-        const dayStartStr = optimizingDay.toISOString().split('T')[0];
-        const dayEvents = appointments.filter(a => a.start.toISOString().split('T')[0] === dayStartStr && selectedTechs.includes(a.technician_id));
+    setIsOptimizing(true);
 
-        if (dayEvents.length === 0) {
-            addToast('No hay tickets visibles para optimizar.', 'info');
-            setIsOptimizing(false);
-            return;
+    // 🤖 AI Simulation (Thinking...)
+    await new Promise(r => setTimeout(r, 1200));
+
+    const dayStartStr = optimizingDay.toISOString().split('T')[0];
+    const dayEvents = appointments.filter(a => a.start.toISOString().split('T')[0] === dayStartStr && selectedTechs.includes(a.technician_id));
+
+    if (dayEvents.length === 0) {
+        addToast('No hay tickets visibles para optimizar.', 'info');
+        setIsOptimizing(false);
+        return;
+    }
+
+    // 🧠 ALGORITHM: Sort by CP (Clustering)
+    const optimizedList = [...dayEvents].sort((a, b) => {
+        // Mock CP extraction (Address or Client data)
+        const cpA = a.client?.postal_code || a.client?.address?.match(/\d{5}/)?.[0] || '99999';
+        const cpB = b.client?.postal_code || b.client?.address?.match(/\d{5}/)?.[0] || '99999';
+        return cpA.localeCompare(cpB);
+    });
+
+    // ⏱️ RE-PACKING: Sequential Time Slots (Preserve Start Hour)
+    const earliestStart = Math.min(...dayEvents.map(e => e.start.getTime()));
+    let currentMs = earliestStart;
+
+    const updates = optimizedList.map(appt => {
+        const newStart = new Date(currentMs);
+        const durationMs = appt.duration * 60000;
+        const bufferMs = 15 * 60000; // 15 min travel
+
+        currentMs += durationMs + bufferMs;
+        return { id: appt.id, newStart };
+    });
+
+    // 🚀 APPLY (Move it!)
+    setAppointments(prev => prev.map(p => {
+        const up = updates.find(u => u.id === p.id);
+        return up ? { ...p, start: up.newStart, scheduled_at: up.newStart.toISOString() } : p;
+    }));
+
+    addToast(`✅ Ruta Optimizada: ${dayEvents.length} servicios reorganizados.`, 'success');
+    setIsOptimizing(false);
+    setShowOptimizer(false);
+};
+
+// Date Calculations
+const gridStart = useMemo(() => {
+    if (viewMode === 'month') return getStartOfMonthGrid(selectedDate);
+    return getStartOfWeek(selectedDate);
+}, [selectedDate, viewMode]);
+
+const gridDates = useMemo(() => {
+    const days = viewMode === 'week' ? 7 : (viewMode === 'fortnight' ? 14 : 42); // 6 weeks for month
+    return Array.from({ length: days }, (_, i) => {
+        const d = new Date(gridStart);
+        d.setDate(d.getDate() + i);
+        return d;
+    });
+}, [gridStart, viewMode]);
+
+// Data Fetching
+useEffect(() => {
+    fetchAgendaData();
+    fetchBusinessConfig();
+}, [gridStart, gridDates.length]); // Refetch when grid changes
+
+const fetchBusinessConfig = async () => {
+    // Explicitly fetch the 'working_hours' configuration row to avoid ambiguity
+    const { data } = await supabase
+        .from('business_config')
+        .select('*')
+        .eq('key', 'working_hours')
+        .single();
+
+    if (data) setBusinessConfig(data);
+};
+
+const fetchAgendaData = async () => {
+    setLoading(true);
+    try {
+        // Fetch range: Based on Grid Start and Grid Length
+        const startStr = gridStart.toISOString().split('T')[0];
+        const endDate = new Date(gridStart);
+        endDate.setDate(endDate.getDate() + gridDates.length);
+        const endStr = endDate.toISOString().split('T')[0];
+
+        // 1. Fetch Techs
+        const { data: techData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('role', 'tech')
+            .eq('is_active', true)
+            .is('deleted_at', null)
+            .order('full_name');
+        setTechs(techData || []);
+        if (techData && selectedTechs.length === 0) {
+            setSelectedTechs(techData.map(t => t.id));
         }
 
-        // 🧠 ALGORITHM: Sort by CP (Clustering)
-        const optimizedList = [...dayEvents].sort((a, b) => {
-            // Mock CP extraction (Address or Client data)
-            const cpA = a.client?.postal_code || a.client?.address?.match(/\d{5}/)?.[0] || '99999';
-            const cpB = b.client?.postal_code || b.client?.address?.match(/\d{5}/)?.[0] || '99999';
-            return cpA.localeCompare(cpB);
-        });
+        // 1.5 Fetch Brands
+        const { data: brandsData } = await supabase.from('brands').select('name, logo_url');
 
-        // ⏱️ RE-PACKING: Sequential Time Slots (Preserve Start Hour)
-        const earliestStart = Math.min(...dayEvents.map(e => e.start.getTime()));
-        let currentMs = earliestStart;
-
-        const updates = optimizedList.map(appt => {
-            const newStart = new Date(currentMs);
-            const durationMs = appt.duration * 60000;
-            const bufferMs = 15 * 60000; // 15 min travel
-
-            currentMs += durationMs + bufferMs;
-            return { id: appt.id, newStart };
-        });
-
-        // 🚀 APPLY (Move it!)
-        setAppointments(prev => prev.map(p => {
-            const up = updates.find(u => u.id === p.id);
-            return up ? { ...p, start: up.newStart, scheduled_at: up.newStart.toISOString() } : p;
-        }));
-
-        addToast(`✅ Ruta Optimizada: ${dayEvents.length} servicios reorganizados.`, 'success');
-        setIsOptimizing(false);
-        setShowOptimizer(false);
-    };
-
-    // Date Calculations
-    const gridStart = useMemo(() => {
-        if (viewMode === 'month') return getStartOfMonthGrid(selectedDate);
-        return getStartOfWeek(selectedDate);
-    }, [selectedDate, viewMode]);
-
-    const gridDates = useMemo(() => {
-        const days = viewMode === 'week' ? 7 : (viewMode === 'fortnight' ? 14 : 42); // 6 weeks for month
-        return Array.from({ length: days }, (_, i) => {
-            const d = new Date(gridStart);
-            d.setDate(d.getDate() + i);
-            return d;
-        });
-    }, [gridStart, viewMode]);
-
-    // Data Fetching
-    useEffect(() => {
-        fetchAgendaData();
-        fetchBusinessConfig();
-    }, [gridStart, gridDates.length]); // Refetch when grid changes
-
-    const fetchBusinessConfig = async () => {
-        // Explicitly fetch the 'working_hours' configuration row to avoid ambiguity
-        const { data } = await supabase
-            .from('business_config')
-            .select('*')
-            .eq('key', 'working_hours')
-            .single();
-
-        if (data) setBusinessConfig(data);
-    };
-
-    const fetchAgendaData = async () => {
-        setLoading(true);
-        try {
-            // Fetch range: Based on Grid Start and Grid Length
-            const startStr = gridStart.toISOString().split('T')[0];
-            const endDate = new Date(gridStart);
-            endDate.setDate(endDate.getDate() + gridDates.length);
-            const endStr = endDate.toISOString().split('T')[0];
-
-            // 1. Fetch Techs
-            const { data: techData } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('role', 'tech')
-                .eq('is_active', true)
-                .is('deleted_at', null)
-                .order('full_name');
-            setTechs(techData || []);
-            if (techData && selectedTechs.length === 0) {
-                setSelectedTechs(techData.map(t => t.id));
-            }
-
-            // 1.5 Fetch Brands
-            const { data: brandsData } = await supabase.from('brands').select('name, logo_url');
-
-            // 2. Fetch Appointments (SAFE MODE - "TRINITY" LOGIC)
-            // Reverting query to avoid ambiguous relationship errors, but relying on 'appliance_info' JSON for rich data
-            const { data: apptData, error } = await supabase
-                .from('tickets')
-                .select(`
+        // 2. Fetch Appointments (SAFE MODE - "TRINITY" LOGIC)
+        // Reverting query to avoid ambiguous relationship errors, but relying on 'appliance_info' JSON for rich data
+        const { data: apptData, error } = await supabase
+            .from('tickets')
+            .select(`
                     *, 
                     client:profiles!client_id(*),
                     client_appliances(*)
                 `)
-                .gte('scheduled_at', `${startStr}T00:00:00`)
-                .lt('scheduled_at', `${endStr}T23:59:59`)
-                .order('scheduled_at', { ascending: true });
+            .gte('scheduled_at', `${startStr}T00:00:00`)
+            .lt('scheduled_at', `${endStr}T23:59:59`)
+            .order('scheduled_at', { ascending: true });
 
-            if (error) {
-                console.error("Error fetching tickets:", error);
-            }
-
-            const processed = (apptData || [])
-                .filter(a => {
-                    const s = a.status?.toLowerCase() || '';
-                    return !['cancelado', 'rechazado', 'anulado', 'finalizado'].includes(s) && a.technician_id;
-                })
-                .map(a => {
-                    // RESOLVE "THE TRINITY": JSON vs DB
-                    // ServiceMonitor uses 'appliance_info' JSON column. We prioritize it.
-                    let dbAppliance = a.client_appliances;
-                    if (Array.isArray(dbAppliance)) dbAppliance = dbAppliance[0];
-                    const jsonAppliance = a.appliance_info;
-
-                    // Priority: JSON (Service Snapshot) > DB Relation (Live Data) > Empty
-                    const bestAppliance = (jsonAppliance?.type || jsonAppliance?.brand) ? jsonAppliance : (dbAppliance || {});
-
-                    // Brand & Logo
-                    const brandName = bestAppliance?.brand || 'Generico';
-                    const brandInfo = brandsData?.find(b => b.name?.toLowerCase() === brandName?.toLowerCase());
-
-                    // Debug
-                    console.log('Processed Agenda Item:', { id: a.id, appliance: bestAppliance, title: a.title });
-
-                    return {
-                        ...a,
-                        start: new Date(a.scheduled_at),
-                        duration: a.estimated_duration || 60,
-                        profiles: a.client || {},
-                        appliance_info: bestAppliance, // The Truth
-                        brand_logo: brandInfo?.logo_url || null
-                    };
-                });
-
-            if (processed.length > 0) console.log('Agenda Data Loaded:', processed.length, 'items.');
-
-            setAppointments(processed || []);
-        } catch (error) {
-            console.error("Fatal Error in fetchAgendaData:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // --- BUSINESS LOGIC ---
-    // --- BUSINESS LOGIC DEPRECATED (Replaced by getDayConfig) ---
-    // const isDayClosed = useMemo(...) -> No longer used for Drag. 
-    // Kept only if needed for UI Alerts (which we might want to refactor later)
-    const isDayClosed = false; // Disable global block to allow per-day logic
-
-    const handleUpdateAppointment = async (apptId, newTechId, newDate) => {
-        if (isDayClosed) {
-            alert("⛔ El negocio está CERRADO este día. No se pueden agendar citas.");
-            return;
+        if (error) {
+            console.error("Error fetching tickets:", error);
         }
 
-        // 1. Snapshot for Rollback
-        const previousAppointments = [...appointments];
-        const iso = newDate.toISOString();
-
-        // 2. Optimistic Update (Immediate Feedback)
-        setAppointments(prev => prev.map(a =>
-            a.id === apptId ? { ...a, technician_id: newTechId, scheduled_at: iso, start: newDate } : a
-        ));
-
-        try {
-            const { error } = await supabase
-                .from('tickets')
-                .update({
-                    scheduled_at: iso,
-                    technician_id: newTechId
-                })
-                .eq('id', apptId);
-
-            if (error) throw error;
-            // Success: Silent
-
-        } catch (error) {
-            console.error("Error moving appointment:", error);
-            // 3. Rollback on Critical Fail
-            setAppointments(previousAppointments);
-            alert("⚠️ No se pudo mover la cita. Se ha revertido el cambio.");
-        }
-    };
-
-    const toggleTech = (id) => {
-        if (selectedTechs.includes(id)) setSelectedTechs(selectedTechs.filter(t => t !== id));
-        else setSelectedTechs([...selectedTechs, id]);
-    };
-
-    const toggleAllTechs = () => {
-        if (selectedTechs.length === techs.length) setSelectedTechs([]);
-        else setSelectedTechs(techs.map(t => t.id));
-    };
-
-    // --- GRID LAYOUT LOGIC (BY DAY) ---
-    const getPositionedEvents = (dayDate) => {
-        // Filter: Must be on 'dayDate' AND assigned to 'selectedTechs'
-        const dayStartStr = dayDate.toISOString().split('T')[0];
-
-        const events = appointments
+        const processed = (apptData || [])
             .filter(a => {
-                const aDate = a.start.toISOString().split('T')[0];
-                return aDate === dayStartStr && selectedTechs.includes(a.technician_id);
+                const s = a.status?.toLowerCase() || '';
+                return !['cancelado', 'rechazado', 'anulado', 'finalizado'].includes(s) && a.technician_id;
             })
             .map(a => {
-                const startH = a.start.getHours();
-                const startM = a.start.getMinutes();
-                const startMs = startH * 60 + startM;
-                const duration = a.duration;
-                return { ...a, startMs, endMs: startMs + duration };
+                // RESOLVE "THE TRINITY": JSON vs DB
+                // ServiceMonitor uses 'appliance_info' JSON column. We prioritize it.
+                let dbAppliance = a.client_appliances;
+                if (Array.isArray(dbAppliance)) dbAppliance = dbAppliance[0];
+                const jsonAppliance = a.appliance_info;
+
+                // Priority: JSON (Service Snapshot) > DB Relation (Live Data) > Empty
+                const bestAppliance = (jsonAppliance?.type || jsonAppliance?.brand) ? jsonAppliance : (dbAppliance || {});
+
+                // Brand & Logo
+                const brandName = bestAppliance?.brand || 'Generico';
+                const brandInfo = brandsData?.find(b => b.name?.toLowerCase() === brandName?.toLowerCase());
+
+                // Debug
+                console.log('Processed Agenda Item:', { id: a.id, appliance: bestAppliance, title: a.title });
+
+                return {
+                    ...a,
+                    start: new Date(a.scheduled_at),
+                    duration: a.estimated_duration || 60,
+                    profiles: a.client || {},
+                    appliance_info: bestAppliance, // The Truth
+                    brand_logo: brandInfo?.logo_url || null
+                };
             });
 
-        // Grouping/Column logic within the day...
-        const expandedEvents = events.map(e => ({ ...e, col: 0, totalCols: 1 }));
-        for (let i = 0; i < expandedEvents.length; i++) {
-            let current = expandedEvents[i];
-            const overlapping = expandedEvents.filter((other, idx) =>
-                idx !== i &&
-                ((current.startMs >= other.startMs && current.startMs < other.endMs) ||
-                    (current.endMs > other.startMs && current.endMs <= other.endMs) ||
-                    (current.startMs <= other.startMs && current.endMs >= other.endMs))
-            );
+        if (processed.length > 0) console.log('Agenda Data Loaded:', processed.length, 'items.');
 
-            if (overlapping.length > 0) {
-                current.totalCols = overlapping.length + 1;
-                const group = [current, ...overlapping].sort((a, b) => a.startMs - b.startMs || a.id.localeCompare(b.id));
-                current.col = group.indexOf(current);
-            }
-        }
-        return expandedEvents;
-    };
+        setAppointments(processed || []);
+    } catch (error) {
+        console.error("Fatal Error in fetchAgendaData:", error);
+    } finally {
+        setLoading(false);
+    }
+};
 
+// --- BUSINESS LOGIC ---
+// --- BUSINESS LOGIC DEPRECATED (Replaced by getDayConfig) ---
+// const isDayClosed = useMemo(...) -> No longer used for Drag. 
+// Kept only if needed for UI Alerts (which we might want to refactor later)
+const isDayClosed = false; // Disable global block to allow per-day logic
 
-    // --- DND HANDLERS ---
-    const [dragState, setDragState] = useState({ id: null, offset: 0 });
-    const [ghostState, setGhostState] = useState(null);
+const handleUpdateAppointment = async (apptId, newTechId, newDate) => {
+    if (isDayClosed) {
+        alert("⛔ El negocio está CERRADO este día. No se pueden agendar citas.");
+        return;
+    }
 
-    const handleDragStart = (e, appt) => {
-        if (isDayClosed) { e.preventDefault(); return; }
-        // Calculate offset relative to the CARD, not the column
-        const rect = e.currentTarget.getBoundingClientRect();
-        const offset = e.clientY - rect.top;
+    // 1. Snapshot for Rollback
+    const previousAppointments = [...appointments];
+    const iso = newDate.toISOString();
 
-        setDragState({ id: appt.id, offset, duration: appt.duration });
-        e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("text/plain", appt.id);
+    // 2. Optimistic Update (Immediate Feedback)
+    setAppointments(prev => prev.map(a =>
+        a.id === apptId ? { ...a, technician_id: newTechId, scheduled_at: iso, start: newDate } : a
+    ));
 
-        // Transparent Ghost
-        const emptyImg = new Image();
-        emptyImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-        e.dataTransfer.setDragImage(emptyImg, 0, 0);
-    };
+    try {
+        const { error } = await supabase
+            .from('tickets')
+            .update({
+                scheduled_at: iso,
+                technician_id: newTechId
+            })
+            .eq('id', apptId);
 
-    // --- AUTO SCROLL REF ---
-    const scrollContainerRef = useRef(null);
+        if (error) throw error;
+        // Success: Silent
 
-    // --- HELPER: PER-DAY CONFIG ---
-    const getDayConfig = (date) => {
-        const defaultClose = 20;
+    } catch (error) {
+        console.error("Error moving appointment:", error);
+        // 3. Rollback on Critical Fail
+        setAppointments(previousAppointments);
+        alert("⚠️ No se pudo mover la cita. Se ha revertido el cambio.");
+    }
+};
 
-        // Safety: If no config explicitly loaded, assume Open (Fallback)
-        if (!businessConfig?.value && !businessConfig?.working_hours) return { isOpen: true, closeHour: defaultClose };
+const toggleTech = (id) => {
+    if (selectedTechs.includes(id)) setSelectedTechs(selectedTechs.filter(t => t !== id));
+    else setSelectedTechs([...selectedTechs, id]);
+};
 
-        const dayName = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-        // FIX: The row from DB has the JSON in the 'value' column. 
-        // We also check 'working_hours' property just in case of migration, but 'value' is primary.
-        const config = businessConfig?.value?.[dayName] || businessConfig?.working_hours?.[dayName];
+const toggleAllTechs = () => {
+    if (selectedTechs.length === techs.length) setSelectedTechs([]);
+    else setSelectedTechs(techs.map(t => t.id));
+};
 
-        // LOGIC FIX: In BusinessSettings, null/undefined means CLOSED (unchecked).
-        // Previous logic assumed missing = open (default), which caused Saturday (null) to be open.
-        if (!config) return { isOpen: false, closeHour: defaultClose };
+// --- GRID LAYOUT LOGIC (BY DAY) ---
+const getPositionedEvents = (dayDate) => {
+    // Filter: Must be on 'dayDate' AND assigned to 'selectedTechs'
+    const dayStartStr = dayDate.toISOString().split('T')[0];
 
-        // Extract Close Hour from "19:00" string in 'end' property
-        let closeHour = defaultClose;
-        if (config.end) {
-            const h = parseInt(config.end.split(':')[0]);
-            if (!isNaN(h)) closeHour = h;
-        }
-
-        return { isOpen: true, closeHour };
-    };
-
-    const handleDragOver = (e, targetDate) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        // 1. 🔒 PER-DATE CONSTRAINT: Check if THAT day is closed
-        const dayConfig = getDayConfig(targetDate);
-        if (!dayConfig.isOpen) return;
-
-        // Auto Scroll (Premium Tuned - Freno de Mano)
-        const container = scrollContainerRef.current;
-        if (container) {
-            const { top, bottom } = container.getBoundingClientRect();
-            const threshold = 30;
-            const scrollSpeed = 10;
-
-            if (e.clientY > bottom - threshold) {
-                container.scrollTop += scrollSpeed;
-            } else if (e.clientY < top + threshold) {
-                container.scrollTop -= scrollSpeed;
-            }
-        }
-
-        const rect = e.currentTarget.getBoundingClientRect();
-        const y = e.clientY - rect.top;
-
-        // "Buttery Smooth" Physics
-        const snapMinutes = 15;
-        const snapPixels = pixelsPerHour * (snapMinutes / 60);
-
-        const rawTop = y - dragState.offset;
-        const snappedTop = Math.round(rawTop / snapPixels) * snapPixels;
-
-        const hoursToAdd = snappedTop / pixelsPerHour;
-
-        // 2. 🔒 PER-DATE CONSTRAINT: Check Hours Limit
-        // Use the specific closeHour for THIS day
-        const dayLimitHour = dayConfig.closeHour;
-
-        const totalMinutes = hoursToAdd * 60;
-        const maxMinutes = (dayLimitHour - startHour) * 60;
-
-        // 🔒 CLAMPING LOGIC (Visual Wall)
-        // Instead of returning/hiding, we CLAMP the visual ghost to the bounds.
-        // This creates the "hit the wall" effect requested.
-        let clampedMinutes = totalMinutes;
-
-        // Clamp Min (Start of Day)
-        if (clampedMinutes < 0) clampedMinutes = 0;
-
-        // Clamp Max (End of Day Limit - Duration)
-        const maxAllowedStart = maxMinutes - dragState.duration;
-        if (clampedMinutes > maxAllowedStart) clampedMinutes = maxAllowedStart;
-
-        // Recalculate Snapped Visuals based on CLAMPED value
-        const clampedHours = clampedMinutes / 60;
-        const clampedTop = clampedHours * pixelsPerHour;
-
-        // Calculate Ghost Time for UI
-        const ghostTime = new Date(targetDate);
-        ghostTime.setHours(startHour + Math.floor(clampedHours), (clampedHours % 1) * 60);
-
-        // Calculate End Time for Range
-        const ghostEndTime = new Date(ghostTime.getTime() + dragState.duration * 60000);
-        const timeRangeStr = `${ghostTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${ghostEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-
-        setGhostState({
-            top: clampedTop, // Use Clamped Top
-            height: (dragState.duration / 60) * pixelsPerHour,
-            targetDate: targetDate.toISOString(),
-            timeStr: timeRangeStr
+    const events = appointments
+        .filter(a => {
+            const aDate = a.start.toISOString().split('T')[0];
+            return aDate === dayStartStr && selectedTechs.includes(a.technician_id);
+        })
+        .map(a => {
+            const startH = a.start.getHours();
+            const startM = a.start.getMinutes();
+            const startMs = startH * 60 + startM;
+            const duration = a.duration;
+            return { ...a, startMs, endMs: startMs + duration };
         });
-    };
 
-    const handleDrop = (e, targetDate) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setGhostState(null);
-
-        // 🔒 PER-DATE CHECK (Strict)
-        const dayConfig = getDayConfig(targetDate);
-        if (!dayConfig.isOpen) {
-            addToast('El negocio está cerrado este día.', 'error', 3000);
-            return;
-        }
-
-        const apptId = e.dataTransfer.getData("text/plain");
-        const appt = appointments.find(a => a.id === apptId);
-        if (!appt) return;
-
-        // 🔒 PER-DATE DROP LIMIT CHECK (With Notification)
-        const rect = e.currentTarget.getBoundingClientRect();
-        const y = e.clientY - rect.top;
-        const snapMinutes = 15;
-        const snapPixels = pixelsPerHour * (snapMinutes / 60);
-        // Correct position
-        const rawTop = y - dragState.offset;
-        const snappedTop = Math.round(rawTop / snapPixels) * snapPixels;
-        const hoursToAdd = snappedTop / pixelsPerHour;
-
-        const totalMinutes = hoursToAdd * 60;
-        const maxMinutes = (dayConfig.closeHour - startHour) * 60;
-
-        // Check if attempted drop is Out of Bounds
-        if (totalMinutes < 0 || (totalMinutes + (appt.duration || 60)) > maxMinutes) {
-            // 🕒 FEEDBACK: Toast Notification
-            addToast(
-                `Fuera de Horario Laboral. Hoy cerramos a las ${dayConfig.closeHour}:00.`,
-                'error',
-                4000
-            );
-            return; // Reject Drop
-        }
-
-        const newDate = new Date(targetDate);
-        newDate.setHours(startHour + Math.floor(hoursToAdd), (hoursToAdd % 1) * 60);
-
-        // Calculate End Date for Confirmation
-        const newEndDate = new Date(newDate.getTime() + (appt.duration || 60) * 60000);
-
-        // 🛡️ DROP GUARD: Security Confirmation
-        const timeStr = `${newDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${newEndDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-        const dateStr = newDate.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
-
-        const isConfirmed = window.confirm(
-            `⚠️ CONFIRMACIÓN DE CAMBIO\n\n` +
-            `¿Mover ticket a ${dateStr}?\n` +
-            `Horario: ${timeStr}`
+    // Grouping/Column logic within the day...
+    const expandedEvents = events.map(e => ({ ...e, col: 0, totalCols: 1 }));
+    for (let i = 0; i < expandedEvents.length; i++) {
+        let current = expandedEvents[i];
+        const overlapping = expandedEvents.filter((other, idx) =>
+            idx !== i &&
+            ((current.startMs >= other.startMs && current.startMs < other.endMs) ||
+                (current.endMs > other.startMs && current.endMs <= other.endMs) ||
+                (current.startMs <= other.startMs && current.endMs >= other.endMs))
         );
 
-        if (!isConfirmed) {
-            addToast('Cambio cancelado por el usuario.', 'info', 2000);
-            return; // ⛔ Revert (Do nothing, React state remains unchanged)
+        if (overlapping.length > 0) {
+            current.totalCols = overlapping.length + 1;
+            const group = [current, ...overlapping].sort((a, b) => a.startMs - b.startMs || a.id.localeCompare(b.id));
+            current.col = group.indexOf(current);
         }
-
-        handleUpdateAppointment(apptId, appt.technician_id, newDate);
-    };
-
-    // --- UTILS ---
-    const visibleTechs = useMemo(() => techs.filter(t => selectedTechs.includes(t.id)), [techs, selectedTechs]);
-    const hours = Array.from({ length: hoursCount }, (_, i) => i + startHour);
-
-    // Optimized Suggestions
-    const optimizedSuggestions = useMemo(() => {
-        if (!showRoutePanel) return [];
-        const all = [...appointments].filter(a => selectedTechs.includes(a.technician_id));
-        return [...all].sort((a, b) => (a.client?.postal_code || '').localeCompare(b.client?.postal_code || ''));
-    }, [showRoutePanel, appointments, selectedTechs]);
+    }
+    return expandedEvents;
+};
 
 
-    return (
-        <div className="h-[calc(100vh-80px)] flex flex-col bg-slate-50 relative overflow-hidden font-sans">
-            {/* --- HEADER --- */}
-            <div className="bg-white border-b border-slate-200 px-4 py-2 z-30 shadow-sm shrink-0 flex flex-col gap-2">
-                <div className="flex flex-col md:flex-row justify-between items-center gap-2 relative">
-                    {/* Left: Title & Buttons */}
-                    <div className="flex items-center gap-4 text-slate-800 w-1/3">
-                        <div className="flex items-center gap-2">
-                            <Calendar className="text-indigo-600" size={24} />
-                            <div>
-                                <h1 className="font-bold text-lg leading-tight">Agenda Semanal</h1>
-                                <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Vista Global</p>
-                            </div>
-                        </div>
-                        <button onClick={() => setSelectedDate(new Date())} className="text-xs font-bold px-2 py-1 bg-indigo-50 text-indigo-700 rounded hover:bg-indigo-100 transition">
-                            Hoy
-                        </button>
-                    </div>
+// --- DND HANDLERS ---
+const [dragState, setDragState] = useState({ id: null, offset: 0 });
+const [ghostState, setGhostState] = useState(null);
 
-                    {/* CENTER: Date Navigation */}
+const handleDragStart = (e, appt) => {
+    if (isDayClosed) { e.preventDefault(); return; }
+    // Calculate offset relative to the CARD, not the column
+    const rect = e.currentTarget.getBoundingClientRect();
+    const offset = e.clientY - rect.top;
+
+    setDragState({ id: appt.id, offset, duration: appt.duration });
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", appt.id);
+
+    // Transparent Ghost
+    const emptyImg = new Image();
+    emptyImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    e.dataTransfer.setDragImage(emptyImg, 0, 0);
+};
+
+// --- AUTO SCROLL REF ---
+const scrollContainerRef = useRef(null);
+
+// --- HELPER: PER-DAY CONFIG ---
+const getDayConfig = (date) => {
+    const defaultClose = 20;
+
+    // Safety: If no config explicitly loaded, assume Open (Fallback)
+    if (!businessConfig?.value && !businessConfig?.working_hours) return { isOpen: true, closeHour: defaultClose };
+
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    // FIX: The row from DB has the JSON in the 'value' column. 
+    // We also check 'working_hours' property just in case of migration, but 'value' is primary.
+    const config = businessConfig?.value?.[dayName] || businessConfig?.working_hours?.[dayName];
+
+    // LOGIC FIX: In BusinessSettings, null/undefined means CLOSED (unchecked).
+    // Previous logic assumed missing = open (default), which caused Saturday (null) to be open.
+    if (!config) return { isOpen: false, closeHour: defaultClose };
+
+    // Extract Close Hour from "19:00" string in 'end' property
+    let closeHour = defaultClose;
+    if (config.end) {
+        const h = parseInt(config.end.split(':')[0]);
+        if (!isNaN(h)) closeHour = h;
+    }
+
+    return { isOpen: true, closeHour };
+};
+
+const handleDragOver = (e, targetDate) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // 1. 🔒 PER-DATE CONSTRAINT: Check if THAT day is closed
+    const dayConfig = getDayConfig(targetDate);
+    if (!dayConfig.isOpen) return;
+
+    // Auto Scroll (Premium Tuned - Freno de Mano)
+    const container = scrollContainerRef.current;
+    if (container) {
+        const { top, bottom } = container.getBoundingClientRect();
+        const threshold = 30;
+        const scrollSpeed = 10;
+
+        if (e.clientY > bottom - threshold) {
+            container.scrollTop += scrollSpeed;
+        } else if (e.clientY < top + threshold) {
+            container.scrollTop -= scrollSpeed;
+        }
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+
+    // "Buttery Smooth" Physics
+    const snapMinutes = 15;
+    const snapPixels = pixelsPerHour * (snapMinutes / 60);
+
+    const rawTop = y - dragState.offset;
+    const snappedTop = Math.round(rawTop / snapPixels) * snapPixels;
+
+    const hoursToAdd = snappedTop / pixelsPerHour;
+
+    // 2. 🔒 PER-DATE CONSTRAINT: Check Hours Limit
+    // Use the specific closeHour for THIS day
+    const dayLimitHour = dayConfig.closeHour;
+
+    const totalMinutes = hoursToAdd * 60;
+    const maxMinutes = (dayLimitHour - startHour) * 60;
+
+    // 🔒 CLAMPING LOGIC (Visual Wall)
+    // Instead of returning/hiding, we CLAMP the visual ghost to the bounds.
+    // This creates the "hit the wall" effect requested.
+    let clampedMinutes = totalMinutes;
+
+    // Clamp Min (Start of Day)
+    if (clampedMinutes < 0) clampedMinutes = 0;
+
+    // Clamp Max (End of Day Limit - Duration)
+    const maxAllowedStart = maxMinutes - dragState.duration;
+    if (clampedMinutes > maxAllowedStart) clampedMinutes = maxAllowedStart;
+
+    // Recalculate Snapped Visuals based on CLAMPED value
+    const clampedHours = clampedMinutes / 60;
+    const clampedTop = clampedHours * pixelsPerHour;
+
+    // Calculate Ghost Time for UI
+    const ghostTime = new Date(targetDate);
+    ghostTime.setHours(startHour + Math.floor(clampedHours), (clampedHours % 1) * 60);
+
+    // Calculate End Time for Range
+    const ghostEndTime = new Date(ghostTime.getTime() + dragState.duration * 60000);
+    const timeRangeStr = `${ghostTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${ghostEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
+    setGhostState({
+        top: clampedTop, // Use Clamped Top
+        height: (dragState.duration / 60) * pixelsPerHour,
+        targetDate: targetDate.toISOString(),
+        timeStr: timeRangeStr
+    });
+};
+
+const handleDrop = (e, targetDate) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setGhostState(null);
+
+    // 🔒 PER-DATE CHECK (Strict)
+    const dayConfig = getDayConfig(targetDate);
+    if (!dayConfig.isOpen) {
+        addToast('El negocio está cerrado este día.', 'error', 3000);
+        return;
+    }
+
+    const apptId = e.dataTransfer.getData("text/plain");
+    const appt = appointments.find(a => a.id === apptId);
+    if (!appt) return;
+
+    // 🔒 PER-DATE DROP LIMIT CHECK (With Notification)
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const snapMinutes = 15;
+    const snapPixels = pixelsPerHour * (snapMinutes / 60);
+    // Correct position
+    const rawTop = y - dragState.offset;
+    const snappedTop = Math.round(rawTop / snapPixels) * snapPixels;
+    const hoursToAdd = snappedTop / pixelsPerHour;
+
+    const totalMinutes = hoursToAdd * 60;
+    const maxMinutes = (dayConfig.closeHour - startHour) * 60;
+
+    // Check if attempted drop is Out of Bounds
+    if (totalMinutes < 0 || (totalMinutes + (appt.duration || 60)) > maxMinutes) {
+        // 🕒 FEEDBACK: Toast Notification
+        addToast(
+            `Fuera de Horario Laboral. Hoy cerramos a las ${dayConfig.closeHour}:00.`,
+            'error',
+            4000
+        );
+        return; // Reject Drop
+    }
+
+    const newDate = new Date(targetDate);
+    newDate.setHours(startHour + Math.floor(hoursToAdd), (hoursToAdd % 1) * 60);
+
+    // Calculate End Date for Confirmation
+    const newEndDate = new Date(newDate.getTime() + (appt.duration || 60) * 60000);
+
+    // 🛡️ DROP GUARD: Security Confirmation
+    const timeStr = `${newDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${newEndDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const dateStr = newDate.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
+
+    const isConfirmed = window.confirm(
+        `⚠️ CONFIRMACIÓN DE CAMBIO\n\n` +
+        `¿Mover ticket a ${dateStr}?\n` +
+        `Horario: ${timeStr}`
+    );
+
+    if (!isConfirmed) {
+        addToast('Cambio cancelado por el usuario.', 'info', 2000);
+        return; // ⛔ Revert (Do nothing, React state remains unchanged)
+    }
+
+    handleUpdateAppointment(apptId, appt.technician_id, newDate);
+};
+
+// --- UTILS ---
+const visibleTechs = useMemo(() => techs.filter(t => selectedTechs.includes(t.id)), [techs, selectedTechs]);
+const hours = Array.from({ length: hoursCount }, (_, i) => i + startHour);
+
+// Optimized Suggestions
+const optimizedSuggestions = useMemo(() => {
+    if (!showRoutePanel) return [];
+    const all = [...appointments].filter(a => selectedTechs.includes(a.technician_id));
+    return [...all].sort((a, b) => (a.client?.postal_code || '').localeCompare(b.client?.postal_code || ''));
+}, [showRoutePanel, appointments, selectedTechs]);
+
+
+return (
+    <div className="h-[calc(100vh-80px)] flex flex-col bg-slate-50 relative overflow-hidden font-sans">
+        {/* --- HEADER --- */}
+        <div className="bg-white border-b border-slate-200 px-4 py-2 z-30 shadow-sm shrink-0 flex flex-col gap-2">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-2 relative">
+                {/* Left: Title & Buttons */}
+                <div className="flex items-center gap-4 text-slate-800 w-1/3">
                     <div className="flex items-center gap-2">
-                        <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 7); setSelectedDate(d); }} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-600 transition">
-                            <ChevronLeft size={20} />
-                        </button>
-                        <div className="text-center w-40">
-                            <div className="text-sm font-bold text-slate-800 capitalize">
-                                {gridStart.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
-                            </div>
-                            <div className="text-[10px] text-slate-400 font-mono tracking-wide">
-                                Semana {Math.ceil((((new Date(selectedDate) - new Date(new Date(selectedDate).getFullYear(), 0, 1)) / 86400000) + 1) / 7)}
-                            </div>
-                        </div>
-                        <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 7); setSelectedDate(d); }} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-600 transition">
-                            <ChevronRight size={20} />
-                        </button>
-
-                        {/* 🔘 SEGMENTED CONTROL ZOOM */}
-                        <div className="flex items-center p-1 bg-slate-100 rounded-lg border border-slate-200 ml-2">
-                            {[
-                                { label: 'Semanal', val: 100, icon: <LayoutList size={12} /> },
-                                { label: 'Quincenal', val: 50, icon: <LayoutList size={12} className="rotate-90" /> },
-                                { label: 'Mensual', val: 0, icon: <Calendar size={12} /> }
-                            ].map(opt => {
-                                const isActive = (viewMode === 'week' && opt.val === 100) ||
-                                    (viewMode === 'fortnight' && opt.val === 50) ||
-                                    (viewMode === 'month' && opt.val === 0);
-                                return (
-                                    <button
-                                        key={opt.label}
-                                        onClick={() => setZoomLevel(opt.val)}
-                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wide transition-all ${isActive
-                                            ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5'
-                                            : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/50'
-                                            }`}
-                                    >
-                                        {opt.icon}
-                                        {opt.label}
-                                    </button>
-                                )
-                            })}
+                        <Calendar className="text-indigo-600" size={24} />
+                        <div>
+                            <h1 className="font-bold text-lg leading-tight">Agenda Semanal</h1>
+                            <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Vista Global</p>
                         </div>
                     </div>
+                    <button onClick={() => setSelectedDate(new Date())} className="text-xs font-bold px-2 py-1 bg-indigo-50 text-indigo-700 rounded hover:bg-indigo-100 transition">
+                        Hoy
+                    </button>
+                </div>
 
-                    <div className="flex gap-2">
-                        {/* ⚡ AI OPTIMIZER BUTTON */}
-                        <button
-                            onClick={() => setShowOptimizer(!showOptimizer)}
-                            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all border
-                            ${showOptimizer ? 'bg-amber-100 text-amber-700 border-amber-300 shadow-inner' : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white border-transparent shadow-md hover:shadow-lg hover:scale-105 active:scale-95'}`}
-                        >
-                            <Zap size={14} className={showOptimizer ? 'animate-pulse' : 'fill-white'} />
-                            <span>Optimizar Ruta IA</span>
-                        </button>
-                        {/* Legend Bar (Flat Semantics) */}
-                        <div className="flex gap-3 mr-4 bg-white/50 backdrop-blur-sm px-4 py-1.5 rounded-full items-center shadow-sm border border-slate-100">
-                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div><span className="text-[10px] font-bold text-slate-600">Lavado</span></div>
-                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-rose-600"></div><span className="text-[10px] font-bold text-slate-600">Calefacción</span></div>
-                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div><span className="text-[10px] font-bold text-slate-600">Clima</span></div>
-                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div><span className="text-[10px] font-bold text-slate-600">Frío</span></div>
-                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-violet-500"></div><span className="text-[10px] font-bold text-slate-600">Cocción</span></div>
+                {/* CENTER: Date Navigation */}
+                <div className="flex items-center gap-2">
+                    <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 7); setSelectedDate(d); }} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-600 transition">
+                        <ChevronLeft size={20} />
+                    </button>
+                    <div className="text-center w-40">
+                        <div className="text-sm font-bold text-slate-800 capitalize">
+                            {gridStart.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
                         </div>
+                        <div className="text-[10px] text-slate-400 font-mono tracking-wide">
+                            Semana {Math.ceil((((new Date(selectedDate) - new Date(new Date(selectedDate).getFullYear(), 0, 1)) / 86400000) + 1) / 7)}
+                        </div>
+                    </div>
+                    <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 7); setSelectedDate(d); }} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-600 transition">
+                        <ChevronRight size={20} />
+                    </button>
+
+                    {/* 🔘 SEGMENTED CONTROL ZOOM */}
+                    <div className="flex items-center p-1 bg-slate-100 rounded-lg border border-slate-200 ml-2">
+                        {[
+                            { label: 'Semanal', val: 100, icon: <LayoutList size={12} /> },
+                            { label: 'Quincenal', val: 50, icon: <LayoutList size={12} className="rotate-90" /> },
+                            { label: 'Mensual', val: 0, icon: <Calendar size={12} /> }
+                        ].map(opt => {
+                            const isActive = (viewMode === 'week' && opt.val === 100) ||
+                                (viewMode === 'fortnight' && opt.val === 50) ||
+                                (viewMode === 'month' && opt.val === 0);
+                            return (
+                                <button
+                                    key={opt.label}
+                                    onClick={() => setZoomLevel(opt.val)}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wide transition-all ${isActive
+                                        ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5'
+                                        : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/50'
+                                        }`}
+                                >
+                                    {opt.icon}
+                                    {opt.label}
+                                </button>
+                            )
+                        })}
                     </div>
                 </div>
 
-                {/* Tech Filter */}
-                <div className="flex flex-wrap gap-2 items-center">
-                    <button onClick={toggleAllTechs} className={`text-[10px] font-bold px-2 py-1 rounded border flex items-center gap-1 transition-all ${selectedTechs.length === techs.length ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}>
-                        {selectedTechs.length === techs.length ? <CheckSquare size={12} /> : <Square size={12} />} EQUIPO FILTRO
+                <div className="flex gap-2">
+                    {/* ⚡ AI OPTIMIZER BUTTON */}
+                    <button
+                        onClick={() => setShowOptimizer(!showOptimizer)}
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all border
+                            ${showOptimizer ? 'bg-amber-100 text-amber-700 border-amber-300 shadow-inner' : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white border-transparent shadow-md hover:shadow-lg hover:scale-105 active:scale-95'}`}
+                    >
+                        <Zap size={14} className={showOptimizer ? 'animate-pulse' : 'fill-white'} />
+                        <span>Optimizar Ruta IA</span>
                     </button>
-                    <div className="w-px h-4 bg-slate-200 mx-1"></div>
-                    {techs.map(t => (
-                        <button key={t.id} onClick={() => toggleTech(t.id)} className={`text-[10px] font-bold px-3 py-1 rounded-full border transition-all ${selectedTechs.includes(t.id) ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm scale-105' : 'bg-white text-slate-400 border-slate-100 grayscale opacity-70'}`}>
-                            {t.full_name.split(' ')[0]}
-                        </button>
+                    {/* Legend Bar (Flat Semantics) */}
+                    <div className="flex gap-3 mr-4 bg-white/50 backdrop-blur-sm px-4 py-1.5 rounded-full items-center shadow-sm border border-slate-100">
+                        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div><span className="text-[10px] font-bold text-slate-600">Lavado</span></div>
+                        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-rose-600"></div><span className="text-[10px] font-bold text-slate-600">Calefacción</span></div>
+                        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div><span className="text-[10px] font-bold text-slate-600">Clima</span></div>
+                        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div><span className="text-[10px] font-bold text-slate-600">Frío</span></div>
+                        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-violet-500"></div><span className="text-[10px] font-bold text-slate-600">Cocción</span></div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Tech Filter */}
+            <div className="flex flex-wrap gap-2 items-center">
+                <button onClick={toggleAllTechs} className={`text-[10px] font-bold px-2 py-1 rounded border flex items-center gap-1 transition-all ${selectedTechs.length === techs.length ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}>
+                    {selectedTechs.length === techs.length ? <CheckSquare size={12} /> : <Square size={12} />} EQUIPO FILTRO
+                </button>
+                <div className="w-px h-4 bg-slate-200 mx-1"></div>
+                {techs.map(t => (
+                    <button key={t.id} onClick={() => toggleTech(t.id)} className={`text-[10px] font-bold px-3 py-1 rounded-full border transition-all ${selectedTechs.includes(t.id) ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm scale-105' : 'bg-white text-slate-400 border-slate-100 grayscale opacity-70'}`}>
+                        {t.full_name.split(' ')[0]}
+                    </button>
+                ))}
+            </div>
+        </div>
+
+        {/* --- BODY (WEEK GRID) --- */}
+        <div ref={scrollContainerRef} className="flex-1 overflow-auto bg-slate-50 relative flex custom-scrollbar">
+            {isDayClosed && (
+                <div className="absolute inset-0 z-50 bg-slate-100/80 backdrop-blur-sm flex items-center justify-center">
+                    <div className="bg-white p-6 rounded-2xl shadow-2xl border border-red-100 text-center max-w-md transform rotate-2">
+                        <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Clock size={32} className="text-red-500" />
+                        </div>
+                        <h2 className="text-2xl font-black text-slate-800 mb-2">NEGOCIO CERRADO</h2>
+                    </div>
+                </div>
+            )}
+
+            {/* --- AI OPTIMIZER DRAWER (SIDEBAR PRO) --- */}
+            {showOptimizer && (
+                <div className="fixed top-0 right-0 h-screen w-96 bg-white z-[9999] shadow-2xl border-l border-slate-200 flex flex-col font-sans animate-slide-in-right">
+                    {/* HEADER */}
+                    <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-6 text-white shrink-0 flex justify-between items-start relative overflow-hidden">
+                        <div className="relative z-10">
+                            <div className="flex items-center gap-2 mb-1 opacity-80">
+                                <Zap className="text-amber-400" size={16} />
+                                <span className="text-xs font-bold tracking-widest">MRCP SYSTEM v2.0</span>
+                            </div>
+                            <h2 className="text-2xl font-black tracking-tight">Optimizar Rutas</h2>
+                            <p className="text-slate-400 text-xs mt-1">Algoritmo de agrupación por Código Postal.</p>
+                        </div>
+                        <button onClick={() => setShowOptimizer(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-lg transition-colors"><X size={20} /></button>
+                        {/* Decor */}
+                        <Zap size={120} className="absolute -bottom-8 -right-8 text-white/5 rotate-12" />
+                    </div>
+
+                    {/* BODY */}
+                    <div className="flex-1 overflow-y-auto bg-slate-50 p-6 relative">
+
+                        {/* VIEW A: ANALYSIS DASHBOARD */}
+                        {optimizerStep === 'ANALYSIS' && (
+                            <div className="space-y-6 animate-fade-in">
+                                {/* 1. Selector */}
+                                <section>
+                                    <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><Calendar size={14} /> SELECCIONAR DÍA</h3>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {gridDates.slice(0, 7).map(d => {
+                                            const isSelected = optimizingDay?.toDateString() === d.toDateString();
+                                            return (
+                                                <button
+                                                    key={d.toISOString()}
+                                                    onClick={() => runOptimizerAnalysis(d)}
+                                                    disabled={isOptimizing}
+                                                    className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-200 ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg transform -translate-y-1' : 'bg-white border-slate-200 text-slate-400 hover:border-indigo-300 hover:text-indigo-500'}`}
+                                                >
+                                                    <span className="text-[10px] uppercase font-bold">{d.toLocaleDateString('es-ES', { weekday: 'short' })}</span>
+                                                    <span className="text-lg font-black">{d.getDate()}</span>
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+                                </section>
+
+                                {/* 2. Stats & CTA */}
+                                {optimizingDay && (
+                                    <section className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+                                        <div className="flex items-center justify-between mb-6">
+                                            <h4 className="font-bold text-slate-700">Análisis: {optimizingDay.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' })}</h4>
+                                            {isOptimizing ? <span className="text-xs text-amber-500 font-bold animate-pulse">ANALIZANDO...</span> : <span className="text-xs text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded-full">COMPLETADO</span>}
+                                        </div>
+
+                                        {/* Chaos vs Order Visual */}
+                                        <div className="flex gap-4 mb-6">
+                                            <div className="flex-1 bg-red-50 rounded-xl p-3 border border-red-100 text-center opacity-50 grayscale">
+                                                <div className="text-2xl mb-1">🔴</div>
+                                                <div className="text-[10px] uppercase font-bold text-red-800">Ruta Actual</div>
+                                                <div className="text-xs text-red-600 font-medium">Alta Dispersión</div>
+                                            </div>
+                                            <div className="flex items-center text-slate-300"><ArrowRight /></div>
+                                            <div className="flex-1 bg-emerald-50 rounded-xl p-3 border border-emerald-100 text-center shadow-md transform scale-110">
+                                                <div className="text-2xl mb-1">🟢</div>
+                                                <div className="text-[10px] uppercase font-bold text-emerald-800">Propuesta IA</div>
+                                                <div className="text-xs text-emerald-600 font-bold">Agrupada por CP</div>
+                                            </div>
+                                        </div>
+
+                                        {/* Results Summary */}
+                                        {!isOptimizing && proposedMoves.length > 0 ? (
+                                            <div className="text-center">
+                                                <p className="text-sm text-slate-600 mb-4">Se han encontrado <strong className="text-indigo-600">{proposedMoves.length} mejoras</strong> significativas.</p>
+                                                <button
+                                                    onClick={() => setOptimizerStep('PROPOSAL')}
+                                                    className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2"
+                                                >
+                                                    <Zap size={16} className="fill-white" />
+                                                    <span>VER PROPUESTA DETALLADA</span>
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            !isOptimizing && <div className="text-center text-xs text-slate-400 italic">Selecciona un día para analizar.</div>
+                                        )}
+                                    </section>
+                                )}
+                            </div>
+                        )}
+
+                        {/* VIEW B: PROPOSAL DETAIL */}
+                        {optimizerStep === 'PROPOSAL' && (
+                            <div className="animate-slide-in-right">
+                                <button onClick={() => setOptimizerStep('ANALYSIS')} className="mb-4 text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1">
+                                    <ChevronLeft size={14} /> VOLVER AL RESUMEN
+                                </button>
+
+                                <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                    <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-xs">{proposedMoves.length}</span>
+                                    Cambios Sugeridos
+                                </h3>
+
+                                <div className="space-y-3 pb-20">
+                                    {proposedMoves.map((move, idx) => (
+                                        <div key={idx} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
+                                            {/* Header: Time Change */}
+                                            <div className="flex items-center justify-between mb-3 border-b border-slate-50 pb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="text-xs font-medium text-slate-400 line-through decoration-red-400 decoration-2">
+                                                        {move.appt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </div>
+                                                    <ArrowRight size={12} className="text-slate-300" />
+                                                    <div className="text-sm font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
+                                                        {move.newStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </div>
+                                                </div>
+                                                <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 rounded">CP: {move.cp}</span>
+                                            </div>
+
+                                            {/* Body: Client Info */}
+                                            <div className="mb-4">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <div className={`w-2 h-2 rounded-full ${APPLIANCE_COLORS[getApplianceCategory(move.appt.appliance_info?.type)].split(' ')[0]}`}></div>
+                                                    <span className="text-xs font-bold text-slate-700">{move.appt.appliance_info?.type || 'Servicio General'}</span>
+                                                </div>
+                                                <div className="text-xs text-slate-500 ml-4 truncate">{move.appt.client?.full_name || 'Cliente Desconocido'}</div>
+                                            </div>
+
+                                            {/* Actions */}
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => setCalledIds(prev => prev.includes(move.appt.id) ? prev : [...prev, move.appt.id])}
+                                                    className={`p-2 rounded-lg border transition-all ${calledIds.includes(move.appt.id) ? 'bg-blue-50 text-blue-600 border-blue-200' : 'text-slate-400 border-slate-100 hover:text-blue-500'}`}
+                                                    title="Marcar como Llamado"
+                                                >
+                                                    <Phone size={16} />
+                                                </button>
+                                                <div className="h-4 w-px bg-slate-100 mx-1"></div>
+                                                <button
+                                                    onClick={() => discardOptimizationMove(move.appt.id)}
+                                                    className="flex-1 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 rounded-lg transition-colors"
+                                                >
+                                                    DESCARTAR
+                                                </button>
+                                                <button
+                                                    onClick={() => applyOptimizationMove(move)}
+                                                    className="flex-1 py-2 text-xs font-bold bg-slate-900 text-white rounded-lg hover:bg-slate-800 shadow-md active:scale-95 transition-all"
+                                                >
+                                                    ACEPTAR
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    {proposedMoves.length === 0 && (
+                                        <div className="text-center py-10 opacity-50">
+                                            <div className="text-4xl mb-2">🎉</div>
+                                            <p className="text-sm font-bold text-slate-500">¡Todo limpio!</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                    </div>
+                </div>
+            )}
+
+            <div className="absolute top-4 right-4 z-[9999] w-80 bg-white rounded-xl shadow-2xl border border-amber-100 overflow-hidden animate-slide-in-right">
+                <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-4 text-white flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                        <Zap className="fill-white" size={20} />
+                        <h3 className="font-black text-sm tracking-wide">MRCP OPTIMIZER v2.0</h3>
+                    </div>
+                    <button onClick={() => setShowOptimizer(false)} className="hover:bg-white/20 p-1 rounded"><X size={16} /></button>
+                </div>
+                <div className="p-4 bg-amber-50/50">
+                    <p className="text-xs text-slate-500 mb-3 font-medium">Selecciona el día para agrupar servicios por Código Postal y reducir tiempos de traslado.</p>
+
+                    {/* Day Selector */}
+                    <div className="grid grid-cols-4 gap-2 mb-4">
+                        {gridDates.slice(0, 7).map(d => {
+                            const isSelected = optimizingDay?.toDateString() === d.toDateString();
+                            return (
+                                <button
+                                    key={d}
+                                    onClick={() => setOptimizingDay(d)}
+                                    className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-all ${isSelected ? 'bg-amber-500 text-white border-amber-600 shadow-md transform scale-105' : 'bg-white text-slate-500 border-slate-200 hover:border-amber-300'}`}
+                                >
+                                    <span className="text-[10px] uppercase font-bold">{d.toLocaleDateString('es-ES', { weekday: 'short' })}</span>
+                                    <span className="text-xs font-black">{d.getDate()}</span>
+                                </button>
+                            )
+                        })}
+                    </div>
+
+                    {/* Action Area */}
+                    {optimizingDay && (
+                        <div className="bg-white p-3 rounded-lg border border-slate-100 shadow-sm animate-fade-in">
+                            <h4 className="text-xs font-bold text-slate-700 mb-2 border-b pb-1">Análisis de Ruta ({optimizingDay.toLocaleDateString()})</h4>
+                            <div className="space-y-2 mb-3">
+                                <div className="flex justify-between text-[10px] text-slate-500"><span>Dispersión Actual:</span> <span className="text-red-500 font-bold">Alta (Caótica)</span></div>
+                                <div className="flex justify-between text-[10px] text-slate-500"><span>Propuesta IA:</span> <span className="text-emerald-500 font-bold">Zonas CP (Optimizada)</span></div>
+                                <div className="flex justify-between text-[10px] text-slate-500"><span>Ahorro Estimado:</span> <span className="text-indigo-600 font-black">~22% Gasolina</span></div>
+                            </div>
+
+                            <button
+                                onClick={handleOptimizeRoute}
+                                disabled={isOptimizing}
+                                className="w-full py-2 bg-slate-900 text-white text-xs font-bold rounded-md shadow-lg hover:bg-slate-800 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isOptimizing ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
+                                        Calculando Mejor Ruta...
+                                    </>
+                                ) : (
+                                    <>🚀 APLICAR MEJORA AHORA</>
+                                )}
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+            )}
+
+            {/* Time Axis (Hidden in Month) */}
+            {viewMode !== 'month' && (
+                <div className="w-12 shrink-0 bg-white border-r border-slate-200 sticky left-0 z-20 select-none shadow-[4px_0_10px_rgba(0,0,0,0.02)]">
+                    <div className="h-8 border-b border-slate-200 bg-slate-50 sticky top-0 z-50"></div>
+                    {dynamicHours.map(h => (
+                        <div key={h} className="text-right pr-2 text-[10px] text-slate-400 font-bold relative -top-2 font-mono" style={{ height: pixelsPerHour }}>{h}:00</div>
                     ))}
                 </div>
-            </div>
+            )}
 
-            {/* --- BODY (WEEK GRID) --- */}
-            <div ref={scrollContainerRef} className="flex-1 overflow-auto bg-slate-50 relative flex custom-scrollbar">
-                {isDayClosed && (
-                    <div className="absolute inset-0 z-50 bg-slate-100/80 backdrop-blur-sm flex items-center justify-center">
-                        <div className="bg-white p-6 rounded-2xl shadow-2xl border border-red-100 text-center max-w-md transform rotate-2">
-                            <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Clock size={32} className="text-red-500" />
-                            </div>
-                            <h2 className="text-2xl font-black text-slate-800 mb-2">NEGOCIO CERRADO</h2>
-                        </div>
-                    </div>
+            {/* Day Columns */}
+            <div className={`flex-1 min-w-[800px] relative ${viewMode === 'month' ? 'grid grid-cols-7 border-t border-l border-slate-200' : 'flex'}`}>
+
+                {/* MONTH HEADER (Static Row) */}
+                {viewMode === 'month' && (
+                    ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'].map(d => (
+                        <div key={d} className="text-center text-[10px] font-bold text-slate-400 py-1.5 border-b border-r border-slate-200 bg-slate-50 uppercase tracking-widest">{d}</div>
+                    ))
                 )}
 
-                {/* --- AI OPTIMIZER DRAWER --- */}
-                {showOptimizer && (
-                    <div className="absolute top-4 right-4 z-[9999] w-80 bg-white rounded-xl shadow-2xl border border-amber-100 overflow-hidden animate-slide-in-right">
-                        <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-4 text-white flex justify-between items-center">
-                            <div className="flex items-center gap-2">
-                                <Zap className="fill-white" size={20} />
-                                <h3 className="font-black text-sm tracking-wide">MRCP OPTIMIZER v2.0</h3>
-                            </div>
-                            <button onClick={() => setShowOptimizer(false)} className="hover:bg-white/20 p-1 rounded"><X size={16} /></button>
-                        </div>
-                        <div className="p-4 bg-amber-50/50">
-                            <p className="text-xs text-slate-500 mb-3 font-medium">Selecciona el día para agrupar servicios por Código Postal y reducir tiempos de traslado.</p>
-
-                            {/* Day Selector */}
-                            <div className="grid grid-cols-4 gap-2 mb-4">
-                                {gridDates.slice(0, 7).map(d => {
-                                    const isSelected = optimizingDay?.toDateString() === d.toDateString();
-                                    return (
-                                        <button
-                                            key={d}
-                                            onClick={() => setOptimizingDay(d)}
-                                            className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-all ${isSelected ? 'bg-amber-500 text-white border-amber-600 shadow-md transform scale-105' : 'bg-white text-slate-500 border-slate-200 hover:border-amber-300'}`}
-                                        >
-                                            <span className="text-[10px] uppercase font-bold">{d.toLocaleDateString('es-ES', { weekday: 'short' })}</span>
-                                            <span className="text-xs font-black">{d.getDate()}</span>
-                                        </button>
-                                    )
-                                })}
-                            </div>
-
-                            {/* Action Area */}
-                            {optimizingDay && (
-                                <div className="bg-white p-3 rounded-lg border border-slate-100 shadow-sm animate-fade-in">
-                                    <h4 className="text-xs font-bold text-slate-700 mb-2 border-b pb-1">Análisis de Ruta ({optimizingDay.toLocaleDateString()})</h4>
-                                    <div className="space-y-2 mb-3">
-                                        <div className="flex justify-between text-[10px] text-slate-500"><span>Dispersión Actual:</span> <span className="text-red-500 font-bold">Alta (Caótica)</span></div>
-                                        <div className="flex justify-between text-[10px] text-slate-500"><span>Propuesta IA:</span> <span className="text-emerald-500 font-bold">Zonas CP (Optimizada)</span></div>
-                                        <div className="flex justify-between text-[10px] text-slate-500"><span>Ahorro Estimado:</span> <span className="text-indigo-600 font-black">~22% Gasolina</span></div>
-                                    </div>
-
-                                    <button
-                                        onClick={handleOptimizeRoute}
-                                        disabled={isOptimizing}
-                                        className="w-full py-2 bg-slate-900 text-white text-xs font-bold rounded-md shadow-lg hover:bg-slate-800 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        {isOptimizing ? (
-                                            <>
-                                                <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
-                                                Calculando Mejor Ruta...
-                                            </>
-                                        ) : (
-                                            <>🚀 APLICAR MEJORA AHORA</>
-                                        )}
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* Time Axis (Hidden in Month) */}
+                {/* BACKGROUND LINES (Only for Week/Fortnight) */}
                 {viewMode !== 'month' && (
-                    <div className="w-12 shrink-0 bg-white border-r border-slate-200 sticky left-0 z-20 select-none shadow-[4px_0_10px_rgba(0,0,0,0.02)]">
-                        <div className="h-8 border-b border-slate-200 bg-slate-50 sticky top-0 z-50"></div>
-                        {dynamicHours.map(h => (
-                            <div key={h} className="text-right pr-2 text-[10px] text-slate-400 font-bold relative -top-2 font-mono" style={{ height: pixelsPerHour }}>{h}:00</div>
-                        ))}
+                    <div className="absolute top-0 left-0 w-full mt-8 pointer-events-none z-0" style={{ height: gridHeight }}>
+                        {dynamicHours.map(h => (<div key={h} className="border-b border-slate-200/50 w-full" style={{ height: pixelsPerHour }}></div>))}
                     </div>
                 )}
 
-                {/* Day Columns */}
-                <div className={`flex-1 min-w-[800px] relative ${viewMode === 'month' ? 'grid grid-cols-7 border-t border-l border-slate-200' : 'flex'}`}>
+                {gridDates.map(dayDate => {
+                    const isToday = dayDate.toDateString() === new Date().toDateString();
 
-                    {/* MONTH HEADER (Static Row) */}
-                    {viewMode === 'month' && (
-                        ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'].map(d => (
-                            <div key={d} className="text-center text-[10px] font-bold text-slate-400 py-1.5 border-b border-r border-slate-200 bg-slate-50 uppercase tracking-widest">{d}</div>
-                        ))
-                    )}
+                    return (
+                        <div key={dayDate.toISOString()}
+                            className={`${viewMode === 'month'
+                                ? `border-b border-r border-slate-200 min-h-[120px] relative flex flex-col ${isToday ? 'bg-indigo-50/30' : 'bg-white'}`
+                                : `flex-1 border-r border-slate-100 relative transition-colors duration-300 flex flex-col ${isToday ? 'bg-white' : 'bg-slate-50/30'}`}`}
+                        >
 
-                    {/* BACKGROUND LINES (Only for Week/Fortnight) */}
-                    {viewMode !== 'month' && (
-                        <div className="absolute top-0 left-0 w-full mt-8 pointer-events-none z-0" style={{ height: gridHeight }}>
-                            {dynamicHours.map(h => (<div key={h} className="border-b border-slate-200/50 w-full" style={{ height: pixelsPerHour }}></div>))}
-                        </div>
-                    )}
+                            {/* Header: Day Name */}
+                            <div className={`${viewMode === 'month' ? 'p-2 flex justify-end items-start' : 'h-8 border-b border-slate-100 sticky top-0 z-40 flex items-center justify-center shadow-sm shrink-0 gap-1'} ${isToday ? 'bg-indigo-50 text-indigo-700' : 'bg-white text-slate-600'}`}>
+                                {/* Weekday Name (Week/Fortnight only) */}
+                                {viewMode !== 'month' && (
+                                    <span className="font-bold text-[10px] uppercase">{dayDate.toLocaleDateString('es-ES', { weekday: 'short' })}</span>
+                                )}
+                                <span className={`font-black text-xs ${isToday ? 'bg-indigo-600 text-white px-1.5 py-0.5 rounded-full' : (viewMode === 'month' ? 'text-slate-400' : '')}`}>
+                                    {dayDate.getDate()}
+                                </span>
+                            </div>
 
-                    {gridDates.map(dayDate => {
-                        const isToday = dayDate.toDateString() === new Date().toDateString();
-
-                        return (
-                            <div key={dayDate.toISOString()}
-                                className={`${viewMode === 'month'
-                                    ? `border-b border-r border-slate-200 min-h-[120px] relative flex flex-col ${isToday ? 'bg-indigo-50/30' : 'bg-white'}`
-                                    : `flex-1 border-r border-slate-100 relative transition-colors duration-300 flex flex-col ${isToday ? 'bg-white' : 'bg-slate-50/30'}`}`}
+                            {/* DROP ZONE CONTAINER */}
+                            <div
+                                className="relative w-full shrink-0"
+                                style={viewMode === 'month' ? { height: '100%' } : { height: gridHeight, minHeight: gridHeight }}
+                                onDragOver={(e) => handleDragOver(e, dayDate)}
+                                onDrop={(e) => handleDrop(e, dayDate)}
                             >
 
-                                {/* Header: Day Name */}
-                                <div className={`${viewMode === 'month' ? 'p-2 flex justify-end items-start' : 'h-8 border-b border-slate-100 sticky top-0 z-40 flex items-center justify-center shadow-sm shrink-0 gap-1'} ${isToday ? 'bg-indigo-50 text-indigo-700' : 'bg-white text-slate-600'}`}>
-                                    {/* Weekday Name (Week/Fortnight only) */}
-                                    {viewMode !== 'month' && (
-                                        <span className="font-bold text-[10px] uppercase">{dayDate.toLocaleDateString('es-ES', { weekday: 'short' })}</span>
-                                    )}
-                                    <span className={`font-black text-xs ${isToday ? 'bg-indigo-600 text-white px-1.5 py-0.5 rounded-full' : (viewMode === 'month' ? 'text-slate-400' : '')}`}>
-                                        {dayDate.getDate()}
-                                    </span>
-                                </div>
+                                {/* Ghost Event (Blue Mode) */}
+                                {ghostState?.targetDate === dayDate.toISOString() && (
+                                    <div className="absolute left-1 right-1 flex items-center justify-center rounded-md pointer-events-none transition-all duration-75 p-1"
+                                        style={{
+                                            top: `${ghostState.top}px`,
+                                            height: `${ghostState.height}px`,
+                                            zIndex: 9999,
+                                            backgroundColor: 'rgba(59, 130, 246, 0.6)', // blue-500 @ 0.6
+                                            border: '2px dashed #1d4ed8', // blue-700
+                                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                        }}
+                                    >
+                                        <span className="text-white font-bold text-sm bg-blue-700/80 px-2 py-1 rounded shadow-sm backdrop-blur-sm">
+                                            {ghostState.timeStr}
+                                        </span>
+                                    </div>
+                                )}
 
-                                {/* DROP ZONE CONTAINER */}
-                                <div
-                                    className="relative w-full shrink-0"
-                                    style={viewMode === 'month' ? { height: '100%' } : { height: gridHeight, minHeight: gridHeight }}
-                                    onDragOver={(e) => handleDragOver(e, dayDate)}
-                                    onDrop={(e) => handleDrop(e, dayDate)}
-                                >
-
-                                    {/* Ghost Event (Blue Mode) */}
-                                    {ghostState?.targetDate === dayDate.toISOString() && (
-                                        <div className="absolute left-1 right-1 flex items-center justify-center rounded-md pointer-events-none transition-all duration-75 p-1"
-                                            style={{
-                                                top: `${ghostState.top}px`,
-                                                height: `${ghostState.height}px`,
-                                                zIndex: 9999,
-                                                backgroundColor: 'rgba(59, 130, 246, 0.6)', // blue-500 @ 0.6
-                                                border: '2px dashed #1d4ed8', // blue-700
-                                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                                            }}
-                                        >
-                                            <span className="text-white font-bold text-sm bg-blue-700/80 px-2 py-1 rounded shadow-sm backdrop-blur-sm">
-                                                {ghostState.timeStr}
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    {/* Events (Conditional Render) */}
-                                    {viewMode === 'month' ? (
-                                        <div className="flex flex-col gap-1 p-1 h-full overflow-hidden">
-                                            {getPositionedEvents(dayDate).map(appt => (
-                                                <div key={appt.id} onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
-                                                    className="h-5 min-h-[20px] bg-indigo-100/80 border border-indigo-200/50 hover:bg-white hover:border-indigo-400 rounded-md text-[9px] flex items-center px-1.5 shadow-sm cursor-pointer transition-all group"
-                                                >
-                                                    <div className={`w-1.5 h-1.5 rounded-full mr-1.5 shrink-0 bg-white/60`}></div>
-                                                    <span className="font-bold mr-1 text-white">{appt.start.getHours()}:{String(appt.start.getMinutes()).padStart(2, '0')}</span>
-                                                    <span className="truncate text-white/90 font-medium">{appt.appliance_info?.type || 'Servicio'}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        getPositionedEvents(dayDate).map(appt => {
-                                            const startH = appt.start.getHours();
-                                            const startM = appt.start.getMinutes();
-                                            const top = ((startH - startHour) + startM / 60) * pixelsPerHour;
-                                            const height = (appt.duration / 60) * pixelsPerHour;
-                                            const width = 100 / appt.totalCols;
-                                            const left = width * appt.col;
-
-                                            // Robust Appliance Resolver
-                                            const dbAppliance = Array.isArray(appt.client_appliances) ? appt.client_appliances[0] : appt.client_appliances;
-                                            const jsonAppliance = appt.appliance_info; // This is what Service Monitor uses!
-                                            const bestAppliance = jsonAppliance?.type ? jsonAppliance : (dbAppliance || {});
-
-                                            // COLOR BY APPLIANCE TYPE
-                                            // Use the Resolved Appliance Type for color, fallback to default
-                                            const category = getApplianceCategory(bestAppliance.type || bestAppliance.name);
-                                            const colorClass = APPLIANCE_COLORS[category] || APPLIANCE_COLORS.default;
-                                            const techName = techs.find(t => t.id === appt.technician_id)?.full_name.split(' ')[0] || '???';
-
-                                            // "The Trinity" Display Data
-                                            const displayType = bestAppliance.type || bestAppliance.name || 'SIN EQUIPO ASIGNADO';
-                                            const displayBrand = bestAppliance.brand;
-                                            const displayConcept = appt.title || appt.description || 'Sin concepto';
-
-                                            // Calculate End Time for Badge
-                                            const endD = new Date(appt.start.getTime() + appt.duration * 60000);
-                                            const endTimeStr = endD.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-                                            // Debug for User
-                                            console.log('Agenda Item Full:', appt);
-
-                                            return (
-                                                <div
-                                                    key={appt.id}
-                                                    draggable
-                                                    onDragStart={(e) => handleDragStart(e, appt)}
-                                                    onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
-                                                    // FLAT PRO STYLING
-                                                    className={`absolute rounded-md cursor-grab active:cursor-grabbing hover:brightness-110 transition-all shadow-sm overflow-hidden flex flex-col font-sans px-2 py-1
-                                                         ${colorClass} ${selectedAppt?.id === appt.id ? 'ring-2 ring-indigo-600 z-40' : 'z-10'}`}
-                                                    style={{ top: `${top}px`, height: `${height - 2}px`, left: `${left}%`, width: `${width}%` }}
-                                                >
-                                                    {/* 🏷️ TIME BADGE HEADER */}
-                                                    <div className="flex justify-between items-center text-[10px] font-bold opacity-90 mb-0.5 leading-none">
-                                                        <span>{appt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {endTimeStr}</span>
-                                                        <span className='opacity-50 text-[8px]'>{appt.duration}m</span>
-                                                    </div>
-
-                                                    {/* --- BODY: LOGO, TYPE, CONCEPT --- */}
-                                                    <div className="relative flex-1 flex flex-col items-center justify-center p-1 overflow-hidden text-center">
-
-                                                        {/* A) Watermark Logo (Brand) */}
-                                                        {appt.brand_logo && (
-                                                            <img src={appt.brand_logo} className="absolute inset-0 w-full h-full object-contain opacity-15 p-2 pointer-events-none mix-blend-multiply" />
-                                                        )}
-
-                                                        <div className="relative z-10 w-full">
-                                                            {/* B) APPLIANCE TYPE (Equipo) - Pop Text */}
-                                                            <div className="font-black text-[11px] uppercase tracking-tight leading-none text-slate-900 drop-shadow-sm mb-0.5 truncate">
-                                                                {displayType}
-                                                            </div>
-
-                                                            {/* C) CONCEPT (Avería) - Sticker Label */}
-                                                            <div className="text-[9px] font-bold leading-tight text-slate-800/90 line-clamp-2 bg-white/30 rounded px-1.5 py-0.5 backdrop-blur-[2px] mt-0.5 inline-block">
-                                                                {displayConcept}
-                                                            </div>
-
-                                                            {/* Brand Text if No Logo */}
-                                                            {!appt.brand_logo && displayBrand && (
-                                                                <div className="text-[8px] font-bold text-slate-600 uppercase mt-0.5 tracking-wider opacity-80">{displayBrand}</div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-
-                                                    {/* --- FOOTER: MATRÍCULA (Tech & CP) --- */}
-                                                    <div className="shrink-0 h-5 bg-black/10 flex items-center justify-between px-2 backdrop-blur-sm">
-                                                        <div className="flex items-center gap-1 max-w-[60%]">
-                                                            <span className="text-[9px] font-black text-slate-900 truncate">👤 {techName}</span>
-                                                        </div>
-                                                        <div className="flex items-center">
-                                                            <span className="text-[9px] font-mono font-black text-slate-800 opacity-90 tracking-wide">
-                                                                {appt.profiles?.postal_code || '---'}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })
-                                    )} {/* End Ternary */}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-
-            {/* Magic Route Panel */}
-            <div className={`fixed inset-y-0 right-0 w-80 bg-white shadow-2xl z-[60] transform transition-transform duration-300 flex flex-col border-l border-slate-200 ${showRoutePanel ? 'translate-x-0' : 'translate-x-full'}`}>
-                <div className="p-4 bg-slate-900 text-white flex justify-between items-center shrink-0">
-                    <div className="flex items-center gap-2 font-bold text-amber-400">
-                        <Zap className="fill-current" size={18} /> <span>Optimizador</span>
-                    </div>
-                    <button onClick={() => setShowRoutePanel(false)} className="text-slate-400 hover:text-white"><X size={20} /></button>
-                </div>
-                <div className="flex-1 overflow-auto p-2">
-                    {optimizedSuggestions.length === 0 ? (<div className="p-4 text-center text-slate-400 text-xs italic">Vacío</div>) : (
-                        <div className="space-y-4">
-                            {Object.entries(optimizedSuggestions.reduce((acc, curr) => {
-                                const cp = curr.client?.postal_code || 'SIN CP';
-                                if (!acc[cp]) acc[cp] = [];
-                                acc[cp].push(curr);
-                                return acc;
-                            }, {})).map(([cp, list]) => (
-                                <div key={cp} className="bg-slate-50 rounded border border-slate-100 overflow-hidden">
-                                    <div className="bg-slate-200/50 px-3 py-1 text-xs font-bold text-slate-600 flex justify-between"><span>CP {cp}</span><span>{list.length}</span></div>
-                                    <div className="divide-y divide-slate-100">
-                                        {list.map(item => (
-                                            <div key={item.id} className="p-2 flex justify-between items-center group cursor-grab" draggable onDragStart={(e) => handleDragStart(e, item)}>
-                                                <div className="text-xs">{item.client?.full_name}</div>
-                                                <ArrowRight size={14} className="text-slate-300" />
+                                {/* Events (Conditional Render) */}
+                                {viewMode === 'month' ? (
+                                    <div className="flex flex-col gap-1 p-1 h-full overflow-hidden">
+                                        {getPositionedEvents(dayDate).map(appt => (
+                                            <div key={appt.id} onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
+                                                className="h-5 min-h-[20px] bg-indigo-100/80 border border-indigo-200/50 hover:bg-white hover:border-indigo-400 rounded-md text-[9px] flex items-center px-1.5 shadow-sm cursor-pointer transition-all group"
+                                            >
+                                                <div className={`w-1.5 h-1.5 rounded-full mr-1.5 shrink-0 bg-white/60`}></div>
+                                                <span className="font-bold mr-1 text-white">{appt.start.getHours()}:{String(appt.start.getMinutes()).padStart(2, '0')}</span>
+                                                <span className="truncate text-white/90 font-medium">{appt.appliance_info?.type || 'Servicio'}</span>
                                             </div>
                                         ))}
                                     </div>
-                                </div>
-                            ))}
+                                ) : (
+                                    getPositionedEvents(dayDate).map(appt => {
+                                        const startH = appt.start.getHours();
+                                        const startM = appt.start.getMinutes();
+                                        const top = ((startH - startHour) + startM / 60) * pixelsPerHour;
+                                        const height = (appt.duration / 60) * pixelsPerHour;
+                                        const width = 100 / appt.totalCols;
+                                        const left = width * appt.col;
+
+                                        // Robust Appliance Resolver
+                                        const dbAppliance = Array.isArray(appt.client_appliances) ? appt.client_appliances[0] : appt.client_appliances;
+                                        const jsonAppliance = appt.appliance_info; // This is what Service Monitor uses!
+                                        const bestAppliance = jsonAppliance?.type ? jsonAppliance : (dbAppliance || {});
+
+                                        // COLOR BY APPLIANCE TYPE
+                                        // Use the Resolved Appliance Type for color, fallback to default
+                                        const category = getApplianceCategory(bestAppliance.type || bestAppliance.name);
+                                        const colorClass = APPLIANCE_COLORS[category] || APPLIANCE_COLORS.default;
+                                        const techName = techs.find(t => t.id === appt.technician_id)?.full_name.split(' ')[0] || '???';
+
+                                        // "The Trinity" Display Data
+                                        const displayType = bestAppliance.type || bestAppliance.name || 'SIN EQUIPO ASIGNADO';
+                                        const displayBrand = bestAppliance.brand;
+                                        const displayConcept = appt.title || appt.description || 'Sin concepto';
+
+                                        // Calculate End Time for Badge
+                                        const endD = new Date(appt.start.getTime() + appt.duration * 60000);
+                                        const endTimeStr = endD.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                                        // Debug for User
+                                        console.log('Agenda Item Full:', appt);
+
+                                        return (
+                                            <div
+                                                key={appt.id}
+                                                draggable
+                                                onDragStart={(e) => handleDragStart(e, appt)}
+                                                onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
+                                                // FLAT PRO STYLING
+                                                className={`absolute rounded-md cursor-grab active:cursor-grabbing hover:brightness-110 transition-all shadow-sm overflow-hidden flex flex-col font-sans px-2 py-1
+                                                         ${colorClass} ${selectedAppt?.id === appt.id ? 'ring-2 ring-indigo-600 z-40' : 'z-10'}`}
+                                                style={{ top: `${top}px`, height: `${height - 2}px`, left: `${left}%`, width: `${width}%` }}
+                                            >
+                                                {/* 🏷️ TIME BADGE HEADER */}
+                                                <div className="flex justify-between items-center text-[10px] font-bold opacity-90 mb-0.5 leading-none">
+                                                    <span>{appt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {endTimeStr}</span>
+                                                    <span className='opacity-50 text-[8px]'>{appt.duration}m</span>
+                                                </div>
+
+                                                {/* --- BODY: LOGO, TYPE, CONCEPT --- */}
+                                                <div className="relative flex-1 flex flex-col items-center justify-center p-1 overflow-hidden text-center">
+
+                                                    {/* A) Watermark Logo (Brand) */}
+                                                    {appt.brand_logo && (
+                                                        <img src={appt.brand_logo} className="absolute inset-0 w-full h-full object-contain opacity-15 p-2 pointer-events-none mix-blend-multiply" />
+                                                    )}
+
+                                                    <div className="relative z-10 w-full">
+                                                        {/* B) APPLIANCE TYPE (Equipo) - Pop Text */}
+                                                        <div className="font-black text-[11px] uppercase tracking-tight leading-none text-slate-900 drop-shadow-sm mb-0.5 truncate">
+                                                            {displayType}
+                                                        </div>
+
+                                                        {/* C) CONCEPT (Avería) - Sticker Label */}
+                                                        <div className="text-[9px] font-bold leading-tight text-slate-800/90 line-clamp-2 bg-white/30 rounded px-1.5 py-0.5 backdrop-blur-[2px] mt-0.5 inline-block">
+                                                            {displayConcept}
+                                                        </div>
+
+                                                        {/* Brand Text if No Logo */}
+                                                        {!appt.brand_logo && displayBrand && (
+                                                            <div className="text-[8px] font-bold text-slate-600 uppercase mt-0.5 tracking-wider opacity-80">{displayBrand}</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* --- FOOTER: MATRÍCULA (Tech & CP) --- */}
+                                                <div className="shrink-0 h-5 bg-black/10 flex items-center justify-between px-2 backdrop-blur-sm">
+                                                    <div className="flex items-center gap-1 max-w-[60%]">
+                                                        <span className="text-[9px] font-black text-slate-900 truncate">👤 {techName}</span>
+                                                    </div>
+                                                    <div className="flex items-center">
+                                                        <span className="text-[9px] font-mono font-black text-slate-800 opacity-90 tracking-wide">
+                                                            {appt.profiles?.postal_code || '---'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )} {/* End Ternary */}
+                            </div>
                         </div>
-                    )}
-                </div>
+                    );
+                })}
             </div>
+        </div>
 
-            {/* POPOVER Details */}
-            {
-                selectedAppt && (
-                    <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4 backdrop-blur-[1px]" onClick={() => setSelectedAppt(null)}>
-                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200 ring-4 ring-black/5" onClick={e => e.stopPropagation()}>
-                            <div className="p-4 border-b flex justify-between items-start bg-slate-50">
-                                <div><div className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 mb-1">Detalle</div><h3 className="font-bold text-slate-800 text-lg">{selectedAppt.client?.full_name}</h3></div>
-                                <button onClick={() => setSelectedAppt(null)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+        {/* Magic Route Panel */}
+        <div className={`fixed inset-y-0 right-0 w-80 bg-white shadow-2xl z-[60] transform transition-transform duration-300 flex flex-col border-l border-slate-200 ${showRoutePanel ? 'translate-x-0' : 'translate-x-full'}`}>
+            <div className="p-4 bg-slate-900 text-white flex justify-between items-center shrink-0">
+                <div className="flex items-center gap-2 font-bold text-amber-400">
+                    <Zap className="fill-current" size={18} /> <span>Optimizador</span>
+                </div>
+                <button onClick={() => setShowRoutePanel(false)} className="text-slate-400 hover:text-white"><X size={20} /></button>
+            </div>
+            <div className="flex-1 overflow-auto p-2">
+                {optimizedSuggestions.length === 0 ? (<div className="p-4 text-center text-slate-400 text-xs italic">Vacío</div>) : (
+                    <div className="space-y-4">
+                        {Object.entries(optimizedSuggestions.reduce((acc, curr) => {
+                            const cp = curr.client?.postal_code || 'SIN CP';
+                            if (!acc[cp]) acc[cp] = [];
+                            acc[cp].push(curr);
+                            return acc;
+                        }, {})).map(([cp, list]) => (
+                            <div key={cp} className="bg-slate-50 rounded border border-slate-100 overflow-hidden">
+                                <div className="bg-slate-200/50 px-3 py-1 text-xs font-bold text-slate-600 flex justify-between"><span>CP {cp}</span><span>{list.length}</span></div>
+                                <div className="divide-y divide-slate-100">
+                                    {list.map(item => (
+                                        <div key={item.id} className="p-2 flex justify-between items-center group cursor-grab" draggable onDragStart={(e) => handleDragStart(e, item)}>
+                                            <div className="text-xs">{item.client?.full_name}</div>
+                                            <ArrowRight size={14} className="text-slate-300" />
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
-                            <div className="p-5 space-y-5">
-                                {selectedAppt.appliance && (
-                                    <div className="flex gap-3 bg-indigo-50/50 p-3 rounded-lg border border-indigo-100/50 items-center">
-                                        <div className="bg-white p-2 rounded shadow-sm text-indigo-600"><CheckSquare size={18} /></div>
-                                        <div><div className="text-[10px] font-bold text-slate-500 uppercase">Equipo</div><div className="font-bold text-slate-800 text-sm">{selectedAppt.appliance.type} {selectedAppt.appliance.brand}</div></div>
-                                    </div>
-                                )}
-                                <div className="space-y-3">
-                                    <div className="flex items-start gap-3 text-sm text-slate-600"><MapPin size={18} className="text-red-400 mt-0.5" /> <div><div className="font-medium text-slate-700">{selectedAppt.client?.address}</div><div className="text-xs text-slate-400">CP {selectedAppt.client?.postal_code || 'N/A'}</div></div></div>
-                                    <div className="flex items-center gap-3 text-sm text-slate-600"><Phone size={18} className="text-emerald-400" /><a href={`tel:${selectedAppt.client?.phone}`} className="font-mono font-bold text-slate-700 underline decoration-slate-300">{selectedAppt.client?.phone}</a></div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+
+        {/* POPOVER Details */}
+        {
+            selectedAppt && (
+                <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4 backdrop-blur-[1px]" onClick={() => setSelectedAppt(null)}>
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200 ring-4 ring-black/5" onClick={e => e.stopPropagation()}>
+                        <div className="p-4 border-b flex justify-between items-start bg-slate-50">
+                            <div><div className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 mb-1">Detalle</div><h3 className="font-bold text-slate-800 text-lg">{selectedAppt.client?.full_name}</h3></div>
+                            <button onClick={() => setSelectedAppt(null)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+                        </div>
+                        <div className="p-5 space-y-5">
+                            {selectedAppt.appliance && (
+                                <div className="flex gap-3 bg-indigo-50/50 p-3 rounded-lg border border-indigo-100/50 items-center">
+                                    <div className="bg-white p-2 rounded shadow-sm text-indigo-600"><CheckSquare size={18} /></div>
+                                    <div><div className="text-[10px] font-bold text-slate-500 uppercase">Equipo</div><div className="font-bold text-slate-800 text-sm">{selectedAppt.appliance.type} {selectedAppt.appliance.brand}</div></div>
                                 </div>
-                                <div className="pt-2">
-                                    <button
-                                        onClick={() => {
-                                            setDetailTicket(selectedAppt);
-                                            setSelectedAppt(null); // Close popover
-                                        }}
-                                        className="w-full bg-slate-900 text-white py-3 rounded-lg font-bold text-sm shadow hover:bg-black transition flex items-center justify-center gap-2"
-                                    >
-                                        <LayoutList size={16} /> Ver Ficha Completa
-                                    </button>
-                                </div>
+                            )}
+                            <div className="space-y-3">
+                                <div className="flex items-start gap-3 text-sm text-slate-600"><MapPin size={18} className="text-red-400 mt-0.5" /> <div><div className="font-medium text-slate-700">{selectedAppt.client?.address}</div><div className="text-xs text-slate-400">CP {selectedAppt.client?.postal_code || 'N/A'}</div></div></div>
+                                <div className="flex items-center gap-3 text-sm text-slate-600"><Phone size={18} className="text-emerald-400" /><a href={`tel:${selectedAppt.client?.phone}`} className="font-mono font-bold text-slate-700 underline decoration-slate-300">{selectedAppt.client?.phone}</a></div>
+                            </div>
+                            <div className="pt-2">
+                                <button
+                                    onClick={() => {
+                                        setDetailTicket(selectedAppt);
+                                        setSelectedAppt(null); // Close popover
+                                    }}
+                                    className="w-full bg-slate-900 text-white py-3 rounded-lg font-bold text-sm shadow hover:bg-black transition flex items-center justify-center gap-2"
+                                >
+                                    <LayoutList size={16} /> Ver Ficha Completa
+                                </button>
                             </div>
                         </div>
                     </div>
-                )
-            }
+                </div>
+            )
+        }
 
-            {/* FULL DETAIL MODAL (Replica of ServiceTable) */}
-            {
-                detailTicket && (
-                    <ServiceDetailsModal
-                        ticket={detailTicket}
-                        onClose={() => setDetailTicket(null)}
-                    />
-                )
-            }
+        {/* FULL DETAIL MODAL (Replica of ServiceTable) */}
+        {
+            detailTicket && (
+                <ServiceDetailsModal
+                    ticket={detailTicket}
+                    onClose={() => setDetailTicket(null)}
+                />
+            )
+        }
 
-            {/* Map Modal */}
-            {
-                showMapModal && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-                        <div className="bg-white w-full h-full md:max-w-6xl rounded-2xl shadow-2xl flex flex-col overflow-hidden relative">
-                            <div className="px-5 py-4 border-b flex justify-between items-center bg-white z-10 shrink-0">
-                                <h2 className="font-bold text-lg flex items-center gap-3"><MapIcon className="text-emerald-500" /> Rutas</h2>
-                                <button onClick={() => setShowMapModal(false)} className="bg-slate-100 hover:bg-slate-200 p-2 rounded-full"><X size={20} /></button>
-                            </div>
-                            <div className="flex-1 bg-slate-100 relative">
-                                <MapContainer center={[36.7213, -4.4214]} zoom={11} style={{ height: '100%', width: '100%' }} attributionControl={false}>
-                                    <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
-                                    {/* Map items ... */}
-                                </MapContainer>
-                            </div>
+        {/* Map Modal */}
+        {
+            showMapModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white w-full h-full md:max-w-6xl rounded-2xl shadow-2xl flex flex-col overflow-hidden relative">
+                        <div className="px-5 py-4 border-b flex justify-between items-center bg-white z-10 shrink-0">
+                            <h2 className="font-bold text-lg flex items-center gap-3"><MapIcon className="text-emerald-500" /> Rutas</h2>
+                            <button onClick={() => setShowMapModal(false)} className="bg-slate-100 hover:bg-slate-200 p-2 rounded-full"><X size={20} /></button>
+                        </div>
+                        <div className="flex-1 bg-slate-100 relative">
+                            <MapContainer center={[36.7213, -4.4214]} zoom={11} style={{ height: '100%', width: '100%' }} attributionControl={false}>
+                                <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+                                {/* Map items ... */}
+                            </MapContainer>
                         </div>
                     </div>
-                )
-            }
-        </div >
-    );
+                </div>
+            )
+        }
+    </div >
+);
 };
 
 export default GlobalAgenda;
