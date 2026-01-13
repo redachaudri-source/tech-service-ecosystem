@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip as MapTooltip } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { useToast } from '../components/ToastProvider';
 import ClockWidget from '../components/ClockWidget'; // Premium Clock
 import ServiceDetailsModal from '../components/ServiceDetailsModal'; // Replica of ServiceTable logic
 
@@ -57,7 +58,8 @@ const getStartOfWeek = (d) => {
 };
 
 const GlobalAgenda = () => {
-    // const navigate = useNavigate(); // Not needed for detail modal
+    const { addToast } = useToast();
+    const navigate = useNavigate(); // Not needed for detail modal
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [techs, setTechs] = useState([]);
     const [selectedTechs, setSelectedTechs] = useState([]);
@@ -376,16 +378,28 @@ const GlobalAgenda = () => {
         const totalMinutes = hoursToAdd * 60;
         const maxMinutes = (dayLimitHour - startHour) * 60;
 
-        // Ensure event fits within bounds
-        if (totalMinutes < 0 || (totalMinutes + dragState.duration) > maxMinutes) {
-            return;
-        }
+        // 🔒 CLAMPING LOGIC (Visual Wall)
+        // Instead of returning/hiding, we CLAMP the visual ghost to the bounds.
+        // This creates the "hit the wall" effect requested.
+        let clampedMinutes = totalMinutes;
 
+        // Clamp Min (Start of Day)
+        if (clampedMinutes < 0) clampedMinutes = 0;
+
+        // Clamp Max (End of Day Limit - Duration)
+        const maxAllowedStart = maxMinutes - dragState.duration;
+        if (clampedMinutes > maxAllowedStart) clampedMinutes = maxAllowedStart;
+
+        // Recalculate Snapped Visuals based on CLAMPED value
+        const clampedHours = clampedMinutes / 60;
+        const clampedTop = clampedHours * PIXELS_PER_HOUR;
+
+        // Calculate Ghost Time for UI
         const ghostTime = new Date(targetDate);
-        ghostTime.setHours(startHour + Math.floor(hoursToAdd), (hoursToAdd % 1) * 60);
+        ghostTime.setHours(startHour + Math.floor(clampedHours), (clampedHours % 1) * 60);
 
         setGhostState({
-            top: snappedTop,
+            top: clampedTop, // Use Clamped Top
             height: (dragState.duration / 60) * PIXELS_PER_HOUR,
             targetDate: targetDate.toISOString(),
             timeStr: ghostTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -399,20 +413,38 @@ const GlobalAgenda = () => {
 
         // 🔒 PER-DATE CHECK (Strict)
         const dayConfig = getDayConfig(targetDate);
-        if (!dayConfig.isOpen) return;
+        if (!dayConfig.isOpen) {
+            addToast('El negocio está cerrado este día.', 'error', 3000);
+            return;
+        }
 
         const apptId = e.dataTransfer.getData("text/plain");
         const appt = appointments.find(a => a.id === apptId);
         if (!appt) return;
 
-        // 🔒 PER-DATE DROP LIMIT CHECK
+        // 🔒 PER-DATE DROP LIMIT CHECK (With Notification)
         const rect = e.currentTarget.getBoundingClientRect();
         const y = e.clientY - rect.top;
         const snapMinutes = 15;
         const snapPixels = PIXELS_PER_HOUR * (snapMinutes / 60);
+        // Correct position
         const rawTop = y - dragState.offset;
         const snappedTop = Math.round(rawTop / snapPixels) * snapPixels;
         const hoursToAdd = snappedTop / PIXELS_PER_HOUR;
+
+        const totalMinutes = hoursToAdd * 60;
+        const maxMinutes = (dayConfig.closeHour - startHour) * 60;
+
+        // Check if attempted drop is Out of Bounds
+        if (totalMinutes < 0 || (totalMinutes + (appt.duration || 60)) > maxMinutes) {
+            // 🕒 FEEDBACK: Toast Notification
+            addToast(
+                `Fuera de Horario Laboral. Hoy cerramos a las ${dayConfig.closeHour}:00.`,
+                'error',
+                4000
+            );
+            return; // Reject Drop
+        }
 
         const newDate = new Date(targetDate);
         newDate.setHours(startHour + Math.floor(hoursToAdd), (hoursToAdd % 1) * 60);
