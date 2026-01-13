@@ -1214,19 +1214,26 @@ const GlobalAgenda = () => {
                                     {/* Events (Conditional Render) */}
                                     {viewMode === 'month' ? (
                                         <div className="flex flex-col gap-1 p-1 h-full overflow-hidden">
-                                            {getPositionedEvents(dayDate).map(appt => (
-                                                <div key={appt.id} data-event-id={appt.id} onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    if (isInteractionBusy.current) return; // 🛡️ GUARD 
-                                                    setSelectedAppt(appt);
-                                                }}
-                                                    className="h-5 min-h-[20px] bg-indigo-100/80 border border-indigo-200/50 hover:bg-white hover:border-indigo-400 rounded-md text-[9px] flex items-center px-1.5 shadow-sm cursor-pointer transition-all group"
-                                                >
-                                                    <div className={`w-1.5 h-1.5 rounded-full mr-1.5 shrink-0 bg-white/60`}></div>
-                                                    <span className="font-bold mr-1 text-white">{appt.start.getHours()}:{String(appt.start.getMinutes()).padStart(2, '0')}</span>
-                                                    <span className="truncate text-white/90 font-medium">{appt.appliance_info?.type || 'Servicio'}</span>
-                                                </div>
-                                            ))}
+                                            {getPositionedEvents(dayDate).map(appt => {
+                                                const dbAppliance = Array.isArray(appt.client_appliances) ? appt.client_appliances[0] : appt.client_appliances;
+                                                const jsonAppliance = appt.appliance_info;
+                                                const bestAppliance = jsonAppliance?.type ? jsonAppliance : (dbAppliance || {});
+                                                const category = getApplianceCategory(bestAppliance.type || bestAppliance.name);
+                                                const colorClass = APPLIANCE_COLORS[category] || APPLIANCE_COLORS.default;
+
+                                                return (
+                                                    <div key={appt.id} data-event-id={appt.id} onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (isInteractionBusy.current) return; // 🛡️ GUARD 
+                                                        setSelectedAppt(appt);
+                                                    }}
+                                                        className={`w-full px-1 py-0.5 rounded overflow-hidden mb-1 text-[10px] font-bold text-white truncate shadow-sm cursor-pointer hover:brightness-110 transition-all ${colorClass}`}
+                                                    >
+                                                        <span className="mr-1">{appt.start.getHours()}:{String(appt.start.getMinutes()).padStart(2, '0')}</span>
+                                                        <span className="opacity-90">{appt.ticket_id ? `#${appt.ticket_id}` : (appt.appliance_info?.type || 'Servicio')}</span>
+                                                    </div>
+                                                )
+                                            })}
                                         </div>
                                     ) : (
                                         getPositionedEvents(dayDate).map(appt => {
