@@ -790,13 +790,20 @@ const GlobalAgenda = () => {
                             <Zap size={14} className={showOptimizer ? 'animate-pulse' : 'fill-white'} />
                             <span>Optimizar Ruta IA</span>
                         </button>
-                        {/* Legend Bar (Flat Semantics) */}
-                        <div className="flex gap-3 mr-4 bg-white/50 backdrop-blur-sm px-4 py-1.5 rounded-full items-center shadow-sm border border-slate-100">
-                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div><span className="text-[10px] font-bold text-slate-600">Lavado</span></div>
-                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-rose-600"></div><span className="text-[10px] font-bold text-slate-600">Calefacción</span></div>
-                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div><span className="text-[10px] font-bold text-slate-600">Clima</span></div>
-                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div><span className="text-[10px] font-bold text-slate-600">Frío</span></div>
-                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-violet-500"></div><span className="text-[10px] font-bold text-slate-600">Cocción</span></div>
+                        {/* Legend Bar (Compact Dots) */}
+                        <div className="flex gap-2 mr-4 bg-white/40 backdrop-blur-sm px-3 py-1.5 rounded-full items-center border border-white/50">
+                            {[
+                                { color: 'bg-blue-500', label: 'Lavado' },
+                                { color: 'bg-rose-600', label: 'Calefacción' },
+                                { color: 'bg-emerald-500', label: 'Clima' },
+                                { color: 'bg-amber-500', label: 'Frío' },
+                                { color: 'bg-violet-500', label: 'Cocción' }
+                            ].map(l => (
+                                <div key={l.label} className="flex items-center gap-1">
+                                    <div className={`w-2 h-2 rounded-full ${l.color}`}></div>
+                                    <span className="text-[9px] font-bold text-slate-500 hidden xl:block">{l.label}</span>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>
@@ -841,7 +848,13 @@ const GlobalAgenda = () => {
                                 <h2 className="text-2xl font-black tracking-tight">Optimizar Rutas</h2>
                                 <p className="text-slate-400 text-xs mt-1">Algoritmo de agrupación por Código Postal.</p>
                             </div>
-                            <button onClick={() => setShowOptimizer(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-lg transition-colors"><X size={20} /></button>
+                            {/* CLOSE BUTTON FIXED */}
+                            <button
+                                onClick={() => setShowOptimizer(false)}
+                                className="relative z-50 bg-white/10 hover:bg-white/20 p-2 rounded-lg transition-colors cursor-pointer"
+                            >
+                                <X size={20} />
+                            </button>
                             {/* Decor */}
                             <Zap size={120} className="absolute -bottom-8 -right-8 text-white/5 rotate-12" />
                         </div>
@@ -938,13 +951,18 @@ const GlobalAgenda = () => {
                                                     <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-full">-{move.saving} min trayecto</span>
                                                 </div>
 
-                                                {/* VERSUS CARDS */}
+                                                {/* VERSUS CARDS (With Phone Links) */}
                                                 <div className="flex flex-col gap-2 mb-4 relative">
                                                     {/* CARD A (Current Bad) */}
                                                     <div className="flex items-center gap-3 p-2 bg-red-50/50 border border-red-100 rounded-lg opacity-70">
                                                         <div className="text-xs font-bold text-slate-500 w-10">{move.apptA.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                                                         <div className="flex-1 min-w-0">
-                                                            <div className="text-xs font-bold text-slate-700 truncate">{move.apptA.client?.full_name}</div>
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="text-xs font-bold text-slate-700 truncate">{move.apptA.client?.full_name}</div>
+                                                                <a href={`tel:${move.apptA.client?.phone}`} className="w-6 h-6 flex items-center justify-center bg-white rounded-full text-slate-400 hover:text-green-600 shadow-sm border border-slate-100">
+                                                                    <Phone size={12} />
+                                                                </a>
+                                                            </div>
                                                             <div className="text-[10px] text-slate-500 truncate">CP: {move.apptA.client?.postal_code} (Lejano)</div>
                                                         </div>
                                                     </div>
@@ -958,7 +976,12 @@ const GlobalAgenda = () => {
                                                     <div className="flex items-center gap-3 p-2 bg-emerald-50/50 border border-emerald-100 rounded-lg">
                                                         <div className="text-xs font-bold text-slate-500 w-10">{move.apptB.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                                                         <div className="flex-1 min-w-0">
-                                                            <div className="text-xs font-bold text-slate-700 truncate">{move.apptB.client?.full_name}</div>
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="text-xs font-bold text-slate-700 truncate">{move.apptB.client?.full_name}</div>
+                                                                <a href={`tel:${move.apptB.client?.phone}`} className="w-6 h-6 flex items-center justify-center bg-white rounded-full text-slate-400 hover:text-green-600 shadow-sm border border-slate-100">
+                                                                    <Phone size={12} />
+                                                                </a>
+                                                            </div>
                                                             <div className="text-[10px] text-slate-500 truncate">CP: {move.apptB.client?.postal_code} (Cercano)</div>
                                                         </div>
                                                     </div>
@@ -966,15 +989,9 @@ const GlobalAgenda = () => {
 
                                                 {/* Actions */}
                                                 <div className="flex gap-2">
-                                                    <button
-                                                        onClick={() => {
-                                                            navigator.clipboard.writeText(move.apptB.client?.phone || '');
-                                                            addToast('Teléfono copiado', 'info');
-                                                        }}
-                                                        className="px-3 py-2 border border-slate-200 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 transition"
-                                                    >
-                                                        <Phone size={16} />
-                                                    </button>
+                                                    <button // Spacer/Aux (Removed Clipboard)
+                                                        className="hidden"
+                                                    ></button>
                                                     <button
                                                         onClick={() => discardOptimizationMove(move.apptA.id)}
                                                         className="flex-1 py-2 text-xs font-bold text-slate-500 bg-slate-50 hover:bg-slate-100 rounded-lg"
