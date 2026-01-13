@@ -137,6 +137,71 @@ const GlobalAgenda = () => {
     const [isOptimizing, setIsOptimizing] = useState(false);
     const [optimizingDay, setOptimizingDay] = useState(null);
 
+    // MRCP v2.0 State
+    const [optimizerStep, setOptimizerStep] = useState('ANALYSIS'); // 'ANALYSIS' | 'PROPOSAL'
+    const [proposedMoves, setProposedMoves] = useState([]); // { appt, newStart }
+    const [calledIds, setCalledIds] = useState([]); // To track calls made
+
+    // --- AI LOGIC (v2.0) ---
+    const runOptimizerAnalysis = async (day) => {
+        setOptimizingDay(day);
+        setIsOptimizing(true);
+        setOptimizerStep('ANALYSIS');
+        setProposedMoves([]);
+
+        await new Promise(r => setTimeout(r, 1000));
+
+        const dayStartStr = day.toISOString().split('T')[0];
+        const dayEvents = appointments.filter(a => a.start.toISOString().split('T')[0] === dayStartStr && selectedTechs.includes(a.technician_id));
+
+        if (dayEvents.length === 0) {
+            addToast('No hay tickets para analizar.', 'info');
+            setIsOptimizing(false);
+            return;
+        }
+
+        const optimizedList = [...dayEvents].sort((a, b) => {
+            const cpA = a.client?.postal_code || a.client?.address?.match(/\d{5}/)?.[0] || '99999';
+            const cpB = b.client?.postal_code || b.client?.address?.match(/\d{5}/)?.[0] || '99999';
+            return cpA.localeCompare(cpB);
+        });
+
+        const earliestStart = Math.min(...dayEvents.map(e => e.start.getTime()));
+        let currentMs = earliestStart;
+
+        const moves = [];
+        optimizedList.forEach(appt => {
+            const newStart = new Date(currentMs);
+            const durationMs = appt.duration * 60000;
+            const bufferMs = 15 * 60000;
+
+            const diffMin = Math.abs((newStart.getTime() - appt.start.getTime()) / 60000);
+
+            if (diffMin > 10) {
+                moves.push({
+                    appt,
+                    newStart,
+                    diffMin,
+                    cp: appt.client?.postal_code || '???'
+                });
+            }
+            currentMs += durationMs + bufferMs;
+        });
+
+        setProposedMoves(moves);
+        setIsOptimizing(false);
+    };
+
+    const applyOptimizationMove = (move) => {
+        handleUpdateAppointment(move.appt.id, move.appt.technician_id, move.newStart);
+        setProposedMoves(prev => prev.filter(m => m.appt.id !== move.appt.id));
+        addToast('✅ Cambio aplicado.', 'success', 1000);
+    };
+
+    const discardOptimizationMove = (id) => {
+        setProposedMoves(prev => prev.filter(m => m.appt.id !== id));
+    };
+
     // --- AI LOGIC ---
     const handleOptimizeRoute = async () => {
         if (!optimizingDay) return;
