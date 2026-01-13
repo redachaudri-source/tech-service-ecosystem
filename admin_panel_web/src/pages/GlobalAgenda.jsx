@@ -500,6 +500,22 @@ const GlobalAgenda = () => {
                         <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 7); setSelectedDate(d); }} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-600 transition">
                             <ChevronRight size={20} />
                         </button>
+
+                        <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 rounded-lg border border-slate-200 ml-2">
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                                <LayoutList size={12} />
+                                Zoom
+                            </div>
+                            <input
+                                type="range"
+                                min="40"
+                                max="180"
+                                step="10"
+                                value={pixelsPerHour}
+                                onChange={(e) => setPixelsPerHour(parseInt(e.target.value))}
+                                className="w-20 accent-indigo-600 h-1 bg-slate-300 rounded-lg appearance-none cursor-pointer"
+                            />
+                        </div>
                     </div>
 
                     <div className="flex gap-2">
