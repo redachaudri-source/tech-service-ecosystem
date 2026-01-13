@@ -615,20 +615,27 @@ const GlobalAgenda = () => {
                         const isToday = dayDate.toDateString() === new Date().toDateString();
 
                         return (
-                            <div key={dayDate.toISOString()} className={`flex-1 border-r border-slate-100 relative transition-colors duration-300 flex flex-col ${isToday ? 'bg-white' : 'bg-slate-50/30'}`}>
+                            <div key={dayDate.toISOString()}
+                                className={`${viewMode === 'month'
+                                    ? `border-b border-r border-slate-100 h-28 relative flex flex-col overflow-hidden ${isToday ? 'bg-indigo-50/50' : 'bg-white'}`
+                                    : `flex-1 border-r border-slate-100 relative transition-colors duration-300 flex flex-col ${isToday ? 'bg-white' : 'bg-slate-50/30'}`}`}
+                            >
 
-                                {/* Header: Day Name (STICKY FIX) */}
-                                <div className={`h-8 border-b border-slate-200 sticky top-0 z-40 flex items-center justify-center gap-1 shadow-sm shrink-0 ${isToday ? 'bg-indigo-50 text-indigo-700' : 'bg-white text-slate-600'}`}>
-                                    <span className="font-bold text-xs uppercase">{dayDate.toLocaleDateString('es-ES', { weekday: 'short' })}</span>
+                                {/* Header: Day Name */}
+                                <div className={`border-b border-slate-100 ${viewMode === 'month' ? 'h-6 flex justify-end px-2 items-center' : 'h-8 sticky top-0 z-40 flex items-center justify-center shadow-sm shrink-0'} gap-1 ${isToday ? 'bg-indigo-50 text-indigo-700' : 'bg-white text-slate-600'}`}>
+                                    {/* Only show weekday name in Week/Fortnight or First Row of Month */}
+                                    {(viewMode !== 'month' || dayDate.getDate() <= 7) && (
+                                        <span className="font-bold text-[10px] uppercase">{dayDate.toLocaleDateString('es-ES', { weekday: viewMode === 'month' ? 'short' : 'short' })}</span>
+                                    )}
                                     <span className={`font-black text-xs ${isToday ? 'bg-indigo-600 text-white px-1.5 py-0.5 rounded-full' : ''}`}>
                                         {dayDate.getDate()}
                                     </span>
                                 </div>
 
-                                {/* DROP ZONE CONTAINER (Calculations relative to THIS) */}
+                                {/* DROP ZONE CONTAINER */}
                                 <div
                                     className="relative w-full z-10 shrink-0"
-                                    style={{ height: gridHeight, minHeight: gridHeight }}
+                                    style={viewMode === 'month' ? { height: '100%' } : { height: gridHeight, minHeight: gridHeight }}
                                     onDragOver={(e) => handleDragOver(e, dayDate)}
                                     onDrop={(e) => handleDrop(e, dayDate)}
                                 >
@@ -643,95 +650,88 @@ const GlobalAgenda = () => {
                                         </div>
                                     )}
 
-                                    {/* Events */}
-                                    {getPositionedEvents(dayDate).map(appt => {
-                                        const startH = appt.start.getHours();
-                                        const startM = appt.start.getMinutes();
-                                        // Use dynamic startHour
-                                        const top = ((startH - startHour) + startM / 60) * pixelsPerHour;
-                                        const height = (appt.duration / 60) * pixelsPerHour;
-                                        const width = 100 / appt.totalCols;
-                                        const left = width * appt.col;
+                                    const left = width * appt.col;
 
-                                        // Robust Appliance Resolver
-                                        const dbAppliance = Array.isArray(appt.client_appliances) ? appt.client_appliances[0] : appt.client_appliances;
-                                        const jsonAppliance = appt.appliance_info; // This is what Service Monitor uses!
-                                        const bestAppliance = jsonAppliance?.type ? jsonAppliance : (dbAppliance || {});
+                                    // Robust Appliance Resolver
+                                    const dbAppliance = Array.isArray(appt.client_appliances) ? appt.client_appliances[0] : appt.client_appliances;
+                                    const jsonAppliance = appt.appliance_info; // This is what Service Monitor uses!
+                                    const bestAppliance = jsonAppliance?.type ? jsonAppliance : (dbAppliance || { });
 
-                                        // COLOR BY APPLIANCE TYPE
-                                        // Use the Resolved Appliance Type for color, fallback to default
-                                        const category = getApplianceCategory(bestAppliance.type || bestAppliance.name);
-                                        const colorClass = APPLIANCE_COLORS[category] || APPLIANCE_COLORS.default;
+                                    // COLOR BY APPLIANCE TYPE
+                                    // Use the Resolved Appliance Type for color, fallback to default
+                                    const category = getApplianceCategory(bestAppliance.type || bestAppliance.name);
+                                    const colorClass = APPLIANCE_COLORS[category] || APPLIANCE_COLORS.default;
                                         const techName = techs.find(t => t.id === appt.technician_id)?.full_name.split(' ')[0] || '???';
 
-                                        // "The Trinity" Display Data
-                                        const displayType = bestAppliance.type || bestAppliance.name || 'SIN EQUIPO ASIGNADO';
-                                        const displayBrand = bestAppliance.brand;
-                                        const displayConcept = appt.title || appt.description || 'Sin concepto';
+                                    // "The Trinity" Display Data
+                                    const displayType = bestAppliance.type || bestAppliance.name || 'SIN EQUIPO ASIGNADO';
+                                    const displayBrand = bestAppliance.brand;
+                                    const displayConcept = appt.title || appt.description || 'Sin concepto';
 
-                                        // Calculate End Time for Badge
-                                        const endD = new Date(appt.start.getTime() + appt.duration * 60000);
-                                        const endTimeStr = endD.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                    // Calculate End Time for Badge
+                                    const endD = new Date(appt.start.getTime() + appt.duration * 60000);
+                                    const endTimeStr = endD.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit' });
 
-                                        // Debug for User
-                                        console.log('Agenda Item Full:', appt);
+                                    // Debug for User
+                                    console.log('Agenda Item Full:', appt);
 
-                                        return (
-                                            <div
-                                                key={appt.id}
-                                                draggable
-                                                onDragStart={(e) => handleDragStart(e, appt)}
-                                                onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
-                                                className={`absolute rounded-lg cursor-grab active:cursor-grabbing hover:z-50 hover:scale-[1.05] hover:shadow-xl transition-all shadow-md overflow-hidden flex flex-col font-sans
+                                    return (
+                                    <div
+                                        key={appt.id}
+                                        draggable
+                                        onDragStart={(e) => handleDragStart(e, appt)}
+                                        onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
+                                        className={`absolute rounded-lg cursor-grab active:cursor-grabbing hover:z-50 hover:scale-[1.05] hover:shadow-xl transition-all shadow-md overflow-hidden flex flex-col font-sans
                                                          ${colorClass} ${selectedAppt?.id === appt.id ? 'ring-2 ring-indigo-600 z-40' : 'z-10'}`}
-                                                style={{ top: `${top}px`, height: `${height - 2}px`, left: `${left}%`, width: `${width}%` }}
-                                            >
-                                                {/* 🏷️ TIME BADGE HEADER */}
-                                                <div className="flex justify-between items-center text-[10px] font-black opacity-90 border-b border-black/10 pb-1 mb-1 leading-none">
-                                                    <span>{appt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {endTimeStr}</span>
-                                                    <span className='opacity-50 text-[8px]'>{appt.duration}m</span>
+                                        style={{ top: `${top}px`, height: `${height - 2}px`, left: `${left}%`, width: `${width}%` }}
+                                    >
+                                        {/* 🏷️ TIME BADGE HEADER */}
+                                        <div className="flex justify-between items-center text-[10px] font-black opacity-90 border-b border-black/10 pb-1 mb-1 leading-none">
+                                            <span>{appt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {endTimeStr}</span>
+                                            <span className='opacity-50 text-[8px]'>{appt.duration}m</span>
+                                        </div>
+
+                                        {/* --- BODY: LOGO, TYPE, CONCEPT --- */}
+                                        <div className="relative flex-1 flex flex-col items-center justify-center p-1 overflow-hidden text-center">
+
+                                            {/* A) Watermark Logo (Brand) */}
+                                            {appt.brand_logo && (
+                                                <img src={appt.brand_logo} className="absolute inset-0 w-full h-full object-contain opacity-15 p-2 pointer-events-none mix-blend-multiply" />
+                                            )}
+
+                                            <div className="relative z-10 w-full">
+                                                {/* B) APPLIANCE TYPE (Equipo) - Pop Text */}
+                                                <div className="font-black text-[11px] uppercase tracking-tight leading-none text-slate-900 drop-shadow-sm mb-0.5 truncate">
+                                                    {displayType}
                                                 </div>
 
-                                                {/* --- BODY: LOGO, TYPE, CONCEPT --- */}
-                                                <div className="relative flex-1 flex flex-col items-center justify-center p-1 overflow-hidden text-center">
-
-                                                    {/* A) Watermark Logo (Brand) */}
-                                                    {appt.brand_logo && (
-                                                        <img src={appt.brand_logo} className="absolute inset-0 w-full h-full object-contain opacity-15 p-2 pointer-events-none mix-blend-multiply" />
-                                                    )}
-
-                                                    <div className="relative z-10 w-full">
-                                                        {/* B) APPLIANCE TYPE (Equipo) - Pop Text */}
-                                                        <div className="font-black text-[11px] uppercase tracking-tight leading-none text-slate-900 drop-shadow-sm mb-0.5 truncate">
-                                                            {displayType}
-                                                        </div>
-
-                                                        {/* C) CONCEPT (Avería) - Sticker Label */}
-                                                        <div className="text-[9px] font-bold leading-tight text-slate-800/90 line-clamp-2 bg-white/30 rounded px-1.5 py-0.5 backdrop-blur-[2px] mt-0.5 inline-block">
-                                                            {displayConcept}
-                                                        </div>
-
-                                                        {/* Brand Text if No Logo */}
-                                                        {!appt.brand_logo && displayBrand && (
-                                                            <div className="text-[8px] font-bold text-slate-600 uppercase mt-0.5 tracking-wider opacity-80">{displayBrand}</div>
-                                                        )}
-                                                    </div>
+                                                {/* C) CONCEPT (Avería) - Sticker Label */}
+                                                <div className="text-[9px] font-bold leading-tight text-slate-800/90 line-clamp-2 bg-white/30 rounded px-1.5 py-0.5 backdrop-blur-[2px] mt-0.5 inline-block">
+                                                    {displayConcept}
                                                 </div>
 
-                                                {/* --- FOOTER: MATRÍCULA (Tech & CP) --- */}
-                                                <div className="shrink-0 h-5 bg-black/10 flex items-center justify-between px-2 backdrop-blur-sm">
-                                                    <div className="flex items-center gap-1 max-w-[60%]">
-                                                        <span className="text-[9px] font-black text-slate-900 truncate">👤 {techName}</span>
-                                                    </div>
-                                                    <div className="flex items-center">
-                                                        <span className="text-[9px] font-mono font-black text-slate-800 opacity-90 tracking-wide">
-                                                            {appt.profiles?.postal_code || '---'}
-                                                        </span>
-                                                    </div>
-                                                </div>
+                                                {/* Brand Text if No Logo */}
+                                                {!appt.brand_logo && displayBrand && (
+                                                    <div className="text-[8px] font-bold text-slate-600 uppercase mt-0.5 tracking-wider opacity-80">{displayBrand}</div>
+                                                )}
                                             </div>
-                                        );
+                                        </div>
+
+                                        {/* --- FOOTER: MATRÍCULA (Tech & CP) --- */}
+                                        <div className="shrink-0 h-5 bg-black/10 flex items-center justify-between px-2 backdrop-blur-sm">
+                                            <div className="flex items-center gap-1 max-w-[60%]">
+                                                <span className="text-[9px] font-black text-slate-900 truncate">👤 {techName}</span>
+                                            </div>
+                                            <div className="flex items-center">
+                                                <span className="text-[9px] font-mono font-black text-slate-800 opacity-90 tracking-wide">
+                                                    {appt.profiles?.postal_code || '---'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    );
                                     })}
+                                    )} {/* End Ternary */}
                                 </div>
                             </div>
                         );
