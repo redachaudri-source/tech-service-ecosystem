@@ -1207,7 +1207,11 @@ const GlobalAgenda = () => {
                                     {viewMode === 'month' ? (
                                         <div className="flex flex-col gap-1 p-1 h-full overflow-hidden">
                                             {getPositionedEvents(dayDate).map(appt => (
-                                                <div key={appt.id} data-event-id={appt.id} onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
+                                                <div key={appt.id} data-event-id={appt.id} onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (isInteractionBusy.current) return; // 🛡️ GUARD 
+                                                    setSelectedAppt(appt);
+                                                }}
                                                     className="h-5 min-h-[20px] bg-indigo-100/80 border border-indigo-200/50 hover:bg-white hover:border-indigo-400 rounded-md text-[9px] flex items-center px-1.5 shadow-sm cursor-pointer transition-all group"
                                                 >
                                                     <div className={`w-1.5 h-1.5 rounded-full mr-1.5 shrink-0 bg-white/60`}></div>
@@ -1253,7 +1257,11 @@ const GlobalAgenda = () => {
                                                     key={appt.id}
                                                     draggable
                                                     onDragStart={(e) => handleDragStart(e, appt)}
-                                                    onClick={(e) => { e.stopPropagation(); setSelectedAppt(appt); }}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (isInteractionBusy.current) return; // 🛡️ GUARD
+                                                        setSelectedAppt(appt);
+                                                    }}
                                                     // FLAT PRO STYLING
                                                     data-event-id={appt.id}
                                                     className={`absolute rounded-md cursor-grab active:cursor-grabbing hover:brightness-110 transition-all shadow-sm overflow-hidden flex flex-col font-sans px-2 py-1
