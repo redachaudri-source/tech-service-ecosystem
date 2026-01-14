@@ -243,7 +243,8 @@ const Dashboard = () => {
                 .from('tickets')
                 .update({
                     status: 'cancelado',
-                    client_feedback: reason // Store reason here or in description
+                    client_feedback: reason, // Keep legacy feedback
+                    cancellation_reason: reason // New specific column
                 })
                 .eq('id', ticketId);
 
@@ -880,7 +881,8 @@ const Dashboard = () => {
                                                     .update({
                                                         status: 'cancelado',
                                                         appointment_status: 'rejected',
-                                                        client_feedback: cancelReason
+                                                        client_feedback: cancelReason,
+                                                        cancellation_reason: cancelReason // New specific column
                                                     })
                                                     .eq('id', cancelModal.ticketId);
 
