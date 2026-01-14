@@ -487,7 +487,9 @@ const StatusBadge = ({ ticket }) => {
 
     // Check for cancellation reason (Case Insensitive)
     const normStatus = status?.toLowerCase() || '';
-    if (normStatus === 'cancelado') console.log('DEBUG Cancelled Ticket:', ticket);
+    if (normStatus.includes('cancel')) {
+        console.log(`DEBUG T${ticket.ticket_number}: Status=${status} | Reason=${ticket.cancellation_reason} | Feedback=${ticket.client_feedback}`);
+    }
 
     // Fallback to client_feedback if new column is empty (backward compatibility)
     const reasonText = ticket.cancellation_reason || ticket.client_feedback;
