@@ -485,8 +485,11 @@ const StatusBadge = ({ ticket }) => {
         cancelado: 'bg-red-100 text-red-800'
     };
 
-    // Check for cancellation reason
-    const showReason = status === 'cancelado' && ticket.cancellation_reason;
+    // Check for cancellation reason (Case Insensitive)
+    const normStatus = status?.toLowerCase() || '';
+    if (normStatus === 'cancelado') console.log('DEBUG Cancelled Ticket:', ticket);
+
+    const showReason = normStatus === 'cancelado' && !!ticket.cancellation_reason;
 
     return (
         <div className="flex items-center justify-center gap-2">
