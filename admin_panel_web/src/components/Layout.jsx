@@ -200,28 +200,21 @@ const Layout = () => {
                 </nav>
 
                 {/* Footer Minimalista v2 */}
-                <div className="mt-auto">
-                    <div className="py-5 px-6 bg-gradient-to-b from-transparent to-slate-100/50 border-t border-slate-200/60 backdrop-blur-sm">
-                        <div className="flex flex-col items-center justify-center group cursor-default">
-                            {/* Fila del Logo y Nombre de Marca */}
-                            <div className="flex items-center space-x-2 mb-1.5 transition-transform duration-300 group-hover:scale-105">
-                                <div className="p-1.5 bg-blue-100/50 rounded-lg">
-                                    <Briefcase size={20} className="text-blue-600" />
-                                </div>
+                <div className="mt-auto px-4 py-4 border-t border-white/5">
+                    <div className="flex flex-col items-center text-center">
 
-                                {/* Texto de Marca con Degradado */}
-                                <span className="font-extrabold text-lg tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-600 font-sans">
-                                    Fixarr Ecosystem
-                                </span>
-                            </div>
+                        {/* Marca Texto - Limpio y Sutil */}
+                        <p className="text-xs font-medium text-slate-400">
+                            <span className="text-white font-bold tracking-wide">FIXARR</span> ECOSYSTEM
+                        </p>
 
-                            {/* Fila del Copyright y Año */}
-                            <div className="flex items-center text-xs font-medium text-slate-400/90 tracking-wider uppercase">
-                                <span>© 2026</span>
-                                <span className="mx-1.5 text-slate-300">•</span>
-                                <span>All rights reserved.</span>
-                            </div>
+                        {/* Copyright y Versión */}
+                        <div className="flex items-center gap-1 mt-1 text-[10px] text-slate-600">
+                            <span>© 2026</span>
+                            <span>•</span>
+                            <span>v4.2.0 PRO</span>
                         </div>
+
                     </div>
                 </div>
 
