@@ -489,7 +489,9 @@ const StatusBadge = ({ ticket }) => {
     const normStatus = status?.toLowerCase() || '';
     if (normStatus === 'cancelado') console.log('DEBUG Cancelled Ticket:', ticket);
 
-    const showReason = normStatus === 'cancelado' && !!ticket.cancellation_reason;
+    // Fallback to client_feedback if new column is empty (backward compatibility)
+    const reasonText = ticket.cancellation_reason || ticket.client_feedback;
+    const showReason = normStatus === 'cancelado' && !!reasonText;
 
     return (
         <div className="flex items-center justify-center gap-2">
@@ -499,7 +501,7 @@ const StatusBadge = ({ ticket }) => {
 
             {showReason && (
                 <button
-                    onClick={() => alert(`Motivo de Cancelación:\n\n"${ticket.cancellation_reason}"`)}
+                    onClick={() => alert(`Motivo de Cancelación:\n\n"${reasonText}"`)}
                     className="text-slate-400 hover:text-red-500 transition-colors p-0.5"
                     title="Ver motivo de cancelación"
                 >
