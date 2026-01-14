@@ -116,20 +116,30 @@ const GlobalAgenda = () => {
         return () => clearInterval(timer);
     }, []);
 
+    // 📱 MOBILE DETECTION
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     // 🔍 ZOOM STATE (Pixel Density)
     // 0-33: Month | 34-66: Fortnight | 67-100: Week
     const [zoomLevel, setZoomLevel] = useState(100);
 
     // Derived States
     const viewMode = useMemo(() => {
+        if (isMobile) return 'day'; // 📱 Force Day View
         if (zoomLevel <= 33) return 'month';
         if (zoomLevel <= 66) return 'fortnight';
         return 'week';
-    }, [zoomLevel]);
+    }, [zoomLevel, isMobile]);
 
     const pixelsPerHour = useMemo(() => {
         // Only affect pixel density in Week/Fortnight mode
         // Map 67-100 to 60px-120px
+        if (viewMode === 'day') return 80; // Fixed height for day view mobile
         if (viewMode === 'month') return 30; // Min for month
         if (viewMode === 'fortnight') return 60; // Compact
         // Linear map 67->60, 100->100
@@ -323,12 +333,17 @@ const GlobalAgenda = () => {
 
     // Date Calculations
     const gridStart = useMemo(() => {
+        if (viewMode === 'day') {
+            const d = new Date(selectedDate);
+            d.setHours(0, 0, 0, 0); // Start of selected day
+            return d;
+        }
         if (viewMode === 'month') return getStartOfMonthGrid(selectedDate);
         return getStartOfWeek(selectedDate);
     }, [selectedDate, viewMode]);
 
     const gridDates = useMemo(() => {
-        const days = viewMode === 'week' ? 7 : (viewMode === 'fortnight' ? 14 : 42); // 6 weeks for month
+        const days = viewMode === 'day' ? 1 : (viewMode === 'week' ? 7 : (viewMode === 'fortnight' ? 14 : 42)); // 6 weeks for month
         return Array.from({ length: days }, (_, i) => {
             const d = new Date(gridStart);
             d.setDate(d.getDate() + i);

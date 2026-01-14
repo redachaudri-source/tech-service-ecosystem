@@ -219,13 +219,13 @@ const ServiceMonitor = () => {
                             <table className="w-full text-left">
                                 <thead className="text-[10px] uppercase text-slate-500 font-semibold">
                                     <tr>
-                                        <th className="px-3 py-2 md:px-4 md:py-3 min-w-[100px] sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm">ID / Cita</th>
-                                        <th className="px-3 py-2 md:px-4 md:py-3 min-w-[180px] sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm">Cliente</th>
-                                        <th className="px-3 py-2 md:px-4 md:py-3 text-center hidden sm:table-cell sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm">Origen</th>
-                                        <th className="px-3 py-2 md:px-4 md:py-3 min-w-[150px] sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm">Equipo</th>
+                                        <th className="px-3 py-2 md:px-4 md:py-3 md:min-w-[100px] sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm">ID / Cita</th>
+                                        <th className="px-3 py-2 md:px-4 md:py-3 min-w-[120px] md:min-w-[180px] sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm">Cliente</th>
+                                        <th className="px-3 py-2 md:px-4 md:py-3 text-center hidden md:table-cell sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm">Origen</th>
+                                        <th className="px-3 py-2 md:px-4 md:py-3 min-w-[150px] hidden md:table-cell sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm">Equipo</th>
                                         <th className="px-3 py-2 md:px-4 md:py-3 text-center sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm">Estado</th>
-                                        <th className="px-3 py-2 md:px-4 md:py-3 text-center hidden sm:table-cell sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm">Doc</th>
-                                        <th className="px-3 py-2 md:px-4 md:py-3 min-w-[140px] sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm">Asignación</th>
+                                        <th className="px-3 py-2 md:px-4 md:py-3 text-center hidden md:table-cell sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm">Doc</th>
+                                        <th className="px-3 py-2 md:px-4 md:py-3 min-w-[140px] hidden md:table-cell sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm">Asignación</th>
                                         <th className="px-3 py-2 md:px-4 md:py-3 text-right sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm">Acciones</th>
                                     </tr>
                                 </thead>
@@ -332,7 +332,7 @@ const ServiceMonitor = () => {
                                             </td>
 
                                             {/* Origen (Restored Column) */}
-                                            <td className="px-3 py-2 md:px-4 md:py-3 text-center align-top hidden sm:table-cell">
+                                            <td className="px-3 py-2 md:px-4 md:py-3 text-center align-top hidden md:table-cell">
                                                 <div className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border inline-block ${ticket.origin_source === 'client_web' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
                                                     ticket.origin_source === 'tech_app' ? 'bg-cyan-50 text-cyan-600 border-cyan-100' :
                                                         'bg-white text-slate-500 border-slate-200'
@@ -342,7 +342,7 @@ const ServiceMonitor = () => {
                                             </td>
 
                                             {/* Equipo */}
-                                            <td className="px-3 py-2 md:px-4 md:py-3 max-w-[200px] align-top">
+                                            <td className="px-3 py-2 md:px-4 md:py-3 max-w-[200px] align-top hidden md:table-cell">
                                                 <div className="font-medium text-slate-700">
                                                     {ticket.appliance_info?.type} <span className="text-slate-400">|</span> {ticket.appliance_info?.brand}
                                                 </div>
@@ -357,7 +357,7 @@ const ServiceMonitor = () => {
                                             </td>
 
                                             {/* Doc (Restored Column) */}
-                                            <td className="px-3 py-2 md:px-4 md:py-3 text-center align-top hidden sm:table-cell">
+                                            <td className="px-3 py-2 md:px-4 md:py-3 text-center align-top hidden md:table-cell">
                                                 <div className="flex justify-center gap-1">
                                                     {ticket.quote_pdf_url ? (
                                                         <a href={ticket.quote_pdf_url} target="_blank" className="p-1 text-amber-600 hover:bg-amber-50 rounded" title="Presupuesto">
@@ -373,7 +373,7 @@ const ServiceMonitor = () => {
                                             </td>
 
                                             {/* Asignación */}
-                                            <td className="px-3 py-2 md:px-4 md:py-3 align-top">
+                                            <td className="px-3 py-2 md:px-4 md:py-3 align-top hidden md:table-cell">
                                                 {ticket.technician_id ? (
                                                     <div className="flex flex-col items-start gap-1">
                                                         <div className="font-medium text-slate-700 text-xs bg-slate-100 px-2 py-1 rounded">

@@ -7,3 +7,10 @@
     @apply bg-slate-50 text-slate-900;
   }
 }
+
+/* Touch Action Optimization for Mobile */
+button,
+a,
+input {
+  touch-action: manipulation;
+}

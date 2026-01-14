@@ -120,8 +120,8 @@ const Layout = () => {
         <div className="flex h-screen w-full bg-slate-50 overflow-hidden font-sans">
             {/* Mobile Header */}
             <header className="lg:hidden absolute top-0 left-0 right-0 h-14 bg-slate-900 border-b border-slate-800 text-white flex items-center justify-between px-4 z-20 shadow-md">
-                <button onClick={() => setIsMobileMenuOpen(true)} className="text-slate-400 hover:text-white">
-                    <MenuIcon size={20} />
+                <button onClick={() => setIsMobileMenuOpen(true)} className="text-slate-400 hover:text-white p-2">
+                    <MenuIcon size={24} />
                 </button>
                 <div className="flex items-center gap-2">
                     <div className="w-6 h-6 bg-blue-600 rounded flex items-center justify-center font-bold text-xs">AP</div>
