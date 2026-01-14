@@ -106,11 +106,11 @@ const ServiceDetailsModal = ({ ticket, onClose }) => {
 
                         {/* Motivo de Cancelación (New Requirement) */}
                         {(ticket.cancellation_reason || ticket.client_feedback) && (
-                            <div className="mt-4 p-4 bg-slate-50 border-l-4 border-slate-400 rounded-r-md">
-                                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
-                                    Motivo de Cancelación (Cliente)
+                            <div className="mt-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-md">
+                                <h4 className="text-xs font-bold text-red-700 uppercase tracking-wider mb-1">
+                                    Motivo de Cancelación
                                 </h4>
-                                <p className="text-sm text-slate-700 italic">
+                                <p className="text-sm text-red-900 italic">
                                     "{ticket.cancellation_reason || ticket.client_feedback}"
                                 </p>
                             </div>
