@@ -1,4 +1,5 @@
 import { X, Phone, MapPin, User, FileText, Calendar, Clock, Image as ImageIcon } from 'lucide-react';
+import ViabilityJudge from './ViabilityJudge'; // Import
 
 const ServiceDetailsModal = ({ ticket, onClose }) => {
     if (!ticket) return null;
@@ -104,7 +105,7 @@ const ServiceDetailsModal = ({ ticket, onClose }) => {
                             </p>
                         </div>
 
-                        {/* Motivo de Cancelación (New Requirement) */}
+                        {/* Motivo de Cancelación */}
                         {(ticket.cancellation_reason || ticket.client_feedback) && (
                             <div className="mt-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-md">
                                 <h4 className="text-xs font-bold text-red-700 uppercase tracking-wider mb-1">
@@ -115,6 +116,19 @@ const ServiceDetailsModal = ({ ticket, onClose }) => {
                                 </p>
                             </div>
                         )}
+
+                        {/* VIABILITY JUDGE (Phase 3.1) */}
+                        {/* We use ticket.appliance_id if available (direct link) or info.id (snapshot) */}
+                        <div className="mt-6">
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-3 text-lg border-b pb-2">
+                                <FileText size={20} className="text-slate-400" />
+                                Juez de Reparaciones (IA + Experto)
+                            </h3>
+                            <ViabilityJudge
+                                applianceId={ticket.appliance_id || ticket.appliance_info?.id}
+                                applianceSnapshot={ticket.appliance_info}
+                            />
+                        </div>
                     </div>
 
                     {/* Label/Photo */}
