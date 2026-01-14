@@ -353,7 +353,7 @@ const ServiceMonitor = () => {
 
                                             {/* Estado */}
                                             <td className="px-3 py-2 md:px-4 md:py-3 text-center align-top">
-                                                <StatusBadge status={ticket.status} />
+                                                <StatusBadge ticket={ticket} />
                                             </td>
 
                                             {/* Doc (Restored Column) */}
@@ -470,7 +470,8 @@ const ServiceMonitor = () => {
     );
 };
 
-const StatusBadge = ({ status }) => {
+const StatusBadge = ({ ticket }) => {
+    const status = ticket.status;
     const colors = {
         solicitado: 'bg-yellow-100 text-yellow-800',
         asignado: 'bg-blue-100 text-blue-800',
@@ -483,10 +484,26 @@ const StatusBadge = ({ status }) => {
         pagado: 'bg-green-100 text-green-800',
         cancelado: 'bg-red-100 text-red-800'
     };
+
+    // Check for cancellation reason
+    const showReason = status === 'cancelado' && ticket.cancellation_reason;
+
     return (
-        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium ${colors[status] || 'bg-gray-100 text-gray-800'}`}>
-            {status === 'cancelado' ? 'CANCELADO POR CLIENTE' : (status ? status.toUpperCase().replace('_', ' ') : 'UNKNOWN')}
-        </span>
+        <div className="flex items-center justify-center gap-2">
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${colors[status] || 'bg-gray-100 text-gray-800'}`}>
+                {status === 'cancelado' ? 'CANCELADO POR CLIENTE' : (status ? status.toUpperCase().replace('_', ' ') : 'UNKNOWN')}
+            </span>
+
+            {showReason && (
+                <button
+                    onClick={() => alert(`Motivo de Cancelación:\n\n"${ticket.cancellation_reason}"`)}
+                    className="text-slate-400 hover:text-red-500 transition-colors p-0.5"
+                    title="Ver motivo de cancelación"
+                >
+                    <Eye size={14} />
+                </button>
+            )}
+        </div>
     );
 };
 
