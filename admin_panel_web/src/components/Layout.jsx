@@ -199,7 +199,7 @@ const Layout = () => {
                     </div>
                 </nav>
 
-                {/* Footer de Marca Premium */}
+                {/* Footer Minimalista v2 */}
                 <div className="mt-auto">
                     <div className="py-5 px-6 bg-gradient-to-b from-transparent to-slate-100/50 border-t border-slate-200/60 backdrop-blur-sm">
                         <div className="flex flex-col items-center justify-center group cursor-default">
