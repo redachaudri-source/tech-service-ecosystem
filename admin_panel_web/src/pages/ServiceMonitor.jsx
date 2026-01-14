@@ -479,38 +479,31 @@ const StatusBadge = ({ ticket }) => {
         en_diagnostico: 'bg-purple-100 text-purple-800',
         presupuesto_pendiente: 'bg-amber-100 text-amber-800',
         presupuesto_aceptado: 'bg-green-100 text-green-800',
+        presupuesto_revision: 'bg-red-100 text-red-800',
         en_reparacion: 'bg-pink-100 text-pink-800',
-        finalizado: 'bg-green-100 text-green-800',
-        pagado: 'bg-green-100 text-green-800',
+        finalizado: 'bg-emerald-100 text-emerald-800',
+        pagado: 'bg-gray-100 text-gray-800',
         cancelado: 'bg-red-100 text-red-800'
     };
 
-    // Check for cancellation reason (Case Insensitive)
-    const normStatus = status?.toLowerCase() || '';
-    if (normStatus.includes('cancel')) {
-        console.log(`DEBUG T${ticket.ticket_number}: Status=${status} | Reason=${ticket.cancellation_reason} | Feedback=${ticket.client_feedback}`);
-    }
-
-    // Fallback to client_feedback if new column is empty (backward compatibility)
-    const reasonText = ticket.cancellation_reason || ticket.client_feedback;
-    const showReason = normStatus === 'cancelado' && !!reasonText;
+    const labels = {
+        solicitado: 'Solicitado',
+        asignado: 'Asignado',
+        en_camino: 'En Camino',
+        en_diagnostico: 'Diagnóstico',
+        presupuesto_pendiente: 'Ppto. Pendiente',
+        presupuesto_aceptado: 'Ppto. Aceptado',
+        presupuesto_revision: 'Ppto. Caducado',
+        en_reparacion: 'Reparación',
+        finalizado: 'Finalizado',
+        pagado: 'Pagado',
+        cancelado: 'Cancelado'
+    };
 
     return (
-        <div className="flex items-center justify-center gap-2">
-            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${colors[status] || 'bg-gray-100 text-gray-800'}`}>
-                {status === 'cancelado' ? 'CANCELADO POR CLIENTE' : (status ? status.toUpperCase().replace('_', ' ') : 'UNKNOWN')}
-            </span>
-
-            {showReason && (
-                <button
-                    onClick={() => alert(`Motivo de Cancelación:\n\n"${reasonText}"`)}
-                    className="text-slate-400 hover:text-red-500 transition-colors p-0.5"
-                    title="Ver motivo de cancelación"
-                >
-                    <Eye size={14} />
-                </button>
-            )}
-        </div>
+        <span className={`px-2 py-1 rounded-full text-[10px] whitespace-nowrap font-bold uppercase tracking-wider border border-transparent ${colors[status] || 'bg-gray-100 text-gray-600'}`}>
+            {labels[status] || status.replace('_', ' ')}
+        </span>
     );
 };
 

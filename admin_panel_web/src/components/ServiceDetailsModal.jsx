@@ -103,6 +103,18 @@ const ServiceDetailsModal = ({ ticket, onClose }) => {
                                 {ticket.description_failure || "Sin descripción proporcionada."}
                             </p>
                         </div>
+
+                        {/* Motivo de Cancelación (New Requirement) */}
+                        {(ticket.cancellation_reason || ticket.client_feedback) && (
+                            <div className="mt-4 p-4 bg-slate-50 border-l-4 border-slate-400 rounded-r-md">
+                                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                                    Motivo de Cancelación (Cliente)
+                                </h4>
+                                <p className="text-sm text-slate-700 italic">
+                                    "{ticket.cancellation_reason || ticket.client_feedback}"
+                                </p>
+                            </div>
+                        )}
                     </div>
 
                     {/* Label/Photo */}
