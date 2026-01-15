@@ -31,7 +31,7 @@ const MortifyWizard = ({ appliance, onClose, onSuccess }) => {
             }
         } catch (err) {
             console.error(err);
-            setError('Error al analizar. Inténtalo de nuevo.');
+            setError(`Error: ${err.message || 'Desconocido'}`);
             setStep('input');
         }
     };
