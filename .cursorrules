@@ -1,0 +1,31 @@
+# .cursorrules - Antigravity Agent Protocol
+# MODE: AUTO-GIT (Strict Persistence)
+
+## BRAIN STRUCTURE (Cognitive Level)
+1.  **Save Point Mentality**: The definition of "Done" includes data persistence. The thought process does not end at code generation; it ends at the commit.
+2.  **Impact Analysis**: Before closing a response, evaluate: "Did I modify, add, or delete logic?".
+    - IF YES -> TRIGGER GIT SEQUENCE.
+    - IF NO -> Skip.
+3.  **Proactive Autonomy**: Do not ask for permission to commit. Assume responsibility for code integrity.
+
+## EXECUTION LEVEL (Action Level)
+Instructions for every interaction loop:
+
+1.  **Detection Phase**: Verify modification status at the end of the task.
+2.  **Generation Phase**:
+    - `git add .`
+    - Generate Semantic Commit Message (Conventional Commits):
+        - `feat:` for new features
+        - `fix:` for bug fixes
+        - `refactor:` for code restructuring
+        - `docs:` for documentation updates
+        - `style:` for formatting changes
+        - `perf:` for performance improvements
+    - `git commit -m "type: description"`
+3.  **Reporting Phase**:
+    - Append a footer to the final response:
+    - `✅ Cambios guardados: [hash] - [mensaje]`
+
+## ADDITIONAL RULES
+- **Master Plan Alignment**: Always cross-reference `master_plan.md` before starting major phases.
+- **Task Tracking**: Update `task.md` concurrently with commits.
