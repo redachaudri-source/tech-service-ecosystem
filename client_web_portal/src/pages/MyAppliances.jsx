@@ -339,38 +339,20 @@ const MyAppliances = () => {
     const XIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
 
     // --- AI VIABILITY COMPONENT (Enhanced for Mortify UX) ---
-    const ViabilityAnalysis = ({ appliance, totalSpent }) => {
-        // If Mortify is active (Pending or Done)
-        if (appliance.mortifyStatus) {
-            const m = appliance.mortifyStatus;
+    const ViabilityAnalysis = ({ appliance }) => {
+        // Only show "Analyzing..." badge. 
+        // We hide the static verdicts (Viable/Obsolete) to let the User use the Piggy Bank button again if they want, 
+        // or simply because the User requested to remove the static badge.
 
-            if (m.status === 'PENDING_JUDGE') {
-                return (
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-bold bg-blue-50 text-blue-600 border-blue-100 animate-pulse">
-                        <Loader2 size={12} className="animate-spin" />
-                        <span>Analizando...</span>
-                    </div>
-                );
-            }
-            if (m.admin_verdict === 'CONFIRMED_VIABLE') {
-                return (
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-bold bg-green-50 text-green-700 border-green-100">
-                        <CheckCircle size={12} />
-                        <span>Viable ✅</span>
-                    </div>
-                )
-            }
-            if (m.admin_verdict === 'CONFIRMED_OBSOLETE') {
-                return (
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-bold bg-red-50 text-red-700 border-red-100">
-                        <TrendingUp size={12} />
-                        <span>No Rentable ❌</span>
-                    </div>
-                )
-            }
+        if (appliance.mortifyStatus && appliance.mortifyStatus.status === 'PENDING_JUDGE') {
+            return (
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-bold bg-blue-50 text-blue-600 border-blue-100 animate-pulse">
+                    <Loader2 size={12} className="animate-spin" />
+                    <span>Analizando...</span>
+                </div>
+            );
         }
 
-        // Fallback or "Nothing" if no analysis. 
         return null;
     };
 
@@ -478,8 +460,8 @@ const MyAppliances = () => {
                                             <Wrench size={16} /> Solicitar Servicio
                                         </button>
 
-                                        {/* MORTIFY LOGIC: Show Piggy if no status (DEBUG MODE: FORCE SHOW ALWAYS) */}
-                                        {!appliance.mortifyStatus && (
+                                        {/* MORTIFY LOGIC: Show Piggy ALWAYS unless Pending Judge */}
+                                        {(!appliance.mortifyStatus || appliance.mortifyStatus.status !== 'PENDING_JUDGE') && (
                                             <button
                                                 onClick={() => {
                                                     setMortifyAppliance(appliance);
