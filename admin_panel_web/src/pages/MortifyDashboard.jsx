@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import {
     Scale, AlertCircle, CheckCircle, XCircle, Clock,
-    ChevronRight, Search, Filter
+    ChevronRight, Search, Filter, Settings
 } from 'lucide-react';
 import MortifyVerdict from '../components/MortifyVerdict';
+import MortifySettingsModal from '../components/MortifySettingsModal';
 
 const MortifyDashboard = () => {
     const [assessments, setAssessments] = useState([]);
@@ -78,8 +79,8 @@ const MortifyDashboard = () => {
                 <button
                     onClick={() => setFilter('PENDING_JUDGE')}
                     className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${filter === 'PENDING_JUDGE'
-                            ? 'bg-indigo-50 text-indigo-700'
-                            : 'text-slate-500 hover:text-slate-700'
+                        ? 'bg-indigo-50 text-indigo-700'
+                        : 'text-slate-500 hover:text-slate-700'
                         }`}
                 >
                     Pendientes de Juicio
@@ -87,8 +88,8 @@ const MortifyDashboard = () => {
                 <button
                     onClick={() => setFilter('HISTORY')}
                     className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${filter === 'HISTORY'
-                            ? 'bg-indigo-50 text-indigo-700'
-                            : 'text-slate-500 hover:text-slate-700'
+                        ? 'bg-indigo-50 text-indigo-700'
+                        : 'text-slate-500 hover:text-slate-700'
                         }`}
                 >
                     Histórico de Veredictos
@@ -145,7 +146,7 @@ const MortifyDashboard = () => {
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2">
                                                     <span className={`text-lg font-bold ${a.total_score >= 5 ? 'text-green-600' :
-                                                            a.total_score < 3 ? 'text-red-500' : 'text-amber-500'
+                                                        a.total_score < 3 ? 'text-red-500' : 'text-amber-500'
                                                         }`}>
                                                         {a.total_score}
                                                     </span>
@@ -154,8 +155,8 @@ const MortifyDashboard = () => {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${a.ia_suggestion === 'VIABLE' ? 'bg-green-100 text-green-800' :
-                                                        a.ia_suggestion === 'OBSOLETE' ? 'bg-red-100 text-red-800' :
-                                                            'bg-amber-100 text-amber-800'
+                                                    a.ia_suggestion === 'OBSOLETE' ? 'bg-red-100 text-red-800' :
+                                                        'bg-amber-100 text-amber-800'
                                                     }`}>
                                                     {a.ia_suggestion === 'VIABLE' ? 'VIABLE' :
                                                         a.ia_suggestion === 'OBSOLETE' ? 'OBSOLETO' : 'DUDOSO'}
@@ -191,6 +192,9 @@ const MortifyDashboard = () => {
                         </table>
                     </div>
                 </div>
+            )}
+            {showSettings && (
+                <MortifySettingsModal onClose={() => setShowSettings(false)} />
             )}
         </div>
     );
