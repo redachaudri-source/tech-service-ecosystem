@@ -1,13 +1,5 @@
 import { supabase } from '../lib/supabase';
 
-// TIER LIST (Hardcoded for "Knowledge of the World")
-const BRAND_TIERS = {
-    1: ['MIELE', 'GENERAL ELECTRIC', 'LIEBHERR', 'MITSUBISHI', 'DAIKIN', 'GAGGENAU', 'SUB-ZERO', 'WOLF'], // PREMIUM (Tier A - 4 pts)
-    2: ['BOSCH', 'BALAY', 'SIEMENS', 'LG', 'SAMSUNG', 'FUJITSU', 'CARRIER', 'PANASONIC', 'SONY', 'WHIRLPOOL', 'AEG', 'ELECTROLUX'], // GOOD (Tier B - 3 pts)
-    3: ['TEKA', 'FAGOR', 'BEKO', 'HAIER', 'HISENSE', 'ZANUSSI', 'INDESIT', 'CANDY', 'HOOVER'], // STANDARD (Tier C - 1 pt - wait, logic maps this to 2 currently? User asked for 1 point for Tier C?)
-    4: [] // LOW/GENERIC
-};
-
 /**
  * MORTIFY: The Smart Amortization Algorithm
  * Calculates viability score based on 5 pillars.
@@ -43,14 +35,22 @@ export const assessMortifyViability = async (applianceId, userInputs) => {
 
         // --- THE ALGORITHM ---
 
-        // A. BRAND SCORE (1-4 pts)
-        let scoreBrand = 1; // Default Tier 4
-        const brandUpper = (appliance.brand || '').toUpperCase().trim();
+        // 2a. Fetch Brand Score Logic (Dynamic)
+        // Try to find the brand in our database
+        const brandQueryName = (appliance.brand || '').trim();
+        let scoreBrand = 1; // Default Baseline (Generic/Unknown)
 
-        if (BRAND_TIERS[1].includes(brandUpper)) scoreBrand = 4;
-        else if (BRAND_TIERS[2].includes(brandUpper)) scoreBrand = 3;
-        else if (BRAND_TIERS[3].includes(brandUpper)) scoreBrand = 1; // Tier C (Low Cost) -> 1 Point
-        // else 1 (Genetic/Unknown)
+        if (brandQueryName) {
+            const { data: brandData } = await supabase
+                .from('mortify_brand_scores')
+                .select('score_points')
+                .ilike('brand_name', brandQueryName)
+                .maybeSingle();
+
+            if (brandData) {
+                scoreBrand = brandData.score_points;
+            }
+        }
 
         // B. AGE SCORE (Time Factor)
         let scoreAge = 0;
