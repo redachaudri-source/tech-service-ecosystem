@@ -52,22 +52,10 @@ const MortifyDashboard = () => {
         } catch (err) {
             console.error('Error fetching assessments:', err);
             setDebugError(err.message || JSON.stringify(err));
-        } finally {  // DEBUG: Show error on screen
-            setLoading(false);
-            setAssessments([]); // Clear list
-            // We need a state for error to show it in UI
-            // Assuming there is no error state, I'll use a window alert or try to find where to put it. 
-            // Wait, looking at the file content in previous turn, there IS NO explicit error state variable for the view.
-            // I will use `console.error` and ALSO set the assessments to a special error object or add a temporary state?
-            // Better: Add a state variable 'debugError' if not exists.
-            // Actually, I can just throw it via alert temporarily or just modify the component to have that state.
         } finally {
             setLoading(false);
         }
     };
-
-    // TEMPORARY DEBUG STATE
-    const [debugError, setDebugError] = useState(null);
 };
 
 const handleVerdict = () => {
