@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash2, MapPin, Camera, Wrench, ArrowLeft, Package, Edit2, Scan, Zap, Tv, Thermometer, Wind, Waves, Disc, Flame, Utensils, Smartphone, Refrigerator, History, FileText, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Plus, Trash2, MapPin, Camera, Wrench, ArrowLeft, Package, Edit2, Scan, Zap, Tv, Thermometer, Wind, Waves, Disc, Flame, Utensils, Smartphone, Refrigerator, History, FileText, TrendingUp, AlertTriangle, CheckCircle, PiggyBank, Loader2 } from 'lucide-react';
 import Tesseract from 'tesseract.js';
+import MortifyWizard from '../components/MortifyWizard';
 
 // AI Market Value Estimates (Mock Database)
 const AI_ESTIMATES = {
@@ -30,6 +31,10 @@ const MyAppliances = () => {
     // History Modal State
     const [showHistory, setShowHistory] = useState(false);
     const [historyAppliance, setHistoryAppliance] = useState(null);
+
+    // Mortify State
+    const [showMortify, setShowMortify] = useState(false);
+    const [mortifyAppliance, setMortifyAppliance] = useState(null);
 
     // Form State
     const initialForm = {
@@ -66,7 +71,8 @@ const MyAppliances = () => {
                 .from('client_appliances')
                 .select(`
                     *,
-                    tickets (*)
+                    tickets (*),
+                    mortify_assessments (*)
                 `)
                 .eq('client_id', user.id)
                 .order('created_at', { ascending: false });
@@ -77,6 +83,10 @@ const MyAppliances = () => {
             const processed = (data || []).map(app => {
                 const tickets = app.tickets || [];
                 const repairCount = tickets.filter(t => ['finalizado', 'pagado'].includes(t.status)).length;
+
+                // Check active mortify assessment (take the latest if multiple)
+                const assessments = app.mortify_assessments || [];
+                const mortifyStatus = assessments.length > 0 ? assessments[0] : null;
 
                 // Calculate total spent
                 const totalSpent = tickets
@@ -92,7 +102,7 @@ const MyAppliances = () => {
                         return sum + (sub * 1.21);
                     }, 0);
 
-                return { ...app, repairCount, totalSpent, tickets };
+                return { ...app, repairCount, totalSpent, tickets, mortifyStatus };
             });
 
             setAppliances(processed);
@@ -328,49 +338,40 @@ const MyAppliances = () => {
 
     const XIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
 
-    // --- AI VIABILITY COMPONENT ---
+    // --- AI VIABILITY COMPONENT (Enhanced for Mortify UX) ---
     const ViabilityAnalysis = ({ appliance, totalSpent }) => {
-        const typeKey = (appliance.type || '').toLowerCase();
-        // Find closest match in estimates
-        const estimateKey = Object.keys(AI_ESTIMATES).find(k => typeKey.includes(k));
-        const estimatedNewPrice = estimateKey ? AI_ESTIMATES[estimateKey] : 400; // Default 400
+        // If Mortify is active (Pending or Done)
+        if (appliance.mortifyStatus) {
+            const m = appliance.mortifyStatus;
 
-        // Logic: 
-        // 1. Calculate Ratio: TotalSpent / NewPrice
-        // 2. Adjust by age (checking purchase_date)
-        const purchaseYear = appliance.purchase_date ? new Date(appliance.purchase_date).getFullYear() : new Date().getFullYear();
-        const age = new Date().getFullYear() - purchaseYear;
-
-        const ratio = totalSpent / estimatedNewPrice;
-        let status = 'good'; // green
-        let msg = 'Rentable reparar';
-
-        if (ratio > 0.6 || age > 10) {
-            status = 'bad'; // red
-            msg = 'Considerar Renove';
-        } else if (ratio > 0.3 || age > 7) {
-            status = 'warning'; // yellow
-            msg = 'Vigilar costes';
+            if (m.status === 'PENDING_JUDGE') {
+                return (
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-bold bg-blue-50 text-blue-600 border-blue-100 animate-pulse">
+                        <Loader2 size={12} className="animate-spin" />
+                        <span>Analizando...</span>
+                    </div>
+                );
+            }
+            if (m.admin_verdict === 'CONFIRMED_VIABLE') {
+                return (
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-bold bg-green-50 text-green-700 border-green-100">
+                        <CheckCircle size={12} />
+                        <span>Viable ✅</span>
+                    </div>
+                )
+            }
+            if (m.admin_verdict === 'CONFIRMED_OBSOLETE') {
+                return (
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-bold bg-red-50 text-red-700 border-red-100">
+                        <TrendingUp size={12} />
+                        <span>No Rentable ❌</span>
+                    </div>
+                )
+            }
         }
 
-        const colors = {
-            good: 'bg-green-100 text-green-700 border-green-200',
-            warning: 'bg-amber-100 text-amber-700 border-amber-200',
-            bad: 'bg-red-100 text-red-700 border-red-200'
-        };
-
-        const icons = {
-            good: <CheckCircle size={14} />,
-            warning: <AlertTriangle size={14} />,
-            bad: <TrendingUp size={14} />
-        };
-
-        return (
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold ${colors[status]}`}>
-                {icons[status]}
-                <span>IA: {msg}</span>
-            </div>
-        );
+        // Fallback or "Nothing" if no analysis. 
+        return null;
     };
 
     return (
@@ -476,6 +477,24 @@ const MyAppliances = () => {
                                         >
                                             <Wrench size={16} /> Solicitar Servicio
                                         </button>
+                                        )}
+
+                                        {/* MORTIFY LOGIC: Show Piggy if no status AND has repairs (or just always for testing?) 
+                                            User requirement: "SOLO debe aparecer si appliance.repair_count > 0" 
+                                            AND not already analyzed. */
+                                        }
+                                        {!appliance.mortifyStatus && appliance.repairCount > 0 && (
+                                            <button
+                                                onClick={() => {
+                                                    setMortifyAppliance(appliance);
+                                                    setShowMortify(true);
+                                                }}
+                                                className="bg-pink-500 text-white p-2.5 rounded-xl font-bold hover:bg-pink-600 transition shadow-lg shadow-pink-500/20"
+                                                title="¿Merece la pena reparar?"
+                                            >
+                                                <PiggyBank size={18} />
+                                            </button>
+                                        )}
                                         <button
                                             onClick={() => handleDelete(appliance.id)}
                                             className="p-2.5 text-red-100 bg-red-50 hover:bg-red-100 hover:text-red-500 rounded-xl transition"
