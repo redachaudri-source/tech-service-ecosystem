@@ -477,7 +477,6 @@ const MyAppliances = () => {
                                         >
                                             <Wrench size={16} /> Solicitar Servicio
                                         </button>
-                                        )}
 
                                         {/* MORTIFY LOGIC: Show Piggy if no status AND has repairs (or just always for testing?) 
                                             User requirement: "SOLO debe aparecer si appliance.repair_count > 0" 
@@ -657,6 +656,17 @@ const MyAppliances = () => {
                 <HistoryModal
                     appliance={historyAppliance}
                     onClose={() => setShowHistory(false)}
+                />
+            )}
+
+            {/* MORTIFY WIZARD MODAL */}
+            {showMortify && (
+                <MortifyWizard
+                    appliance={mortifyAppliance}
+                    onClose={() => setShowMortify(false)}
+                    onSuccess={() => {
+                        fetchAppliances(); // Refresh data to show badge
+                    }}
                 />
             )}
         </div>
