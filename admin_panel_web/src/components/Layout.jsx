@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard, Users, Map, Package, LogOut, UserCheck, Settings as SettingsIcon,
     Globe, Calendar, Tag, FileText, Menu as MenuIcon, X, Briefcase, TrendingUp,
-    ChevronDown, ChevronRight, HelpCircle
+    ChevronDown, ChevronRight, HelpCircle, Scale
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useState, useEffect } from 'react';
@@ -32,6 +32,7 @@ const Layout = () => {
     // Items
     const mainNav = [
         { icon: LayoutDashboard, label: 'Escritorio', path: '/' },
+        { icon: Scale, label: 'Sala Mortify', path: '/mortify' },
         { icon: Map, label: 'Flota', path: '/tracking' },
         { icon: Users, label: 'Clientes', path: '/clients' },
         { icon: Calendar, label: 'Agenda Global', path: '/agenda' },
@@ -53,6 +54,24 @@ const Layout = () => {
 
     // --- NEW ARCHITECTURE: USE HOOK ---
     const { count: notificationCount } = useTicketNotifications();
+
+    // MORTIFY NOTIFICATIONS
+    const [mortifyCount, setMortifyCount] = useState(0);
+    // Fetch pending assessments count
+    useEffect(() => {
+        const fetchMortifyCount = async () => {
+            const { count } = await import('../lib/supabase').then(({ supabase }) =>
+                supabase
+                    .from('mortify_assessments')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('status', 'PENDING_JUDGE')
+            );
+            setMortifyCount(count || 0);
+        };
+        fetchMortifyCount();
+        const interval = setInterval(fetchMortifyCount, 30000); // Poll every 30s
+        return () => clearInterval(interval);
+    }, []);
 
     // Sound Effect on Count Increase (Local State to track prev)
     const [prevCount, setPrevCount] = useState(0);
@@ -76,8 +95,11 @@ const Layout = () => {
         const Icon = item.icon;
         const isActive = location.pathname === item.path;
         const isHero = item.isHero;
-        // Use hook value
-        const hasBadge = item.path === '/services' && notificationCount > 0;
+        // Badge Logic
+        const hasTicketBadge = item.path === '/services' && notificationCount > 0;
+        const hasMortifyBadge = item.path === '/mortify' && mortifyCount > 0;
+        const hasBadge = hasTicketBadge || hasMortifyBadge;
+        const badgeCount = hasTicketBadge ? notificationCount : mortifyCount;
 
         return (
             <Link
@@ -99,7 +121,7 @@ const Layout = () => {
                     <span className="absolute right-2 top-1/2 -translate-y-1/2 flex h-4 w-4">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                         <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 items-center justify-center text-[8px] font-bold text-white">
-                            {notificationCount > 9 ? '9+' : notificationCount}
+                            {badgeCount > 9 ? '9+' : badgeCount}
                         </span>
                     </span>
                 )}

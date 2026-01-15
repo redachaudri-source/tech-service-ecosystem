@@ -18,6 +18,7 @@ import BudgetRegistry from './pages/financial/BudgetRegistry'; // New
 import MaterialManager from './pages/MaterialManager'; // New Material Workflow
 import BusinessSettings from './pages/BusinessSettings'; // New God Mode Settings
 import Analytics from './pages/Analytics'; // Level God Analytics
+import MortifyDashboard from './pages/MortifyDashboard'; // Phase 3.1.4
 
 // Tech Imports
 import TechLayout from './components/TechLayout';
@@ -47,6 +48,7 @@ function App() {
                             }>
                                 <Route index element={<DashboardHome />} />
                                 <Route path="requests" element={<IncomingRequests />} />
+                                <Route path="mortify" element={<MortifyDashboard />} />
                                 <Route path="services" element={<ServiceMonitor />} />
                                 <Route path="agenda" element={<GlobalAgenda />} />
                                 <Route path="clients" element={<ClientManager />} />
