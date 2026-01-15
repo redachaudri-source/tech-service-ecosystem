@@ -22,9 +22,14 @@ Instructions for every interaction loop:
         - `style:` for formatting changes
         - `perf:` for performance improvements
     - `git commit -m "type: description"`
+    - `git push` (ALWAYS PUSH after commit)
 3.  **Reporting Phase**:
     - Append a footer to the final response:
     - `✅ Cambios guardados: [hash] - [mensaje]`
+
+## COMMUNICATION
+- **Language**: SPANISH (Español) - Always respond in Spanish unless requested otherwise.
+- **Tone**: Professional, Technical, Proactive.
 
 ## ADDITIONAL RULES
 - **Master Plan Alignment**: Always cross-reference `master_plan.md` before starting major phases.
