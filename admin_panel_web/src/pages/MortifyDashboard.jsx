@@ -12,6 +12,7 @@ const MortifyDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('PENDING_JUDGE'); // PENDING_JUDGE, HISTORY
     const [selectedAssessment, setSelectedAssessment] = useState(null);
+    const [showSettings, setShowSettings] = useState(false);
 
     useEffect(() => {
         fetchAssessments();
