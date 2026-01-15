@@ -85,16 +85,19 @@ export const assessMortifyViability = async (applianceId, userInputs) => {
         }
 
         // D. FINANCIAL SCORE (Money Factor)
-        // "Gasto acumulado < 50% valor nuevo"
+        // Rule: Total Spent < 50% of Market Value
         let scoreFinancial = 0;
-        // We need repair history sum. Assuming 'repair_count' is reliable or fetch tickets sum?
-        // For Phase 1 simplified: Use repair_count * estimated_avg_repair_cost (e.g. 100€) 
-        // OR simply check if repair_count is low.
-        // Let's implement the prompt rule: "Total Spent + Current Budget"
-        // Since we don't have exact spending history sums easily here without a join,
-        // we will implement a heuristic: If repair_count >= 2 -> 0 pts. Else 1 pt.
-        // TODO: Refine with real financial queries in Phase 9.
-        if ((appliance.repair_count || 0) < 2) {
+
+        // Use override if provided (e.g. passed from client), otherwise strictly we need data.
+        // For now, if no override, we might still fallback to repair_count heuristic or 0?
+        // Let's support the override first for consistency.
+        const totalSpent = (userInputs.total_spent_override !== undefined)
+            ? parseFloat(userInputs.total_spent_override)
+            : (appliance.repair_count || 0) * 100; // Rough fallback estimate if no override (100 per repair)
+
+        const financialLimit = marketPrice * 0.5;
+
+        if (totalSpent < financialLimit) {
             scoreFinancial = 1;
         }
 

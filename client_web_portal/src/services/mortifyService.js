@@ -74,12 +74,20 @@ export const assessMortifyViability = async (applianceId, userInputs) => {
         }
 
         // D. FINANCIAL SCORE (Money Factor)
-        // Heuristic: If repair_count < 2 => 1 pt
+        // Rule: Total Spent < 50% of Market Value
         let scoreFinancial = 0;
-        // Ideally fetch repair_count from DB derived column if exists, or just use current known state?
-        // In this context, 'appliance' fetched from DB might imply we have updated columns from Phase 3.1
-        // Let's rely on what we have.
-        if ((appliance.repair_count || 0) < 2) {
+
+        // Use override passed from client (Strict Adherence)
+        const totalSpent = (userInputs.total_spent_override !== undefined)
+            ? parseFloat(userInputs.total_spent_override)
+            : 0;
+
+        // If no market price default found, we use 400 as fallback (defined above)
+        const financialLimit = marketPrice * 0.5;
+
+        // If spent is LESS than 50% of value, it's worth it (+1 point)
+        // Otherwise 0 points.
+        if (totalSpent < financialLimit) {
             scoreFinancial = 1;
         }
 
