@@ -35,7 +35,7 @@ const MortifyDashboard = () => {
                         model,
                         type,
                         purchase_year,
-                        clients (
+                        profiles (
                             full_name,
                             address
                         )
@@ -160,7 +160,7 @@ const MortifyDashboard = () => {
                                                     {a.client_appliances?.type} {a.client_appliances?.brand}
                                                 </div>
                                                 <div className="text-xs text-slate-500">
-                                                    {a.client_appliances?.clients?.full_name}
+                                                    {a.client_appliances?.profiles?.full_name}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
