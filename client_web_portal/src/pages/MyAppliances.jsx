@@ -478,11 +478,8 @@ const MyAppliances = () => {
                                             <Wrench size={16} /> Solicitar Servicio
                                         </button>
 
-                                        {/* MORTIFY LOGIC: Show Piggy if no status AND has repairs (or just always for testing?) 
-                                            User requirement: "SOLO debe aparecer si appliance.repair_count > 0" 
-                                            AND not already analyzed. */
-                                        }
-                                        {!appliance.mortifyStatus && appliance.repairCount > 0 && (
+                                        {/* MORTIFY LOGIC: Show Piggy if no status (DEBUG MODE: FORCE SHOW ALWAYS) */}
+                                        {!appliance.mortifyStatus && (
                                             <button
                                                 onClick={() => {
                                                     setMortifyAppliance(appliance);
