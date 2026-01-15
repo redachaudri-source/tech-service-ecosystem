@@ -72,7 +72,13 @@ const MortifyDashboard = () => {
                     <p className="text-slate-500">Juzga la viabilidad de reparación de los aparatos.</p>
                 </div>
 
-                {/* Stats / Counters could go here */}
+                <button
+                    onClick={() => setShowSettings(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition font-medium shadow-sm"
+                >
+                    <Settings size={18} />
+                    Configurar Precios
+                </button>
             </div>
 
             {/* Filters */}
