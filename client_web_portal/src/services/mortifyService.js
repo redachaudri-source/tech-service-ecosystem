@@ -82,7 +82,8 @@ export const assessMortifyViability = async (applianceId, userInputs) => {
             ? parseFloat(userInputs.total_spent_override)
             : 0;
 
-        // If no market price default found, we use 400 as fallback (defined above)
+        // If no market price default found, we use 400 as fallback
+        const marketPrice = parseFloat(defaults?.average_market_price || 400);
         const financialLimit = marketPrice * 0.5;
 
         // If spent is LESS than 50% of value, it's worth it (+1 point)
