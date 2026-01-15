@@ -17,7 +17,8 @@ const MortifyWizard = ({ appliance, onClose, onSuccess }) => {
         try {
             const inputs = {
                 input_year: year,
-                input_floor_level: floor
+                input_floor_level: floor,
+                total_spent_override: appliance.totalSpent || 0
             };
 
             const result = await assessMortifyViability(appliance.id, inputs);
