@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Lock, Mail, AlertCircle } from 'lucide-react';
@@ -8,7 +8,15 @@ const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
+
     const [error, setError] = useState(null);
+
+    // [REDIRECT LOGIC] If accessed via 'tecnico' subdomain, go to Tech Login
+    useEffect(() => {
+        if (window.location.hostname.includes('tecnico')) {
+            navigate('/tech/login');
+        }
+    }, []);
 
     const handleLogin = async (e) => {
         e.preventDefault();
