@@ -129,67 +129,93 @@ return (
                         <tbody className="divide-y divide-slate-100">
                             {loading ? (
                                 <tr>
+                                    <td colSpan="5" className="px-6 py-8 text-center text-slate-500">
+                                        Cargando expedientes...
+                                    </td>
+                                </tr>
+                            ) : assessments.length === 0 ? (
+                                <tr>
+                                    <td colSpan="5" className="px-6 py-12 text-center text-slate-400">
+                                        {debugError ? (
+                                            <div className="text-red-500 font-bold bg-red-50 p-4 rounded-lg border border-red-200">
+                                                ERROR CRÍTICO: {debugError}
+                                                <br />
+                                                <span className="text-xs font-mono text-slate-600">Revisa la consola (F12) o reporta este mensaje.</span>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col items-center gap-2">
+                                                <CheckCircle size={32} className="text-slate-200" />
+                                                <p>No hay expedientes en esta categoría.</p>
+                                            </div>
+                                        )}
+                                    </td>
+                                </tr>
+                            ) : (
+                                assessments.map((a) => (
+                                    <tr key={a.id} className="hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <div className="font-medium text-slate-900">
                                                 {a.client_appliances?.type} {a.client_appliances?.brand}
                                             </div>
                                             <div className="text-xs text-slate-500">
                                                 {a.client_appliances?.clients?.full_name}
                                             </div>
                                         </td>
-                        <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                                <span className={`text-lg font-bold ${a.total_score >= 5 ? 'text-green-600' :
-                                    a.total_score < 3 ? 'text-red-500' : 'text-amber-500'
-                                    }`}>
-                                    {a.total_score}
-                                </span>
-                                <span className="text-xs text-slate-400">/ 8 pts</span>
-                            </div>
-                        </td>
-                        <td className="px-6 py-4">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${a.ia_suggestion === 'VIABLE' ? 'bg-green-100 text-green-800' :
-                                a.ia_suggestion === 'OBSOLETE' ? 'bg-red-100 text-red-800' :
-                                    'bg-amber-100 text-amber-800'
-                                }`}>
-                                {a.ia_suggestion === 'VIABLE' ? 'VIABLE' :
-                                    a.ia_suggestion === 'OBSOLETE' ? 'OBSOLETO' : 'DUDOSO'}
-                            </span>
-                        </td>
-                        <td className="px-6 py-4 text-slate-500 flex items-center gap-2">
-                            <Clock size={14} />
-                            {new Date(a.created_at).toLocaleDateString()}
-                            <span className="text-xs ml-1">
-                                {new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                            {filter === 'PENDING_JUDGE' ? (
-                                <button
-                                    onClick={() => setSelectedAssessment(a)}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-xs font-bold shadow-sm shadow-indigo-200"
-                                >
-                                    <Scale size={14} />
-                                    JUZGAR
-                                </button>
-                            ) : (
-                                <span className={`text-xs font-bold ${a.admin_verdict === 'CONFIRMED_VIABLE' ? 'text-green-600' : 'text-red-600'
-                                    }`}>
-                                    {a.admin_verdict === 'CONFIRMED_VIABLE' ? 'VIABLE ✅' : 'OBSOLETO ❌'}
-                                </span>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`text-lg font-bold ${a.total_score >= 5 ? 'text-green-600' :
+                                                    a.total_score < 3 ? 'text-red-500' : 'text-amber-500'
+                                                    }`}>
+                                                    {a.total_score}
+                                                </span>
+                                                <span className="text-xs text-slate-400">/ 8 pts</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${a.ia_suggestion === 'VIABLE' ? 'bg-green-100 text-green-800' :
+                                                a.ia_suggestion === 'OBSOLETE' ? 'bg-red-100 text-red-800' :
+                                                    'bg-amber-100 text-amber-800'
+                                                }`}>
+                                                {a.ia_suggestion === 'VIABLE' ? 'VIABLE' :
+                                                    a.ia_suggestion === 'OBSOLETE' ? 'OBSOLETO' : 'DUDOSO'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-slate-500 flex items-center gap-2">
+                                            <Clock size={14} />
+                                            {new Date(a.created_at).toLocaleDateString()}
+                                            <span className="text-xs ml-1">
+                                                {new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            {filter === 'PENDING_JUDGE' ? (
+                                                <button
+                                                    onClick={() => setSelectedAssessment(a)}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-xs font-bold shadow-sm shadow-indigo-200"
+                                                >
+                                                    <Scale size={14} />
+                                                    JUZGAR
+                                                </button>
+                                            ) : (
+                                                <span className={`text-xs font-bold ${a.admin_verdict === 'CONFIRMED_VIABLE' ? 'text-green-600' : 'text-red-600'
+                                                    }`}>
+                                                    {a.admin_verdict === 'CONFIRMED_VIABLE' ? 'VIABLE ✅' : 'OBSOLETO ❌'}
+                                                </span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))
                             )}
-                        </td>
-                    </tr>
-                    ))
-                            )}
-                </tbody>
-            </table>
+                        </tbody>
+                    </table>
                 </div>
             </div >
         )}
-{
-    showSettings && (
-        <MortifySettingsModal onClose={() => setShowSettings(false)} />
-    )
-}
+        {
+            showSettings && (
+                <MortifySettingsModal onClose={() => setShowSettings(false)} />
+            )
+        }
     </div >
 );
 };
