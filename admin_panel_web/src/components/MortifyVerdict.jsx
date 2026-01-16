@@ -105,7 +105,7 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
             onComplete();
         } catch (err) {
             console.error('Error saving verdict:', err);
-            alert('Error al guardar el veredicto');
+            alert(`Error al guardar el veredicto: ${err.message || JSON.stringify(err)}`);
         } finally {
             setProcessing(false);
         }
