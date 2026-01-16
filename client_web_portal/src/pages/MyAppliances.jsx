@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash2, MapPin, Camera, Wrench, ArrowLeft, Package, Edit2, Scan, Zap, Tv, Thermometer, Wind, Waves, Disc, Flame, Utensils, Smartphone, Refrigerator, History, FileText, TrendingUp, AlertTriangle, CheckCircle, PiggyBank, Loader2, X } from 'lucide-react';
+import { Plus, Trash2, MapPin, Camera, Wrench, ArrowLeft, Package, Edit2, Scan, Zap, Tv, Thermometer, Wind, Waves, Disc, Flame, Utensils, Smartphone, Refrigerator, History, FileText, TrendingUp, AlertTriangle, CheckCircle, PiggyBank, Loader2, X, ChevronDown } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 import MortifyWizard from '../components/MortifyWizard';
 import ViabilityLabel from '../components/ViabilityLabel';
@@ -24,18 +24,25 @@ const AI_ESTIMATES = {
 };
 
 // --- BRAND AUTOCOMPLETE COMPONENT ---
+// --- BRAND AUTOCOMPLETE COMPONENT ---
 const BrandAutocomplete = ({ value, onChange }) => {
     const [brands, setBrands] = useState([]);
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const [error, setError] = useState(false);
 
     useEffect(() => {
         // Fetch brands from DB
         const fetchBrands = async () => {
-            const { data } = await supabase
+            const { data, error } = await supabase
                 .from('mortify_brand_scores')
                 .select('brand_name')
                 .order('brand_name');
+
+            if (error) {
+                console.error("Error loading brands:", error);
+                setError(true);
+            }
             if (data) setBrands(data.map(b => b.brand_name));
         };
         fetchBrands();
@@ -59,16 +66,21 @@ const BrandAutocomplete = ({ value, onChange }) => {
     };
 
     return (
-        <div className="relative">
-            <input
-                required
-                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
-                placeholder="Ej. Samsung"
-                value={value}
-                onChange={handleChange}
-                onFocus={() => value && setShowSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-            />
+        <div className="relative group">
+            <div className="relative">
+                <input
+                    required
+                    className={`w-full p-3 bg-slate-50 border ${error ? 'border-red-300' : 'border-slate-200'} rounded-xl focus:ring-2 focus:ring-blue-100 outline-none pr-10`}
+                    placeholder={error ? "Error cargando lista" : "Escribe para buscar..."}
+                    value={value}
+                    onChange={handleChange}
+                    onFocus={() => value && setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                    <ChevronDown size={16} />
+                </div>
+            </div>
             {showSuggestions && (
                 <ul className="absolute z-50 w-full bg-white border border-slate-200 rounded-xl mt-1 max-h-48 overflow-y-auto shadow-lg animate-in fade-in zoom-in-95 duration-100">
                     {suggestions.map((brand, idx) => (
