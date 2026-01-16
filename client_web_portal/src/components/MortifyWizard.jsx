@@ -5,8 +5,13 @@ import MortifyPaymentModal from './MortifyPaymentModal';
 
 const MortifyWizard = ({ appliance, onClose, onSuccess }) => {
     const [step, setStep] = useState('input'); // input | payment | processing | done
-    const [year, setYear] = useState(appliance.purchase_year || '');
-    const [floor, setFloor] = useState(0); // Default Planta Baja
+
+    // SMART DATA INITIALIZATION
+    const [year, setYear] = useState(appliance.purchase_year || (appliance.purchase_date ? new Date(appliance.purchase_date).getFullYear() : ''));
+    const [floor, setFloor] = useState(appliance.floor_level || 0);
+
+    const isSmartData = !!(appliance.purchase_year || appliance.purchase_date);
+
     const [error, setError] = useState(null);
     const [resultData, setResultData] = useState(null); // Store result for UI warning
 
@@ -79,7 +84,14 @@ const MortifyWizard = ({ appliance, onClose, onSuccess }) => {
                         )}
 
                         {/* HEADER */}
-                        <div className="bg-pink-50 p-6 text-center border-b border-pink-100">
+                        <div className="bg-gradient-to-r from-pink-50 to-white p-6 text-center border-b border-pink-100 relative">
+                            {/* Smart Data Badge */}
+                            {isSmartData && (
+                                <div className="absolute top-4 left-4 bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm border border-green-200">
+                                    <CheckCircle size={10} /> Smart Data
+                                </div>
+                            )}
+
                             <div className="w-16 h-16 bg-pink-100 text-pink-500 rounded-full flex items-center justify-center mx-auto mb-3 shadow-inner">
                                 <PiggyBank size={32} />
                             </div>
