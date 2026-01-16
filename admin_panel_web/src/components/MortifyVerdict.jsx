@@ -2,21 +2,25 @@ import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import {
     ArrowLeft, CheckCircle, XCircle, AlertTriangle,
-    Thermometer, ShieldCheck, Banknote, Calendar
+    Thermometer, ShieldCheck, Banknote, Calendar,
+    Eye, Sparkles, X, Info
 } from 'lucide-react';
 
 const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
     const [processing, setProcessing] = useState(false);
     const [note, setNote] = useState('');
+    const [showApplianceModal, setShowApplianceModal] = useState(false);
 
     const { client_appliances: appliance } = assessment;
+
+    // FIX: Access profiles instead of clients
+    const clientName = appliance?.profiles?.full_name || 'Desconocido';
 
     const handleDecision = async (verdict) => {
         if (!confirm('¿Estás seguro de emitir este veredicto? Es irreversible.')) return;
 
         setProcessing(true);
         try {
-            // 1. Update Assessment
             const { error: asmtError } = await supabase
                 .from('mortify_assessments')
                 .update({
@@ -28,12 +32,6 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                 .eq('id', assessment.id);
 
             if (asmtError) throw asmtError;
-
-            // 2. Optionally Update Appliance 'expert_override' if viable? 
-            // The prompt says: "Action: Update estado a CONFIRMED_VIABLE -> Notificar Cliente"
-            // We should probably rely on the assessment status joins for UI, but let's see.
-            // For now, updating the assessment row is the primary action.
-
             onComplete();
         } catch (err) {
             console.error('Error saving verdict:', err);
@@ -41,6 +39,41 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
         } finally {
             setProcessing(false);
         }
+    };
+
+    // "AI" Text Improver (Heuristic)
+    const improveText = () => {
+        let improved = note;
+        if (!improved) improved = "Estimado cliente, tras analizar su aparato...";
+
+        const replacements = {
+            "hola": "Estimado/a cliente",
+            "roto": "averiado",
+            "viejo": "antiguo",
+            "malo": "deficiente",
+            "no vale": "no resulta viable",
+            "tirar": "reciclar",
+            "comprar": "adquirir",
+            "arreglar": "reparar",
+            "caro": "costoso",
+            "creo que": "según nuestro análisis técnico,",
+            "adiós": "Atentamente, el equipo técnico"
+        };
+
+        Object.keys(replacements).forEach(key => {
+            const regex = new RegExp(`\\b${key}\\b`, 'gi');
+            improved = improved.replace(regex, replacements[key]);
+        });
+
+        // Ensure sentences start with uppercase
+        improved = improved.replace(/(^\w|[.!?]\s+\w)/g, letter => letter.toUpperCase());
+
+        // Add intro if missing
+        if (!improved.toLowerCase().includes('estimado') && !improved.toLowerCase().includes('hola')) {
+            improved = "Estimado cliente: " + improved;
+        }
+
+        setNote(improved);
     };
 
     return (
@@ -56,7 +89,7 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                 <div>
                     <h2 className="text-lg font-bold text-slate-800">Expediente #{assessment.id.slice(0, 8)}</h2>
                     <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">
-                        Solicitado por: {appliance.clients?.full_name}
+                        Solicitado por: <span className="text-indigo-600">{clientName}</span>
                     </p>
                 </div>
             </div>
@@ -64,69 +97,81 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
             <div className="flex flex-1 overflow-hidden">
                 {/* LEFT: THE FACTS */}
                 <div className="w-1/2 p-6 border-r border-slate-100 overflow-y-auto bg-slate-50/30">
-                    <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6">Los Hechos (Evidencia)</h3>
+                    <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                        Los Hechos (Evidencia)
+                        <div className="group relative">
+                            <Info size={14} className="text-slate-300 cursor-help" />
+                            <div className="absolute left-0 top-6 w-64 bg-slate-800 text-white text-xs p-3 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">
+                                Los datos reflejan la configuración en el momento de la solicitud. Si cambiaste los ajustes después, estos números no se actualizarán automáticamente.
+                            </div>
+                        </div>
+                    </h3>
 
                     {/* Appliance Card */}
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 mb-6 shadow-sm">
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 mb-6 shadow-sm relative group/card">
                         <div className="flex items-start justify-between mb-4">
                             <div>
-                                <h4 className="text-xl font-bold text-slate-900">{appliance.brand}</h4>
-                                <p className="text-slate-500 font-medium">{appliance.type} - {appliance.model}</p>
+                                <div className="flex items-center gap-2">
+                                    <h4 className="text-xl font-bold text-slate-900 uppercase">{appliance.brand}</h4>
+                                    <button
+                                        onClick={() => setShowApplianceModal(true)}
+                                        className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition shadow-sm border border-blue-100"
+                                        title="Ver ficha del aparato"
+                                    >
+                                        <Eye size={16} />
+                                    </button>
+                                </div>
+                                <p className="text-slate-500 font-medium">{appliance.type} {appliance.model ? `- ${appliance.model}` : ''}</p>
                             </div>
                             <div className="text-right">
-                                <span className="block text-2xl font-black text-slate-800">{assessment.total_score}</span>
+                                <span className={`block text-2xl font-black ${assessment.total_score >= 5 ? 'text-green-600' : assessment.total_score <= 2 ? 'text-red-500' : 'text-amber-500'}`}>
+                                    {assessment.total_score}
+                                </span>
                                 <span className="text-xs text-slate-400 font-bold uppercase">Puntos Totales</span>
                             </div>
                         </div>
 
                         {/* Analysis Breakdown */}
                         <div className="space-y-3">
-                            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                <div className="flex items-center gap-3">
-                                    <ShieldCheck className="text-blue-500" size={18} />
-                                    <span className="text-sm font-medium text-slate-700">Calidad de Marca</span>
-                                </div>
-                                <span className="font-bold text-slate-900">{assessment.score_brand} pts</span>
-                            </div>
-
-                            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                <div className="flex items-center gap-3">
-                                    <Calendar className="text-amber-500" size={18} />
-                                    <span className="text-sm font-medium text-slate-700">Antigüedad ({assessment.input_year || 'N/A'})</span>
-                                </div>
-                                <span className="font-bold text-slate-900">{assessment.score_age} pts</span>
-                            </div>
-
-                            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                <div className="flex items-center gap-3">
-                                    <Thermometer className="text-purple-500" size={18} />
-                                    <span className="text-sm font-medium text-slate-700">Instalación / Acceso</span>
-                                </div>
-                                <span className="font-bold text-slate-900">{assessment.score_installation} pts</span>
-                            </div>
-
-                            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                <div className="flex items-center gap-3">
-                                    <Banknote className="text-green-500" size={18} />
-                                    <span className="text-sm font-medium text-slate-700">Situación Financiera</span>
-                                </div>
-                                <span className="font-bold text-slate-900">{assessment.score_financial} pts</span>
-                            </div>
+                            <ScoreRow
+                                icon={ShieldCheck} color="text-blue-500"
+                                label="Calidad de Marca"
+                                score={assessment.score_brand}
+                                description="Basado en la reputación y disponibilidad de repuestos de la marca."
+                            />
+                            <ScoreRow
+                                icon={Calendar} color="text-amber-500"
+                                label={`Antigüedad (${assessment.input_year || '?'})`}
+                                score={assessment.score_age}
+                                description="Vida útil restante estimada según el año de compra."
+                            />
+                            <ScoreRow
+                                icon={Thermometer} color="text-purple-500"
+                                label="Instalación / Acceso"
+                                score={assessment.score_installation}
+                                description="Complejidad técnica para acceder y reparar el equipo."
+                            />
+                            <ScoreRow
+                                icon={Banknote} color="text-green-500"
+                                label="Situación Financiera"
+                                score={assessment.score_financial}
+                                description="Relación coste reparación estimado vs. valor residual del aparato."
+                            />
                         </div>
                     </div>
 
                     {/* AI Suggestion */}
-                    <div className={`p-4 rounded-xl border border-l-4 ${assessment.ia_suggestion === 'VIABLE'
-                            ? 'bg-green-50 border-green-200 border-l-green-500'
-                            : assessment.ia_suggestion === 'OBSOLETE'
-                                ? 'bg-red-50 border-red-200 border-l-red-500'
-                                : 'bg-amber-50 border-amber-200 border-l-amber-500'
+                    <div className={`p-4 rounded-xl border border-l-4 shadow-sm ${assessment.ia_suggestion === 'VIABLE'
+                        ? 'bg-green-50 border-green-200 border-l-green-500'
+                        : assessment.ia_suggestion === 'OBSOLETE'
+                            ? 'bg-red-50 border-red-200 border-l-red-500'
+                            : 'bg-amber-50 border-amber-200 border-l-amber-500'
                         }`}>
                         <h4 className="text-sm font-bold opacity-80 mb-1 flex items-center gap-2">
-                            <AlertTriangle size={14} /> Sugerencia IA:
+                            <AlertTriangle size={14} /> Sugerencia Algoritmo:
                         </h4>
                         <p className="text-lg font-black">
-                            {assessment.ia_suggestion === 'VIABLE' ? 'REPARACIÓN RECOMENDADA' :
+                            {assessment.ia_suggestion === 'VIABLE' ? 'REPARACIÓN VIABLE' :
                                 assessment.ia_suggestion === 'OBSOLETE' ? 'OBSOLESCENCIA DETECTADA' :
                                     'DUDOSO / REVISIÓN MANUAL'}
                         </p>
@@ -140,12 +185,20 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                     <div className="flex-1 flex flex-col justify-center space-y-6 max-w-md mx-auto w-full">
 
                         <div className="space-y-2">
-                            <label className="text-sm font-bold text-slate-700">Nota del Juez (Opcional)</label>
+                            <div className="flex justify-between items-end">
+                                <label className="text-sm font-bold text-slate-700">Nota del Juez (Visible al cliente)</label>
+                                <button
+                                    onClick={improveText}
+                                    className="text-xs flex items-center gap-1 text-indigo-600 font-bold hover:bg-indigo-50 px-2 py-1 rounded transition"
+                                >
+                                    <Sparkles size={12} /> Mejorar con IA
+                                </button>
+                            </div>
                             <textarea
                                 value={note}
                                 onChange={e => setNote(e.target.value)}
-                                className="w-full h-32 p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 text-sm resize-none"
-                                placeholder="Explica tu decisión al cliente..."
+                                className="w-full h-40 p-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 text-sm resize-none shadow-sm leading-relaxed"
+                                placeholder="Explica tu decisión al cliente de forma profesional..."
                             />
                         </div>
 
@@ -184,8 +237,63 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                     )}
                 </div>
             </div>
+
+            {/* Appliance Detail Modal */}
+            {showApplianceModal && (
+                <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden relative">
+                        <button
+                            onClick={() => setShowApplianceModal(false)}
+                            className="absolute top-4 right-4 bg-white/50 hover:bg-white p-2 rounded-full text-slate-800 transition z-10"
+                        >
+                            <X size={24} />
+                        </button>
+
+                        {appliance.image_url ? (
+                            <div className="h-64 overflow-hidden bg-slate-100 flex items-center justify-center">
+                                <img src={appliance.image_url} alt="Aparato" className="w-full h-full object-cover" />
+                            </div>
+                        ) : (
+                            <div className="h-48 bg-slate-100 flex flex-col items-center justify-center text-slate-400">
+                                <Eye size={48} className="mb-2 opacity-50" />
+                                <span className="text-sm font-medium">Sin foto disponible</span>
+                            </div>
+                        )}
+
+                        <div className="p-6">
+                            <h3 className="text-2xl font-bold text-slate-900 mb-1">{appliance.brand}</h3>
+                            <p className="text-lg text-slate-600 font-medium mb-6">{appliance.type} {appliance.model}</p>
+
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div className="bg-slate-50 p-3 rounded-lg">
+                                    <span className="text-slate-400 text-xs font-bold uppercase block mb-1">Año Compra</span>
+                                    <span className="font-bold text-slate-900">{appliance.purchase_year || 'N/A'}</span>
+                                </div>
+                                <div className="bg-slate-50 p-3 rounded-lg">
+                                    <span className="text-slate-400 text-xs font-bold uppercase block mb-1">ID Sistema</span>
+                                    <span className="font-mono text-slate-900 truncate">{appliance.id}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
+
+// Subcomponent for cleaner code
+const ScoreRow = ({ icon: Icon, color, label, score, description }) => (
+    <div className="group relative flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100 hover:border-indigo-200 transition-colors">
+        <div className="flex items-center gap-3">
+            <Icon className={color} size={18} />
+            <div>
+                <span className="text-sm font-medium text-slate-700 block">{label}</span>
+                <span className="text-[10px] text-slate-400 hidden group-hover:block leading-tight max-w-[200px] mt-1">{description}</span>
+            </div>
+        </div>
+        <span className="font-bold text-slate-900 bg-white px-2 py-1 rounded border border-slate-100 shadow-sm">{score} pts</span>
+    </div>
+);
 
 export default MortifyVerdict;

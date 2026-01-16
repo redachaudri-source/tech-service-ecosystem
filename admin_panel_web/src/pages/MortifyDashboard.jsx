@@ -30,11 +30,7 @@ const MortifyDashboard = () => {
                 .select(`
                     *,
                     client_appliances (
-                        id,
-                        brand,
-                        model,
-                        type,
-                        purchase_year,
+                        *,
                         profiles (
                             full_name,
                             address
