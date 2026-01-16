@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { Plus, Trash2, MapPin, Camera, Wrench, ArrowLeft, Package, Edit2, Scan, Zap, Tv, Thermometer, Wind, Waves, Disc, Flame, Utensils, Smartphone, Refrigerator, History, FileText, TrendingUp, AlertTriangle, CheckCircle, PiggyBank, Loader2, X } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 import MortifyWizard from '../components/MortifyWizard';
+import ViabilityLabel from '../components/ViabilityLabel';
 
 // AI Market Value Estimates (Mock Database)
 const AI_ESTIMATES = {
@@ -390,9 +391,6 @@ const MyAppliances = () => {
     // --- AI VIABILITY COMPONENT (Enhanced for Mortify UX) ---
     const ViabilityAnalysis = ({ appliance }) => {
         // Only show "Analyzing..." badge. 
-        // We hide the static verdicts (Viable/Obsolete) to let the User use the Piggy Bank button again if they want, 
-        // or simply because the User requested to remove the static badge.
-
         if (appliance.mortifyStatus && appliance.mortifyStatus.status === 'PENDING_JUDGE') {
             return (
                 <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-bold bg-blue-50 text-blue-600 border-blue-100 animate-pulse">
@@ -402,24 +400,11 @@ const MyAppliances = () => {
             );
         }
 
+        // JUDGED: Show New V-Label
         if (appliance.mortifyStatus && appliance.mortifyStatus.status === 'JUDGED') {
-            const verdict = appliance.mortifyStatus.admin_verdict;
-            if (verdict === 'CONFIRMED_VIABLE') {
-                return (
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-bold bg-green-50 text-green-700 border-green-200">
-                        <CheckCircle size={12} />
-                        <span>VIABLE</span>
-                    </div>
-                );
-            }
-            if (verdict === 'CONFIRMED_OBSOLETE') {
-                return (
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-bold bg-red-50 text-red-600 border-red-200">
-                        <AlertTriangle size={12} />
-                        <span>OBSOLETO</span>
-                    </div>
-                );
-            }
+            const score = appliance.mortifyStatus.total_score;
+            // Use small size for the card view
+            return <ViabilityLabel score={score} size="sm" />;
         }
 
         return null;
