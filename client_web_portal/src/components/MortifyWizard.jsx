@@ -111,20 +111,21 @@ const MortifyWizard = ({ appliance, onClose, onSuccess }) => {
                                         />
                                     </div>
 
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 mb-1 uppercase flex gap-1 items-center">
-                                            <Building size={12} /> Planta / Piso
+                                    <div className={`p-3 rounded-xl border transition-colors ${isSmartData ? 'bg-green-50/50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
+                                        <label className="block text-xs font-bold text-slate-500 mb-1 uppercase flex gap-1 items-center justify-between">
+                                            <span className="flex items-center gap-1"><Building size={12} /> Planta / Piso</span>
+                                            {isSmartData && <CheckCircle size={12} className="text-green-500" />}
                                         </label>
                                         <select
-                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-200 outline-none text-slate-700"
+                                            className="w-full bg-transparent font-bold text-lg text-slate-800 outline-none"
                                             value={floor}
                                             onChange={(e) => setFloor(e.target.value)}
                                         >
                                             <option value="0">Bajo / Casa / Chalet</option>
-                                            <option value="1">Planta 1</option>
-                                            <option value="2">Planta 2</option>
-                                            <option value="3">Planta 3 o superior (Sin ascensor carga)</option>
-                                            <option value="99">Planta 3 o superior (Con ascensor grande)</option>
+                                            <option value="1">1ª Planta</option>
+                                            <option value="2">2ª Planta</option>
+                                            <option value="3">3ª Planta (Sin ascensor)</option>
+                                            <option value="99">3ª Planta (Con ascensor)</option>
                                         </select>
                                     </div>
 

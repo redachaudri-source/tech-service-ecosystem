@@ -51,7 +51,10 @@ const MyAppliances = () => {
         purchase_date: '',
         photo_model: '',
         photo_location: '',
-        photo_overview: ''
+        photo_overview: '',
+        housing_type: 'PISO',
+        floor_level: 0,
+        purchase_year: ''
     };
     const [formData, setFormData] = useState(initialForm);
     const [uploading, setUploading] = useState(false);
@@ -198,7 +201,10 @@ const MyAppliances = () => {
             purchase_date: appliance.purchase_date || '',
             photo_model: appliance.photo_model || appliance.photo_url || '', // Fallback for old data
             photo_location: appliance.photo_location || '',
-            photo_overview: appliance.photo_overview || ''
+            photo_overview: appliance.photo_overview || '',
+            housing_type: appliance.housing_type || 'PISO',
+            floor_level: appliance.floor_level || 0,
+            purchase_year: appliance.purchase_year || (appliance.purchase_date ? new Date(appliance.purchase_date).getFullYear() : '')
         });
         setEditId(appliance.id);
         setIsEditing(true);
@@ -221,7 +227,9 @@ const MyAppliances = () => {
             const submissionData = {
                 client_id: user.id,
                 ...formData,
-                purchase_date: formData.purchase_date || null
+                purchase_date: formData.purchase_date || null,
+                purchase_year: formData.purchase_year ? parseInt(formData.purchase_year) : null,
+                floor_level: parseInt(formData.floor_level || 0)
                 // Old photo_url kept for compatibility if needed, but we focus on new fields
             };
 
@@ -635,9 +643,58 @@ const MyAppliances = () => {
                                                 type="date"
                                                 className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
                                                 value={formData.purchase_date}
-                                                onChange={e => setFormData({ ...formData, purchase_date: e.target.value })}
+                                                onChange={e => {
+                                                    const date = e.target.value;
+                                                    // Auto-calc year
+                                                    const year = date ? new Date(date).getFullYear() : '';
+                                                    setFormData({ ...formData, purchase_date: date, purchase_year: year });
+                                                }}
                                             />
-                                            <p className="text-[10px] text-slate-400 mt-1">Si no recuerdas el día exacto, pon el día 1 de ese mes/año. Ayuda a calcular la antigüedad.</p>
+                                            <p className="text-[10px] text-slate-400 mt-1">Si no recuerdas el día exacto, pon el día 1 de ese mes/año.</p>
+                                        </div>
+
+                                        {/* SMART DATA: Housing & Floor */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Tipo de Vivienda</label>
+                                                <select
+                                                    className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none mb-1"
+                                                    value={formData.housing_type || 'PISO'}
+                                                    onChange={e => {
+                                                        const type = e.target.value;
+                                                        const isFlat = type === 'PISO';
+                                                        setFormData({
+                                                            ...formData,
+                                                            housing_type: type,
+                                                            floor_level: isFlat ? formData.floor_level : 0
+                                                        });
+                                                    }}
+                                                >
+                                                    <option value="PISO">Piso / Apartamento</option>
+                                                    <option value="CASA_MATA">Casa Mata / Baja</option>
+                                                    <option value="CHALET">Chalet / Adosado</option>
+                                                    <option value="BARCO">Barco / Caravana</option>
+                                                </select>
+                                                <p className="text-[10px] text-slate-400">Factor logístico para Mortify.</p>
+                                            </div>
+
+                                            {(!formData.housing_type || formData.housing_type === 'PISO') && (
+                                                <div>
+                                                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Planta / Altura</label>
+                                                    <select
+                                                        className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
+                                                        value={formData.floor_level || 0}
+                                                        onChange={e => setFormData({ ...formData, floor_level: parseInt(e.target.value) })}
+                                                    >
+                                                        <option value="0">Bajo / Con Ascensor</option>
+                                                        <option value="1">1ª Planta (Sin Ascensor)</option>
+                                                        <option value="2">2ª Planta (Sin Ascensor)</option>
+                                                        <option value="3">3ª Planta (Sin Ascensor)</option>
+                                                        <option value="4">4ª o superior (Sin Ascensor)</option>
+                                                    </select>
+                                                    <p className="text-[10px] text-slate-400">Si tiene ascensor grande, pon "Bajo".</p>
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Photos Section */}
