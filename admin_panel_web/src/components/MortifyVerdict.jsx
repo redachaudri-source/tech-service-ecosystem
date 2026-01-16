@@ -200,7 +200,12 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                                 <p className="text-slate-500 font-medium">{appliance.type} {appliance.model ? `- ${appliance.model}` : ''}</p>
                             </div>
                             <div className="text-right">
-                                <span className={`block text-2xl font-black ${assessment.total_score >= 5 ? 'text-green-600' : assessment.total_score <= 2 ? 'text-red-500' : 'text-amber-500'}`}>
+                                <span className={`block text-2xl font-black ${assessment.total_score >= 12 ? 'text-emerald-600' :
+                                        assessment.total_score >= 10 ? 'text-lime-500' :
+                                            assessment.total_score >= 8 ? 'text-yellow-400' :
+                                                assessment.total_score >= 6 ? 'text-orange-400' :
+                                                    assessment.total_score >= 4 ? 'text-red-500' : 'text-slate-800'
+                                    }`}>
                                     {assessment.total_score}
                                 </span>
                                 <span className="text-xs text-slate-400 font-bold uppercase">Puntos Totales</span>

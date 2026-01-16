@@ -59,7 +59,9 @@ const TeamManager = () => {
         streetNumber: '',
         postalCode: '',
         city: '',
-        province: ''
+        province: '',
+        // Bypass
+        bypassTimeRestrictions: false
     });
 
     const [creatingUser, setCreatingUser] = useState(false);
@@ -223,7 +225,9 @@ const TeamManager = () => {
                 streetNumber: member.street_number || '',
                 postalCode: member.postal_code || '',
                 city: member.city || '',
-                province: member.province || ''
+                city: member.city || '',
+                province: member.province || '',
+                bypassTimeRestrictions: member.bypass_time_restrictions || false
             });
         } else {
             setFormData({
@@ -244,7 +248,8 @@ const TeamManager = () => {
                 streetNumber: '',
                 postalCode: '',
                 city: '',
-                province: ''
+                province: '',
+                bypassTimeRestrictions: false
             });
             setShowEmailOverride(false);
         }
@@ -296,7 +301,10 @@ const TeamManager = () => {
                             phone: formData.phone,
                             address: formData.address,
                             avatar_url: formData.avatarUrl,
-                            contact_email: contactEmail
+                            address: formData.address,
+                            avatar_url: formData.avatarUrl,
+                            contact_email: contactEmail,
+                            bypass_time_restrictions: formData.bypassTimeRestrictions
                         }
                     }
                 });
@@ -318,7 +326,9 @@ const TeamManager = () => {
                         street_number: formData.streetNumber,
                         postal_code: formData.postalCode,
                         city: formData.city,
-                        province: formData.province
+                        city: formData.city,
+                        province: formData.province,
+                        bypass_time_restrictions: formData.bypassTimeRestrictions
                     }).eq('id', authData.user.id);
                 }
 
@@ -344,7 +354,9 @@ const TeamManager = () => {
                     street_number: formData.streetNumber,
                     postal_code: formData.postalCode,
                     city: formData.city,
-                    province: formData.province
+                    city: formData.city,
+                    province: formData.province,
+                    bypass_time_restrictions: formData.bypassTimeRestrictions
                 }).eq('id', formData.id);
 
                 if (error) throw error;
@@ -775,14 +787,42 @@ const TeamManager = () => {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Rol</label>
-                                    <input
-                                        type="text"
-                                        disabled
-                                        className="w-full p-2 border border-slate-200 rounded-lg bg-slate-100 text-slate-500 capitalize"
-                                        value={activeTab === 'admins' ? 'Administrador' : 'Técnico'}
-                                    />
+                                    <select
+                                        className="w-full p-2 border border-slate-200 rounded-lg"
+                                        value={formData.role}
+                                        onChange={e => setFormData({ ...formData, role: e.target.value })}
+                                    >
+                                        <option value="tech">Técnico de Campo</option>
+                                        <option value="admin">Administrador (Oficina)</option>
+                                    </select>
                                 </div>
                             </div>
+
+                            {/* BYPASS TOGGLE (Only for Techs) */}
+                            {(activeTab === 'techs' || formData.role === 'tech') && (
+                                <div className="bg-amber-50 p-4 rounded-xl border border-amber-200">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h4 className="font-bold text-amber-900 flex items-center gap-2">
+                                                <Unlock size={16} /> Modo Test (Saltar Horarios)
+                                            </h4>
+                                            <p className="text-xs text-amber-700 mt-1">Permite iniciar trabajos fuera del horario laboral (08:00 - 20:00).</p>
+                                        </div>
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                className="sr-only peer"
+                                                checked={formData.bypassTimeRestrictions}
+                                                onChange={e => setFormData({ ...formData, bypassTimeRestrictions: e.target.checked })}
+                                            />
+                                            <div className="w-11 h-6 bg-amber-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
+                                        </label>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Separator */}
+                            <div className="border-t border-slate-100 my-4 pt-4"></div>
 
                             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                                 <div className="flex justify-between items-center mb-3">

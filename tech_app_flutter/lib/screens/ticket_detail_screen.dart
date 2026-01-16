@@ -22,6 +22,42 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
   void initState() {
     super.initState();
     _status = widget.ticket['status'] ?? 'unknown';
+    _checkPermissions();
+  }
+
+  bool _canWork = true;
+  bool _loadingPerms = true;
+
+  Future<void> _checkPermissions() async {
+    // 1. Check Business Hours (08:00 - 20:00)
+    final now = DateTime.now();
+    final isWorkingHours = now.hour >= 8 && now.hour < 20;
+
+    if (isWorkingHours) {
+      if (mounted) setState(() => _canWork = true);
+      setState(() => _loadingPerms = false);
+      return;
+    }
+
+    // 2. Check Bypass Protocol
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user != null) {
+        final data = await _supabase
+            .from('profiles')
+            .select('bypass_time_restrictions')
+            .eq('id', user.id)
+            .single();
+        
+        final bool bypass = data['bypass_time_restrictions'] ?? false;
+        if (mounted) setState(() => _canWork = bypass);
+      }
+    } catch (e) {
+      debugPrint('Error status perms: $e');
+      if (mounted) setState(() => _canWork = false); // Fail safe
+    } finally {
+      if (mounted) setState(() => _loadingPerms = false);
+    }
   }
 
   Future<void> _updateStatus(String newStatus) async {
@@ -207,7 +243,26 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
 
     switch (_status) {
       case 'asignado':
-        buttons.add(_actionButton('Iniciar Viaje (En Camino)', 'en_camino', Colors.indigo));
+        // CHECK RESTRICTION ON START
+        if (_loadingPerms) {
+           buttons.add(const Center(child: CircularProgressIndicator()));
+        } else if (!_canWork) {
+           buttons.add(
+             Container(
+               padding: const EdgeInsets.all(12),
+               decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(8)),
+               child: Row(children: const [
+                 Icon(LucideIcons.lock, color: Colors.grey),
+                 SizedBox(width: 8),
+                 Expanded(child: Text('Horario Laboral Cerrado (08:00 - 20:00). Contacta con Admin para Modo Test.', style: TextStyle(color: Colors.grey, fontSize: 12)))
+               ]),
+             )
+           );
+           buttons.add(const SizedBox(height: 8));
+           buttons.add(_actionButton('Iniciar Viaje (Bloqueado)', 'en_camino', Colors.grey, enabled: false));
+        } else {
+           buttons.add(_actionButton('Iniciar Viaje (En Camino)', 'en_camino', Colors.indigo));
+        }
         break;
       case 'en_camino':
         buttons.add(_actionButton('Llegada (Diagnóstico)', 'en_diagnostico', Colors.purple));
@@ -275,11 +330,11 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     );
   }
 
-  Widget _actionButton(String label, String nextStatus, Color color) {
+  Widget _actionButton(String label, String nextStatus, Color color, {bool enabled = true}) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
-        icon: const Icon(LucideIcons.arrowRightCircle),
+        icon: Icon(enabled ? LucideIcons.arrowRightCircle : LucideIcons.lock),
         label: Text(label),
         style: ElevatedButton.styleFrom(
           backgroundColor: color, 
@@ -287,7 +342,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
         ),
-        onPressed: () => _updateStatus(nextStatus),
+        onPressed: enabled ? () => _updateStatus(nextStatus) : null,
       ),
     );
   }
