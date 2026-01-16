@@ -120,7 +120,12 @@ const MortifySettingsModal = ({ onClose }) => {
                         average_market_price: parseFloat(c.average_market_price),
                         average_lifespan_years: parseInt(c.average_lifespan_years)
                     };
-                    if (!c.isNew) row.id = c.id;
+                    // FIX: Generate ID client-side if new to satisfy DB constraints
+                    if (c.isNew) {
+                        row.id = crypto.randomUUID();
+                    } else {
+                        row.id = c.id;
+                    }
                     return row;
                 });
 
@@ -141,7 +146,12 @@ const MortifySettingsModal = ({ onClose }) => {
                         brand_name: b.brand_name.toUpperCase().trim(),
                         score_points: parseInt(b.score_points)
                     };
-                    if (!b.isNew) row.id = b.id;
+                    // FIX: Generate ID client-side if new to satisfy DB constraints
+                    if (b.isNew) {
+                        row.id = crypto.randomUUID();
+                    } else {
+                        row.id = b.id;
+                    }
                     return row;
                 });
 
