@@ -491,80 +491,84 @@ const MyAppliances = () => {
                                         </div>
 
                                         {/* Info Body */}
-                                        <div className="p-6 space-y-4">
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                                                    <p className="text-xs text-slate-400 uppercase font-bold">Reparaciones</p>
-                                                    <p className="text-xl font-bold text-slate-700">{appliance.repairCount}</p>
+                                        <div className="p-5 space-y-4">
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-center">
+                                                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Reparaciones</p>
+                                                    <p className="text-lg font-bold text-slate-700">{appliance.repairCount}</p>
                                                 </div>
-                                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                                                    <p className="text-xs text-slate-400 uppercase font-bold">Gastado</p>
-                                                    <p className="text-xl font-bold text-slate-700">{appliance.totalSpent.toFixed(0)}€</p>
+                                                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-center">
+                                                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Gastado</p>
+                                                    <p className="text-lg font-bold text-slate-700">{appliance.totalSpent.toFixed(0)}€</p>
                                                 </div>
                                             </div>
 
-                                            <div className="space-y-2 pt-2 border-t border-slate-50">
-                                                <div className="flex justify-between text-sm">
+                                            <div className="space-y-1.5 pt-2 border-t border-slate-50">
+                                                <div className="flex justify-between text-xs">
                                                     <span className="text-slate-400">Modelo</span>
-                                                    <span className="font-mono font-medium text-slate-700">{appliance.model || '---'}</span>
+                                                    <span className="font-mono font-medium text-slate-600">{appliance.model || '---'}</span>
                                                 </div>
-                                                <div className="flex justify-between text-sm">
+                                                <div className="flex justify-between text-xs">
                                                     <span className="text-slate-400">Ubicación</span>
-                                                    <span className="font-medium text-slate-700">{appliance.location || '---'}</span>
+                                                    <span className="font-medium text-slate-600">{appliance.location || '---'}</span>
                                                 </div>
                                             </div>
 
-                                            {/* Action Footer */}
-                                            <div className="pt-4 mt-2 flex gap-2">
-                                                <button
-                                                    onClick={() => {
-                                                        setHistoryAppliance(appliance);
-                                                        setShowHistory(true);
-                                                    }}
-                                                    className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition"
-                                                    title="Ver Historial"
-                                                >
-                                                    <History size={18} />
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        setGalleryAppliance(appliance);
-                                                        setShowGallery(true);
-                                                    }}
-                                                    className="p-2.5 bg-slate-50 text-slate-600 rounded-xl hover:bg-slate-100 transition"
-                                                    title="Ver Galería de Fotos"
-                                                >
-                                                    <Camera size={18} />
-                                                </button>
-
-
+                                            {/* Action Footer - Organized Layout */}
+                                            <div className="pt-2 flex flex-col gap-2">
+                                                {/* Primary Action */}
                                                 <button
                                                     onClick={() => navigate(`/new-service?from_appliance=${appliance.id}`)}
-                                                    className="flex-1 bg-slate-900 text-white py-2.5 rounded-xl font-bold text-sm hover:bg-slate-800 transition flex items-center justify-center gap-2 shadow-lg shadow-slate-900/10"
+                                                    className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold text-xs uppercase tracking-wide hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95"
                                                 >
                                                     <Wrench size={16} /> Solicitar Servicio
                                                 </button>
 
-                                                {/* MORTIFY LOGIC: Show Piggy ALWAYS unless Pending Judge */}
-                                                {(!appliance.mortifyStatus || appliance.mortifyStatus.status !== 'PENDING_JUDGE') && (
+                                                {/* Secondary Actions Row */}
+                                                <div className="flex items-center justify-between gap-2">
                                                     <button
                                                         onClick={() => {
-                                                            setMortifyAppliance(appliance);
-                                                            setShowMortify(true);
+                                                            setHistoryAppliance(appliance);
+                                                            setShowHistory(true);
                                                         }}
-                                                        className="bg-pink-500 text-white p-2.5 rounded-xl font-bold hover:bg-pink-600 transition shadow-lg shadow-pink-500/20"
-                                                        title="¿Merece la pena reparar?"
+                                                        className="flex-1 p-2 bg-slate-50 text-slate-500 rounded-lg hover:bg-slate-100 transition border border-slate-100 flex justify-center"
+                                                        title="Ver Historial"
                                                     >
-                                                        <PiggyBank size={18} />
+                                                        <History size={16} />
                                                     </button>
-                                                )}
-                                                <button
-                                                    onClick={() => handleDelete(appliance.id)}
-                                                    className="p-2.5 text-red-100 bg-red-50 hover:bg-red-100 hover:text-red-500 rounded-xl transition"
-                                                    title="Eliminar"
-                                                >
-                                                    <Trash2 size={18} />
-                                                </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setGalleryAppliance(appliance);
+                                                            setShowGallery(true);
+                                                        }}
+                                                        className="flex-1 p-2 bg-slate-50 text-slate-500 rounded-lg hover:bg-slate-100 transition border border-slate-100 flex justify-center"
+                                                        title="Ver Galería"
+                                                    >
+                                                        <Camera size={16} />
+                                                    </button>
+
+                                                    {/* MORTIFY LOGIC */}
+                                                    {(!appliance.mortifyStatus || appliance.mortifyStatus.status !== 'PENDING_JUDGE') && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setMortifyAppliance(appliance);
+                                                                setShowMortify(true);
+                                                            }}
+                                                            className="flex-1 p-2 bg-pink-50 text-pink-500 rounded-lg hover:bg-pink-100 transition border border-pink-100 flex justify-center"
+                                                            title="Análisis de Viabilidad"
+                                                        >
+                                                            <PiggyBank size={16} />
+                                                        </button>
+                                                    )}
+
+                                                    <button
+                                                        onClick={() => handleDelete(appliance.id)}
+                                                        className="flex-1 p-2 text-red-400 bg-red-50 hover:bg-red-100 hover:text-red-500 rounded-lg transition border border-red-100 flex justify-center"
+                                                        title="Eliminar"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -573,244 +577,256 @@ const MyAppliances = () => {
                         )}
                     </div>
 
-                    {/* MORTIFY PROMO BANNER (Desktop Sidebar) */}
+                    {/* MORTIFY PROMO BANNER (Desktop Sidebar - Aggressive Commercial Copy) */}
                     <div className="w-full lg:w-80 shrink-0 mt-8 lg:mt-0">
-                        <div className="sticky top-8 bg-gradient-to-br from-pink-500 to-rose-600 rounded-3xl p-6 text-white shadow-xl overflow-hidden relative group">
+                        <div className="sticky top-8 bg-gradient-to-br from-pink-600 to-rose-700 rounded-2xl p-6 text-white shadow-2xl overflow-hidden relative group transform hover:scale-[1.02] transition duration-500">
                             {/* Decor Balls */}
-                            <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/20 rounded-full blur-2xl group-hover:bg-white/30 transition duration-700"></div>
-                            <div className="absolute bottom-0 left-0 w-24 h-24 bg-purple-500/30 rounded-full blur-xl"></div>
+                            <div className="absolute -top-12 -right-12 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition duration-700"></div>
+                            <div className="absolute bottom-[-20px] left-[-20px] w-32 h-32 bg-purple-600/40 rounded-full blur-2xl"></div>
 
                             <div className="relative z-10 flex flex-col items-center text-center">
-                                <div className="bg-white p-4 rounded-full shadow-lg mb-4 animate-bounce-slow">
-                                    <PiggyBank size={48} className="text-pink-500" />
+                                <div className="bg-white p-3 rounded-full shadow-lg mb-4 animate-bounce-slow ring-4 ring-pink-500/30">
+                                    <PiggyBank size={40} className="text-pink-600" />
                                 </div>
 
-                                <h3 className="text-2xl font-black mb-2 tracking-tight">¡AHORRA DINERO!</h3>
-                                <p className="text-pink-100 text-sm font-medium mb-6 leading-relaxed">
-                                    ¿Tu electrodoméstico está viejo? <br />
-                                    Antes de pagar el desplazamiento del técnico, consulta a <strong>MORTIFY</strong>.
+                                <h3 className="text-xl font-black mb-1 leading-tight tracking-tight uppercase">
+                                    ¿REPARAR O TIRAR?
+                                </h3>
+                                <p className="text-pink-100 text-xs font-medium mb-4 px-2 opacity-90">
+                                    No tires tu dinero en reparaciones inútiles.
                                 </p>
 
-                                <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 w-full border border-white/20 mb-6">
-                                    <p className="text-3xl font-black text-white mb-1">4,99€</p>
-                                    <p className="text-[10px] uppercase tracking-widest opacity-80">Precio Análisis</p>
+                                <div className="bg-black/20 backdrop-blur-sm rounded-lg p-3 w-full border border-white/10 mb-5 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[9px] font-bold px-2 py-0.5 rounded-bl-lg">
+                                        ÚNICO EN EL MERCADO
+                                    </div>
+                                    <p className="text-3xl font-black text-white tracking-tighter mt-2">4,99€</p>
+                                    <p className="text-[9px] uppercase tracking-widest text-pink-200">Reembolsable*</p>
                                 </div>
 
-                                <ul className="text-left text-sm space-y-3 mb-8 w-full px-2">
-                                    <li className="flex items-start gap-2">
-                                        <CheckCircle size={16} className="mt-0.5 shrink-0 text-pink-200" />
-                                        <span>Te decimos si es <strong>VIABLE</strong> reparar o si es mejor comprar uno nuevo.</span>
+                                <ul className="text-left text-xs space-y-3 mb-6 w-full text-pink-50 font-medium">
+                                    <li className="flex items-start gap-2.5">
+                                        <div className="bg-white/20 p-1 rounded-full shrink-0 mt-0.5">
+                                            <CheckCircle size={10} className="text-white" />
+                                        </div>
+                                        <span>Sistema exclusivo de <strong>Inteligencia Artificial</strong> + Verificación Humana.</span>
                                     </li>
-                                    <li className="flex items-start gap-2">
-                                        <CheckCircle size={16} className="mt-0.5 shrink-0 text-pink-200" />
-                                        <span>Si decides repararlo, te <strong>DESCONTAMOS</strong> este pago de la factura final.</span>
+                                    <li className="flex items-start gap-2.5">
+                                        <div className="bg-white/20 p-1 rounded-full shrink-0 mt-0.5">
+                                            <CheckCircle size={10} className="text-white" />
+                                        </div>
+                                        <span>Te descontamos el coste si decides realizar la reparación.</span>
                                     </li>
                                 </ul>
 
                                 <button
                                     onClick={() => {
-                                        // Scroll to first appliance or trigger general info? 
-                                        // Ideally this would trigger the wizard for a specific appliance, but here it's general.
-                                        alert("¡Genial! Selecciona el cerdito rosa 🐷 en cualquiera de tus aparatos para empezar.");
+                                        alert("¡Toma el control de tus electrodomésticos! Pulsa el cerdito en cualquier tarjeta para empezar.");
                                     }}
-                                    className="w-full py-3.5 bg-white text-pink-600 rounded-xl font-bold hover:bg-pink-50 transition shadow-lg active:scale-95 uppercase tracking-wide text-xs"
+                                    className="w-full py-3 bg-white text-pink-700 rounded-lg font-black hover:bg-pink-50 transition shadow-xl active:scale-95 uppercase tracking-wide text-xs flex items-center justify-center gap-2 group-hover:shadow-pink-900/50"
                                 >
-                                    ¡Probar Ahora!
+                                    <Zap size={14} className="fill-current" />
+                                    Analizar Viabilidad
                                 </button>
+                                <p className="text-[9px] text-pink-200 mt-3 opacity-60">*Se descuenta del precio final de la reparación.</p>
                             </div>
                         </div>
                     </div>
                 </div>
-
-                {/* Modal */}
-                {
-                    showModal && (
-                        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in backdrop-blur-sm">
-                            <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative shadow-2xl">
-                                <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 z-10 bg-white rounded-full p-1">✕</button>
-
-                                <div className="p-6 md:p-8">
-                                    <h2 className="text-2xl font-bold text-slate-800 mb-1">{isEditing ? 'Editar Electrodoméstico' : 'Nuevo Electrodoméstico'}</h2>
-                                    <p className="text-slate-500 mb-6 text-sm">Completa la información para tener tu inventario al día.</p>
-
-                                    <form onSubmit={handleSubmit} className="space-y-6">
-                                        {/* Basic Info */}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Tipo</label>
-                                                <select
-                                                    required
-                                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
-                                                    value={formData.type}
-                                                    onChange={e => setFormData({ ...formData, type: e.target.value })}
-                                                >
-                                                    <option value="">Seleccionar...</option>
-                                                    {applianceTypes.map(t => <option key={t} value={t}>{t}</option>)}
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Marca</label>
-                                                <input
-                                                    required
-                                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
-                                                    placeholder="Ej. Samsung"
-                                                    value={formData.brand}
-                                                    onChange={e => setFormData({ ...formData, brand: e.target.value })}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 relative group">
-                                                <label className="block text-xs font-bold text-blue-800 mb-1 uppercase flex justify-between">
-                                                    <span>Modelo (OCR)</span>
-                                                    {ocrScanning && <span className="animate-pulse">Escaneando...</span>}
-                                                </label>
-                                                <input
-                                                    className="w-full p-3 bg-white border border-blue-200 rounded-xl mb-2 font-mono text-sm"
-                                                    placeholder="E-Nr..."
-                                                    value={formData.model}
-                                                    onChange={e => setFormData({ ...formData, model: e.target.value })}
-                                                />
-                                                <p className="text-xs text-blue-500/80">Sube la "Foto Etiqueta" para detectar esto automáticamente.</p>
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Ubicación</label>
-                                                <input
-                                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
-                                                    placeholder="Ej. Cocina, Sótano..."
-                                                    value={formData.location}
-                                                    onChange={e => setFormData({ ...formData, location: e.target.value })}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Purchase Date (Added) */}
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Fecha de Compra Aprox.</label>
-                                            <input
-                                                type="date"
-                                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
-                                                value={formData.purchase_date}
-                                                onChange={e => setFormData({ ...formData, purchase_date: e.target.value })}
-                                            />
-                                            <p className="text-[10px] text-slate-400 mt-1">Si no recuerdas el día exacto, pon el día 1 de ese mes/año. Ayuda a calcular la antigüedad.</p>
-                                        </div>
-
-                                        {/* Photos Section */}
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-500 mb-3 uppercase">Fotografías del Equipo</label>
-                                            <div className="grid grid-cols-3 gap-3">
-
-                                                {/* Photo 1: Model/Label */}
-                                                <div className="relative aspect-square">
-                                                    <label className={`flex flex-col items-center justify-center w-full h-full border-2 border-dashed rounded-xl cursor-pointer hover:bg-slate-50 transition overflow-hidden bg-white
-                                                ${formData.photo_model ? 'border-blue-400' : 'border-slate-200'}`}>
-                                                        {formData.photo_model ? (
-                                                            <img src={formData.photo_model} className="w-full h-full object-cover" />
-                                                        ) : (
-                                                            <>
-                                                                <Scan className="text-slate-400 mb-1" size={20} />
-                                                                <span className="text-[10px] text-slate-500 font-bold text-center leading-tight">ETIQUETA<br />(OCR)</span>
-                                                            </>
-                                                        )}
-                                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'photo_model')} disabled={uploading} />
-                                                    </label>
-                                                    {formData.photo_model && <div className="absolute top-1 right-1 bg-blue-600 text-white text-[10px] px-1.5 py-0.5 rounded shadow">Modelo</div>}
-                                                </div>
-
-                                                {/* Photo 2: Location */}
-                                                <div className="relative aspect-square">
-                                                    <label className={`flex flex-col items-center justify-center w-full h-full border-2 border-dashed rounded-xl cursor-pointer hover:bg-slate-50 transition overflow-hidden bg-white
-                                                ${formData.photo_location ? 'border-green-400' : 'border-slate-200'}`}>
-                                                        {formData.photo_location ? (
-                                                            <img src={formData.photo_location} className="w-full h-full object-cover" />
-                                                        ) : (
-                                                            <>
-                                                                <MapPin className="text-slate-400 mb-1" size={20} />
-                                                                <span className="text-[10px] text-slate-500 font-bold text-center">UBICACIÓN</span>
-                                                            </>
-                                                        )}
-                                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'photo_location')} disabled={uploading} />
-                                                    </label>
-                                                </div>
-
-                                                {/* Photo 3: Overview */}
-                                                <div className="relative aspect-square">
-                                                    <label className={`flex flex-col items-center justify-center w-full h-full border-2 border-dashed rounded-xl cursor-pointer hover:bg-slate-50 transition overflow-hidden bg-white
-                                                ${formData.photo_overview ? 'border-purple-400' : 'border-slate-200'}`}>
-                                                        {formData.photo_overview ? (
-                                                            <img src={formData.photo_overview} className="w-full h-full object-cover" />
-                                                        ) : (
-                                                            <>
-                                                                <Camera className="text-slate-400 mb-1" size={20} />
-                                                                <span className="text-[10px] text-slate-500 font-bold text-center">GENERAL</span>
-                                                            </>
-                                                        )}
-                                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'photo_overview')} disabled={uploading} />
-                                                    </label>
-                                                </div>
-
-                                            </div>
-                                            <p className="text-[10px] text-slate-400 mt-2 text-center">*La foto de la etiqueta intentará leer el modelo automáticamente.</p>
-                                        </div>
-
-
-                                        <div className="pt-4 border-t border-slate-100 flex gap-3">
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowModal(false)}
-                                                className="flex-1 py-3.5 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition"
-                                            >
-                                                Cancelar
-                                            </button>
-                                            <button
-                                                type="submit"
-                                                disabled={uploading || ocrScanning}
-                                                className="flex-1 bg-blue-600 text-white py-3.5 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-600/20 active:scale-95 disabled:opacity-70 disabled:active:scale-100"
-                                            >
-                                                {uploading ? 'Subiendo...' : ocrScanning ? 'Escaneando...' : isEditing ? 'Guardar Cambios' : 'Registrar Aparato'}
-                                            </button>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    )
-                }
-
-                {/* History Modal */}
-                {
-                    showHistory && (
-                        <HistoryModal
-                            appliance={historyAppliance}
-                            onClose={() => setShowHistory(false)}
-                        />
-                    )
-                }
-
-                {/* Gallery Modal */}
-                {showGallery && (
-                    <GalleryModal
-                        appliance={galleryAppliance}
-                        onClose={() => setShowGallery(false)}
-                    />
-                )}
-
-                {/* Mortify Wizard */}
-                {
-                    showMortify && (
-                        <MortifyWizard
-                            appliance={mortifyAppliance}
-                            onClose={() => setShowMortify(false)}
-                            onSuccess={() => {
-                                fetchAppliances(); // Refresh data to show badge
-                            }}
-                        />
-                    )
-                }
             </div>
         </div>
+
+                {/* Modal */ }
+    {
+        showModal && (
+            <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in backdrop-blur-sm">
+                <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative shadow-2xl">
+                    <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 z-10 bg-white rounded-full p-1">✕</button>
+
+                    <div className="p-6 md:p-8">
+                        <h2 className="text-2xl font-bold text-slate-800 mb-1">{isEditing ? 'Editar Electrodoméstico' : 'Nuevo Electrodoméstico'}</h2>
+                        <p className="text-slate-500 mb-6 text-sm">Completa la información para tener tu inventario al día.</p>
+
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            {/* Basic Info */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Tipo</label>
+                                    <select
+                                        required
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
+                                        value={formData.type}
+                                        onChange={e => setFormData({ ...formData, type: e.target.value })}
+                                    >
+                                        <option value="">Seleccionar...</option>
+                                        {applianceTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Marca</label>
+                                    <input
+                                        required
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
+                                        placeholder="Ej. Samsung"
+                                        value={formData.brand}
+                                        onChange={e => setFormData({ ...formData, brand: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 relative group">
+                                    <label className="block text-xs font-bold text-blue-800 mb-1 uppercase flex justify-between">
+                                        <span>Modelo (OCR)</span>
+                                        {ocrScanning && <span className="animate-pulse">Escaneando...</span>}
+                                    </label>
+                                    <input
+                                        className="w-full p-3 bg-white border border-blue-200 rounded-xl mb-2 font-mono text-sm"
+                                        placeholder="E-Nr..."
+                                        value={formData.model}
+                                        onChange={e => setFormData({ ...formData, model: e.target.value })}
+                                    />
+                                    <p className="text-xs text-blue-500/80">Sube la "Foto Etiqueta" para detectar esto automáticamente.</p>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Ubicación</label>
+                                    <input
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
+                                        placeholder="Ej. Cocina, Sótano..."
+                                        value={formData.location}
+                                        onChange={e => setFormData({ ...formData, location: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Purchase Date (Added) */}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Fecha de Compra Aprox.</label>
+                                <input
+                                    type="date"
+                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
+                                    value={formData.purchase_date}
+                                    onChange={e => setFormData({ ...formData, purchase_date: e.target.value })}
+                                />
+                                <p className="text-[10px] text-slate-400 mt-1">Si no recuerdas el día exacto, pon el día 1 de ese mes/año. Ayuda a calcular la antigüedad.</p>
+                            </div>
+
+                            {/* Photos Section */}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-3 uppercase">Fotografías del Equipo</label>
+                                <div className="grid grid-cols-3 gap-3">
+
+                                    {/* Photo 1: Model/Label */}
+                                    <div className="relative aspect-square">
+                                        <label className={`flex flex-col items-center justify-center w-full h-full border-2 border-dashed rounded-xl cursor-pointer hover:bg-slate-50 transition overflow-hidden bg-white
+                                                ${formData.photo_model ? 'border-blue-400' : 'border-slate-200'}`}>
+                                            {formData.photo_model ? (
+                                                <img src={formData.photo_model} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <>
+                                                    <Scan className="text-slate-400 mb-1" size={20} />
+                                                    <span className="text-[10px] text-slate-500 font-bold text-center leading-tight">ETIQUETA<br />(OCR)</span>
+                                                </>
+                                            )}
+                                            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'photo_model')} disabled={uploading} />
+                                        </label>
+                                        {formData.photo_model && <div className="absolute top-1 right-1 bg-blue-600 text-white text-[10px] px-1.5 py-0.5 rounded shadow">Modelo</div>}
+                                    </div>
+
+                                    {/* Photo 2: Location */}
+                                    <div className="relative aspect-square">
+                                        <label className={`flex flex-col items-center justify-center w-full h-full border-2 border-dashed rounded-xl cursor-pointer hover:bg-slate-50 transition overflow-hidden bg-white
+                                                ${formData.photo_location ? 'border-green-400' : 'border-slate-200'}`}>
+                                            {formData.photo_location ? (
+                                                <img src={formData.photo_location} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <>
+                                                    <MapPin className="text-slate-400 mb-1" size={20} />
+                                                    <span className="text-[10px] text-slate-500 font-bold text-center">UBICACIÓN</span>
+                                                </>
+                                            )}
+                                            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'photo_location')} disabled={uploading} />
+                                        </label>
+                                    </div>
+
+                                    {/* Photo 3: Overview */}
+                                    <div className="relative aspect-square">
+                                        <label className={`flex flex-col items-center justify-center w-full h-full border-2 border-dashed rounded-xl cursor-pointer hover:bg-slate-50 transition overflow-hidden bg-white
+                                                ${formData.photo_overview ? 'border-purple-400' : 'border-slate-200'}`}>
+                                            {formData.photo_overview ? (
+                                                <img src={formData.photo_overview} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <>
+                                                    <Camera className="text-slate-400 mb-1" size={20} />
+                                                    <span className="text-[10px] text-slate-500 font-bold text-center">GENERAL</span>
+                                                </>
+                                            )}
+                                            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'photo_overview')} disabled={uploading} />
+                                        </label>
+                                    </div>
+
+                                </div>
+                                <p className="text-[10px] text-slate-400 mt-2 text-center">*La foto de la etiqueta intentará leer el modelo automáticamente.</p>
+                            </div>
+
+
+                            <div className="pt-4 border-t border-slate-100 flex gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowModal(false)}
+                                    className="flex-1 py-3.5 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={uploading || ocrScanning}
+                                    className="flex-1 bg-blue-600 text-white py-3.5 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-600/20 active:scale-95 disabled:opacity-70 disabled:active:scale-100"
+                                >
+                                    {uploading ? 'Subiendo...' : ocrScanning ? 'Escaneando...' : isEditing ? 'Guardar Cambios' : 'Registrar Aparato'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    {/* History Modal */ }
+    {
+        showHistory && (
+            <HistoryModal
+                appliance={historyAppliance}
+                onClose={() => setShowHistory(false)}
+            />
+        )
+    }
+
+    {/* Gallery Modal */ }
+    {
+        showGallery && (
+            <GalleryModal
+                appliance={galleryAppliance}
+                onClose={() => setShowGallery(false)}
+            />
+        )
+    }
+
+    {/* Mortify Wizard */ }
+    {
+        showMortify && (
+            <MortifyWizard
+                appliance={mortifyAppliance}
+                onClose={() => setShowMortify(false)}
+                onSuccess={() => {
+                    fetchAppliances(); // Refresh data to show badge
+                }}
+            />
+        )
+    }
+            </div >
+        </div >
     );
 };
 
