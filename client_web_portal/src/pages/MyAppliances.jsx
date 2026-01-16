@@ -84,8 +84,8 @@ const MyAppliances = () => {
                 const tickets = app.tickets || [];
                 const repairCount = tickets.filter(t => ['finalizado', 'pagado'].includes(t.status)).length;
 
-                // Check active mortify assessment (take the latest if multiple)
-                const assessments = app.mortify_assessments || [];
+                // Check active mortify assessment (take the latest)
+                const assessments = (app.mortify_assessments || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                 const mortifyStatus = assessments.length > 0 ? assessments[0] : null;
 
                 // Calculate total spent
@@ -547,6 +547,18 @@ const MyAppliances = () => {
                                             onChange={e => setFormData({ ...formData, location: e.target.value })}
                                         />
                                     </div>
+                                </div>
+
+                                {/* Purchase Date (Added) */}
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Fecha de Compra Aprox.</label>
+                                    <input
+                                        type="date"
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
+                                        value={formData.purchase_date}
+                                        onChange={e => setFormData({ ...formData, purchase_date: e.target.value })}
+                                    />
+                                    <p className="text-[10px] text-slate-400 mt-1">Si no recuerdas el día exacto, pon el día 1 de ese mes/año. Ayuda a calcular la antigüedad.</p>
                                 </div>
 
                                 {/* Photos Section */}

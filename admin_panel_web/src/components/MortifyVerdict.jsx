@@ -16,6 +16,76 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
     // FIX: Access profiles instead of clients
     const clientName = appliance?.profiles?.full_name || 'Desconocido';
 
+    const [recalculating, setRecalculating] = useState(false);
+
+    const handleRecalculate = async () => {
+        setRecalculating(true);
+        try {
+            // 1. Get Fresh Data
+            const { data: appData } = await supabase.from('client_appliances').select('*').eq('id', assessment.appliance_id).single();
+            const brandName = (appData.brand || '').trim();
+            const typeName = (appData.type || '').trim();
+
+            // 2. Fetch Configs
+            const { data: brandScoreData } = await supabase.from('mortify_brand_scores').select('score_points').ilike('brand_name', brandName).maybeSingle();
+            const { data: catData } = await supabase.from('appliance_category_defaults').select('*').ilike('category_name', typeName).maybeSingle();
+
+            // 3. Calc Brand Score
+            const newScoreBrand = brandScoreData ? brandScoreData.score_points : 1;
+
+            // 4. Calc Age Score (Keep existing logic but refresh base)
+            let newScoreAge = 0;
+            const currentYear = new Date().getFullYear();
+            const pYear = assessment.input_year || appData.purchase_year; // Prefer snapshot input, fallback to app data
+            if (pYear) {
+                const age = currentYear - parseInt(pYear);
+                if (age < 6) newScoreAge = 1;
+            }
+
+            // 5. Calc Installation Score
+            let newScoreInstall = 0;
+            const floor = assessment.input_floor_level || 0;
+            const baseDiff = catData?.base_installation_difficulty || 0;
+            if (baseDiff === 0 && floor <= 2) newScoreInstall = 1;
+
+            // 6. Calc Financial Score
+            // We need original spent override if it exists? 
+            // We'll assume the snapshot financial score logic was correct based on 'total_spent_override' hidden in logic.
+            // But we don't have that override stored separately?
+            // Wait, `assessMortifyViability` used `userInputs.total_spent_override`.
+            // The `mortify_assessments` table DOES NOT store `total_spent`. 
+            // So we can't perfectly recalculate Financial Score if it depended on a transient input.
+            // HOWEVER: We can keep the existing `score_financial` unless we want to assume 0 or 1.
+            // Let's Keep `score_financial` as is, only update Brand and Age if possible.
+            const newScoreFinancial = assessment.score_financial;
+
+            // 7. Total
+            const newTotal = newScoreBrand + newScoreAge + newScoreInstall + newScoreFinancial;
+            let newSuggestion = 'DOUBTFUL';
+            if (newTotal >= 5) newSuggestion = 'VIABLE';
+            else if (newTotal < 3) newSuggestion = 'OBSOLETE';
+
+            // 8. Update DB
+            const { error: updErr } = await supabase.from('mortify_assessments').update({
+                score_brand: newScoreBrand,
+                score_age: newScoreAge,
+                score_installation: newScoreInstall,
+                total_score: newTotal,
+                ia_suggestion: newSuggestion
+            }).eq('id', assessment.id);
+
+            if (updErr) throw updErr;
+
+            alert(`Recálculo completado.\nNuevo Total: ${newTotal} pts\nMarca: ${newScoreBrand} pts`);
+            onComplete(); // Refresh parent
+        } catch (err) {
+            console.error(err);
+            alert('Error al recalcular: ' + err.message);
+        } finally {
+            setRecalculating(false);
+        }
+    };
+
     const handleDecision = async (verdict) => {
         if (!confirm('¿Estás seguro de emitir este veredicto? Es irreversible.')) return;
 
@@ -183,6 +253,16 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                     <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6">El Veredicto</h3>
 
                     <div className="flex-1 flex flex-col justify-center space-y-6 max-w-md mx-auto w-full">
+
+                        {/* UPDATE SCORES BUTTON */}
+                        <button
+                            onClick={handleRecalculate}
+                            disabled={recalculating || processing}
+                            className="text-xs w-full py-2 bg-slate-50 border border-slate-200 text-slate-500 rounded-lg hover:bg-slate-100 hover:text-indigo-600 transition flex items-center justify-center gap-2"
+                        >
+                            {recalculating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                            Actualizar Puntuación (Si cambiaste configuración)
+                        </button>
 
                         <div className="space-y-2">
                             <div className="flex justify-between items-end">
