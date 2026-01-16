@@ -23,6 +23,69 @@ const AI_ESTIMATES = {
     'calentador': 300
 };
 
+// --- BRAND AUTOCOMPLETE COMPONENT ---
+const BrandAutocomplete = ({ value, onChange }) => {
+    const [brands, setBrands] = useState([]);
+    const [suggestions, setSuggestions] = useState([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+
+    useEffect(() => {
+        // Fetch brands from DB
+        const fetchBrands = async () => {
+            const { data } = await supabase
+                .from('mortify_brand_scores')
+                .select('brand_name')
+                .order('brand_name');
+            if (data) setBrands(data.map(b => b.brand_name));
+        };
+        fetchBrands();
+    }, []);
+
+    const handleChange = (e) => {
+        const val = e.target.value;
+        onChange(val);
+        if (val.length > 0) {
+            const filtered = brands.filter(b => b.toLowerCase().includes(val.toLowerCase()));
+            setSuggestions(filtered);
+            setShowSuggestions(!!filtered.length);
+        } else {
+            setShowSuggestions(false);
+        }
+    };
+
+    const handleSelect = (brand) => {
+        onChange(brand);
+        setShowSuggestions(false);
+    };
+
+    return (
+        <div className="relative">
+            <input
+                required
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
+                placeholder="Ej. Samsung"
+                value={value}
+                onChange={handleChange}
+                onFocus={() => value && setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+            />
+            {showSuggestions && (
+                <ul className="absolute z-50 w-full bg-white border border-slate-200 rounded-xl mt-1 max-h-48 overflow-y-auto shadow-lg animate-in fade-in zoom-in-95 duration-100">
+                    {suggestions.map((brand, idx) => (
+                        <li
+                            key={idx}
+                            className="p-3 hover:bg-blue-50 cursor-pointer text-slate-700 text-sm border-b border-slate-50 last:border-0"
+                            onClick={() => handleSelect(brand)}
+                        >
+                            {brand}
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+};
+
 const MyAppliances = () => {
     const navigate = useNavigate();
     const [appliances, setAppliances] = useState([]);
@@ -623,12 +686,9 @@ const MyAppliances = () => {
                                             </div>
                                             <div>
                                                 <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Marca</label>
-                                                <input
-                                                    required
-                                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
-                                                    placeholder="Ej. Samsung"
+                                                <BrandAutocomplete
                                                     value={formData.brand}
-                                                    onChange={e => setFormData({ ...formData, brand: e.target.value })}
+                                                    onChange={val => setFormData({ ...formData, brand: val })}
                                                 />
                                             </div>
                                         </div>
