@@ -158,6 +158,12 @@ const MortifyDashboard = () => {
                                                 <div className="text-xs text-slate-500">
                                                     {a.client_appliances?.profiles?.full_name}
                                                 </div>
+                                                {/* AUTO-TRIGGER BADGE */}
+                                                {(a.admin_note || '').startsWith('Actualización automática') && (
+                                                    <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 border border-blue-200 uppercase tracking-wide">
+                                                        <Clock size={10} /> Re-Evaluación
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2">
