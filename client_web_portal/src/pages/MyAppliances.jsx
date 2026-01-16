@@ -450,7 +450,7 @@ const MyAppliances = () => {
                             <ArrowLeft size={20} />
                         </button>
                         <div>
-                            <h1 className="text-2xl font-bold text-slate-800">Mis Electrodomésticos</h1>
+                            <h1 className="text-2xl font-bold text-slate-800">Mis Electrodomésticos <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">v3.0</span></h1>
                             <p className="text-slate-500 text-sm">Gestiona tu equipamiento e información.</p>
                         </div>
                     </div>
