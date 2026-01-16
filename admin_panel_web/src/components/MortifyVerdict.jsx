@@ -33,37 +33,43 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
             // 3. Calc Brand Score
             const newScoreBrand = brandScoreData ? brandScoreData.score_points : 1;
 
-            // 4. Calc Age Score (Keep existing logic but refresh base)
+            // 4. Calc Age Score (Granular 0-5)
             let newScoreAge = 0;
             const currentYear = new Date().getFullYear();
-            const pYear = assessment.input_year || appData.purchase_year; // Prefer snapshot input, fallback to app data
+            const pYear = assessment.input_year || appData.purchase_year;
             if (pYear) {
                 const age = currentYear - parseInt(pYear);
-                if (age < 6) newScoreAge = 1;
+                if (age <= 2) newScoreAge = 5;
+                else if (age <= 4) newScoreAge = 4;
+                else if (age <= 6) newScoreAge = 3;
+                else if (age <= 8) newScoreAge = 2;
+                else if (age <= 10) newScoreAge = 1;
+                else newScoreAge = 0;
             }
 
-            // 5. Calc Installation Score
-            let newScoreInstall = 0;
-            const floor = assessment.input_floor_level || 0;
-            const baseDiff = catData?.base_installation_difficulty || 0;
-            if (baseDiff === 0 && floor <= 2) newScoreInstall = 1;
+            // 5. Calc Installation Score (Granular 0-5)
+            let newScoreInstall = 5; // Default max (House/Chalet)
+            const housingType = (assessment.client_appliances?.housing_type || appData.housing_type || 'PISO');
+
+            if (housingType === 'PISO') {
+                const floor = parseInt(assessment.input_floor_level !== null ? assessment.input_floor_level : (appData.floor_level || 0));
+                if (floor === 0) newScoreInstall = 5;
+                else if (floor === 1) newScoreInstall = 4;
+                else if (floor === 2) newScoreInstall = 3;
+                else if (floor === 3) newScoreInstall = 2;
+                else if (floor === 4) newScoreInstall = 1;
+                else newScoreInstall = 0;
+            }
 
             // 6. Calc Financial Score
-            // We need original spent override if it exists? 
-            // We'll assume the snapshot financial score logic was correct based on 'total_spent_override' hidden in logic.
-            // But we don't have that override stored separately?
-            // Wait, `assessMortifyViability` used `userInputs.total_spent_override`.
-            // The `mortify_assessments` table DOES NOT store `total_spent`. 
-            // So we can't perfectly recalculate Financial Score if it depended on a transient input.
-            // HOWEVER: We can keep the existing `score_financial` unless we want to assume 0 or 1.
-            // Let's Keep `score_financial` as is, only update Brand and Age if possible.
-            const newScoreFinancial = assessment.score_financial;
+            const newScoreFinancial = assessment.score_financial; // Keep existing (deprecated/penalty logic separate)
 
-            // 7. Total
+            // 7. Total (Max 14)
             const newTotal = newScoreBrand + newScoreAge + newScoreInstall + newScoreFinancial;
+
             let newSuggestion = 'DOUBTFUL';
-            if (newTotal >= 5) newSuggestion = 'VIABLE';
-            else if (newTotal < 3) newSuggestion = 'OBSOLETE';
+            if (newTotal >= 10) newSuggestion = 'VIABLE';
+            else if (newTotal <= 3) newSuggestion = 'OBSOLETE';
 
             // 8. Update DB
             const { error: updErr } = await supabase.from('mortify_assessments').update({
@@ -211,15 +217,15 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                             />
                             <ScoreRow
                                 icon={Calendar} color="text-amber-500"
-                                label={`Antigüedad (${assessment.input_year || '?'})`}
+                                label={`Antigüedad: ${assessment.input_year ? (new Date().getFullYear() - assessment.input_year) : '?'} años (${assessment.input_year || '?'})`}
                                 score={assessment.score_age}
-                                description="Vida útil restante estimada según el año de compra."
+                                description="Vida útil restante estimada. 0-2 años (5pts) ... >10 años (0pts)."
                             />
                             <ScoreRow
                                 icon={Thermometer} color="text-purple-500"
-                                label="Instalación / Acceso"
+                                label={`Instalación (${assessment.input_floor_level !== undefined ? (assessment.input_floor_level === 0 ? 'Bajo/Casa' : `Piso ${assessment.input_floor_level}`) : '?'})`}
                                 score={assessment.score_installation}
-                                description="Complejidad técnica para acceder y reparar el equipo."
+                                description="Accesibilidad y dificultad de instalación."
                             />
                             <ScoreRow
                                 icon={Banknote} color="text-green-500"
