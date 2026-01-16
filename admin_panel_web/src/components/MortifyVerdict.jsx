@@ -97,7 +97,7 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                     status: 'JUDGED',
                     admin_verdict: verdict,
                     admin_note: note,
-                    judged_at: new Date().toISOString()
+                    admin_decision_date: new Date().toISOString()
                 })
                 .eq('id', assessment.id);
 
