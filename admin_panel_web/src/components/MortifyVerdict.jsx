@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import {
     ArrowLeft, CheckCircle, XCircle, AlertTriangle,
     Thermometer, ShieldCheck, Banknote, Calendar,
-    Eye, Sparkles, X, Info
+    Eye, Sparkles, X, Info, Loader2
 } from 'lucide-react';
 
 const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
