@@ -451,11 +451,6 @@ const MyAppliances = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                                 {appliances.map(appliance => (
                                     <div key={appliance.id + '_v2'} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-xl hover:translate-y-[-2px] transition-all duration-300 group relative">
-                                        {/* ABSOLUTE VIABILITY LABEL (Repair Index Style) */}
-                                        <div className="absolute top-4 right-16 z-50">
-                                            <ViabilityAnalysis appliance={appliance} />
-                                        </div>
-
                                         {/* Premium Header Card */}
                                         <div className="p-6 flex items-start justify-between bg-gradient-to-br from-white to-slate-50 border-b border-slate-100">
                                             <div className="flex gap-4">
@@ -467,13 +462,14 @@ const MyAppliances = () => {
                                                     <p className="text-sm font-medium text-blue-600">{appliance.type}</p>
                                                 </div>
                                             </div>
-                                            {/* Action Dots / Edit */}
-                                            <div className="flex items-center gap-1">
+                                            {/* Action Dots / Edit + Viability Label */}
+                                            <div className="flex items-start gap-3">
+                                                <ViabilityAnalysis appliance={appliance} />
                                                 <button
                                                     onClick={() => handleEdit(appliance)}
-                                                    className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-blue-600 transition"
+                                                    className="p-1 hover:bg-slate-100 rounded-lg text-slate-300 hover:text-blue-600 transition"
                                                 >
-                                                    <Edit2 size={18} />
+                                                    <Edit2 size={16} />
                                                 </button>
                                             </div>
                                         </div>
