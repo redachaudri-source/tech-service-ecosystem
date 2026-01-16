@@ -1,4 +1,5 @@
 import React from 'react';
+import { Wrench } from 'lucide-react';
 
 const ViabilityLabel = ({ score, size = 'md' }) => {
     // 1. Calculate V-Level (Direct Mapping: 1 to 6)
@@ -22,10 +23,19 @@ const ViabilityLabel = ({ score, size = 'md' }) => {
     const isSmall = size === 'sm';
 
     if (isSmall) {
+        // "Repairability Index" Style
         return (
-            <div className={`flex items-center gap-2 px-2 py-1 rounded-md text-white font-bold text-[10px] ${config.color} shadow-sm`}>
-                <span className="bg-white/20 px-1 rounded">V{vLevel}</span>
-                <span>{config.text}</span>
+            <div className="flex items-stretch select-none shadow-sm hover:scale-105 transition-transform">
+                {/* Left: Icon Block (Solid Color) */}
+                <div className={`${config.color} text-white px-2 py-1 rounded-l-md flex items-center justify-center`}>
+                    <Wrench size={14} className="fill-current stroke-[2.5]" />
+                </div>
+                {/* Right: Score Block (White with colored border/text) */}
+                <div className={`bg-white border-y border-r ${config.borderColor || config.color.replace('bg-', 'border-')} rounded-r-md flex items-center justify-center px-2 min-w-[36px]`}>
+                    <span className={`font-black text-sm ${config.textColor || config.color.replace('bg-', 'text-')} leading-none`}>
+                        {vLevel}<span className="text-[9px] opacity-60 ml-0.5 font-bold">/6</span>
+                    </span>
+                </div>
             </div>
         );
     }

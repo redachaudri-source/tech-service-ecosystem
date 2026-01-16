@@ -450,7 +450,12 @@ const MyAppliances = () => {
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                                 {appliances.map(appliance => (
-                                    <div key={appliance.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-xl hover:translate-y-[-2px] transition-all duration-300 group">
+                                    <div key={appliance.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-xl hover:translate-y-[-2px] transition-all duration-300 group relative">
+                                        {/* ABSOLUTE VIABILITY LABEL (Repair Index Style) */}
+                                        <div className="absolute top-4 right-14 z-20">
+                                            <ViabilityAnalysis appliance={appliance} />
+                                        </div>
+
                                         {/* Premium Header Card */}
                                         <div className="p-6 flex items-start justify-between bg-gradient-to-br from-white to-slate-50 border-b border-slate-100">
                                             <div className="flex gap-4">
@@ -463,9 +468,7 @@ const MyAppliances = () => {
                                                 </div>
                                             </div>
                                             {/* Action Dots / Edit */}
-                                            {/* Action Dots / Edit */}
                                             <div className="flex items-center gap-1">
-                                                <ViabilityAnalysis appliance={appliance} totalSpent={appliance.totalSpent} />
                                                 <button
                                                     onClick={() => handleEdit(appliance)}
                                                     className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-blue-600 transition"
