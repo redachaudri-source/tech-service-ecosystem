@@ -2,8 +2,9 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard, Users, Map, Package, LogOut, UserCheck, Settings as SettingsIcon,
     Globe, Calendar, Tag, FileText, Menu as MenuIcon, X, Briefcase, TrendingUp,
-    ChevronDown, ChevronRight, HelpCircle, Scale
+    ChevronDown, ChevronRight, HelpCircle, Scale, Bell
 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useState, useEffect } from 'react';
 import { useTicketNotifications } from '../hooks/useTicketNotifications'; // NEW HOOK
@@ -56,22 +57,54 @@ const Layout = () => {
     const { count: notificationCount } = useTicketNotifications();
 
     // MORTIFY NOTIFICATIONS
+    // MORTIFY NOTIFICATIONS & REALTIME
     const [mortifyCount, setMortifyCount] = useState(0);
-    // Fetch pending assessments count
+    const [showMortifyBanner, setShowMortifyBanner] = useState(false);
+
     useEffect(() => {
+        // 1. Initial Fetch
         const fetchMortifyCount = async () => {
-            const { count } = await import('../lib/supabase').then(({ supabase }) =>
-                supabase
-                    .from('mortify_assessments')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('status', 'PENDING_JUDGE')
-            );
+            const { count } = await supabase
+                .from('mortify_assessments')
+                .select('*', { count: 'exact', head: true })
+                .eq('status', 'PENDING_JUDGE');
             setMortifyCount(count || 0);
         };
         fetchMortifyCount();
-        const interval = setInterval(fetchMortifyCount, 30000); // Poll every 30s
-        return () => clearInterval(interval);
+
+        // 2. Realtime Subscription
+        const channel = supabase
+            .channel('admin-mortify-notifications')
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'mortify_assessments' },
+                (payload) => {
+                    // Start Analysis Mode (Pending Judge)
+                    if (payload.new.status === 'PENDING_JUDGE') {
+                        setMortifyCount(prev => prev + 1);
+                        setShowMortifyBanner(true); // Show Banner
+                        playNotificationSound();
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, []);
+
+    // Sound Effect Helper
+    const playNotificationSound = () => {
+        try {
+            const isMuted = localStorage.getItem('mute_notifications') === 'true';
+            if (!isMuted) {
+                const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+                audio.volume = 0.5;
+                audio.play().catch(e => console.log('Audio blocked', e));
+            }
+        } catch (e) { }
+    };
 
     // Sound Effect on Count Increase (Local State to track prev)
     const [prevCount, setPrevCount] = useState(0);
@@ -119,8 +152,8 @@ const Layout = () => {
 
                 {hasBadge && (
                     <span className="absolute right-2 top-1/2 -translate-y-1/2 flex h-4 w-4">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 items-center justify-center text-[8px] font-bold text-white">
+                        <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${hasMortifyBadge ? 'bg-amber-400' : 'bg-red-400'}`}></span>
+                        <span className={`relative inline-flex rounded-full h-4 w-4 items-center justify-center text-[8px] font-bold text-white ${hasMortifyBadge ? 'bg-amber-500' : 'bg-red-500'}`}>
                             {badgeCount > 9 ? '9+' : badgeCount}
                         </span>
                     </span>
@@ -139,7 +172,32 @@ const Layout = () => {
     };
 
     return (
-        <div className="flex h-screen w-full bg-slate-50 overflow-hidden font-sans">
+        <div className="flex h-screen w-full bg-slate-50 overflow-hidden font-sans relative">
+            {/* GLOBAL NOTIFICATION BANNER (MORTIFY) */}
+            {showMortifyBanner && (
+                <div className="absolute top-4 right-4 z-[9999] animate-in slide-in-from-top-5 duration-300">
+                    <Link
+                        to="/mortify"
+                        onClick={() => setShowMortifyBanner(false)}
+                        className="bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-4 border border-slate-700 hover:scale-105 transition-transform cursor-pointer"
+                    >
+                        <div className="bg-amber-500 p-2 rounded-lg text-slate-900 animate-pulse">
+                            <Scale size={20} />
+                        </div>
+                        <div>
+                            <p className="font-bold text-sm">Nueva Solicitud Mortify</p>
+                            <p className="text-xs text-slate-400">Un cliente requiere análisis de viabilidad</p>
+                        </div>
+                        <button
+                            onClick={(e) => { e.preventDefault(); setShowMortifyBanner(false); }}
+                            className="p-1 hover:bg-slate-800 rounded-full"
+                        >
+                            <X size={16} className="text-slate-500" />
+                        </button>
+                    </Link>
+                </div>
+            )}
+
             {/* Mobile Header */}
             <header className="lg:hidden absolute top-0 left-0 right-0 h-14 bg-slate-900 border-b border-slate-800 text-white flex items-center justify-between px-4 z-20 shadow-md">
                 <button onClick={() => setIsMobileMenuOpen(true)} className="text-slate-400 hover:text-white p-2">
