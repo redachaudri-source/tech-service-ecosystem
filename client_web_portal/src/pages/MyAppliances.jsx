@@ -1,4 +1,71 @@
-import { useState, useEffect } from 'react';
+import MortifyVerdictModal from '../components/MortifyVerdictModal';
+
+// ... (existing imports, keep them)
+
+const MyAppliances = () => {
+    // ... (existing state)
+
+    // Verdict Modal State
+    const [showVerdictModal, setShowVerdictModal] = useState(false);
+    const [verdictAssessment, setVerdictAssessment] = useState(null);
+
+    // ... (existing logic)
+
+    // Helper for icons based on type
+    // ...
+
+    // --- AI VIABILITY COMPONENT (Enhanced for Mortify UX) ---
+    const ViabilityAnalysis = ({ appliance }) => {
+        // Only show "Analyzing..." badge. 
+        if (appliance.mortifyStatus && appliance.mortifyStatus.status === 'PENDING_JUDGE') {
+            // ... (keep PENDING logic)
+            return (
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-bold bg-blue-50 text-blue-600 border-blue-100 animate-pulse">
+                    <Loader2 size={12} className="animate-spin" />
+                    <span>Analizando...</span>
+                </div>
+            );
+        }
+
+        // JUDGED: Show New V-Label (Clickable)
+        if (appliance.mortifyStatus && appliance.mortifyStatus.status === 'JUDGED') {
+            const score = appliance.mortifyStatus.total_score;
+            return (
+                <div
+                    onClick={(e) => {
+                        e.stopPropagation(); // Prevent card clicks if any
+                        setVerdictAssessment(appliance.mortifyStatus);
+                        setShowVerdictModal(true);
+                    }}
+                    className="cursor-pointer hover:scale-105 transition-transform"
+                    title="Ver Dictamen Detallado"
+                >
+                    <ViabilityLabel score={score} size="sm" />
+                </div>
+            );
+        }
+
+        return null;
+    };
+
+    // ... (rest of render)
+
+    // In return block, render MortifyVerdictModal
+
+    return (
+        // ...
+        {/* Verdict Modal */ }
+                {
+        showVerdictModal && (
+            <MortifyVerdictModal
+                assessment={verdictAssessment}
+                onClose={() => setShowVerdictModal(false)}
+            />
+        )
+    }
+        // ... (other modals)
+    )
+}
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Plus, Trash2, MapPin, Camera, Wrench, ArrowLeft, Package, Edit2, Scan, Zap, Tv, Thermometer, Wind, Waves, Disc, Flame, Utensils, Smartphone, Refrigerator, History, FileText, TrendingUp, AlertTriangle, CheckCircle, PiggyBank, Loader2, X } from 'lucide-react';
@@ -6,6 +73,7 @@ import Tesseract from 'tesseract.js';
 import MortifyWizard from '../components/MortifyWizard';
 import ViabilityLabel from '../components/ViabilityLabel';
 import MortifyExplainerBanner from '../components/MortifyExplainerBanner';
+import MortifyVerdictModal from '../components/MortifyVerdictModal';
 
 // AI Market Value Estimates (Mock Database)
 const AI_ESTIMATES = {
@@ -41,6 +109,10 @@ const MyAppliances = () => {
     // Gallery State
     const [showGallery, setShowGallery] = useState(false);
     const [galleryAppliance, setGalleryAppliance] = useState(null);
+
+    // Verdict Modal State
+    const [showVerdictModal, setShowVerdictModal] = useState(false);
+    const [verdictAssessment, setVerdictAssessment] = useState(null);
 
     // Form State
     const initialForm = {
@@ -409,11 +481,23 @@ const MyAppliances = () => {
             );
         }
 
-        // JUDGED: Show New V-Label
+        // JUDGED: Show New V-Label (Clickable)
         if (appliance.mortifyStatus && appliance.mortifyStatus.status === 'JUDGED') {
             const score = appliance.mortifyStatus.total_score;
-            // Use small size for the card view
-            return <ViabilityLabel score={score} size="sm" />;
+            // Use small size for the card view, wrapped in interactive div
+            return (
+                <div
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setVerdictAssessment(appliance.mortifyStatus);
+                        setShowVerdictModal(true);
+                    }}
+                    className="cursor-pointer hover:scale-105 transition-transform"
+                    title="Ver Dictamen Detallado"
+                >
+                    <ViabilityLabel score={score} size="sm" />
+                </div>
+            );
         }
 
         return null;
@@ -795,6 +879,16 @@ const MyAppliances = () => {
                         <GalleryModal
                             appliance={galleryAppliance}
                             onClose={() => setShowGallery(false)}
+                        />
+                    )
+                }
+
+                {/* Verdict Modal */}
+                {
+                    showVerdictModal && (
+                        <MortifyVerdictModal
+                            assessment={verdictAssessment}
+                            onClose={() => setShowVerdictModal(false)}
                         />
                     )
                 }
