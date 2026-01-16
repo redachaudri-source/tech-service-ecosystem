@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { assessMortifyViability } from '../services/mortifyService';
-import { PiggyBank, Loader2, Calendar, Building, CheckCircle } from 'lucide-react';
+import { PiggyBank, Loader2, Calendar, Building, CheckCircle, AlertTriangle } from 'lucide-react';
 import MortifyPaymentModal from './MortifyPaymentModal';
 
 const MortifyWizard = ({ appliance, onClose, onSuccess }) => {
@@ -8,6 +8,7 @@ const MortifyWizard = ({ appliance, onClose, onSuccess }) => {
     const [year, setYear] = useState(appliance.purchase_year || '');
     const [floor, setFloor] = useState(0); // Default Planta Baja
     const [error, setError] = useState(null);
+    const [resultData, setResultData] = useState(null); // Store result for UI warning
 
     // Initial Form Submit -> Go to Payment
     const handleInputSubmit = (e) => {
@@ -24,13 +25,15 @@ const MortifyWizard = ({ appliance, onClose, onSuccess }) => {
             const inputs = {
                 input_year: year,
                 input_floor_level: floor,
-                total_spent_override: appliance.totalSpent || 0
+                total_spent_override: appliance.totalSpent || 0,
+                repair_count: appliance.repairCount || 0
                 // Note: History penalty logic will be added in Task 2 using repairCount
             };
 
             const result = await assessMortifyViability(appliance.id, inputs);
 
             if (result.success) {
+                setResultData(result.data); // Save full result data (including penalty info)
                 setStep('done');
                 if (onSuccess) onSuccess();
             } else {
@@ -158,11 +161,29 @@ const MortifyWizard = ({ appliance, onClose, onSuccess }) => {
                                         </p>
                                     </div>
 
+                                    {/* RISK WARNING */}
+                                    {resultData && resultData.history_penalty > 0 && (
+                                        <div className="bg-orange-50 p-3 rounded-xl border border-orange-200 text-left flex gap-3 items-start mt-2">
+                                            <div className="bg-orange-100 p-1 rounded-full shrink-0 text-orange-600 mt-0.5">
+                                                <AlertTriangle size={14} />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-bold text-orange-800">Factor de Riesgo Detectado</p>
+                                                <p className="text-[11px] text-orange-700 leading-tight">
+                                                    Este aparato ya acumula <strong>{resultData.total_spent_ref.toFixed(0)}€</strong> en reparaciones previas o tiene un historial de averías frecuente. Seguir invirtiendo es financieramente arriesgado (-{resultData.history_penalty} ptos).
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-blue-800 text-sm font-medium">
+                                        ⏳ Tiempo estimado: 1h - 48h
+                                    </div>
                                     <button
                                         onClick={onClose}
                                         className="w-full bg-slate-900 text-white py-3 rounded-xl font-bold hover:bg-slate-800 transition"
                                     >
-                                        Ver Resultados
+                                        Entendido
                                     </button>
                                 </div>
                             )}

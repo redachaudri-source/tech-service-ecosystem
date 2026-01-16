@@ -94,8 +94,33 @@ export const assessMortifyViability = async (applianceId, userInputs) => {
             scoreFinancial = 1;
         }
 
-        // E. TOTAL & VERDICT
-        const totalScore = scoreBrand + scoreAge + scoreInstallation + scoreFinancial;
+        // F. HISTORY PENALTY (Factor Ruina)
+        // Rule 1: "Pozo sin Fondo" (Accumulated Spend)
+        // Rule 2: "Paciente Crónico" (Repair Frequency)
+
+        let penaltyHistory = 0;
+        const repairCount = userInputs.repair_count || 0;
+        // reuse totalSpent from Financial Score section
+
+        // 1. Spend Penalty
+        if (totalSpent > (marketPrice * 0.5)) {
+            penaltyHistory += 2;
+        } else if (totalSpent > (marketPrice * 0.3)) {
+            penaltyHistory += 1;
+        }
+
+        // 2. Frequency Penalty
+        if (repairCount >= 3) {
+            penaltyHistory += 2;
+        } else if (repairCount === 2) {
+            penaltyHistory += 1;
+        }
+
+        // G. TOTAL & VERDICT
+        // Start with base sum
+        const rawScore = scoreBrand + scoreAge + scoreInstallation + scoreFinancial;
+        // Apply penalty (ensure not negative)
+        const totalScore = Math.max(0, rawScore - penaltyHistory);
 
         let iaSuggestion = 'DOUBTFUL';
         if (totalScore >= 5) iaSuggestion = 'VIABLE';
@@ -121,10 +146,17 @@ export const assessMortifyViability = async (applianceId, userInputs) => {
 
         if (insertError) throw insertError;
 
-        return { success: true, data: assessment };
+        // Return penalty info for UI warning
+        return { success: true, data: { ...assessment, history_penalty: penaltyHistory, total_spent_ref: totalSpent } };
+            .select()
+    .single();
+
+if (insertError) throw insertError;
+
+return { success: true, data: assessment };
 
     } catch (error) {
-        console.error('MORTIFY ALGORITHM FAILED:', error);
-        return { success: false, error: error.message };
-    }
+    console.error('MORTIFY ALGORITHM FAILED:', error);
+    return { success: false, error: error.message };
+}
 };
