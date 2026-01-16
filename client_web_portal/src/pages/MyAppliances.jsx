@@ -378,7 +378,7 @@ const MyAppliances = () => {
                         {photos.length === 0 ? (
                             <div className="text-center text-slate-500 py-12 flex flex-col items-center">
                                 <Camera size={48} className="mb-4 opacity-50" />
-                                <No hay fotos registradas de este aparato.
+                                No hay fotos registradas de este aparato.
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
