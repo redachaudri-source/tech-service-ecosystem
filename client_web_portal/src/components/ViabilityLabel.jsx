@@ -3,18 +3,20 @@ import { Wrench } from 'lucide-react';
 
 const ViabilityLabel = ({ score, size = 'md' }) => {
     // 1. Calculate V-Level (Direct Mapping: 1 to 6)
-    // Logic: If score is >= 6 -> V6. If score < 1 -> V1.
-    // We treat score as the direct V number essentially, capped at 6.
     const vLevel = Math.max(1, Math.min(Math.floor(score || 0), 6));
 
-    // 2. Visual Config
+    // 2. Visual Config (STRICT MODE)
+    // V6 = Emerald (Pure Green)
+    // V5 = Lime (Yellow-Green)
+    // V4 = Yellow
+    // V3 = Orange
     const configs = {
-        6: { color: 'bg-emerald-600', text: 'EXCELENTE', sub: 'Inversión Maestra', ring: 'ring-emerald-200' }, // 6+
-        5: { color: 'bg-green-500', text: 'MUY RENTABLE', sub: 'Reparación Segura', ring: 'ring-green-200' }, // 5
-        4: { color: 'bg-yellow-500', text: 'ACEPTABLE', sub: 'Riesgo Bajo', ring: 'ring-yellow-200' }, // 4
-        3: { color: 'bg-orange-400', text: 'RIESGO MODERADO', sub: 'Evaluar Coste', ring: 'ring-orange-200' }, // 3
-        2: { color: 'bg-red-500', text: 'POCO RENTABLE', sub: 'Desaconsejado', ring: 'ring-red-200' }, // 2
-        1: { color: 'bg-slate-800', text: 'OBSOLETO', sub: 'Zona de Muerte', ring: 'ring-slate-200' }  // 0-1
+        6: { color: 'bg-emerald-600', text: 'EXCELENTE', sub: 'Inversión Maestra', ring: 'ring-emerald-200' },
+        5: { color: 'bg-lime-500', text: 'MUY RENTABLE', sub: 'Reparación Segura', ring: 'ring-lime-200', textColor: 'text-lime-700' },
+        4: { color: 'bg-yellow-400', text: 'ACEPTABLE', sub: 'Riesgo Bajo', ring: 'ring-yellow-200', textColor: 'text-yellow-700' },
+        3: { color: 'bg-orange-400', text: 'RIESGO MODERADO', sub: 'Evaluar Coste', ring: 'ring-orange-200' },
+        2: { color: 'bg-red-500', text: 'POCO RENTABLE', sub: 'Desaconsejado', ring: 'ring-red-200' },
+        1: { color: 'bg-slate-800', text: 'OBSOLETO', sub: 'Zona de Muerte', ring: 'ring-slate-200' }
     };
 
     const config = configs[vLevel] || configs[1];
@@ -31,10 +33,13 @@ const ViabilityLabel = ({ score, size = 'md' }) => {
                     <Wrench size={14} className="fill-current stroke-[2.5]" />
                 </div>
                 {/* Right: Score Block (White with colored border/text) */}
-                <div className={`bg-white border-y border-r ${config.borderColor || config.color.replace('bg-', 'border-')} rounded-r-md flex items-center justify-center px-2 min-w-[36px]`}>
-                    <span className={`font-black text-sm ${config.textColor || config.color.replace('bg-', 'text-')} leading-none`}>
-                        {vLevel}<span className="text-[9px] opacity-60 ml-0.5 font-bold">/6</span>
-                    </span>
+                <div className={`bg-white border-y border-r ${config.borderColor || 'border-slate-100'} rounded-r-md flex items-center justify-center px-2 min-w-[42px]`}>
+                    <div className="flex items-baseline leading-none">
+                        <span className={`font-black text-sm ${config.textColor || config.color.replace('bg-', 'text-')}`}>
+                            {vLevel}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-bold ml-0.5">/6</span>
+                    </div>
                 </div>
             </div>
         );
@@ -52,7 +57,10 @@ const ViabilityLabel = ({ score, size = 'md' }) => {
                 </div>
                 <div className="bg-white/20 backdrop-blur-md px-5 py-2 rounded-2xl flex flex-col items-center border border-white/10">
                     <span className="text-xs font-bold opacity-80">NIVEL</span>
-                    <span className="text-4xl font-black leading-none">V{vLevel}</span>
+                    <div className="flex items-end leading-none">
+                        <span className="text-4xl font-black">V{vLevel}</span>
+                        <span className="text-sm font-bold opacity-60 mb-1 ml-1">/6</span>
+                    </div>
                 </div>
             </div>
 

@@ -419,16 +419,21 @@ const MyAppliances = () => {
             const score = appliance.mortifyStatus.total_score;
             // Use small size for the card view, wrapped in interactive div
             return (
-                <div
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        setVerdictAssessment(appliance.mortifyStatus);
-                        setShowVerdictModal(true);
-                    }}
-                    className="cursor-pointer hover:scale-105 transition-transform"
-                    title="Ver Dictamen Detallado"
-                >
-                    <ViabilityLabel score={score} size="sm" />
+                <div className="flex flex-col items-end gap-1">
+                    <div
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setVerdictAssessment(appliance.mortifyStatus);
+                            setShowVerdictModal(true);
+                        }}
+                        className="cursor-pointer hover:scale-105 transition-transform"
+                        title="Ver Dictamen Detallado"
+                    >
+                        <ViabilityLabel score={score} size="sm" />
+                    </div>
+                    <span className="text-[9px] text-slate-400 font-medium">
+                        {new Date(appliance.mortifyStatus.created_at).toLocaleDateString()}
+                    </span>
                 </div>
             );
         }
