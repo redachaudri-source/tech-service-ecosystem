@@ -353,6 +353,26 @@ const MyAppliances = () => {
             );
         }
 
+        if (appliance.mortifyStatus && appliance.mortifyStatus.status === 'JUDGED') {
+            const verdict = appliance.mortifyStatus.admin_verdict;
+            if (verdict === 'CONFIRMED_VIABLE') {
+                return (
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-bold bg-green-50 text-green-700 border-green-200">
+                        <CheckCircle size={12} />
+                        <span>VIABLE</span>
+                    </div>
+                );
+            }
+            if (verdict === 'CONFIRMED_OBSOLETE') {
+                return (
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-bold bg-red-50 text-red-600 border-red-200">
+                        <AlertTriangle size={12} />
+                        <span>OBSOLETO</span>
+                    </div>
+                );
+            }
+        }
+
         return null;
     };
 
