@@ -1,0 +1,24 @@
+
+> client_web_portal@0.0.0 build
+> vite build
+
+[36mvite v7.3.0 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32m✓[39m 1758 modules transformed.
+[31m✗[39m Build failed in 5.42s
+[31merror during build:
+[31msrc/services/mortifyService.js (151:12): Expression expected[31m
+file: [36mC:/Users/PC/.gemini/antigravity/scratch/tech_service_ecosystem/client_web_portal/src/services/mortifyService.js:151:12[31m
+[33m
+149:         // Return penalty info for UI warning
+150:         return { success: true, data: { ...assessment, history_penalty: penaltyHistory, total_spent_ref: totalSpent }...
+151:             .select()
+                 ^
+152:     .single();
+[31m
+    at getRollupError (file:///C:/Users/PC/.gemini/antigravity/scratch/tech_service_ecosystem/client_web_portal/node_modules/rollup/dist/es/shared/parseAst.js:401:41)
+    at ParseError.initialise (file:///C:/Users/PC/.gemini/antigravity/scratch/tech_service_ecosystem/client_web_portal/node_modules/rollup/dist/es/shared/node-entry.js:14534:28)
+    at convertNode (file:///C:/Users/PC/.gemini/antigravity/scratch/tech_service_ecosystem/client_web_portal/node_modules/rollup/dist/es/shared/node-entry.js:16418:10)
+    at convertProgram (file:///C:/Users/PC/.gemini/antigravity/scratch/tech_service_ecosystem/client_web_portal/node_modules/rollup/dist/es/shared/node-entry.js:15658:12)
+    at Module.setSource (file:///C:/Users/PC/.gemini/antigravity/scratch/tech_service_ecosystem/client_web_portal/node_modules/rollup/dist/es/shared/node-entry.js:17418:24)
+    at async ModuleLoader.addModuleSource (file:///C:/Users/PC/.gemini/antigravity/scratch/tech_service_ecosystem/client_web_portal/node_modules/rollup/dist/es/shared/node-entry.js:21448:13)[39m

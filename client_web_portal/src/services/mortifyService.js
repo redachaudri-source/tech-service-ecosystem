@@ -148,15 +148,9 @@ export const assessMortifyViability = async (applianceId, userInputs) => {
 
         // Return penalty info for UI warning
         return { success: true, data: { ...assessment, history_penalty: penaltyHistory, total_spent_ref: totalSpent } };
-            .select()
-    .single();
-
-if (insertError) throw insertError;
-
-return { success: true, data: assessment };
 
     } catch (error) {
-    console.error('MORTIFY ALGORITHM FAILED:', error);
-    return { success: false, error: error.message };
-}
+        console.error('MORTIFY ALGORITHM FAILED:', error);
+        return { success: false, error: error.message };
+    }
 };
