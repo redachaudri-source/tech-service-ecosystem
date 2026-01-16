@@ -50,7 +50,7 @@ export const assessMortifyViability = async (applianceId, userInputs) => {
             }
         }
 
-        // B. AGE SCORE (Time Factor)
+        // B. AGE SCORE (Time Factor) - GRANULAR 0-5
         let scoreAge = 0;
         const currentYear = new Date().getFullYear();
         // Use input year if provided (fresh data), else database year
@@ -58,49 +58,63 @@ export const assessMortifyViability = async (applianceId, userInputs) => {
 
         if (purchaseYear) {
             const age = currentYear - parseInt(purchaseYear);
-            if (age < 6) scoreAge = 1;
+            // 0-2 años: 5 Puntos.
+            // 3-4 años: 4 Puntos.
+            // 5-6 años: 3 Puntos.
+            // 7-8 años: 2 Puntos.
+            // 9-10 años: 1 Punto.
+            // > 10 años: 0 Puntos.
+            if (age <= 2) scoreAge = 5;
+            else if (age <= 4) scoreAge = 4;
+            else if (age <= 6) scoreAge = 3;
+            else if (age <= 8) scoreAge = 2;
+            else if (age <= 10) scoreAge = 1;
+            else scoreAge = 0;
         }
 
-        // C. INSTALLATION SCORE (Hassle Factor)
-        let scoreInstallation = 0;
+        // C. INSTALLATION SCORE (Hassle Factor) - GRANULAR 0-5
+        let scoreInstallation = 5; // Default max (e.g. House/Chalet/Boat)
 
-        if (defaults?.base_installation_difficulty === 1) {
-            scoreInstallation = 0;
-        } else {
-            const floor = parseInt(userInputs.input_floor_level || 0);
-            if (floor <= 2) {
-                scoreInstallation = 1;
-            } else {
-                scoreInstallation = 0;
-            }
+        const housingType = (userInputs.housing_type || appliance.housing_type || 'PISO');
+
+        if (housingType === 'PISO') {
+            const floor = parseInt(userInputs.input_floor_level || appliance.floor_level || 0);
+            // Planta 0: 5 Puntos
+            // Planta 1: 4 Puntos
+            // Planta 2: 3 Puntos
+            // Planta 3: 2 Puntos
+            // Planta 4: 1 Punto
+            // Planta >= 5: 0 Puntos
+            if (floor === 0) scoreInstallation = 5;
+            else if (floor === 1) scoreInstallation = 4;
+            else if (floor === 2) scoreInstallation = 3;
+            else if (floor === 3) scoreInstallation = 2;
+            else if (floor === 4) scoreInstallation = 1;
+            else scoreInstallation = 0;
         }
 
-        // D. FINANCIAL SCORE (Money Factor)
-        // Rule: Total Spent < 50% of Market Value
-        let scoreFinancial = 0;
+        // D. FINANCIAL SCORE (Money Factor) - REMOVING BINARY LOGIC?
+        // Wait, user didn't specify granular logic for Financial in this task prompt. 
+        // "C) PUNTUACIÓN MARCA (Max 4 Puntos) * Se mantiene la lógica actual"
+        // But what about Financial? 
+        // The prompt says "Max is 14 (5+5+4)". This implies Financial Score is REMOVED or MERGED into the others?
+        // Or maybe Financial is just a penalty now ("Factor Ruina")?
+        // "Rule 1: Pozo sin Fondo... Rule 2: Paciente Crónico" -> These are penalties.
+        // The math: 5 (Age) + 5 (Install) + 4 (Brand) = 14. 
+        // So YES, `scoreFinancial` (the +1 bonus for being cheap) seems to be REMOVED from the base sum. 
+        // We will keep the penalties.
 
-        // Use override passed from client (Strict Adherence)
+        let scoreFinancial = 0; // Deprecated as a base point
+
+        // ... (Keep overrides logic just for future ref if needed, but it adds 0) ... 
         const totalSpent = (userInputs.total_spent_override !== undefined)
             ? parseFloat(userInputs.total_spent_override)
             : 0;
-
-        // If no market price default found, we use 400 as fallback
         const marketPrice = parseFloat(defaults?.average_market_price || 400);
-        const financialLimit = marketPrice * 0.5;
-
-        // If spent is LESS than 50% of value, it's worth it (+1 point)
-        // Otherwise 0 points.
-        if (totalSpent < financialLimit) {
-            scoreFinancial = 1;
-        }
 
         // F. HISTORY PENALTY (Factor Ruina)
-        // Rule 1: "Pozo sin Fondo" (Accumulated Spend)
-        // Rule 2: "Paciente Crónico" (Repair Frequency)
-
         let penaltyHistory = 0;
         const repairCount = userInputs.repair_count || 0;
-        // reuse totalSpent from Financial Score section
 
         // 1. Spend Penalty
         if (totalSpent > (marketPrice * 0.5)) {
@@ -117,14 +131,16 @@ export const assessMortifyViability = async (applianceId, userInputs) => {
         }
 
         // G. TOTAL & VERDICT
-        // Start with base sum
-        const rawScore = scoreBrand + scoreAge + scoreInstallation + scoreFinancial;
+        // Max Possible = 14
+        const rawScore = scoreBrand + scoreAge + scoreInstallation; // Financial removed from base
         // Apply penalty (ensure not negative)
         const totalScore = Math.max(0, rawScore - penaltyHistory);
 
+        // Verdict Mapping (recalibrated V-Label handles visual, but we need text suggestion)
+        // V6 (12-14) | V5 (10-11) | V4 (8-9) | V3 (6-7) | V2 (4-5) | V1 (0-3)
         let iaSuggestion = 'DOUBTFUL';
-        if (totalScore >= 5) iaSuggestion = 'VIABLE';
-        else if (totalScore < 3) iaSuggestion = 'OBSOLETE';
+        if (totalScore >= 10) iaSuggestion = 'VIABLE';
+        else if (totalScore <= 3) iaSuggestion = 'OBSOLETE';
 
         // 3. SAVE ASSESSMENT
         const { data: assessment, error: insertError } = await supabase
