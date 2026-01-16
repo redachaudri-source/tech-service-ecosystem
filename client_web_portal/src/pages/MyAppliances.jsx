@@ -1,71 +1,4 @@
-import MortifyVerdictModal from '../components/MortifyVerdictModal';
-
-// ... (existing imports, keep them)
-
-const MyAppliances = () => {
-    // ... (existing state)
-
-    // Verdict Modal State
-    const [showVerdictModal, setShowVerdictModal] = useState(false);
-    const [verdictAssessment, setVerdictAssessment] = useState(null);
-
-    // ... (existing logic)
-
-    // Helper for icons based on type
-    // ...
-
-    // --- AI VIABILITY COMPONENT (Enhanced for Mortify UX) ---
-    const ViabilityAnalysis = ({ appliance }) => {
-        // Only show "Analyzing..." badge. 
-        if (appliance.mortifyStatus && appliance.mortifyStatus.status === 'PENDING_JUDGE') {
-            // ... (keep PENDING logic)
-            return (
-                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-bold bg-blue-50 text-blue-600 border-blue-100 animate-pulse">
-                    <Loader2 size={12} className="animate-spin" />
-                    <span>Analizando...</span>
-                </div>
-            );
-        }
-
-        // JUDGED: Show New V-Label (Clickable)
-        if (appliance.mortifyStatus && appliance.mortifyStatus.status === 'JUDGED') {
-            const score = appliance.mortifyStatus.total_score;
-            return (
-                <div
-                    onClick={(e) => {
-                        e.stopPropagation(); // Prevent card clicks if any
-                        setVerdictAssessment(appliance.mortifyStatus);
-                        setShowVerdictModal(true);
-                    }}
-                    className="cursor-pointer hover:scale-105 transition-transform"
-                    title="Ver Dictamen Detallado"
-                >
-                    <ViabilityLabel score={score} size="sm" />
-                </div>
-            );
-        }
-
-        return null;
-    };
-
-    // ... (rest of render)
-
-    // In return block, render MortifyVerdictModal
-
-    return (
-        // ...
-        {/* Verdict Modal */ }
-                {
-        showVerdictModal && (
-            <MortifyVerdictModal
-                assessment={verdictAssessment}
-                onClose={() => setShowVerdictModal(false)}
-            />
-        )
-    }
-        // ... (other modals)
-    )
-}
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Plus, Trash2, MapPin, Camera, Wrench, ArrowLeft, Package, Edit2, Scan, Zap, Tv, Thermometer, Wind, Waves, Disc, Flame, Utensils, Smartphone, Refrigerator, History, FileText, TrendingUp, AlertTriangle, CheckCircle, PiggyBank, Loader2, X } from 'lucide-react';
@@ -445,7 +378,7 @@ const MyAppliances = () => {
                         {photos.length === 0 ? (
                             <div className="text-center text-slate-500 py-12 flex flex-col items-center">
                                 <Camera size={48} className="mb-4 opacity-50" />
-                                No hay fotos registradas de este aparato.
+                                <No hay fotos registradas de este aparato.
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -798,78 +731,55 @@ const MyAppliances = () => {
                                                                 <span className="text-[10px] text-slate-500 font-bold text-center leading-tight">ETIQUETA<br />(OCR)</span>
                                                             </>
                                                         )}
-                                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'photo_model')} disabled={uploading} />
+                                                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'photo_model')} disabled={uploading} />
                                                     </label>
-                                                    {formData.photo_model && <div className="absolute top-1 right-1 bg-blue-600 text-white text-[10px] px-1.5 py-0.5 rounded shadow">Modelo</div>}
                                                 </div>
 
                                                 {/* Photo 2: Location */}
                                                 <div className="relative aspect-square">
                                                     <label className={`flex flex-col items-center justify-center w-full h-full border-2 border-dashed rounded-xl cursor-pointer hover:bg-slate-50 transition overflow-hidden bg-white
-                                                ${formData.photo_location ? 'border-green-400' : 'border-slate-200'}`}>
+                                                ${formData.photo_location ? 'border-blue-400' : 'border-slate-200'}`}>
                                                         {formData.photo_location ? (
                                                             <img src={formData.photo_location} className="w-full h-full object-cover" />
                                                         ) : (
                                                             <>
                                                                 <MapPin className="text-slate-400 mb-1" size={20} />
-                                                                <span className="text-[10px] text-slate-500 font-bold text-center">UBICACIÓN</span>
+                                                                <span className="text-[10px] text-slate-500 font-bold text-center leading-tight">UBICACIÓN</span>
                                                             </>
                                                         )}
-                                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'photo_location')} disabled={uploading} />
+                                                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'photo_location')} disabled={uploading} />
                                                     </label>
                                                 </div>
 
                                                 {/* Photo 3: Overview */}
                                                 <div className="relative aspect-square">
                                                     <label className={`flex flex-col items-center justify-center w-full h-full border-2 border-dashed rounded-xl cursor-pointer hover:bg-slate-50 transition overflow-hidden bg-white
-                                                ${formData.photo_overview ? 'border-purple-400' : 'border-slate-200'}`}>
+                                                ${formData.photo_overview ? 'border-blue-400' : 'border-slate-200'}`}>
                                                         {formData.photo_overview ? (
                                                             <img src={formData.photo_overview} className="w-full h-full object-cover" />
                                                         ) : (
                                                             <>
                                                                 <Camera className="text-slate-400 mb-1" size={20} />
-                                                                <span className="text-[10px] text-slate-500 font-bold text-center">GENERAL</span>
+                                                                <span className="text-[10px] text-slate-500 font-bold text-center leading-tight">GENERAL</span>
                                                             </>
                                                         )}
-                                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'photo_overview')} disabled={uploading} />
+                                                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'photo_overview')} disabled={uploading} />
                                                     </label>
                                                 </div>
-
                                             </div>
-                                            <p className="text-[10px] text-slate-400 mt-2 text-center">*La foto de la etiqueta intentará leer el modelo automáticamente.</p>
                                         </div>
 
-
-                                        <div className="pt-4 border-t border-slate-100 flex gap-3">
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowModal(false)}
-                                                className="flex-1 py-3.5 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition"
-                                            >
-                                                Cancelar
-                                            </button>
-                                            <button
-                                                type="submit"
-                                                disabled={uploading || ocrScanning}
-                                                className="flex-1 bg-blue-600 text-white py-3.5 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-600/20 active:scale-95 disabled:opacity-70 disabled:active:scale-100"
-                                            >
-                                                {uploading ? 'Subiendo...' : ocrScanning ? 'Escaneando...' : isEditing ? 'Guardar Cambios' : 'Registrar Aparato'}
-                                            </button>
-                                        </div>
+                                        <button
+                                            type="submit"
+                                            disabled={uploading}
+                                            className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition shadow-lg shadow-blue-600/20 active:scale-95 disabled:opacity-50"
+                                        >
+                                            {uploading ? 'Subiendo fotos...' : (isEditing ? 'Guardar Cambios' : 'Registrar Aparato')}
+                                        </button>
                                     </form>
                                 </div>
                             </div>
                         </div>
-                    )
-                }
-
-                {/* History Modal */}
-                {
-                    showHistory && (
-                        <HistoryModal
-                            appliance={historyAppliance}
-                            onClose={() => setShowHistory(false)}
-                        />
                     )
                 }
 
@@ -900,13 +810,14 @@ const MyAppliances = () => {
                             appliance={mortifyAppliance}
                             onClose={() => setShowMortify(false)}
                             onSuccess={() => {
-                                fetchAppliances(); // Refresh data to show badge
+                                setShowMortify(false);
+                                fetchAppliances(); // Refresh to see badge
                             }}
                         />
                     )
                 }
-            </div >
-        </div >
+            </div>
+        </div>
     );
 };
 
