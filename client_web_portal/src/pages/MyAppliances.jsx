@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash2, MapPin, Camera, Wrench, ArrowLeft, Package, Edit2, Scan, Zap, Tv, Thermometer, Wind, Waves, Disc, Flame, Utensils, Smartphone, Refrigerator, History, FileText, TrendingUp, AlertTriangle, CheckCircle, PiggyBank, Loader2 } from 'lucide-react';
+import { Plus, Trash2, MapPin, Camera, Wrench, ArrowLeft, Package, Edit2, Scan, Zap, Tv, Thermometer, Wind, Waves, Disc, Flame, Utensils, Smartphone, Refrigerator, History, FileText, TrendingUp, AlertTriangle, CheckCircle, PiggyBank, Loader2, X } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 import MortifyWizard from '../components/MortifyWizard';
 
