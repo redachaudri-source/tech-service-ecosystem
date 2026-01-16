@@ -463,14 +463,15 @@ const MyAppliances = () => {
                                                 </div>
                                             </div>
                                             {/* Action Dots / Edit + Viability Label */}
-                                            <div className="flex items-start gap-3">
-                                                <ViabilityAnalysis appliance={appliance} />
+                                            <div className="flex flex-col items-end gap-2">
                                                 <button
                                                     onClick={() => handleEdit(appliance)}
-                                                    className="p-1 hover:bg-slate-100 rounded-lg text-slate-300 hover:text-blue-600 transition"
+                                                    className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-blue-600 transition"
+                                                    title="Editar"
                                                 >
                                                     <Edit2 size={16} />
                                                 </button>
+                                                <ViabilityAnalysis appliance={appliance} />
                                             </div>
                                         </div>
 
