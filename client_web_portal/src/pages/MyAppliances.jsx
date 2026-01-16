@@ -809,8 +809,9 @@ const MyAppliances = () => {
                         />
                     )
                 }
-            </div >
-            );
+            </div>
+        </div>
+    );
 };
 
-            export default MyAppliances;
+export default MyAppliances;
