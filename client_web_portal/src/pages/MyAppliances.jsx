@@ -5,6 +5,7 @@ import { Plus, Trash2, MapPin, Camera, Wrench, ArrowLeft, Package, Edit2, Scan, 
 import Tesseract from 'tesseract.js';
 import MortifyWizard from '../components/MortifyWizard';
 import ViabilityLabel from '../components/ViabilityLabel';
+import MortifyExplainerBanner from '../components/MortifyExplainerBanner';
 
 // AI Market Value Estimates (Mock Database)
 const AI_ESTIMATES = {
@@ -437,12 +438,12 @@ const MyAppliances = () => {
                     </button>
                 </div>
 
-                {/* Main Content + Sidebar Wrapper */}
-                <div className="flex flex-col lg:flex-row gap-8 items-start">
+                {/* HERO BANNER: MORTIFY VALUE PROP */}
+                <MortifyExplainerBanner />
 
-                    {/* APPLIANCES GRID (Left/Main) */}
-                    <div className="flex-1 w-full min-w-0">
-                        {/* Premium Grid */}
+                {/* Appliances Grid Container */}
+                <div className="flex flex-col gap-8">
+                    <div className="w-full">
                         {loading ? (
                             <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>
                         ) : appliances.length === 0 ? (
@@ -560,62 +561,6 @@ const MyAppliances = () => {
                                 ))}
                             </div>
                         )}
-                    </div>
-
-                    {/* MORTIFY PROMO BANNER (Desktop Sidebar - Aggressive Commercial Copy) */}
-                    <div className="w-full lg:w-80 shrink-0 mt-8 lg:mt-0">
-                        <div className="sticky top-8 bg-gradient-to-br from-pink-600 to-rose-700 rounded-2xl p-6 text-white shadow-2xl overflow-hidden relative group transform hover:scale-[1.02] transition duration-500">
-                            {/* Decor Balls */}
-                            <div className="absolute -top-12 -right-12 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition duration-700"></div>
-                            <div className="absolute bottom-[-20px] left-[-20px] w-32 h-32 bg-purple-600/40 rounded-full blur-2xl"></div>
-
-                            <div className="relative z-10 flex flex-col items-center text-center">
-                                <div className="bg-white p-3 rounded-full shadow-lg mb-4 animate-bounce-slow ring-4 ring-pink-500/30">
-                                    <PiggyBank size={40} className="text-pink-600" />
-                                </div>
-
-                                <h3 className="text-xl font-black mb-1 leading-tight tracking-tight uppercase">
-                                    ¿REPARAR O TIRAR?
-                                </h3>
-                                <p className="text-pink-100 text-xs font-medium mb-4 px-2 opacity-90">
-                                    No tires tu dinero en reparaciones inútiles.
-                                </p>
-
-                                <div className="bg-black/20 backdrop-blur-sm rounded-lg p-3 w-full border border-white/10 mb-5 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[9px] font-bold px-2 py-0.5 rounded-bl-lg">
-                                        ÚNICO EN EL MERCADO
-                                    </div>
-                                    <p className="text-3xl font-black text-white tracking-tighter mt-2">4,99€</p>
-                                    <p className="text-[9px] uppercase tracking-widest text-pink-200">Reembolsable*</p>
-                                </div>
-
-                                <ul className="text-left text-xs space-y-3 mb-6 w-full text-pink-50 font-medium">
-                                    <li className="flex items-start gap-2.5">
-                                        <div className="bg-white/20 p-1 rounded-full shrink-0 mt-0.5">
-                                            <CheckCircle size={10} className="text-white" />
-                                        </div>
-                                        <span>Sistema exclusivo de <strong>Inteligencia Artificial</strong> + Verificación Humana.</span>
-                                    </li>
-                                    <li className="flex items-start gap-2.5">
-                                        <div className="bg-white/20 p-1 rounded-full shrink-0 mt-0.5">
-                                            <CheckCircle size={10} className="text-white" />
-                                        </div>
-                                        <span>Te descontamos el coste si decides realizar la reparación.</span>
-                                    </li>
-                                </ul>
-
-                                <button
-                                    onClick={() => {
-                                        alert("¡Toma el control de tus electrodomésticos! Pulsa el cerdito en cualquier tarjeta para empezar.");
-                                    }}
-                                    className="w-full py-3 bg-white text-pink-700 rounded-lg font-black hover:bg-pink-50 transition shadow-xl active:scale-95 uppercase tracking-wide text-xs flex items-center justify-center gap-2 group-hover:shadow-pink-900/50"
-                                >
-                                    <Zap size={14} className="fill-current" />
-                                    Analizar Viabilidad
-                                </button>
-                                <p className="text-[9px] text-pink-200 mt-3 opacity-60">*Se descuenta del precio final de la reparación.</p>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
