@@ -574,7 +574,7 @@ const MyAppliances = () => {
                     </div>
 
                     {/* MORTIFY PROMO BANNER (Desktop Sidebar) */}
-                    <div className="hidden lg:block w-80 shrink-0">
+                    <div className="w-full lg:w-80 shrink-0 mt-8 lg:mt-0">
                         <div className="sticky top-8 bg-gradient-to-br from-pink-500 to-rose-600 rounded-3xl p-6 text-white shadow-xl overflow-hidden relative group">
                             {/* Decor Balls */}
                             <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/20 rounded-full blur-2xl group-hover:bg-white/30 transition duration-700"></div>
