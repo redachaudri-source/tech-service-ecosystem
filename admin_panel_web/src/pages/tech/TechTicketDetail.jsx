@@ -5,7 +5,7 @@ import { generateServiceReport, generateDepositReceipt, loadImage } from '../../
 import {
     ChevronLeft, MapPin, Phone, User,
     Navigation, PhoneCall, CheckCircle,
-    Eye, Scan, AlertTriangle, ClipboardCopy, Clock, History, Package, ArrowRightCircle, Copy, FileText, Search, PackagePlus, Calendar, ChevronDown, Camera
+    Eye, Scan, AlertTriangle, ClipboardCopy, Clock, History, Package, ArrowRightCircle, Copy, FileText, Search, PackagePlus, Calendar, ChevronDown, Camera, Smartphone
 } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 import TechLocationMap from '../../components/TechLocationMap';
@@ -1409,13 +1409,64 @@ const TechTicketDetail = () => {
                                 >
                                     <option value="cash">Efectivo</option>
                                     <option value="card">Tarjeta</option>
-                                    <option value="APP_PAYMENT">Pago por App</option>
+                                    {ticket.client_id && <option value="APP_PAYMENT">Pago por App</option>}
                                     <option value="bizum">Bizum</option>
                                     <option value="transfer">Transferencia</option>
                                 </select>
 
-                                {/* PAYMENT PROOF UPLOAD */}
-                                {paymentMethod !== 'cash' && (
+                                {/* INLINE APP PAYMENT ACTION */}
+                                {paymentMethod === 'APP_PAYMENT' && (
+                                    <div className="mt-4 p-4 border rounded-xl bg-blue-50 border-blue-100">
+                                        <div className="text-center mb-4">
+                                            <div className="p-3 bg-white rounded-full inline-block shadow-sm">
+                                                <Smartphone className="text-blue-600" size={28} />
+                                            </div>
+                                            <h4 className="font-bold text-blue-900 mt-2">Cobro Digital</h4>
+                                            <p className="text-xs text-blue-700">El cliente pagará desde su móvil</p>
+                                        </div>
+
+                                        {ticket.status === 'PENDING_PAYMENT' ? (
+                                            <div className="flex flex-col items-center gap-2 animate-in fade-in">
+                                                <div className="relative">
+                                                    <div className="absolute inset-0 animate-ping rounded-full bg-blue-400 opacity-25"></div>
+                                                    <span className="relative flex h-3 w-3">
+                                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                                                    </span>
+                                                </div>
+                                                <span className="font-bold text-blue-600 animate-pulse">Esperando pago...</span>
+                                                <p className="text-xs text-slate-500 text-center max-w-[200px]">
+                                                    El cliente tiene la pasarela de pago abierta en su App.
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={async () => {
+                                                    try {
+                                                        const { error } = await supabase
+                                                            .from('tickets')
+                                                            .update({
+                                                                status: 'PENDING_PAYMENT',
+                                                                payment_method: 'APP_PAYMENT'
+                                                            })
+                                                            .eq('id', ticket.id);
+
+                                                        if (error) throw error;
+                                                        // Optimistic Update handled by Realtime subscription
+                                                    } catch (err) {
+                                                        alert("Error: " + err.message);
+                                                    }
+                                                }}
+                                                className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200"
+                                            >
+                                                Enviar Solicitud de Cobro
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* PAYMENT PROOF UPLOAD (Manual Methods Only) */}
+                                {paymentMethod !== 'cash' && paymentMethod !== 'APP_PAYMENT' && (
                                     <div className="mt-2 animate-in fade-in">
                                         <label className="block text-xs font-bold text-slate-600 mb-2">
                                             Justificante de Pago
