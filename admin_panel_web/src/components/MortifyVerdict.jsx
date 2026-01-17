@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import {
     ArrowLeft, CheckCircle, XCircle, AlertTriangle,
     Thermometer, ShieldCheck, Banknote, Calendar,
-    Eye, Sparkles, X, Info, Loader2, Bot
+    Eye, Sparkles, X, Info, Loader2, Bot, MapPin, Phone
 } from 'lucide-react';
 import ViabilityLabel from './ViabilityLabel';
 
@@ -189,8 +189,8 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                                 </div>
                                 <p className="text-slate-500 font-medium">{appliance.type} {appliance.model ? `- ${appliance.model}` : ''}</p>
                             </div>
-                            <div className="text-right flex items-center gap-4">
-                                <div className="w-64">
+                            <div className="text-right flex items-center justify-end w-full md:w-auto">
+                                <div className="transform scale-110 origin-right">
                                     <ViabilityLabel score={assessment.total_score} />
                                 </div>
                             </div>
@@ -326,9 +326,12 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                             <X size={24} />
                         </button>
 
-                        {appliance.image_url ? (
-                            <div className="h-64 overflow-hidden bg-slate-100 flex items-center justify-center">
-                                <img src={appliance.image_url} alt="Aparato" className="w-full h-full object-cover" />
+                        {(appliance.image_url || appliance.photo_url || appliance.image) ? (
+                            <div className="h-64 overflow-hidden bg-slate-100 flex items-center justify-center group cursor-pointer" onClick={() => window.open(appliance.image_url || appliance.photo_url || appliance.image, '_blank')}>
+                                <img src={appliance.image_url || appliance.photo_url || appliance.image} alt="Aparato" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                    <span className="bg-white/90 text-xs font-bold px-3 py-1 rounded-full shadow-lg">Abrir Original</span>
+                                </div>
                             </div>
                         ) : (
                             <div className="h-48 bg-slate-100 flex flex-col items-center justify-center text-slate-400">
@@ -341,14 +344,38 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                             <h3 className="text-2xl font-bold text-slate-900 mb-1">{appliance.brand}</h3>
                             <p className="text-lg text-slate-600 font-medium mb-6">{appliance.type} {appliance.model}</p>
 
-                            <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="grid grid-cols-2 gap-4 text-sm mb-6">
                                 <div className="bg-slate-50 p-3 rounded-lg">
                                     <span className="text-slate-400 text-xs font-bold uppercase block mb-1">Año Compra</span>
                                     <span className="font-bold text-slate-900">{appliance.purchase_year || 'N/A'}</span>
                                 </div>
                                 <div className="bg-slate-50 p-3 rounded-lg">
                                     <span className="text-slate-400 text-xs font-bold uppercase block mb-1">ID Sistema</span>
-                                    <span className="font-mono text-slate-900 truncate">{appliance.id}</span>
+                                    <span className="font-mono text-slate-900 truncate" title={appliance.id}>{appliance.id?.slice(0, 8)}...</span>
+                                </div>
+                            </div>
+
+                            {/* Client Info Section within Modal */}
+                            <div className="border-t border-slate-100 pt-4">
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Propietario</h4>
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                                        {clientName.charAt(0)}
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-slate-900">{clientName}</p>
+                                        <p className="text-xs text-slate-500">{appliance.profiles?.email}</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-1 pl-11">
+                                    <p className="text-sm text-slate-600 flex items-center gap-2">
+                                        <Phone size={14} className="text-slate-400" />
+                                        {appliance.profiles?.phone || 'Sin teléfono'}
+                                    </p>
+                                    <p className="text-sm text-slate-600 flex items-center gap-2">
+                                        <MapPin size={14} className="text-slate-400" />
+                                        {appliance.profiles?.address || 'Sin dirección'}
+                                    </p>
                                 </div>
                             </div>
                         </div>

@@ -33,7 +33,9 @@ const MortifyDashboard = () => {
                         *,
                         profiles (
                             full_name,
-                            address
+                            address,
+                            phone,
+                            email
                         )
                     )
                 `)
