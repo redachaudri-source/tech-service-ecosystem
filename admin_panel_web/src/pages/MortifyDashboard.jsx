@@ -19,6 +19,22 @@ const MortifyDashboard = () => {
 
     useEffect(() => {
         fetchAssessments();
+
+        // Realtime Subscription for Table
+        const channel = supabase
+            .channel('mortify-dashboard-table')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'mortify_assessments' },
+                () => {
+                    fetchAssessments(); // Auto-refresh list on any change
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [filter]);
 
     const fetchAssessments = async () => {
