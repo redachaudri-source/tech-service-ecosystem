@@ -67,7 +67,9 @@ const TechTicketDetail = () => {
     const [paymentProofUrl, setPaymentProofUrl] = useState('');
     const [uploadingProof, setUploadingProof] = useState(false);
     const [generatingPdf, setGeneratingPdf] = useState(false);
+    const [generatingPdf, setGeneratingPdf] = useState(false);
     const [generatingReceipt, setGeneratingReceipt] = useState(false);
+    const [budgetDecision, setBudgetDecision] = useState(null); // 'accepted', 'rejected'
 
     // UI Helper State
     const [newPart, setNewPart] = useState({ name: '', price: '', qty: 1 });
@@ -797,7 +799,15 @@ const TechTicketDetail = () => {
                                 <button
                                     onClick={() => {
                                         if (currentStatus.next === 'finalizado') {
-                                            setShowCloseModal(true);
+                                            if (!ticket.pdf_url) {
+                                                if (window.confirm("Se generará el Parte de Trabajo automáticamente antes de finalizar. ¿Continuar?")) {
+                                                    handleGeneratePDF().then(() => {
+                                                        setShowCloseModal(true);
+                                                    });
+                                                }
+                                            } else {
+                                                setShowCloseModal(true);
+                                            }
                                         } else {
                                             updateStatus(currentStatus.next);
                                         }
@@ -830,17 +840,7 @@ const TechTicketDetail = () => {
                         );
                     })()}
 
-                    {/* Secondary Action: GENERATE QUOTE */}
-                    {ticket.status === 'en_diagnostico' && (
-                        <button
-                            onClick={handleGenerateQuote}
-                            disabled={updating || generatingPdf}
-                            className="w-full py-3 bg-white text-slate-700 border-2 border-slate-200 rounded-xl font-bold hover:bg-slate-50 flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
-                        >
-                            <FileText size={20} />
-                            Generar Presupuesto
-                        </button>
-                    )}
+
 
                     {/* REGENERATE QUOTE (Fallback) */}
                     {ticket.status === 'presupuesto_pendiente' && !ticket.quote_pdf_url && (
@@ -905,17 +905,7 @@ const TechTicketDetail = () => {
                 </div>
             )}
 
-            {/* ASWO Button (Only in Repair) */}
-            {(ticket.status === 'en_reparacion' || ticket.status === 'en_diagnostico' || ticket.status === 'presupuesto_pendiente' || ticket.status === 'presupuesto_aceptado') && (
-                <button
-                    onClick={handleAswoSearch}
-                    className="w-full py-4 bg-white text-blue-800 border-2 border-blue-100 rounded-xl font-bold shadow-sm mb-6 flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
-                >
-                    <Search size={20} />
-                    Buscar en ASWO
-                    <span className="text-xs font-normal opacity-60 ml-1">(Copia Modelo)</span>
-                </button>
-            )}
+
 
             {/* Client Card */}
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-4">
@@ -1291,8 +1281,51 @@ const TechTicketDetail = () => {
                 </div>
             )}
 
-            {/* MOVED: PENDING MATERIAL WORKFLOW (Placed after Financials) */}
+            {/* BUDGET DECISION UI - NEW */}
             {ticket.status === 'en_diagnostico' && (
+                <div className="mb-6 animate-in fade-in slide-in-from-bottom-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <FileText size={14} /> Aceptación de Presupuesto
+                    </h3>
+
+                    <div className="flex gap-3 mb-4">
+                        <button
+                            onClick={() => setBudgetDecision('accepted')}
+                            className={`flex-1 py-4 rounded-xl font-bold border-2 transition-all flex flex-col items-center gap-1 ${budgetDecision === 'accepted' ? 'bg-green-50 text-green-700 border-green-200 ring-1 ring-green-500' : 'bg-slate-50 text-slate-500 border-slate-100 hover:bg-green-50 hover:text-green-600 hover:border-green-100'}`}
+                        >
+                            <CheckCircle size={24} className={budgetDecision === 'accepted' ? 'fill-green-200' : ''} />
+                            <span>Aceptar</span>
+                        </button>
+                        <button
+                            onClick={() => setBudgetDecision('rejected')}
+                            className={`flex-1 py-4 rounded-xl font-bold border-2 transition-all flex flex-col items-center gap-1 ${budgetDecision === 'rejected' ? 'bg-red-50 text-red-700 border-red-200 ring-1 ring-red-500' : 'bg-slate-50 text-slate-500 border-slate-100 hover:bg-red-50 hover:text-red-600 hover:border-red-100'}`}
+                        >
+                            <AlertTriangle size={24} className={budgetDecision === 'rejected' ? 'fill-red-200' : ''} />
+                            <span>Rechazar</span>
+                        </button>
+                    </div>
+
+                    {/* Rejected Action */}
+                    {budgetDecision === 'rejected' && (
+                        <div className="bg-red-50 p-4 rounded-xl border border-red-100 animate-in zoom-in-95">
+                            <p className="text-sm text-red-800 mb-3 font-medium">
+                                El cliente no acepta la reparación. Genera el presupuesto para formalizar el rechazo o cobrar diagnóstico.
+                            </p>
+                            <button
+                                onClick={handleGenerateQuote}
+                                disabled={updating || generatingPdf}
+                                className="w-full py-3 bg-white text-red-600 border border-red-200 rounded-lg font-bold shadow-sm hover:bg-red-600 hover:text-white transition-colors flex items-center justify-center gap-2"
+                            >
+                                <FileText size={18} />
+                                Generar Presupuesto (Rechazo)
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* MOVED: PENDING MATERIAL WORKFLOW (Placed after Financials) - ONLY IF ACCEPTED */}
+            {ticket.status === 'en_diagnostico' && budgetDecision === 'accepted' && (
                 <div className="bg-orange-50 rounded-2xl p-5 shadow-sm border border-orange-100 mb-4 animate-in fade-in slide-in-from-bottom-4">
                     <h3 className="text-xs font-bold text-orange-800 uppercase tracking-wider mb-4 flex items-center gap-2">
                         <Package size={14} /> Solicitar Repuesto / Material
@@ -1411,7 +1444,9 @@ const TechTicketDetail = () => {
                                 >
                                     <option value="cash">Efectivo</option>
                                     <option value="card">Tarjeta</option>
-                                    {ticket.client_id && <option value="APP_PAYMENT">Pago por App</option>}
+                                    <option value="card">Tarjeta</option>
+                                    {ticket.client?.has_webapp && <option value="APP_PAYMENT">Pago por App</option>}
+                                    <option value="bizum">Bizum</option>
                                     <option value="bizum">Bizum</option>
                                     <option value="transfer">Transferencia</option>
                                 </select>
@@ -1515,18 +1550,7 @@ const TechTicketDetail = () => {
                                 )}
                             </>
                         )}
-                        {/* Map Section - Wrapped in ErrorBoundary to prevent full page crash */}
-                        <div className="mt-6">
-                            <h3 className="font-bold text-slate-800 mb-3">Ubicación</h3>
-                            <div className="h-64 rounded-xl overflow-hidden border border-slate-200 shadow-sm relative z-0">
-                                <ErrorBoundary>
-                                    <TechLocationMap
-                                        ticket={ticket}
-                                        className="h-full w-full"
-                                    />
-                                </ErrorBoundary>
-                            </div>
-                        </div>
+
                         {/* PDF GENERATION BUTTON */}
                         <div className="pt-4 mt-2 border-t border-slate-100 flex flex-col gap-3">
                             {ticket.pdf_url && (
