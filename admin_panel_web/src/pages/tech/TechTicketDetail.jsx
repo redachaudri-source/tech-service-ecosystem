@@ -67,7 +67,7 @@ const TechTicketDetail = () => {
     const [paymentProofUrl, setPaymentProofUrl] = useState('');
     const [uploadingProof, setUploadingProof] = useState(false);
     const [generatingPdf, setGeneratingPdf] = useState(false);
-    const [generatingPdf, setGeneratingPdf] = useState(false);
+
     const [generatingReceipt, setGeneratingReceipt] = useState(false);
     const [budgetDecision, setBudgetDecision] = useState(null); // 'accepted', 'rejected'
 
