@@ -1,5 +1,5 @@
 import { Outlet, Navigate } from 'react-router-dom';
-import { useAuth } from '../components/AuthProvider'; // Or assume session is passed or use context
+
 import PaymentGatewayModal from '../components/PaymentGatewayModal';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
