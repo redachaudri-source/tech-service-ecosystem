@@ -11,7 +11,7 @@ import Tesseract from 'tesseract.js';
 import TechLocationMap from '../../components/TechLocationMap';
 import ErrorBoundary from '../../components/ErrorBoundary';
 import { useAuth } from '../../context/AuthContext';
-import CloseTicketModal from './CloseTicketModal';
+
 
 
 const TechTicketDetail = () => {
@@ -76,7 +76,7 @@ const TechTicketDetail = () => {
     const [selectedLaborId, setSelectedLaborId] = useState('');
     const [diagnosisPrice, setDiagnosisPrice] = useState(30);
     const [diagnosisMethod, setDiagnosisMethod] = useState('CASH'); // CASH, CARD
-    const [showCloseModal, setShowCloseModal] = useState(false);
+
 
 
     // OCR State
@@ -216,6 +216,12 @@ const TechTicketDetail = () => {
             const currentHistory = ticket.status_history || [];
             const updatedHistory = [...currentHistory, historyEntry];
 
+            // Calculate Final Price (Logic duplicated from render/PDF)
+            const partsTotal = parts.reduce((sum, p) => sum + (Number(p.price) * (Number(p.qty) || 1)), 0);
+            const laborTotal = labor.reduce((sum, l) => sum + (Number(l.price) * (Number(l.qty) || 1)), 0);
+            const subtotal = partsTotal + laborTotal;
+            const finalPrice = subtotal * 1.21;
+
             // Save current data state AND new status/history
             // Try updating WITH history first (assuming schema is up to date)
             const { error: historyError } = await supabase.from('tickets').update({
@@ -228,7 +234,8 @@ const TechTicketDetail = () => {
                 payment_method: paymentMethod,
                 payment_proof_url: paymentProofUrl,
                 status: newStatus,
-                status_history: updatedHistory
+                status_history: updatedHistory,
+                final_price: finalPrice // Ensure final price is saved
             }).eq('id', id);
 
             if (historyError) {
@@ -799,17 +806,23 @@ const TechTicketDetail = () => {
                             <>
                                 {/* REPAIR ACTIONS */}
                                 <button
-                                    onClick={() => {
+                                    onClick={async () => {
                                         if (currentStatus.next === 'finalizado') {
+                                            // Direct Finalization (Bypassing Modal)
                                             if (!ticket.pdf_url) {
-                                                if (window.confirm("Se generará el Parte de Trabajo automáticamente antes de finalizar. ¿Continuar?")) {
-                                                    handleGeneratePDF().then(() => {
-                                                        setShowCloseModal(true);
-                                                    });
+                                                // Generate PDF automatically validation
+                                                try {
+                                                    const proceed = window.confirm("Se generará el Parte de Trabajo y finalizará el servicio. ¿Confirmar?");
+                                                    if (!proceed) return;
+                                                    await handleGeneratePDF();
+                                                } catch (e) {
+                                                    console.error(e);
+                                                    alert("Error generando PDF: " + e.message);
                                                 }
                                             } else {
-                                                setShowCloseModal(true);
+                                                if (!window.confirm("¿Estás seguro de FINALIZAR el servicio?")) return;
                                             }
+                                            await updateStatus('finalizado');
                                         } else {
                                             updateStatus(currentStatus.next);
                                         }
@@ -1758,28 +1771,7 @@ const TechTicketDetail = () => {
                     </ErrorBoundary>
                 </div>
             )}
-            {/* CLOSE MODAL */}
-            {showCloseModal && ticket && (
-                <CloseTicketModal
-                    ticket={ticket}
-                    onClose={() => setShowCloseModal(false)}
-                    onComplete={() => {
-                        setShowCloseModal(false);
-                        fetchTicket(); // Refresh to see finalized status
-                    }}
-                />
-            )}
-            {/* Close Ticket Modal */}
-            {showCloseModal && ticket && (
-                <CloseTicketModal
-                    ticket={ticket}
-                    onClose={() => setShowCloseModal(false)}
-                    onComplete={() => {
-                        fetchTicket(); // Refresh to see changes
-                        setShowCloseModal(false);
-                    }}
-                />
-            )}
+
         </div>
     );
 };
