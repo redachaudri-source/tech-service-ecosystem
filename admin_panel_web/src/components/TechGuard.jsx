@@ -18,7 +18,7 @@ const TechGuard = ({ children }) => {
     }
 
     // Allow both 'tech' and 'admin' to see tech view, but primarily for techs
-    if (role !== 'tech' && role !== 'admin') {
+    if (role !== 'tech' && role !== 'technician' && role !== 'admin') {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-slate-50">
                 <div className="p-6 bg-white rounded-xl shadow-lg max-w-sm w-full text-center">

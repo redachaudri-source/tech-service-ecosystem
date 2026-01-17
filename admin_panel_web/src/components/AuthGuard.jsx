@@ -15,7 +15,7 @@ const AuthGuard = ({ children }) => {
 
     if (role !== 'admin') {
         // Smart Redirect: If user is a technician trying to access Admin root, send them to Tech App
-        if (role === 'technician') {
+        if (role === 'technician' || role === 'tech') {
             return <Navigate to="/tech/dashboard" replace />;
         }
 
