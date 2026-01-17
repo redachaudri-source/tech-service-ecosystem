@@ -11,6 +11,7 @@ import Tesseract from 'tesseract.js';
 import TechLocationMap from '../../components/TechLocationMap';
 import ErrorBoundary from '../../components/ErrorBoundary';
 import { useAuth } from '../../context/AuthContext';
+import CloseTicketModal from './CloseTicketModal';
 
 const TechTicketDetail = () => {
     const { id } = useParams();
@@ -70,6 +71,7 @@ const TechTicketDetail = () => {
     // UI Helper State
     const [newPart, setNewPart] = useState({ name: '', price: '', qty: 1 });
     const [selectedLaborId, setSelectedLaborId] = useState('');
+    const [showCloseModal, setShowCloseModal] = useState(false);
 
     // OCR State
     const [showLabelModal, setShowLabelModal] = useState(false);
@@ -789,7 +791,13 @@ const TechTicketDetail = () => {
                             <>
                                 {/* REPAIR ACTIONS */}
                                 <button
-                                    onClick={() => updateStatus(currentStatus.next)}
+                                    onClick={() => {
+                                        if (currentStatus.next === 'finalizado') {
+                                            setShowCloseModal(true);
+                                        } else {
+                                            updateStatus(currentStatus.next);
+                                        }
+                                    }}
                                     disabled={updating || !!restrictionMsg}
                                     className={`w-full py-4 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-all
                                         ${updating || restrictionMsg ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-slate-900 text-white shadow-slate-900/20'}
@@ -1606,6 +1614,17 @@ const TechTicketDetail = () => {
                         />
                     </ErrorBoundary>
                 </div>
+            )}
+            {/* CLOSE MODAL */}
+            {showCloseModal && ticket && (
+                <CloseTicketModal
+                    ticket={ticket}
+                    onClose={() => setShowCloseModal(false)}
+                    onComplete={() => {
+                        setShowCloseModal(false);
+                        fetchTicket(); // Refresh to see finalized status
+                    }}
+                />
             )}
         </div>
     );
