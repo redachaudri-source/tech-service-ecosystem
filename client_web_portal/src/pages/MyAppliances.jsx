@@ -148,6 +148,31 @@ const MyAppliances = () => {
             if (data) setApplianceTypes(data.map(t => t.name));
         };
         fetchTypes();
+
+        // Realtime Subscription
+        const channel = supabase
+            .channel('client-appliances-realtime')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'mortify_assessments' },
+                () => {
+                    console.log('Mortify update detected, refreshing...');
+                    fetchAppliances();
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'client_appliances' },
+                () => {
+                    console.log('Appliance update detected, refreshing...');
+                    fetchAppliances();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, []);
 
     const fetchAppliances = async () => {
