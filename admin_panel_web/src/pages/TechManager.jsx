@@ -167,7 +167,7 @@ const TechManager = () => {
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold text-slate-800">Técnicos de Campo</h1>
+                <h1 className="text-3xl font-bold text-slate-800">Técnicos de Campo <span className="text-xl text-slate-400 font-normal">v4.6</span></h1>
                 <button
                     onClick={() => setShowModal(true)}
                     className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-700 transition"
