@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Phone, Calendar, Clock, ChevronRight, Search, Filter, Package, History, Star } from 'lucide-react';
 import TechRouteLine from '../../components/TechRouteLine';
+import TechReviewsModal from '../../components/TechReviewsModal'; // Added import
 
 import { useToast } from '../../components/ToastProvider';
 
@@ -18,6 +19,7 @@ const TechDashboard = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [stats, setStats] = useState({ rating: 0, reviews: 0 });
     const [currentTime, setCurrentTime] = useState(new Date());
+    const [showReviewsModal, setShowReviewsModal] = useState(false); // Added state
 
     // Live Clock
     useEffect(() => {
@@ -155,14 +157,16 @@ const TechDashboard = () => {
                 <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-50">
                     <div
                         className="flex items-center gap-2 cursor-pointer"
-                        onClick={() => navigate('/tech/history')}
+                        onClick={() => setShowReviewsModal(true)}
                     >
                         <div className="flex">
                             {[1, 2, 3, 4, 5].map(star => (
                                 <Star key={star} size={14} className={star <= Math.round(stats.rating || 5) ? "fill-yellow-400 text-yellow-400" : "text-slate-200"} />
                             ))}
                         </div>
-                        <span className="text-xs font-bold text-slate-600 border-b-2 border-blue-200 text-blue-600">Tu Puntuación</span>
+                        <span className="text-xs font-bold text-slate-600 border-b-2 border-blue-200 text-blue-600">
+                            {stats.reviews > 0 ? `Tu Puntuación (${stats.reviews})` : 'Tu Puntuación'}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -295,6 +299,13 @@ const TechDashboard = () => {
                     </div>
                 </div>
             )}
+
+            {/* Reviews Modal */}
+            <TechReviewsModal
+                isOpen={showReviewsModal}
+                onClose={() => setShowReviewsModal(false)}
+                userId={user?.id}
+            />
         </div>
     );
 };

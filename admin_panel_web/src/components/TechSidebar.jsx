@@ -53,11 +53,17 @@ const TechSidebar = ({ isOpen, onClose, user, onSignOut }) => {
                 .select('rating')
                 .eq('technician_id', user.id);
 
+            if (error) {
+                console.error("Reviews fetch error:", error);
+                return;
+            }
+
             if (data && data.length > 0) {
-                const avg = data.reduce((acc, curr) => acc + curr.rating, 0) / data.length;
+                const totalRating = data.reduce((acc, curr) => acc + (Number(curr.rating) || 0), 0);
+                const avg = totalRating / data.length;
                 setStats({ rating: avg.toFixed(1), reviews: data.length });
             } else {
-                setStats({ rating: 5.0, reviews: 0 }); // Default start high for morale? Or 0.
+                setStats({ rating: 5.0, reviews: 0 }); // Default 5.0 for new techs
             }
         } catch (err) {
             console.error("Error fetching stats", err);
@@ -129,12 +135,12 @@ const TechSidebar = ({ isOpen, onClose, user, onSignOut }) => {
                     {/* Status Badge */}
                     <div className="flex items-center gap-2 mt-2 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
                         <div className={`w-2 h-2 rounded-full animate-pulse shadow-[0_0_8px_rgba(255,255,255,0.2)] ${user?.profile?.status === 'paused' ? 'bg-yellow-500 shadow-yellow-500/50' :
-                                user?.profile?.status === 'suspended' ? 'bg-red-500 shadow-red-500/50' :
-                                    'bg-emerald-500 shadow-emerald-500/50'
+                            user?.profile?.status === 'suspended' ? 'bg-red-500 shadow-red-500/50' :
+                                'bg-emerald-500 shadow-emerald-500/50'
                             }`}></div>
                         <span className={`text-xs font-medium ${user?.profile?.status === 'paused' ? 'text-yellow-400' :
-                                user?.profile?.status === 'suspended' ? 'text-red-400' :
-                                    'text-emerald-400'
+                            user?.profile?.status === 'suspended' ? 'text-red-400' :
+                                'text-emerald-400'
                             }`}>
                             Estado: {user?.profile?.status === 'paused' ? 'Pausado' : user?.profile?.status === 'suspended' ? 'Suspendido' : 'Activo'}
                         </span>
