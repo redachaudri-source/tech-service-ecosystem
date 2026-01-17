@@ -9,6 +9,5 @@ END $$;
 -- Update existing techs to active if null
 UPDATE public.profiles SET status = 'active' WHERE role = 'tech' AND status IS NULL;
 
--- Enable Realtime for profiles (if not already enabled, though usually is)
--- We need execution permission to be sure
-ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
+-- Enable Realtime done manually or already exists
+-- ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
