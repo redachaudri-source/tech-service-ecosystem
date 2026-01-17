@@ -73,16 +73,19 @@ const Layout = () => {
         fetchMortifyCount();
 
         // 2. Realtime Subscription
+        // 2. Realtime Subscription (Robust Re-fetch Strategy)
         const channel = supabase
             .channel('admin-mortify-notifications')
             .on(
                 'postgres_changes',
-                { event: 'INSERT', schema: 'public', table: 'mortify_assessments' },
+                { event: '*', schema: 'public', table: 'mortify_assessments' },
                 (payload) => {
-                    // Start Analysis Mode (Pending Judge)
-                    if (payload.new.status === 'PENDING_JUDGE') {
-                        setMortifyCount(prev => prev + 1);
-                        setShowMortifyBanner(true); // Show Banner
+                    // Refetch on any change to ensure accuracy without complex state logic
+                    fetchMortifyCount();
+
+                    // Optional: Show banner only on NEW incoming requests
+                    if (payload.eventType === 'INSERT' && payload.new.status === 'PENDING_JUDGE') {
+                        setShowMortifyBanner(true);
                         playNotificationSound();
                     }
                 }
