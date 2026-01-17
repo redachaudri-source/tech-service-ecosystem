@@ -1409,6 +1409,7 @@ const TechTicketDetail = () => {
                                 >
                                     <option value="cash">Efectivo</option>
                                     <option value="card">Tarjeta</option>
+                                    <option value="APP_PAYMENT">Pago por App</option>
                                     <option value="bizum">Bizum</option>
                                     <option value="transfer">Transferencia</option>
                                 </select>
