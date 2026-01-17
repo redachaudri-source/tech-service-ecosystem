@@ -204,6 +204,26 @@ const TeamManager = () => {
         else fetchMembers();
     };
 
+    const updateStatus = async (member, newStatus) => {
+        let updatePayload = { status: newStatus };
+        if (newStatus === 'suspended') {
+            updatePayload.is_active = false; // Legacy lock
+        } else {
+            updatePayload.is_active = true;
+        }
+
+        const { error } = await supabase
+            .from('profiles')
+            .update(updatePayload)
+            .eq('id', member.id);
+
+        if (error) alert('Error: ' + error.message);
+        else {
+            addToast(`Estado actualizado a: ${newStatus.toUpperCase()}`, 'success');
+            fetchMembers();
+        }
+    };
+
     const handleOpenModal = (member = null) => {
         if (member) {
             setFormData({
@@ -317,6 +337,7 @@ const TeamManager = () => {
                         avatar_url: formData.avatarUrl,
                         email: contactEmail,
                         is_active: true,
+                        status: 'active', // Default status
                         // Geo-Ready
                         street_type: formData.streetType,
                         street_name: formData.streetName,
@@ -383,7 +404,7 @@ const TeamManager = () => {
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-800">Gestión de Equipo <span className="text-sm text-slate-400 font-normal">(v3.0.5 Tech Fix)</span></h1>
+                    <h1 className="text-3xl font-bold text-slate-800">Gestión de Equipo <span className="text-sm text-green-600 font-bold bg-green-100 px-2 rounded ml-2">v4.7 FIXED</span></h1>
                     <p className="text-slate-500">Administra accesos y personal técnico</p>
                 </div>
 
@@ -541,11 +562,48 @@ const TeamManager = () => {
                                     )}
                                 </div>
 
-                                {/* Top Right Status Icon */}
+                                {/* Top Right Status Switch (Traffic Light for Techs, Lock for Admins) */}
                                 <div className="absolute top-4 right-4">
                                     {member.is_super_admin ? (
                                         <Shield size={20} className="text-amber-400" fill="currentColor" />
+                                    ) : member.role === 'tech' ? (
+                                        // Traffic Light for Techs
+                                        <div className="flex bg-slate-100 rounded-lg p-1 gap-1 border border-slate-200 shadow-sm scale-90 origin-top-right">
+                                            <button
+                                                onClick={() => updateStatus(member, 'active')}
+                                                className={`w-6 h-6 rounded flex items-center justify-center transition-all ${(member.status || 'active') === 'active'
+                                                    ? 'bg-white text-emerald-600 shadow-sm ring-1 ring-emerald-500/20'
+                                                    : 'text-slate-300 hover:bg-white/50'
+                                                    }`}
+                                                title="Activo"
+                                            >
+                                                <div className={`w-2 h-2 rounded-full bg-emerald-500 ${(member.status || 'active') === 'active' ? 'animate-pulse' : ''}`}></div>
+                                            </button>
+
+                                            <button
+                                                onClick={() => updateStatus(member, 'paused')}
+                                                className={`w-6 h-6 rounded flex items-center justify-center transition-all ${member.status === 'paused'
+                                                    ? 'bg-white text-yellow-600 shadow-sm ring-1 ring-yellow-500/20'
+                                                    : 'text-slate-300 hover:bg-white/50'
+                                                    }`}
+                                                title="Pausado"
+                                            >
+                                                <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                                            </button>
+
+                                            <button
+                                                onClick={() => updateStatus(member, 'suspended')}
+                                                className={`w-6 h-6 rounded flex items-center justify-center transition-all ${member.status === 'suspended'
+                                                    ? 'bg-white text-red-600 shadow-sm ring-1 ring-red-500/20'
+                                                    : 'text-slate-300 hover:bg-white/50'
+                                                    }`}
+                                                title="Suspendido"
+                                            >
+                                                <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                                            </button>
+                                        </div>
                                     ) : (
+                                        // Standard Lock for Admins
                                         <button
                                             onClick={() => handleToggleStatus(member)}
                                             className={`p-1.5 rounded-full transition-all border-2 ${member.is_active
