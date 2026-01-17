@@ -161,6 +161,23 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // DEBUG CONTROLS (REMOVE IN PROD)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(8),
+              color: Colors.yellow[100],
+              child: Row(
+                children: [
+                   Expanded(child: Text('Debug: Bypass=${_debugBypassStatus ? "ON" : "OFF"} | Hour=${DateTime.now().hour}', style: const TextStyle(fontSize: 10))),
+                   TextButton.icon(
+                     onPressed: _refreshData,
+                     icon: const Icon(LucideIcons.refreshCw, size: 14),
+                     label: const Text('RECARGAR AHORA'),
+                     style: TextButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+                   )
+                ],
+              ),
+            ),
             // Status Card
             Container(
               padding: const EdgeInsets.all(16),
