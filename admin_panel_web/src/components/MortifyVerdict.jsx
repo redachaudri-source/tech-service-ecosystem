@@ -109,6 +109,14 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                 .eq('id', assessment.id);
 
             if (asmtError) throw asmtError;
+
+            // FORCE SIGNAL to Client: Touch the appliance record to trigger Realtime on the client side
+            // (Client listeners on 'client_appliances' are often more reliable than joined RLS on mortify_assessments)
+            await supabase
+                .from('client_appliances')
+                .update({ updated_at: new Date().toISOString() })
+                .eq('id', assessment.appliance_id);
+
             onComplete();
         } catch (err) {
             console.error('Error saving verdict:', err);
