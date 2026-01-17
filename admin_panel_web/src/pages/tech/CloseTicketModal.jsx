@@ -158,18 +158,18 @@ const CloseTicketModal = ({ ticket, onClose, onComplete }) => {
                             </div>
 
                             <div className="grid grid-cols-1 gap-3">
-                                {ticket.client_id ? (
+                                {ticket.client?.has_webapp ? (
                                     <button
                                         onClick={handleDigitalPayment}
                                         className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold flex items-center justify-center gap-3 shadow-lg shadow-blue-200 hover:scale-[1.02] transition-transform"
                                     >
                                         <Smartphone size={24} />
-                                        Cobrar por App (Recomendado)
+                                        Cobrar por App
                                     </button>
                                 ) : (
-                                    <div className="w-full py-4 bg-slate-100 text-slate-400 rounded-xl font-bold flex items-center justify-center gap-3 border-2 border-slate-200 border-dashed cursor-not-allowed">
+                                    <div className="w-full py-4 bg-slate-50 text-slate-400 rounded-xl font-bold flex items-center justify-center gap-3 border-2 border-slate-100 border-dashed cursor-not-allowed opacity-60">
                                         <Smartphone size={24} />
-                                        <span>Cobro por App no disponible (Cliente Invitado)</span>
+                                        <span>Cobro por App no disponible</span>
                                     </div>
                                 )}
 

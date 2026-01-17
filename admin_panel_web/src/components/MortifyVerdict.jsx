@@ -14,6 +14,19 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
 
     const { client_appliances: appliance } = assessment;
 
+    if (!appliance) {
+        return (
+            <div className="p-8 text-center bg-red-50 text-red-600 rounded-xl border border-red-200">
+                <AlertTriangle size={48} className="mx-auto mb-4 opacity-50" />
+                <h3 className="text-lg font-bold">Error de Datos</h3>
+                <p>No se encontraron datos del aparato para este expediente.</p>
+                <button onClick={onBack} className="mt-4 px-4 py-2 bg-white border border-red-200 rounded-lg hover:bg-red-50 text-sm font-bold">
+                    Volver
+                </button>
+            </div>
+        );
+    }
+
     // FIX: Access profiles instead of clients
     const clientName = appliance?.profiles?.full_name || 'Desconocido';
 
