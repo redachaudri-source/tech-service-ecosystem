@@ -1447,7 +1447,8 @@ const TechTicketDetail = () => {
                                                             .from('tickets')
                                                             .update({
                                                                 status: 'PENDING_PAYMENT',
-                                                                payment_method: 'APP_PAYMENT'
+                                                                payment_method: 'APP_PAYMENT',
+                                                                final_price: total // Send the calculated total from state
                                                             })
                                                             .eq('id', ticket.id);
 
