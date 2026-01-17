@@ -190,9 +190,7 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                                 <p className="text-slate-500 font-medium">{appliance.type} {appliance.model ? `- ${appliance.model}` : ''}</p>
                             </div>
                             <div className="text-right flex items-center justify-end w-full md:w-auto">
-                                <div className="transform scale-110 origin-right">
-                                    <ViabilityLabel score={assessment.total_score} />
-                                </div>
+                                {/* Banner removed from here */}
                             </div>
                         </div>
 
@@ -248,6 +246,11 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                     <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6">El Veredicto</h3>
 
                     <div className="flex-1 flex flex-col justify-center space-y-6 max-w-md mx-auto w-full">
+
+                        {/* MORTIFY BANNER (CENTERED) */}
+                        <div className="w-full flex justify-center mb-2">
+                            <ViabilityLabel score={assessment.total_score} />
+                        </div>
 
                         {/* UPDATE SCORES BUTTON */}
                         <button
