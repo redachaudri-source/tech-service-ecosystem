@@ -165,15 +165,15 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
             Container(
               margin: const EdgeInsets.only(bottom: 16),
               padding: const EdgeInsets.all(8),
-              color: Colors.yellow[100],
+              color: Colors.deepOrangeAccent, // Changed to Orange
               child: Row(
                 children: [
-                   Expanded(child: Text('Debug: Bypass=${_debugBypassStatus ? "ON" : "OFF"} | Hour=${DateTime.now().hour}', style: const TextStyle(fontSize: 10))),
+                   const Expanded(child: Text('VERSIÓN V2 DETECTADA. SI VES ESTO, YA TIENES LA ACTUALIZACIÓN.', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white))),
                    TextButton.icon(
                      onPressed: _refreshData,
-                     icon: const Icon(LucideIcons.refreshCw, size: 14),
-                     label: const Text('RECARGAR AHORA'),
-                     style: TextButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+                     icon: const Icon(LucideIcons.refreshCw, size: 14, color: Colors.white),
+                     label: const Text('RECARGAR', style: TextStyle(color: Colors.white)),
+                     style: TextButton.styleFrom(backgroundColor: Colors.black),
                    )
                 ],
               ),
