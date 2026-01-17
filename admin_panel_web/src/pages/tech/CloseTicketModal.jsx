@@ -1,20 +1,21 @@
-import { Smartphone, Banknote, Camera, CheckCircle, Loader2, AlertTriangle, Upload, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, DollarSign, Smartphone, CreditCard, Banknote, Camera, Upload, CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 const CloseTicketModal = ({ ticket, onClose, onComplete }) => {
-    const [mode, setMode] = useState(null); // 'digital' | 'manual'
-    const [amount, setAmount] = useState(ticket.total_amount || 0); // Need to calc total effectively
+    const [step, setStep] = useState('summary'); // summary | payment | processing | success
+    const [finalPrice, setFinalPrice] = useState(ticket?.budget || '');
+    const [paymentMethod, setPaymentMethod] = useState(''); // 'APP_PAYMENT' | 'CASH' | 'CARD'
     const [uploading, setUploading] = useState(false);
-    const [proofUrl, setProofUrl] = useState('');
-    const [waitingForClient, setWaitingForClient] = useState(false);
+    const [paymentProofUrl, setPaymentProofUrl] = useState('');
+    const [isListening, setIsListening] = useState(false);
 
-    // Calculate total if not provided directly
-    // (Ideally pass the calculated total from parent)
-
-    // REALTIME LISTENER FOR DIGITAL PAYMENT
+    // REAL-TIME LISTENER FOR DIGITAL PAYMENT
     useEffect(() => {
-        if (mode === 'digital' && waitingForClient) {
-            const channel = supabase
-                .channel(`payment-check-${ticket.id}`)
+        let channel;
+        if (isListening && ticket.id) {
+            channel = supabase
+                .channel(`payment_watch_${ticket.id}`)
                 .on(
                     'postgres_changes',
                     {
@@ -24,213 +25,246 @@ const CloseTicketModal = ({ ticket, onClose, onComplete }) => {
                         filter: `id=eq.${ticket.id}`
                     },
                     (payload) => {
-                        const newStatus = payload.new.status;
-                        const newPaymentStatus = payload.new.payment_status; // If we added this column
-
-                        // Check if Paid
-                        if (newStatus === 'finalizado' || payload.new.is_paid === true) {
-                            setWaitingForClient(false);
-                            onComplete(); // Close modal and refresh parent
+                        console.log("Realtime Payload:", payload);
+                        if (payload.new.status === 'finalizado' && payload.new.is_paid) {
+                            setStep('success');
+                            setIsListening(false);
                         }
                     }
                 )
                 .subscribe();
-
-            return () => {
-                supabase.removeChannel(channel);
-            };
         }
-    }, [mode, waitingForClient, ticket.id]);
+        return () => {
+            if (channel) supabase.removeChannel(channel);
+        };
+    }, [isListening, ticket.id]);
 
-    const handleDigitalStart = async () => {
-        setWaitingForClient(true);
-        // Update DB to PENDING_PAYMENT
-        const { error } = await supabase
-            .from('tickets')
-            .update({
-                status: 'pend_pago', // Or 'en_reparacion' but marking payment pending? 
-                // Let's use the new column/status we discussed or reuse fields
-                // User requirement: status = 'PENDING_PAYMENT' (check enum)
-                // Actually my enum update added 'PENDING_PAYMENT' to ticket_status
-                status: 'PENDING_PAYMENT',
-                payment_method: 'APP_PAYMENT',
-                final_price: amount
-            })
-            .eq('id', ticket.id);
 
-        if (error) {
-            alert('Error iniciando cobro: ' + error.message);
-            setWaitingForClient(false);
+    const handleDigitalPayment = async () => {
+        if (!finalPrice) return alert("Introduce el precio final");
+
+        setPaymentMethod('APP_PAYMENT');
+        setStep('processing');
+        setIsListening(true);
+
+        try {
+            const { error } = await supabase
+                .from('tickets')
+                .update({
+                    status: 'PENDING_PAYMENT',
+                    final_price: parseFloat(finalPrice),
+                    payment_method: 'APP_PAYMENT'
+                })
+                .eq('id', ticket.id);
+
+            if (error) throw error;
+            // Now we wait for Realtime update from Client App
+        } catch (err) {
+            alert("Error iniciando cobro: " + err.message);
+            setStep('payment');
+            setIsListening(false);
         }
     };
 
-    const handleManualClose = async () => {
-        if (!proofUrl) return alert('Debes subir la foto del justificante/dinero.');
+    const handleManualPayment = async (method) => { // method: 'CASH' or 'CARD'
+        if (!finalPrice) return alert("Introduce el precio final");
 
-        // Update DB and Close
-        const { error } = await supabase
-            .from('tickets')
-            .update({
-                status: 'finalizado',
-                is_paid: true,
-                payment_method: 'CASH', // or card, simplified for now
-                payment_proof_url: proofUrl,
-                final_price: amount
-            })
-            .eq('id', ticket.id);
-
-        if (error) alert('Error cerrando: ' + error.message);
-        else onComplete();
+        setPaymentMethod(method);
+        setStep('upload_proof'); // Jump to upload step
     };
 
-    const handleFileUpload = async (e) => {
+    const handleProofUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
+
         setUploading(true);
         try {
-            const ext = file.name.split('.').pop();
-            const path = `${ticket.id}_close_${Date.now()}.${ext}`;
-            await supabase.storage.from('finance-proofs').upload(path, file);
-            const { data } = supabase.storage.from('finance-proofs').getPublicUrl(path);
-            setProofUrl(data.publicUrl);
-        } catch (err) {
-            console.error(err);
-            alert('Error subiendo foto');
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${ticket.id}_proof_${Date.now()}.${fileExt}`;
+            const filePath = `${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('finance-proofs')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data } = supabase.storage.from('finance-proofs').getPublicUrl(filePath);
+            setPaymentProofUrl(data.publicUrl);
+        } catch (error) {
+            alert('Error subiendo foto: ' + error.message);
         } finally {
             setUploading(false);
         }
     };
 
+    const finalizeManual = async () => {
+        if (!paymentProofUrl) return alert("Es OBLIGATORIO subir una foto del ticket/recibo o dinero.");
+
+        setStep('processing');
+        try {
+            const { error } = await supabase
+                .from('tickets')
+                .update({
+                    status: 'finalizado',
+                    is_paid: true,
+                    final_price: parseFloat(finalPrice),
+                    payment_method: paymentMethod,
+                    payment_proof_url: paymentProofUrl
+                })
+                .eq('id', ticket.id);
+
+            if (error) throw error;
+            setStep('success');
+        } catch (err) {
+            alert("Error finalizando: " + err.message);
+            setStep('summary'); // Go back
+        }
+    };
+
     return (
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 animate-in fade-in">
-            <div className="bg-white rounded-3xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+            <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+
                 {/* Header */}
-                <div className="p-6 bg-slate-900 text-white flex justify-between items-center">
-                    <div>
-                        <h2 className="text-xl font-bold">Cobrar y Cerrar</h2>
-                        <p className="text-slate-400 text-sm">Servicio #{ticket.ticket_number}</p>
-                    </div>
-                    <button onClick={onClose} className="p-2 bg-white/10 rounded-full hover:bg-white/20">
+                <div className="p-4 bg-slate-900 text-white flex justify-between items-center">
+                    <h2 className="font-bold text-lg flex items-center gap-2">
+                        <Banknote className="text-green-400" />
+                        Cobrar y Finalizar
+                    </h2>
+                    <button onClick={onClose} className="p-1 hover:bg-white/10 rounded-full">
                         <X size={20} />
                     </button>
                 </div>
 
-                <div className="p-6 flex-1 overflow-y-auto">
-                    {/* Amount Input */}
-                    <div className="mb-8 text-center">
-                        <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Total a Cobrar</label>
-                        <div className="flex items-center justify-center gap-2">
-                            <input
-                                type="number"
-                                value={amount}
-                                onChange={e => setAmount(Number(e.target.value))}
-                                className="text-4xl font-black text-slate-800 text-center w-48 border-b-2 border-slate-200 focus:border-blue-500 outline-none bg-transparent"
-                            />
-                            <span className="text-4xl font-bold text-slate-400">€</span>
-                        </div>
-                    </div>
+                {/* Content */}
+                <div className="p-6">
 
-                    {!mode ? (
-                        <div className="grid gap-4">
-                            <button
-                                onClick={() => setMode('digital')}
-                                className="p-6 bg-blue-50 border-2 border-blue-100 rounded-2xl flex items-center gap-4 hover:bg-blue-100 transition group"
-                            >
-                                <div className="bg-blue-600 text-white p-4 rounded-xl shadow-lg shadow-blue-200 group-hover:scale-110 transition-transform">
-                                    <Smartphone size={32} />
+                    {/* STEP 1: SUMMARY & INPUT */}
+                    {step === 'summary' && (
+                        <div className="space-y-6">
+                            <div>
+                                <label className="block text-sm font-bold text-slate-500 mb-1 uppercase">Importe Final a Cobrar</label>
+                                <div className="relative">
+                                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                                    <input
+                                        type="number"
+                                        value={finalPrice}
+                                        onChange={(e) => setFinalPrice(e.target.value)}
+                                        className="w-full pl-10 pr-4 py-3 text-2xl font-bold text-slate-800 border-2 border-slate-200 rounded-xl focus:border-blue-500 outline-none transition-all"
+                                        placeholder="0.00"
+                                    />
                                 </div>
-                                <div className="text-left">
-                                    <h3 className="font-bold text-blue-900 text-lg">Cobro Digital (App)</h3>
-                                    <p className="text-blue-600 text-sm leading-tight">Cliente paga ahora mismo desde su móvil.</p>
-                                </div>
-                            </button>
+                            </div>
 
-                            <button
-                                onClick={() => setMode('manual')}
-                                className="p-6 bg-slate-50 border-2 border-slate-100 rounded-2xl flex items-center gap-4 hover:bg-slate-100 transition group"
-                            >
-                                <div className="bg-slate-800 text-white p-4 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                                    <Banknote size={32} />
-                                </div>
-                                <div className="text-left">
-                                    <h3 className="font-bold text-slate-900 text-lg">Cobro Manual</h3>
-                                    <p className="text-slate-500 text-sm leading-tight">Efectivo o Datáfono físico.</p>
-                                </div>
-                            </button>
-                        </div>
-                    ) : mode === 'digital' ? (
-                        <div className="text-center py-8">
-                            {!waitingForClient ? (
-                                <div className="space-y-6">
-                                    <div className="bg-blue-50 p-6 rounded-full inline-block mb-4">
-                                        <Smartphone size={48} className="text-blue-600" />
-                                    </div>
-                                    <p className="text-lg text-slate-600">
-                                        Se enviará una solicitud de cobro por <strong>{amount}€</strong> al cliente.
-                                    </p>
+                            <div className="grid grid-cols-1 gap-3">
+                                <button
+                                    onClick={handleDigitalPayment}
+                                    className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold flex items-center justify-center gap-3 shadow-lg shadow-blue-200 hover:scale-[1.02] transition-transform"
+                                >
+                                    <Smartphone size={24} />
+                                    Cobrar por App (Recomendado)
+                                </button>
+
+                                <div className="grid grid-cols-2 gap-3">
                                     <button
-                                        onClick={handleDigitalStart}
-                                        className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition"
+                                        onClick={() => handleManualPayment('CARD')}
+                                        className="py-3 bg-slate-100 text-slate-700 rounded-xl font-bold flex flex-col items-center justify-center gap-1 hover:bg-slate-200 transition"
                                     >
-                                        🚀 Enviar Solicitud
+                                        <CreditCard size={20} />
+                                        Tarjeta (Datáfono)
+                                    </button>
+                                    <button
+                                        onClick={() => handleManualPayment('CASH')}
+                                        className="py-3 bg-slate-100 text-slate-700 rounded-xl font-bold flex flex-col items-center justify-center gap-1 hover:bg-slate-200 transition"
+                                    >
+                                        <Banknote size={20} />
+                                        Efectivo
                                     </button>
                                 </div>
-                            ) : (
-                                <div className="space-y-6 animate-in fade-in">
-                                    <div className="relative inline-block">
-                                        <div className="absolute inset-0 bg-blue-500 rounded-full animate-ping opacity-20"></div>
-                                        <div className="bg-white p-6 rounded-full border-4 border-blue-100 relative z-10">
-                                            <Loader2 size={48} className="text-blue-600 animate-spin" />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* PROCESS: DIGITAL WAITING */}
+                    {step === 'processing' && paymentMethod === 'APP_PAYMENT' && (
+                        <div className="text-center py-8">
+                            <div className="relative inline-block">
+                                <span className="absolute inset-0 animate-ping rounded-full bg-blue-400 opacity-25"></span>
+                                <Smartphone size={64} className="text-blue-600 relative z-10" />
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-800 mt-6 mb-2">Esperando al Cliente...</h3>
+                            <p className="text-slate-500 text-sm max-w-[200px] mx-auto">
+                                Hemos enviado la solicitud de pago al móvil del cliente.
+                            </p>
+                            <div className="mt-8 p-4 bg-blue-50 rounded-xl border border-blue-100">
+                                <Loader2 className="animate-spin mx-auto text-blue-500 mb-2" />
+                                <p className="text-xs font-mono text-blue-700">Escuchando confirmación en tiempo real...</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* PROCESS: MANUAL UPLOAD */}
+                    {step === 'upload_proof' && (
+                        <div className="space-y-6">
+                            <div className="text-center">
+                                <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <Camera size={32} className="text-orange-500" />
+                                </div>
+                                <h3 className="text-lg font-bold text-slate-800">Foto del Justificante</h3>
+                                <p className="text-sm text-slate-500">
+                                    Para cerrar en <b>{paymentMethod === 'CASH' ? 'Efectivo' : 'Tarjeta Man.'}</b> es OBLIGATORIO subir una foto.
+                                </p>
+                            </div>
+
+                            <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:bg-slate-50 transition relative">
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    capture="environment"
+                                    onChange={handleProofUpload}
+                                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+                                />
+                                {uploading ? (
+                                    <Loader2 className="animate-spin mx-auto text-blue-500" />
+                                ) : paymentProofUrl ? (
+                                    <div className="relative">
+                                        <img src={paymentProofUrl} alt="Proof" className="h-32 mx-auto rounded-lg object-contain" />
+                                        <div className="absolute -top-2 -right-2 bg-green-500 text-white rounded-full p-1 shadow-sm">
+                                            <CheckCircle size={16} />
                                         </div>
                                     </div>
-                                    <div>
-                                        <h3 className="text-xl font-bold text-slate-800 mb-2">Esperando al cliente...</h3>
-                                        <p className="text-slate-500">Pídele que abra su App y confirme el pago.</p>
-                                    </div>
-                                    <div className="p-4 bg-yellow-50 rounded-xl border border-yellow-100 text-xs text-yellow-800 font-medium">
-                                        ⚠️ Si tarda mucho, cierra esto e inténtalo manual.
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="space-y-6 animate-in fade-in">
-                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-3">Foto Justificante / Dinero *</label>
-
-                                {!proofUrl ? (
-                                    <label className="w-full aspect-video border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-white transition relative overflow-hidden">
-                                        <input type="file" onChange={handleFileUpload} accept="image/*" className="hidden" />
-                                        {uploading ? (
-                                            <Loader2 className="animate-spin text-slate-400" />
-                                        ) : (
-                                            <>
-                                                <Camera className="text-slate-400" size={32} />
-                                                <span className="text-xs font-bold text-slate-500">Tocar para Foto</span>
-                                            </>
-                                        )}
-                                    </label>
                                 ) : (
-                                    <div className="relative w-full aspect-video rounded-xl overflow-hidden group">
-                                        <img src={proofUrl} className="w-full h-full object-cover" />
-                                        <button
-                                            onClick={() => setProofUrl('')}
-                                            className="absolute top-2 right-2 p-2 bg-red-600 text-white rounded-full shadow-lg"
-                                        >
-                                            <X size={16} />
-                                        </button>
-                                    </div>
+                                    <>
+                                        <Upload className="mx-auto text-slate-400 mb-2" />
+                                        <span className="text-sm font-bold text-blue-600">Tocar para hacer foto</span>
+                                    </>
                                 )}
                             </div>
 
                             <button
-                                onClick={handleManualClose}
-                                disabled={!proofUrl}
-                                className={`w-full py-4 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-2 ${proofUrl ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                                    }`}
+                                onClick={finalizeManual}
+                                disabled={!paymentProofUrl}
+                                className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                <CheckCircle size={20} />
-                                Confirmar Cobro y Cerrar
+                                Confirmar y Cerrar
+                            </button>
+                        </div>
+                    )}
+
+                    {/* SUCCESS */}
+                    {step === 'success' && (
+                        <div className="text-center py-6">
+                            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-in zoom-in">
+                                <CheckCircle size={40} className="text-green-600" />
+                            </div>
+                            <h3 className="text-2xl font-black text-slate-800 mb-2">¡Cobrado!</h3>
+                            <p className="text-slate-500 mb-8">El ticket se ha cerrado correctamente.</p>
+                            <button
+                                onClick={() => { onComplete(); onClose(); }}
+                                className="w-full py-3 bg-green-600 text-white rounded-xl font-bold shadow-lg shadow-green-200"
+                            >
+                                Volver al Dashboard
                             </button>
                         </div>
                     )}

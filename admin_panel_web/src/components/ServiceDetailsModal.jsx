@@ -68,170 +68,170 @@ const ServiceDetailsModal = ({ ticket, onClose }) => {
                             </div>
                         </div>
                     </div>
-                </div>
 
-                {/* FINANCIAL / PAYMENT AUDIT */}
-                {(ticket.final_price || ticket.payment_method) && (
-                    <div className={`rounded-xl p-5 border ${ticket.payment_method === 'APP_PAYMENT' ? 'bg-green-50/50 border-green-100' : 'bg-slate-50 border-slate-200'}`}>
-                        <h3 className={`font-bold mb-3 flex items-center gap-2 ${ticket.payment_method === 'APP_PAYMENT' ? 'text-green-900' : 'text-slate-800'}`}>
-                            <Banknote size={18} /> Auditoría Financiera
-                            {ticket.payment_method === 'APP_PAYMENT' && (
-                                <span className="ml-auto flex items-center gap-1 text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-200 uppercase font-bold tracking-wide">
-                                    <ShieldCheck size={12} /> Transacción Verificada
-                                </span>
-                            )}
-                        </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                            <div>
-                                <span className="text-xs font-bold uppercase tracking-wider opacity-60">Importe Final</span>
-                                <p className="font-mono text-xl font-bold text-slate-900">{ticket.final_price || '0.00'}€</p>
-                            </div>
-                            <div>
-                                <span className="text-xs font-bold uppercase tracking-wider opacity-60">Método</span>
-                                <p className="font-medium text-slate-800 capitalize">
-                                    {ticket.payment_method === 'APP_PAYMENT' ? 'Digital (In-App)' : (ticket.payment_method || 'Pendiente')}
-                                </p>
-                            </div>
-                            {ticket.payment_proof_url && (
-                                <div className="col-span-2 sm:col-span-1">
-                                    <span className="text-xs font-bold uppercase tracking-wider opacity-60 block mb-1">Justificante / Recibo</span>
-                                    <a href={ticket.payment_proof_url} target="_blank" className="flex items-center gap-2 text-xs font-bold text-blue-600 hover:underline bg-white px-2 py-1 rounded border border-blue-100 w-fit">
-                                        <ImageIcon size={14} /> Ver Foto
-                                    </a>
+                    {/* FINANCIAL / PAYMENT AUDIT */}
+                    {(ticket.final_price || ticket.payment_method) && (
+                        <div className={`rounded-xl p-5 border ${ticket.payment_method === 'APP_PAYMENT' ? 'bg-green-50/50 border-green-100' : 'bg-slate-50 border-slate-200'}`}>
+                            <h3 className={`font-bold mb-3 flex items-center gap-2 ${ticket.payment_method === 'APP_PAYMENT' ? 'text-green-900' : 'text-slate-800'}`}>
+                                <Banknote size={18} /> Auditoría Financiera
+                                {ticket.payment_method === 'APP_PAYMENT' && (
+                                    <span className="ml-auto flex items-center gap-1 text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-200 uppercase font-bold tracking-wide">
+                                        <ShieldCheck size={12} /> Transacción Verificada
+                                    </span>
+                                )}
+                            </h3>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                <div>
+                                    <span className="text-xs font-bold uppercase tracking-wider opacity-60">Importe Final</span>
+                                    <p className="font-mono text-xl font-bold text-slate-900">{ticket.final_price || '0.00'}€</p>
                                 </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* Appliance & Failure */}
-                <div className="space-y-4">
-                    <h3 className="font-bold text-slate-800 flex items-center gap-2 text-lg border-b pb-2">
-                        <FileText size={20} className="text-slate-400" />
-                        Detalles de la Avería
-                    </h3>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                            <span className="text-xs text-slate-400 uppercase font-bold">Aparato</span>
-                            <p className="font-semibold text-slate-700">{ticket.appliance_info?.type || '-'}</p>
-                        </div>
-                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex flex-col justify-center">
-                            <span className="text-xs text-slate-400 uppercase font-bold mb-1">Marca</span>
-                            {ticket.brand_logo ? (
-                                <div className="flex items-center gap-2">
-                                    <img src={ticket.brand_logo} alt="Brand" className="h-6 object-contain max-w-[80px]" />
-                                    <span className="font-semibold text-slate-700 text-sm hidden">{ticket.appliance_info?.brand}</span>
+                                <div>
+                                    <span className="text-xs font-bold uppercase tracking-wider opacity-60">Método</span>
+                                    <p className="font-medium text-slate-800 capitalize">
+                                        {ticket.payment_method === 'APP_PAYMENT' ? 'Digital (In-App)' : (ticket.payment_method || 'Pendiente')}
+                                    </p>
                                 </div>
-                            ) : (
-                                <p className="font-semibold text-slate-700">{ticket.appliance_info?.brand || '-'}</p>
-                            )}
-                        </div>
-                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 col-span-2">
-                            <span className="text-xs text-slate-400 uppercase font-bold">Modelo</span>
-                            <p className="font-semibold text-slate-700">{ticket.appliance_info?.model || 'No especificado'}</p>
-                        </div>
-                    </div>
-
-                    <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
-                        <span className="text-xs text-yellow-700 uppercase font-bold mb-1 block">Descripción del Problema</span>
-                        <p className="text-slate-800 text-sm leading-relaxed whitespace-pre-wrap">
-                            {ticket.description_failure || "Sin descripción proporcionada."}
-                        </p>
-                    </div>
-
-                    {/* Motivo de Cancelación */}
-                    {(ticket.cancellation_reason || ticket.client_feedback) && (
-                        <div className="mt-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-md">
-                            <h4 className="text-xs font-bold text-red-700 uppercase tracking-wider mb-1">
-                                Motivo de Cancelación
-                            </h4>
-                            <p className="text-sm text-red-900 italic">
-                                "{ticket.cancellation_reason || ticket.client_feedback}"
-                            </p>
+                                {ticket.payment_proof_url && (
+                                    <div className="col-span-2 sm:col-span-1">
+                                        <span className="text-xs font-bold uppercase tracking-wider opacity-60 block mb-1">Justificante / Recibo</span>
+                                        <a href={ticket.payment_proof_url} target="_blank" className="flex items-center gap-2 text-xs font-bold text-blue-600 hover:underline bg-white px-2 py-1 rounded border border-blue-100 w-fit">
+                                            <ImageIcon size={14} /> Ver Foto
+                                        </a>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
 
-                    {/* VIABILITY JUDGE (Phase 3.1) */}
-                    {/* We use ticket.appliance_id if available (direct link) or info.id (snapshot) */}
-                    <div className="mt-6">
-                        <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-3 text-lg border-b pb-2">
+                    {/* Appliance & Failure */}
+                    <div className="space-y-4">
+                        <h3 className="font-bold text-slate-800 flex items-center gap-2 text-lg border-b pb-2">
                             <FileText size={20} className="text-slate-400" />
-                            Juez de Reparaciones (IA + Experto)
+                            Detalles de la Avería
                         </h3>
-                        <ViabilityJudge
-                            applianceId={ticket.appliance_id || ticket.appliance_info?.id}
-                            applianceSnapshot={ticket.appliance_info}
-                        />
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                <span className="text-xs text-slate-400 uppercase font-bold">Aparato</span>
+                                <p className="font-semibold text-slate-700">{ticket.appliance_info?.type || '-'}</p>
+                            </div>
+                            <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex flex-col justify-center">
+                                <span className="text-xs text-slate-400 uppercase font-bold mb-1">Marca</span>
+                                {ticket.brand_logo ? (
+                                    <div className="flex items-center gap-2">
+                                        <img src={ticket.brand_logo} alt="Brand" className="h-6 object-contain max-w-[80px]" />
+                                        <span className="font-semibold text-slate-700 text-sm hidden">{ticket.appliance_info?.brand}</span>
+                                    </div>
+                                ) : (
+                                    <p className="font-semibold text-slate-700">{ticket.appliance_info?.brand || '-'}</p>
+                                )}
+                            </div>
+                            <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 col-span-2">
+                                <span className="text-xs text-slate-400 uppercase font-bold">Modelo</span>
+                                <p className="font-semibold text-slate-700">{ticket.appliance_info?.model || 'No especificado'}</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
+                            <span className="text-xs text-yellow-700 uppercase font-bold mb-1 block">Descripción del Problema</span>
+                            <p className="text-slate-800 text-sm leading-relaxed whitespace-pre-wrap">
+                                {ticket.description_failure || "Sin descripción proporcionada."}
+                            </p>
+                        </div>
+
+                        {/* Motivo de Cancelación */}
+                        {(ticket.cancellation_reason || ticket.client_feedback) && (
+                            <div className="mt-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-md">
+                                <h4 className="text-xs font-bold text-red-700 uppercase tracking-wider mb-1">
+                                    Motivo de Cancelación
+                                </h4>
+                                <p className="text-sm text-red-900 italic">
+                                    "{ticket.cancellation_reason || ticket.client_feedback}"
+                                </p>
+                            </div>
+                        )}
+
+                        {/* VIABILITY JUDGE (Phase 3.1) */}
+                        {/* We use ticket.appliance_id if available (direct link) or info.id (snapshot) */}
+                        <div className="mt-6">
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-3 text-lg border-b pb-2">
+                                <FileText size={20} className="text-slate-400" />
+                                Juez de Reparaciones (IA + Experto)
+                            </h3>
+                            <ViabilityJudge
+                                applianceId={ticket.appliance_id || ticket.appliance_info?.id}
+                                applianceSnapshot={ticket.appliance_info}
+                            />
+                        </div>
                     </div>
+
+                    {/* Label/Photo */}
+                    {ticket.appliance_info?.label_image_url && (
+                        <div>
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-3">
+                                <ImageIcon as={ImageIcon} size={20} className="text-slate-400" />
+                                Foto de la Etiqueta/Avería
+                            </h3>
+                            <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-50 p-2">
+                                <a
+                                    href={ticket.appliance_info.label_image_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="block group relative"
+                                >
+                                    <img
+                                        src={ticket.appliance_info.label_image_url}
+                                        alt="Foto etiqueta"
+                                        className="w-full h-auto max-h-[300px] object-contain rounded-lg"
+                                    />
+                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition flex items-center justify-center">
+                                        <span className="opacity-0 group-hover:opacity-100 bg-black/75 text-white text-xs px-3 py-1.5 rounded-full font-bold transition transform translate-y-2 group-hover:translate-y-0">
+                                            Abrir Imagen Original
+                                        </span>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* HISTORY TIMELINE */}
+                    {ticket.status_history && ticket.status_history.length > 0 && (
+                        <div className="pt-6 border-t border-slate-200">
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4">
+                                <Clock size={20} className="text-slate-400" />
+                                Historial de Eventos
+                            </h3>
+                            <div className="relative pl-6 space-y-6 before:absolute before:left-[9px] before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-200 before:content-['']">
+                                {ticket.status_history.map((entry, idx) => (
+                                    <div key={idx} className="relative">
+                                        <div className="absolute -left-[1.35rem] top-1.5 w-3.5 h-3.5 rounded-full bg-white border-2 border-blue-500 z-10"></div>
+                                        <div>
+                                            <p className="font-bold text-sm text-slate-800">{entry.label}</p>
+                                            <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                                                <Calendar size={12} />
+                                                {new Date(entry.timestamp).toLocaleDateString()}
+                                                <span className="mx-1">•</span>
+                                                <Clock size={12} />
+                                                {new Date(entry.timestamp).toLocaleTimeString()}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                {/* Label/Photo */}
-                {ticket.appliance_info?.label_image_url && (
-                    <div>
-                        <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-3">
-                            <Image as={ImageIcon} size={20} className="text-slate-400" />
-                            Foto de la Etiqueta/Avería
-                        </h3>
-                        <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-50 p-2">
-                            <a
-                                href={ticket.appliance_info.label_image_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="block group relative"
-                            >
-                                <img
-                                    src={ticket.appliance_info.label_image_url}
-                                    alt="Foto etiqueta"
-                                    className="w-full h-auto max-h-[300px] object-contain rounded-lg"
-                                />
-                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition flex items-center justify-center">
-                                    <span className="opacity-0 group-hover:opacity-100 bg-black/75 text-white text-xs px-3 py-1.5 rounded-full font-bold transition transform translate-y-2 group-hover:translate-y-0">
-                                        Abrir Imagen Original
-                                    </span>
-                                </div>
-                            </a>
-                        </div>
-                    </div>
-                )}
-
-                {/* HISTORY TIMELINE */}
-                {ticket.status_history && ticket.status_history.length > 0 && (
-                    <div className="pt-6 border-t border-slate-200">
-                        <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4">
-                            <Clock size={20} className="text-slate-400" />
-                            Historial de Eventos
-                        </h3>
-                        <div className="relative pl-6 space-y-6 before:absolute before:left-[9px] before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-200 before:content-['']">
-                            {ticket.status_history.map((entry, idx) => (
-                                <div key={idx} className="relative">
-                                    <div className="absolute -left-[1.35rem] top-1.5 w-3.5 h-3.5 rounded-full bg-white border-2 border-blue-500 z-10"></div>
-                                    <div>
-                                        <p className="font-bold text-sm text-slate-800">{entry.label}</p>
-                                        <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                                            <Calendar size={12} />
-                                            {new Date(entry.timestamp).toLocaleDateString()}
-                                            <span className="mx-1">•</span>
-                                            <Clock size={12} />
-                                            {new Date(entry.timestamp).toLocaleTimeString()}
-                                        </p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {/* Footer Actions */}
-            <div className="p-4 border-t bg-slate-50 shrink-0 flex justify-end gap-3">
-                <button
-                    onClick={onClose}
-                    className="px-5 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition"
-                >
-                    Cerrar
-                </button>
-                {/* Could add specific actions like 'Edit' or 'Assign' here too if needed, but keeping it as View Details for now */}
+                {/* Footer Actions */}
+                <div className="p-4 border-t bg-slate-50 shrink-0 flex justify-end gap-3">
+                    <button
+                        onClick={onClose}
+                        className="px-5 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition"
+                    >
+                        Cerrar
+                    </button>
+                    {/* Could add specific actions like 'Edit' or 'Assign' here too if needed, but keeping it as View Details for now */}
+                </div>
             </div>
         </div>
     );

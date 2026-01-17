@@ -34,9 +34,7 @@ const DashboardLayout = ({ session }) => {
             )
             .subscribe();
 
-        // Initial check? (Optional, might be annoying on refresh if already pending, but good for persistence)
-        // For now, relies on realtime event or if user navigates. 
-        // Better to check on mount if there's any pending payment.
+        // Initial check
         const checkPending = async () => {
             const { data } = await supabase
                 .from('tickets')

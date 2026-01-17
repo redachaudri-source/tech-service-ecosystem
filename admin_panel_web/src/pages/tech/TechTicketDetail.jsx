@@ -13,6 +13,7 @@ import ErrorBoundary from '../../components/ErrorBoundary';
 import { useAuth } from '../../context/AuthContext';
 import CloseTicketModal from './CloseTicketModal';
 
+
 const TechTicketDetail = () => {
     const { id } = useParams();
     // Real-time Ticket Subscription
@@ -72,6 +73,7 @@ const TechTicketDetail = () => {
     const [newPart, setNewPart] = useState({ name: '', price: '', qty: 1 });
     const [selectedLaborId, setSelectedLaborId] = useState('');
     const [showCloseModal, setShowCloseModal] = useState(false);
+
 
     // OCR State
     const [showLabelModal, setShowLabelModal] = useState(false);
@@ -1623,6 +1625,17 @@ const TechTicketDetail = () => {
                     onComplete={() => {
                         setShowCloseModal(false);
                         fetchTicket(); // Refresh to see finalized status
+                    }}
+                />
+            )}
+            {/* Close Ticket Modal */}
+            {showCloseModal && ticket && (
+                <CloseTicketModal
+                    ticket={ticket}
+                    onClose={() => setShowCloseModal(false)}
+                    onComplete={() => {
+                        fetchTicket(); // Refresh to see changes
+                        setShowCloseModal(false);
                     }}
                 />
             )}
