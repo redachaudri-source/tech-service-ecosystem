@@ -1,0 +1,242 @@
+[
+  {
+    "id": "4074c119-5b48-4d0b-ae4a-90c8ae6d9113",
+    "name": "Jjduus",
+    "tier": "standard",
+    "is_active": true,
+    "created_at": "2026-01-08T00:01:08.836Z",
+    "logo_url": null
+  },
+  {
+    "id": "43b1a137-557f-42b2-85d6-259d8ee56a1f",
+    "name": "Samsung",
+    "tier": "standard",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": null
+  },
+  {
+    "id": "1ca351cc-8ec6-4535-8db5-245d57677673",
+    "name": "LG",
+    "tier": "standard",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": null
+  },
+  {
+    "id": "80cde13d-ebea-4932-967a-bd63a43278b7",
+    "name": "Bosch",
+    "tier": "premium",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": null
+  },
+  {
+    "id": "17ee162c-f4ea-4878-b4ca-7c7c7242b479",
+    "name": "Siemens",
+    "tier": "premium",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": null
+  },
+  {
+    "id": "167a0a14-3631-4a1a-8acd-49d6bad0960a",
+    "name": "Whirlpool",
+    "tier": "standard",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": null
+  },
+  {
+    "id": "12a9a0fe-806e-40c2-8c99-dc710df400cd",
+    "name": "Indesit",
+    "tier": "budget",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": null
+  },
+  {
+    "id": "ad5663bf-71a1-4025-a5c3-7eb3e0b094a0",
+    "name": "Tekame",
+    "tier": "budget",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": null
+  },
+  {
+    "id": "ab1eb675-29dc-4612-bc22-95fafa22ed7c",
+    "name": "Teka",
+    "tier": "standard",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": null
+  },
+  {
+    "id": "fc07fb23-2b2f-4316-a0bc-c9730bd9720f",
+    "name": "Fagor",
+    "tier": "standard",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": null
+  },
+  {
+    "id": "2581809e-35c9-4919-a2af-9c5aff4503b4",
+    "name": "Edesa",
+    "tier": "budget",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": null
+  },
+  {
+    "id": "15a75833-5327-41c7-a124-d35f4f032e91",
+    "name": "Zanussi",
+    "tier": "standard",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": null
+  },
+  {
+    "id": "0ef10fa0-951d-42fe-b63b-058e64a97a28",
+    "name": "Electrolux",
+    "tier": "premium",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": null
+  },
+  {
+    "id": "df629b78-f95a-44b2-96df-cb4481d0f37a",
+    "name": "Miele",
+    "tier": "premium",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": null
+  },
+  {
+    "id": "b64e884f-9430-4cfc-8e47-b96b8b7dc811",
+    "name": "Hisense",
+    "tier": "budget",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": null
+  },
+  {
+    "id": "1ec13edc-ce6d-4d4b-9bdd-5e7765af0aad",
+    "name": "Haier",
+    "tier": "standard",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": null
+  },
+  {
+    "id": "dca191cd-c12d-474f-93d7-e0431ec9016c",
+    "name": "Candy",
+    "tier": "budget",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": null
+  },
+  {
+    "id": "a70af444-952c-439b-b2a9-4a03c4c718ea",
+    "name": "Daikin",
+    "tier": "premium",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": null
+  },
+  {
+    "id": "fc2ff183-9cf5-4397-8627-488d4f6ec92f",
+    "name": "Fujitsu",
+    "tier": "standard",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": null
+  },
+  {
+    "id": "af5e2cbf-4874-4361-a62f-e0b06fce38f6",
+    "name": "Mitsubishi",
+    "tier": "premium",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": null
+  },
+  {
+    "id": "9ae0c500-e13d-4525-885b-a7603244cc33",
+    "name": "Carrier",
+    "tier": "standard",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": null
+  },
+  {
+    "id": "668c6e51-2e03-4328-bcc6-eb12b8708df0",
+    "name": "Liebherr",
+    "tier": "premium",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": null
+  },
+  {
+    "id": "6d49aa83-6d0e-4c9d-bede-4977e596b1c0",
+    "name": "Smeg",
+    "tier": "premium",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": null
+  },
+  {
+    "id": "74cea6e5-6526-47dd-adc5-b57dccdfaa7b",
+    "name": "Junkers",
+    "tier": "standard",
+    "is_active": true,
+    "created_at": "2026-01-08T00:19:43.186Z",
+    "logo_url": null
+  },
+  {
+    "id": "3718194f-2a26-43eb-b28c-1d8a53dfb0f8",
+    "name": "Cointra",
+    "tier": "standard",
+    "is_active": true,
+    "created_at": "2026-01-10T19:30:13.694Z",
+    "logo_url": null
+  },
+  {
+    "id": "434c4922-de7d-4ce1-998b-2106178daf36",
+    "name": "Viessmann",
+    "tier": "standard",
+    "is_active": true,
+    "created_at": "2026-01-10T20:01:31.282Z",
+    "logo_url": null
+  },
+  {
+    "id": "0ed4aecc-cbf4-4734-b998-d1ea12324d20",
+    "name": "Jskjdh",
+    "tier": "standard",
+    "is_active": false,
+    "created_at": "2026-01-08T00:01:08.836Z",
+    "logo_url": null
+  },
+  {
+    "id": "4f5e4718-fcd4-49e0-bfc9-a2bfe873f71d",
+    "name": "AEG",
+    "tier": "premium",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": "https://zapjbtgnmxkhpfykxmnh.supabase.co/storage/v1/object/public/company-asset/brands/4f5e4718-fcd4-49e0-bfc9-a2bfe873f71d-1768171957399.png"
+  },
+  {
+    "id": "758ab250-c688-4c17-acac-c44768df645d",
+    "name": "Balay",
+    "tier": "standard",
+    "is_active": true,
+    "created_at": "2026-01-08T00:01:08.836Z",
+    "logo_url": "https://zapjbtgnmxkhpfykxmnh.supabase.co/storage/v1/object/public/company-asset/brands/758ab250-c688-4c17-acac-c44768df645d-1768171987167.png"
+  },
+  {
+    "id": "05282aa9-f71c-412a-99e9-11def58c10d2",
+    "name": "Beko",
+    "tier": "budget",
+    "is_active": true,
+    "created_at": "2026-01-08T00:13:36.746Z",
+    "logo_url": "https://zapjbtgnmxkhpfykxmnh.supabase.co/storage/v1/object/public/company-asset/brands/05282aa9-f71c-412a-99e9-11def58c10d2-1768172027815.png"
+  }
+]

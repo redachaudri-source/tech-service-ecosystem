@@ -1,0 +1,77 @@
+[
+  {
+    "id": "f3e76665-27ef-4101-a911-e83637c5415c",
+    "budget_number": 7,
+    "client_id": "85751859-74bf-4267-b017-f431e8ccae5d",
+    "title": "Presupuesto de Reparación",
+    "description": "Montaje aire split.",
+    "appliance_info": {
+      "type": "General",
+      "brand": "",
+      "model": ""
+    },
+    "labor_items": [
+      {
+        "qty": 1,
+        "name": "Diagnóstico y Presupuesto",
+        "price": 330
+      }
+    ],
+    "part_items": [
+      {
+        "qty": 1,
+        "name": "airee",
+        "price": 700
+      }
+    ],
+    "total_amount": "1246.30",
+    "deposit_amount": "847.00",
+    "deposit_percentage_materials": 100,
+    "deposit_percentage_labor": 0,
+    "payment_terms": "El cliente abonará el 68% (847.00€) a la aceptación del presente presupuesto en concepto de provisión de fondos y materiales. El resto a la finalización.",
+    "status": "accepted",
+    "created_via": "admin_panel",
+    "created_by": "019869b9-125e-41ca-b546-c896005df528",
+    "created_at": "2026-01-13T22:47:32.959Z",
+    "valid_until": "2026-01-28T22:47:32.959Z",
+    "pdf_url": "https://zapjbtgnmxkhpfykxmnh.supabase.co/storage/v1/object/public/service-reports/presupuesto_P-7_1768344454457.pdf",
+    "converted_ticket_id": null
+  },
+  {
+    "id": "ab51067c-b7b3-4d6b-955d-0d7b188263c2",
+    "budget_number": 6,
+    "client_id": "cdac05d6-967c-43a6-9cbd-9b3900ed1a49",
+    "title": "Presupuesto de Reparación",
+    "description": "Instalación de fontanería baño con Sustitución y montaje de tubería de fugas de líquido fria.",
+    "appliance_info": {
+      "type": "General",
+      "brand": "",
+      "model": ""
+    },
+    "labor_items": [
+      {
+        "qty": 1,
+        "name": "Diagnóstico y Presupuesto",
+        "price": 100
+      },
+      {
+        "qty": 1,
+        "name": "",
+        "price": 0
+      }
+    ],
+    "part_items": [],
+    "total_amount": "121.00",
+    "deposit_amount": "121.00",
+    "deposit_percentage_materials": 100,
+    "deposit_percentage_labor": 100,
+    "payment_terms": "",
+    "status": "accepted",
+    "created_via": "admin_panel",
+    "created_by": "019869b9-125e-41ca-b546-c896005df528",
+    "created_at": "2026-01-09T19:03:05.809Z",
+    "valid_until": "2026-01-24T19:03:05.809Z",
+    "pdf_url": "https://zapjbtgnmxkhpfykxmnh.supabase.co/storage/v1/object/public/service-reports/presupuesto_P-6_1767985386002.pdf",
+    "converted_ticket_id": null
+  }
+]

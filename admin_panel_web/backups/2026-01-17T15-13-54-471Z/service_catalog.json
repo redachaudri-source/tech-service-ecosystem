@@ -1,0 +1,23 @@
+[
+  {
+    "id": "130924b6-c39e-42b9-891d-059e84353490",
+    "name": "Mano de Obra (1 Hora)",
+    "base_price": "40.00",
+    "active": true,
+    "created_at": "2026-01-03T14:55:32.160Z"
+  },
+  {
+    "id": "7689f405-dfa3-4ee2-baf6-aec10c3b7b28",
+    "name": "Mano de Obra (Fracción 30min)",
+    "base_price": "25.00",
+    "active": true,
+    "created_at": "2026-01-03T14:55:32.160Z"
+  },
+  {
+    "id": "68ecb8e7-62d8-40bb-be63-72115c674bb0",
+    "name": "Diagnóstico / Presupuesto (Si no repara)",
+    "base_price": "30",
+    "active": true,
+    "created_at": "2026-01-03T14:55:32.160Z"
+  }
+]

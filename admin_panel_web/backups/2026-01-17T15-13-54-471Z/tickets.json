@@ -1,0 +1,265 @@
+[
+  {
+    "id": "24c5480e-6472-43e9-a807-ad0a956060d0",
+    "ticket_number": 148,
+    "client_id": "646fc4b0-aeb1-40bf-9309-100c07741dae",
+    "technician_id": "5b1417b1-8f3c-478e-a143-f09599ad6d76",
+    "appliance_info": {
+      "type": "Frigorífico",
+      "brand": "Samsung",
+      "model": "NR4548544GT45",
+      "label_image_url": ""
+    },
+    "status": "finalizado",
+    "description_failure": "DSFD",
+    "diagnosis_notes": null,
+    "labor_cost": "0.00",
+    "parts_total": "0.00",
+    "total_price": "0.00",
+    "scheduled_at": "2026-01-19T12:30:00.000Z",
+    "completed_at": null,
+    "created_at": "2026-01-17T10:48:07.984Z",
+    "ai_diagnosis": null,
+    "pdf_url": null,
+    "pdf_sent_to_client": false,
+    "created_by": null,
+    "tech_diagnosis": "DFGDFGDFG",
+    "tech_solution": "GFDGDGDF",
+    "parts_list": [
+      {
+        "id": 1768646970839,
+        "qty": 1,
+        "name": "MOTOR",
+        "price": 457
+      }
+    ],
+    "labor_list": [
+      {
+        "id": 1768646956538,
+        "qty": 1,
+        "name": "Mano de Obra (Fracción 30min)",
+        "price": 25,
+        "catalog_id": "7689f405-dfa3-4ee2-baf6-aec10c3b7b28"
+      },
+      {
+        "id": 1768646958978,
+        "qty": 1,
+        "name": "Mano de Obra (1 Hora)",
+        "price": 40,
+        "catalog_id": "130924b6-c39e-42b9-891d-059e84353490"
+      }
+    ],
+    "deposit_amount": "0",
+    "is_paid": true,
+    "payment_method": "APP_PAYMENT",
+    "payment_proof_url": "",
+    "pdf_generated_at": null,
+    "appointment_status": "confirmed",
+    "client_feedback": null,
+    "proposed_slots": [],
+    "appliance_id": "09b1515f-542d-4cb9-b8b2-89f442a6e019",
+    "quote_generated_at": null,
+    "status_history": [
+      {
+        "label": "En Camino",
+        "status": "en_camino",
+        "timestamp": "2026-01-17T10:48:55.386Z"
+      },
+      {
+        "label": "En Diagnóstico",
+        "status": "en_diagnostico",
+        "timestamp": "2026-01-17T10:48:59.998Z"
+      },
+      {
+        "label": "En Reparación",
+        "status": "en_reparacion",
+        "timestamp": "2026-01-17T10:49:39.722Z"
+      }
+    ],
+    "quote_pdf_url": null,
+    "payment_deposit": "0.00",
+    "payment_terms": null,
+    "origin_source": "client_web",
+    "created_via": "manual",
+    "total_amount": "0.00",
+    "estimated_duration": 90,
+    "required_parts_description": null,
+    "material_status_at": null,
+    "deposit_receipt_url": null,
+    "material_ordered": false,
+    "material_supplier": null,
+    "service_type_id": "578a5293-847c-404f-a178-069367d5020a",
+    "scheduled_end_at": "2026-01-19T14:00:00.000Z",
+    "brand_id": null,
+    "cancellation_reason": null,
+    "final_price": "631.62"
+  },
+  {
+    "id": "28ed9b40-d9a9-4dfd-a863-28c456080d4e",
+    "ticket_number": 149,
+    "client_id": "646fc4b0-aeb1-40bf-9309-100c07741dae",
+    "technician_id": "5b1417b1-8f3c-478e-a143-f09599ad6d76",
+    "appliance_info": {
+      "type": "Frigorífico",
+      "brand": "Samsung",
+      "model": "NR4548544GT45",
+      "label_image_url": ""
+    },
+    "status": "finalizado",
+    "description_failure": "LAVA MAL",
+    "diagnosis_notes": null,
+    "labor_cost": "0.00",
+    "parts_total": "0.00",
+    "total_price": "0.00",
+    "scheduled_at": "2026-01-19T09:30:00.000Z",
+    "completed_at": null,
+    "created_at": "2026-01-17T11:03:32.897Z",
+    "ai_diagnosis": null,
+    "pdf_url": null,
+    "pdf_sent_to_client": false,
+    "created_by": null,
+    "tech_diagnosis": "DFGDFG",
+    "tech_solution": "DFHGT",
+    "parts_list": [
+      {
+        "id": 1768647882414,
+        "qty": 1,
+        "name": "DSFDS",
+        "price": 120
+      }
+    ],
+    "labor_list": [],
+    "deposit_amount": "0",
+    "is_paid": true,
+    "payment_method": "APP_PAYMENT",
+    "payment_proof_url": "",
+    "pdf_generated_at": null,
+    "appointment_status": "confirmed",
+    "client_feedback": null,
+    "proposed_slots": [],
+    "appliance_id": "09b1515f-542d-4cb9-b8b2-89f442a6e019",
+    "quote_generated_at": null,
+    "status_history": [
+      {
+        "label": "En Camino",
+        "status": "en_camino",
+        "timestamp": "2026-01-17T11:04:25.973Z"
+      },
+      {
+        "label": "En Diagnóstico",
+        "status": "en_diagnostico",
+        "timestamp": "2026-01-17T11:04:29.241Z"
+      },
+      {
+        "label": "En Reparación",
+        "status": "en_reparacion",
+        "timestamp": "2026-01-17T11:04:45.685Z"
+      }
+    ],
+    "quote_pdf_url": null,
+    "payment_deposit": "0.00",
+    "payment_terms": null,
+    "origin_source": "client_web",
+    "created_via": "manual",
+    "total_amount": "0.00",
+    "estimated_duration": 90,
+    "required_parts_description": null,
+    "material_status_at": null,
+    "deposit_receipt_url": null,
+    "material_ordered": false,
+    "material_supplier": null,
+    "service_type_id": "578a5293-847c-404f-a178-069367d5020a",
+    "scheduled_end_at": "2026-01-19T11:00:00.000Z",
+    "brand_id": null,
+    "cancellation_reason": null,
+    "final_price": "145.20"
+  },
+  {
+    "id": "17c0ac0f-4204-4f14-9c49-fcf3edb7601b",
+    "ticket_number": 147,
+    "client_id": "646fc4b0-aeb1-40bf-9309-100c07741dae",
+    "technician_id": "5b1417b1-8f3c-478e-a143-f09599ad6d76",
+    "appliance_info": {
+      "type": "Frigorífico",
+      "brand": "Samsung",
+      "model": "NR4548544GT45",
+      "label_image_url": ""
+    },
+    "status": "finalizado",
+    "description_failure": "NO VA EL FRIO",
+    "diagnosis_notes": null,
+    "labor_cost": "0.00",
+    "parts_total": "0.00",
+    "total_price": "0.00",
+    "scheduled_at": "2026-01-19T09:00:00.000Z",
+    "completed_at": null,
+    "created_at": "2026-01-17T10:41:41.253Z",
+    "ai_diagnosis": null,
+    "pdf_url": null,
+    "pdf_sent_to_client": false,
+    "created_by": null,
+    "tech_diagnosis": "FDGFD",
+    "tech_solution": "FDGFD",
+    "parts_list": [],
+    "labor_list": [
+      {
+        "id": 1768646562610,
+        "qty": 1,
+        "name": "Mano de Obra (1 Hora)",
+        "price": 40,
+        "catalog_id": "130924b6-c39e-42b9-891d-059e84353490"
+      },
+      {
+        "id": 1768646564566,
+        "qty": 1,
+        "name": "Mano de Obra (Fracción 30min)",
+        "price": 25,
+        "catalog_id": "7689f405-dfa3-4ee2-baf6-aec10c3b7b28"
+      }
+    ],
+    "deposit_amount": "0",
+    "is_paid": true,
+    "payment_method": "APP_PAYMENT",
+    "payment_proof_url": "",
+    "pdf_generated_at": null,
+    "appointment_status": "confirmed",
+    "client_feedback": null,
+    "proposed_slots": [],
+    "appliance_id": "09b1515f-542d-4cb9-b8b2-89f442a6e019",
+    "quote_generated_at": null,
+    "status_history": [
+      {
+        "label": "En Camino",
+        "status": "en_camino",
+        "timestamp": "2026-01-17T10:42:30.475Z"
+      },
+      {
+        "label": "En Diagnóstico",
+        "status": "en_diagnostico",
+        "timestamp": "2026-01-17T10:42:31.366Z"
+      },
+      {
+        "label": "En Reparación",
+        "status": "en_reparacion",
+        "timestamp": "2026-01-17T10:42:52.371Z"
+      }
+    ],
+    "quote_pdf_url": null,
+    "payment_deposit": "0.00",
+    "payment_terms": null,
+    "origin_source": "client_web",
+    "created_via": "manual",
+    "total_amount": "0.00",
+    "estimated_duration": 90,
+    "required_parts_description": null,
+    "material_status_at": null,
+    "deposit_receipt_url": null,
+    "material_ordered": false,
+    "material_supplier": null,
+    "service_type_id": "578a5293-847c-404f-a178-069367d5020a",
+    "scheduled_end_at": "2026-01-19T10:30:00.000Z",
+    "brand_id": null,
+    "cancellation_reason": null,
+    "final_price": "78.65"
+  }
+]

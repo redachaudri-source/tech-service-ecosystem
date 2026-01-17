@@ -1,0 +1,86 @@
+[
+  {
+    "id": "fef44ec4-ed63-45df-9add-fdb9eff987a6",
+    "category_name": "Aire Acondicionado",
+    "average_market_price": "600",
+    "average_lifespan_years": 12,
+    "base_installation_difficulty": 1
+  },
+  {
+    "id": "3819c4bc-dfd2-4097-84f9-d1b1c7f6456d",
+    "category_name": "caldera",
+    "average_market_price": "2000",
+    "average_lifespan_years": 10,
+    "base_installation_difficulty": 0
+  },
+  {
+    "id": "4da53a59-1a50-4ac2-a204-34be6d2ff3b7",
+    "category_name": "Calentador",
+    "average_market_price": "250",
+    "average_lifespan_years": 10,
+    "base_installation_difficulty": 1
+  },
+  {
+    "id": "e2cdbe71-1295-42f0-92c1-aa296a81207b",
+    "category_name": "Campana",
+    "average_market_price": "200",
+    "average_lifespan_years": 15,
+    "base_installation_difficulty": 0
+  },
+  {
+    "id": "58635066-8aa3-472c-afd0-a73f9115e847",
+    "category_name": "Frigorífico",
+    "average_market_price": "700",
+    "average_lifespan_years": 12,
+    "base_installation_difficulty": 0
+  },
+  {
+    "id": "ca6a2069-9e94-4596-9d02-ad0985567b7b",
+    "category_name": "Horno",
+    "average_market_price": "350",
+    "average_lifespan_years": 15,
+    "base_installation_difficulty": 0
+  },
+  {
+    "id": "6324f77d-93a9-4a41-80b0-832f07e90e1d",
+    "category_name": "Lavadora",
+    "average_market_price": "450",
+    "average_lifespan_years": 10,
+    "base_installation_difficulty": 0
+  },
+  {
+    "id": "acbcc425-ba28-4a0e-8b89-99d9be5fc553",
+    "category_name": "Lavavajillas",
+    "average_market_price": "500",
+    "average_lifespan_years": 10,
+    "base_installation_difficulty": 0
+  },
+  {
+    "id": "590a393f-da42-4937-96c4-c2733feefc93",
+    "category_name": "Refrigerator",
+    "average_market_price": "700",
+    "average_lifespan_years": 12,
+    "base_installation_difficulty": 0
+  },
+  {
+    "id": "8b162c39-8a9c-4bbb-b5b1-adab832e41d6",
+    "category_name": "Secadora",
+    "average_market_price": "400",
+    "average_lifespan_years": 10,
+    "base_installation_difficulty": 0
+  },
+  {
+    "id": "4ac9a46d-1298-4018-8153-4112adc88f5e",
+    "category_name": "Termo",
+    "average_market_price": "150",
+    "average_lifespan_years": 8,
+    "base_installation_difficulty": 0
+  },
+  {
+    "id": "914b9526-cf53-4d3c-b803-f7ebee5743b1",
+    "category_name": "Vitrocerámica",
+    "average_market_price": "300",
+    "average_lifespan_years": 10,
+    "base_installation_difficulty": 0
+  }
+]

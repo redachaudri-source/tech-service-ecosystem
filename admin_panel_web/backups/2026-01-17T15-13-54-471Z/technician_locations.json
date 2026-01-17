@@ -1,0 +1,18 @@
+[
+  {
+    "technician_id": "efa13cdc-e504-4d5c-95d1-6ec6ef98a223",
+    "latitude": 36.5390193770578,
+    "longitude": -4.64276334393816,
+    "heading": 0,
+    "speed": 0,
+    "updated_at": "2026-01-05T08:34:20.506Z"
+  },
+  {
+    "technician_id": "5b1417b1-8f3c-478e-a143-f09599ad6d76",
+    "latitude": 36.5843194,
+    "longitude": -4.5528533,
+    "heading": 0,
+    "speed": 0,
+    "updated_at": "2026-01-06T16:19:57.731Z"
+  }
+]

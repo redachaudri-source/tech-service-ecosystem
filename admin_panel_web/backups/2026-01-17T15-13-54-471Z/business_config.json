@@ -1,0 +1,65 @@
+[
+  {
+    "id": "5b9093de-e3ff-48ce-bb4b-941e4b9313a4",
+    "key": "working_hours",
+    "value": {
+      "friday": {
+        "end": "17:30",
+        "start": "09:00",
+        "breaks": [
+          {
+            "end": "15:00",
+            "start": "14:00"
+          }
+        ]
+      },
+      "monday": {
+        "end": "19:00",
+        "start": "09:00",
+        "breaks": [
+          {
+            "end": "15:00",
+            "start": "14:00"
+          }
+        ]
+      },
+      "sunday": null,
+      "tuesday": {
+        "end": "19:00",
+        "start": "09:00",
+        "breaks": [
+          {
+            "end": "15:00",
+            "start": "14:00"
+          }
+        ]
+      },
+      "saturday": null,
+      "thursday": {
+        "end": "19:00",
+        "start": "09:00",
+        "breaks": [
+          {
+            "end": "15:00",
+            "start": "14:00"
+          }
+        ]
+      },
+      "wednesday": {
+        "end": "19:00",
+        "start": "09:00",
+        "breaks": [
+          {
+            "end": "15:00",
+            "start": "14:00"
+          }
+        ]
+      }
+    },
+    "updated_at": "2026-01-06T23:00:00.315Z",
+    "updated_by": null,
+    "opening_time": "09:00",
+    "closing_time": "19:00",
+    "working_hours": null
+  }
+]

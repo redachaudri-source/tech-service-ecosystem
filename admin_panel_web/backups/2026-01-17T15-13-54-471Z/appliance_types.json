@@ -1,0 +1,67 @@
+[
+  {
+    "id": "e48cb0a8-605e-4b70-a1b9-76c211d1f706",
+    "name": "Lavadora",
+    "created_at": "2026-01-04T14:59:42.176Z"
+  },
+  {
+    "id": "e101f1f8-cd0f-45ab-ba04-abdd89b50a95",
+    "name": "Secadora",
+    "created_at": "2026-01-04T14:59:42.176Z"
+  },
+  {
+    "id": "819682b0-d3b0-44a8-8cca-eced481c945c",
+    "name": "Lavavajillas",
+    "created_at": "2026-01-04T14:59:42.176Z"
+  },
+  {
+    "id": "8d407c36-aeab-4c1b-9312-8dde2d04910f",
+    "name": "Frigorífico",
+    "created_at": "2026-01-04T14:59:42.176Z"
+  },
+  {
+    "id": "5d975916-9535-48fa-91da-7066bf99ecdf",
+    "name": "Congelador",
+    "created_at": "2026-01-04T14:59:42.176Z"
+  },
+  {
+    "id": "91250487-8222-458a-802b-85033f248d54",
+    "name": "Horno",
+    "created_at": "2026-01-04T14:59:42.176Z"
+  },
+  {
+    "id": "ebf1f284-2265-4a8c-a776-c3fba6fdb71e",
+    "name": "Vitrocerámica",
+    "created_at": "2026-01-04T14:59:42.176Z"
+  },
+  {
+    "id": "15cf0f99-696a-405e-94db-2b46354fb4f7",
+    "name": "Campana",
+    "created_at": "2026-01-04T14:59:42.176Z"
+  },
+  {
+    "id": "5f328bcf-ba8b-4cbf-a414-72f3f7fe9f20",
+    "name": "Microondas",
+    "created_at": "2026-01-04T14:59:42.176Z"
+  },
+  {
+    "id": "fe819604-f209-4e38-9a6b-b6d1048198c1",
+    "name": "Termo Eléctrico",
+    "created_at": "2026-01-04T14:59:42.176Z"
+  },
+  {
+    "id": "6f75d448-785a-4884-bf1f-6cf3b5b7dfbc",
+    "name": "Aire Acondicionado",
+    "created_at": "2026-01-04T14:59:42.176Z"
+  },
+  {
+    "id": "4084bc77-d883-458d-a3df-36044ddc0008",
+    "name": "Caldera",
+    "created_at": "2026-01-04T14:59:42.176Z"
+  },
+  {
+    "id": "a14a48c7-3c1b-4dc9-80d4-46ba3e3c6215",
+    "name": "Otro",
+    "created_at": "2026-01-04T14:59:42.176Z"
+  }
+]
