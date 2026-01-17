@@ -170,7 +170,7 @@ const ServiceDetailsModal = ({ ticket, onClose }) => {
                 {ticket.appliance_info?.label_image_url && (
                     <div>
                         <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-3">
-                            <ImageIcon size={20} className="text-slate-400" />
+                            <Image as={ImageIcon} size={20} className="text-slate-400" />
                             Foto de la Etiqueta/Avería
                         </h3>
                         <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-50 p-2">
@@ -234,7 +234,6 @@ const ServiceDetailsModal = ({ ticket, onClose }) => {
                 {/* Could add specific actions like 'Edit' or 'Assign' here too if needed, but keeping it as View Details for now */}
             </div>
         </div>
-        </div >
     );
 };
 
