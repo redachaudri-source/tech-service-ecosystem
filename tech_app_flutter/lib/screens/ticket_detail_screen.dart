@@ -25,8 +25,14 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     _checkPermissions();
   }
 
+  Future<void> _refreshData() async {
+     await _checkPermissions();
+     setState(() {});
+  }
+
   bool _canWork = true;
   bool _loadingPerms = true;
+  bool _debugBypassStatus = false;
 
   Future<void> _checkPermissions() async {
     // 1. Get Bypass Status
@@ -76,6 +82,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
       setState(() {
         _canWork = canWork;
         _loadingPerms = false;
+        _debugBypassStatus = bypass;
       });
     }
   }
@@ -136,9 +143,21 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Servicio #${t['ticket_number'] ?? '...'}'),
+        actions: [
+          IconButton(
+            icon: const Icon(LucideIcons.refreshCw),
+            onPressed: () {
+               _refreshData();
+               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Actualizando permisos y datos...')));
+            },
+          )
+        ],
       ),
-      body: SingleChildScrollView(
+      body: RefreshIndicator(
+        onRefresh: _refreshData,
+        child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
+        physics: const AlwaysScrollableScrollPhysics(), // Ensure scroll works for refresh
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -274,7 +293,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                child: Row(children: const [
                  Icon(LucideIcons.lock, color: Colors.grey),
                  SizedBox(width: 8),
-                 Expanded(child: Text('Bloqueado: Fuera de Horario o Cita Lejana (>1h). Activa "Modo Test" en Admin para saltar.', style: TextStyle(color: Colors.grey, fontSize: 12)))
+                 Expanded(child: Text('Bloqueado: Cita lejana o fuera de horario. (Modo Test: ${_debugBypassStatus ? "ACTIVO" : "INACTIVO"}). Recarga si acabas de activarlo.', style: TextStyle(color: Colors.grey, fontSize: 12)))
                ]),
              )
            );
