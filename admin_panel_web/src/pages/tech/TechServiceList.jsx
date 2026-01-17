@@ -128,6 +128,14 @@ const TechServiceList = ({ filterType }) => {
         }
     };
 
+    const handleTicketClick = (ticketId) => {
+        if (user?.profile?.status === 'paused') {
+            alert(`⛔ ACCESO PAUSADO\n\nNo puedes realizar servicios en este momento.\n\nCausa: ${user?.profile?.status_reason || 'Sin motivo especificado.'}`);
+            return;
+        }
+        navigate(`/tech/ticket/${ticketId}`);
+    };
+
     return (
         <div className="p-4 space-y-4 pb-24">
             {/* Header */}
@@ -202,8 +210,8 @@ const TechServiceList = ({ filterType }) => {
                     filteredTickets.map(ticket => (
                         <div
                             key={ticket.id}
-                            onClick={() => navigate(`/tech/ticket/${ticket.id}`)}
-                            className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 active:scale-[0.98] transition-transform"
+                            onClick={() => handleTicketClick(ticket.id)}
+                            className={`bg-white p-4 rounded-xl shadow-sm border border-slate-100 active:scale-[0.98] transition-transform ${user?.profile?.status === 'paused' ? 'opacity-75 grayscale-[0.8]' : ''}`}
                         >
                             <div className="flex justify-between items-start mb-2">
                                 <span className="font-mono text-xs font-bold text-slate-400">#{ticket.ticket_number}</span>

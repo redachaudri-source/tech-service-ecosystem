@@ -691,6 +691,56 @@ const TeamManager = () => {
                 )}
             </div>
 
+            {/* Modal Reason for Status Change */}
+            {showReasonModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4 animation-fadeIn">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden p-6 animate-in zoom-in duration-200">
+                        <div className="flex flex-col items-center text-center mb-4">
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${pendingStatusChange?.status === 'suspended' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-600'}`}>
+                                <ShieldAlert size={28} />
+                            </div>
+                            <h3 className="text-lg font-bold text-slate-800">
+                                {pendingStatusChange?.status === 'suspended' ? 'Suspender Técnico' : 'Pausar Técnico'}
+                            </h3>
+                            <p className="text-sm text-slate-500">
+                                {pendingStatusChange?.status === 'suspended'
+                                    ? 'El técnico perderá acceso inmediato a la App.'
+                                    : 'El técnico podrá entrar pero NO podrá realizar servicios.'}
+                            </p>
+                        </div>
+
+                        <div className="mb-4">
+                            <label className="block text-sm font-bold text-slate-700 mb-1">Motivo / Causa *</label>
+                            <textarea
+                                autoFocus
+                                className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+                                rows={3}
+                                placeholder="Ej: Baja médica, Vacaciones, Incidencia..."
+                                value={statusReason}
+                                onChange={e => setStatusReason(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => { setShowReasonModal(false); setPendingStatusChange(null); }}
+                                className="flex-1 py-2 text-slate-600 font-medium hover:bg-slate-50 rounded-lg transition"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={confirmStatusChange}
+                                disabled={!statusReason.trim()}
+                                className={`flex-1 py-2 text-white font-bold rounded-lg transition shadow-md hover:shadow-lg ${pendingStatusChange?.status === 'suspended' ? 'bg-red-600 hover:bg-red-700' : 'bg-yellow-500 hover:bg-yellow-600'
+                                    } ${!statusReason.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                Confirmar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Modal */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] p-4">

@@ -131,9 +131,17 @@ const TechDashboard = () => {
         return <span className={`px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase ${s.color}`}>{s.label}</span>;
     };
 
+    const handleTicketClick = (ticketId) => {
+        if (user?.profile?.status === 'paused') {
+            alert(`⛔ ACCESO PAUSADO\n\nNo puedes realizar servicios en este momento.\n\nCausa: ${user?.profile?.status_reason || 'Sin motivo especificado.'}`);
+            return;
+        }
+        navigate(`/tech/ticket/${ticketId}`);
+    };
+
     return (
         <div className="space-y-6 pb-20">
-            {/* Header / Mood / Clock */}
+            {/* ... keeping header ... */}
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full -mr-8 -mt-8"></div>
 
@@ -218,11 +226,13 @@ const TechDashboard = () => {
                     displayOpen.map((ticket, idx) => (
                         <div
                             key={ticket.id}
-                            onClick={() => navigate(`/tech/ticket/${ticket.id}`)}
-                            className={`relative bg-white rounded-2xl p-0 shadow-sm border border-slate-100 overflow-hidden active:scale-[0.98] transition-transform ${idx === 0 ? 'ring-2 ring-blue-500 shadow-blue-100' : ''}`}
+                            onClick={() => handleTicketClick(ticket.id)}
+                            className={`relative bg-white rounded-2xl p-0 shadow-sm border border-slate-100 overflow-hidden active:scale-[0.98] transition-transform ${idx === 0 ? 'ring-2 ring-blue-500 shadow-blue-100' : ''} ${user?.profile?.status === 'paused' ? 'opacity-75 grayscale-[0.5]' : ''}`}
                         >
                             {/* Priority Indicator for first item */}
                             {idx === 0 && <div className="bg-blue-600 text-white text-[10px] font-bold text-center py-1">SIGUIENTE PARADA</div>}
+
+                            {/* Paused Overlay Hint if needed, or just let opacity speak */}
 
                             <div className="p-5">
                                 <div className="flex justify-between items-start mb-3">

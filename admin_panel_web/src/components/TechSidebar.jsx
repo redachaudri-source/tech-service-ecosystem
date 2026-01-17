@@ -132,8 +132,19 @@ const TechSidebar = ({ isOpen, onClose, user, onSignOut }) => {
                         </div>
                     </div>
 
-                    {/* Status Badge */}
-                    <div className="flex items-center gap-2 mt-2 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
+                    {/* Status Badge - Click to see reason */}
+                    <div
+                        onClick={() => {
+                            if (user?.profile?.status_reason) {
+                                alert(`📢 INFORMACIÓN DE ESTADO\n\nMotivo: ${user.profile.status_reason}`);
+                            } else {
+                                // Optional: Show modal even if no reason? No, just info.
+                                // Actually user wants to see it.
+                                alert(`📢 ESTADO: ${user?.profile?.status?.toUpperCase()}\n\nTodo parece correcto.`);
+                            }
+                        }}
+                        className="flex items-center gap-2 mt-2 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50 cursor-pointer hover:bg-slate-700 transition"
+                    >
                         <div className={`w-2 h-2 rounded-full animate-pulse shadow-[0_0_8px_rgba(255,255,255,0.2)] ${user?.profile?.status === 'paused' ? 'bg-yellow-500 shadow-yellow-500/50' :
                             user?.profile?.status === 'suspended' ? 'bg-red-500 shadow-red-500/50' :
                                 'bg-emerald-500 shadow-emerald-500/50'
@@ -144,6 +155,9 @@ const TechSidebar = ({ isOpen, onClose, user, onSignOut }) => {
                             }`}>
                             Estado: {user?.profile?.status === 'paused' ? 'Pausado' : user?.profile?.status === 'suspended' ? 'Suspendido' : 'Activo'}
                         </span>
+                        {(user?.profile?.status === 'paused' || user?.profile?.status === 'suspended') && (
+                            <AlertCircle size={14} className="text-slate-400 ml-auto" />
+                        )}
                     </div>
                 </div>
 
