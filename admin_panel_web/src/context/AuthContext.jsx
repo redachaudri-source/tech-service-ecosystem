@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
             // Fetch profile to get role
             const { data: profile, error } = await supabase
                 .from('profiles')
-                .select('role, full_name, permissions, is_super_admin, status, status_reason') // Added status_reason
+                .select('role, full_name, permissions, is_super_admin, status, status_reason, avatar_url') // Added avatar_url
                 .eq('id', authUser.id)
                 .single();
 
