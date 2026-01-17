@@ -3,8 +3,9 @@ import { supabase } from '../lib/supabase';
 import {
     ArrowLeft, CheckCircle, XCircle, AlertTriangle,
     Thermometer, ShieldCheck, Banknote, Calendar,
-    Eye, Sparkles, X, Info, Loader2
+    Eye, Sparkles, X, Info, Loader2, Bot
 } from 'lucide-react';
+import ViabilityLabel from './ViabilityLabel';
 
 const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
     const [processing, setProcessing] = useState(false);
@@ -118,38 +119,27 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
     };
 
     // "AI" Text Improver (Heuristic)
-    const improveText = () => {
-        let improved = note;
-        if (!improved) improved = "Estimado cliente, tras analizar su aparato...";
-
-        const replacements = {
-            "hola": "Estimado/a cliente",
-            "roto": "averiado",
-            "viejo": "antiguo",
-            "malo": "deficiente",
-            "no vale": "no resulta viable",
-            "tirar": "reciclar",
-            "comprar": "adquirir",
-            "arreglar": "reparar",
-            "caro": "costoso",
-            "creo que": "según nuestro análisis técnico,",
-            "adiós": "Atentamente, el equipo técnico"
-        };
-
-        Object.keys(replacements).forEach(key => {
-            const regex = new RegExp(`\\b${key}\\b`, 'gi');
-            improved = improved.replace(regex, replacements[key]);
-        });
-
-        // Ensure sentences start with uppercase
-        improved = improved.replace(/(^\w|[.!?]\s+\w)/g, letter => letter.toUpperCase());
-
-        // Add intro if missing
-        if (!improved.toLowerCase().includes('estimado') && !improved.toLowerCase().includes('hola')) {
-            improved = "Estimado cliente: " + improved;
+    const handleImproveText = () => {
+        if (!note.trim()) {
+            alert("Escribe algo primero para mejorar.");
+            return;
         }
 
-        setNote(improved);
+        setProcessing(true);
+        // Simulate advanced AI processing
+        setTimeout(() => {
+            const improvements = [
+                "Tras el análisis técnico realizado según el protocolo Mortify...",
+                "Se ha detectado una incidencia crítica en el sistema...",
+                "La evaluación forense del aparato indica..."
+            ];
+
+            // Basic heuristic improvement: Make it sound professional
+            const improved = `Tras el análisis técnico, se observa que: ${note.toLowerCase()}. \n\nConsiderando la antigüedad del aparato y el coste estimado de reparación, la relación costo-beneficio sugiere que la reparación NO es la opción más eficiente para el cliente. Se recomienda proceder con la sustitución del equipo para garantizar una solución duradera.\n\nFirma: Departamento Técnico.`;
+
+            setNote(improved);
+            setProcessing(false);
+        }, 1200);
     };
 
     return (
@@ -199,16 +189,10 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                                 </div>
                                 <p className="text-slate-500 font-medium">{appliance.type} {appliance.model ? `- ${appliance.model}` : ''}</p>
                             </div>
-                            <div className="text-right">
-                                <span className={`block text-2xl font-black ${assessment.total_score >= 12 ? 'text-emerald-600' :
-                                        assessment.total_score >= 10 ? 'text-lime-500' :
-                                            assessment.total_score >= 8 ? 'text-yellow-400' :
-                                                assessment.total_score >= 6 ? 'text-orange-400' :
-                                                    assessment.total_score >= 4 ? 'text-red-500' : 'text-slate-800'
-                                    }`}>
-                                    {assessment.total_score}
-                                </span>
-                                <span className="text-xs text-slate-400 font-bold uppercase">Puntos Totales</span>
+                            <div className="text-right flex items-center gap-4">
+                                <div className="w-64">
+                                    <ViabilityLabel score={assessment.total_score} />
+                                </div>
                             </div>
                         </div>
 
@@ -279,10 +263,12 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                             <div className="flex justify-between items-end">
                                 <label className="text-sm font-bold text-slate-700">Nota del Juez (Visible al cliente)</label>
                                 <button
-                                    onClick={improveText}
-                                    className="text-xs flex items-center gap-1 text-indigo-600 font-bold hover:bg-indigo-50 px-2 py-1 rounded transition"
+                                    onClick={handleImproveText}
+                                    disabled={processing}
+                                    className="absolute bottom-2 right-2 text-xs text-purple-600 hover:bg-purple-50 px-2 py-1 rounded-full flex items-center gap-1 transition-colors"
                                 >
-                                    <Sparkles size={12} /> Mejorar con IA
+                                    <Bot size={14} />
+                                    {processing ? 'Mejorando...' : 'Mejorar con IA'}
                                 </button>
                             </div>
                             <textarea

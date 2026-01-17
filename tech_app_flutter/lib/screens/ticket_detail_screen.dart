@@ -29,17 +29,8 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
   bool _loadingPerms = true;
 
   Future<void> _checkPermissions() async {
-    // 1. Check Business Hours (08:00 - 20:00)
-    final now = DateTime.now();
-    final isWorkingHours = now.hour >= 8 && now.hour < 20;
-
-    if (isWorkingHours) {
-      if (mounted) setState(() => _canWork = true);
-      setState(() => _loadingPerms = false);
-      return;
-    }
-
-    // 2. Check Bypass Protocol
+    // 1. Get Bypass Status
+    bool bypass = false;
     try {
       final user = _supabase.auth.currentUser;
       if (user != null) {
@@ -48,15 +39,44 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
             .select('bypass_time_restrictions')
             .eq('id', user.id)
             .single();
-        
-        final bool bypass = data['bypass_time_restrictions'] ?? false;
-        if (mounted) setState(() => _canWork = bypass);
+        bypass = data['bypass_time_restrictions'] ?? false;
       }
     } catch (e) {
-      debugPrint('Error status perms: $e');
-      if (mounted) setState(() => _canWork = false); // Fail safe
-    } finally {
-      if (mounted) setState(() => _loadingPerms = false);
+      debugPrint('Error fetch bypass: $e');
+    }
+
+    bool canWork = true;
+    final now = DateTime.now();
+
+    // 2. Check Business Hours (08:00 - 20:00)
+    if (now.hour < 8 || now.hour >= 20) {
+      canWork = false;
+    }
+
+    // 3. Check Appointment Time (60 min rule)
+    final scheduledStr = widget.ticket['scheduled_date'];
+    if (scheduledStr != null) {
+      try {
+        final scheduled = DateTime.parse(scheduledStr); // Assumes ISO8601
+        final diffMinutes = scheduled.difference(now).inMinutes;
+        
+        // If appointment is more than 60 mins away -> BLOCK
+        if (diffMinutes > 60) {
+           canWork = false;
+        }
+      } catch (e) {
+        debugPrint('Error parsing date: $e');
+      }
+    }
+
+    // 4. Apply Bypass Override
+    if (bypass) canWork = true;
+
+    if (mounted) {
+      setState(() {
+        _canWork = canWork;
+        _loadingPerms = false;
+      });
     }
   }
 
@@ -254,7 +274,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                child: Row(children: const [
                  Icon(LucideIcons.lock, color: Colors.grey),
                  SizedBox(width: 8),
-                 Expanded(child: Text('Horario Laboral Cerrado (08:00 - 20:00). Contacta con Admin para Modo Test.', style: TextStyle(color: Colors.grey, fontSize: 12)))
+                 Expanded(child: Text('Bloqueado: Fuera de Horario o Cita Lejana (>1h). Activa "Modo Test" en Admin para saltar.', style: TextStyle(color: Colors.grey, fontSize: 12)))
                ]),
              )
            );
