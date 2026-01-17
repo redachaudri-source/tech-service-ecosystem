@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, DollarSign, Smartphone, CreditCard, Banknote, Camera, Upload, CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
+import { X, DollarSign, Smartphone, CreditCard, Banknote, Image as ImageIcon, Upload, CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 const CloseTicketModal = ({ ticket, onClose, onComplete }) => {
@@ -209,7 +209,7 @@ const CloseTicketModal = ({ ticket, onClose, onComplete }) => {
                         <div className="space-y-6">
                             <div className="text-center">
                                 <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <Camera size={32} className="text-orange-500" />
+                                    <ImageIcon size={32} className="text-orange-500" />
                                 </div>
                                 <h3 className="text-lg font-bold text-slate-800">Foto del Justificante</h3>
                                 <p className="text-sm text-slate-500">
