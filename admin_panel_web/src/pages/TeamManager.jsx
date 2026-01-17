@@ -225,7 +225,6 @@ const TeamManager = () => {
                 streetNumber: member.street_number || '',
                 postalCode: member.postal_code || '',
                 city: member.city || '',
-                city: member.city || '',
                 province: member.province || '',
                 bypassTimeRestrictions: member.bypass_time_restrictions || false
             });
@@ -301,8 +300,6 @@ const TeamManager = () => {
                             phone: formData.phone,
                             address: formData.address,
                             avatar_url: formData.avatarUrl,
-                            address: formData.address,
-                            avatar_url: formData.avatarUrl,
                             contact_email: contactEmail,
                             bypass_time_restrictions: formData.bypassTimeRestrictions
                         }
@@ -325,7 +322,6 @@ const TeamManager = () => {
                         street_name: formData.streetName,
                         street_number: formData.streetNumber,
                         postal_code: formData.postalCode,
-                        city: formData.city,
                         city: formData.city,
                         province: formData.province,
                         bypass_time_restrictions: formData.bypassTimeRestrictions
@@ -353,7 +349,6 @@ const TeamManager = () => {
                     street_name: formData.streetName,
                     street_number: formData.streetNumber,
                     postal_code: formData.postalCode,
-                    city: formData.city,
                     city: formData.city,
                     province: formData.province,
                     bypass_time_restrictions: formData.bypassTimeRestrictions
