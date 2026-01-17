@@ -73,7 +73,7 @@ const TechTicketDetail = () => {
 
     // UI Helper State
     const [newPart, setNewPart] = useState({ name: '', price: '', qty: 1 });
-    const [generatingPdf, setGeneratingPdf] = useState(false);
+    const [selectedLaborId, setSelectedLaborId] = useState('');
     const [diagnosisPrice, setDiagnosisPrice] = useState(30);
     const [diagnosisMethod, setDiagnosisMethod] = useState('CASH'); // CASH, CARD
     const [showCloseModal, setShowCloseModal] = useState(false);
