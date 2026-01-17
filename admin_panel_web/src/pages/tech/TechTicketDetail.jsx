@@ -77,6 +77,18 @@ const TechTicketDetail = () => {
     const [ocrText, setOcrText] = useState('');
     const [ocrConfidence, setOcrConfidence] = useState(0);
 
+    // Bypass & Profile State
+    const [techProfile, setTechProfile] = useState(null);
+
+    useEffect(() => {
+        const fetchProfile = async () => {
+            if (!user) return;
+            const { data } = await supabase.from('profiles').select('bypass_time_restrictions').eq('id', user.id).single();
+            if (data) setTechProfile(data);
+        };
+        fetchProfile();
+    }, [user]);
+
     const fetchTicket = async () => {
         try {
             const { data, error } = await supabase
@@ -739,13 +751,37 @@ const TechTicketDetail = () => {
                         const isTechnician = true; // Assuming this view is only for techs or we check role
                         // Only restrict 'solicitado' -> 'en_camino' or any start action if scheduled
                         if ((currentStatus.next === 'en_camino' || currentStatus.next === 'en_diagnostico') && ticket.scheduled_at) {
+                            // 1. Business Hours Check (08:00 - 20:00)
                             const now = new Date();
-                            const apptTime = new Date(ticket.scheduled_at);
-                            const diffMs = apptTime - now;
-                            const diffHours = diffMs / (1000 * 60 * 60);
+                            const currentHour = now.getHours();
+                            const isOutsideHours = currentHour < 8 || currentHour >= 20;
 
-                            if (diffHours > 1) {
-                                restrictionMsg = `Disponible 1h antes de la cita (${apptTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
+                            // 2. Appointment Time Check (> 1h before)
+                            let isTooEarly = false;
+                            let apptTimeStr = '';
+
+                            if (ticket.scheduled_at) {
+                                const apptTime = new Date(ticket.scheduled_at);
+                                const diffMs = apptTime - now;
+                                const diffHours = diffMs / (1000 * 60 * 60);
+                                if (diffHours > 1) {
+                                    isTooEarly = true;
+                                    apptTimeStr = apptTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                }
+                            }
+
+                            // 3. Bypass Logic
+                            const hasBypass = techProfile?.bypass_time_restrictions === true;
+
+                            if (!hasBypass) {
+                                if (isOutsideHours) {
+                                    restrictionMsg = `Fuera de Horario Laboral (08:00 - 20:00)`;
+                                } else if (isTooEarly) {
+                                    restrictionMsg = `Disponible 1h antes de la cita (${apptTimeStr})`;
+                                }
+                            } else if (hasBypass && (isOutsideHours || isTooEarly)) {
+                                // Informational message only, no restriction
+                                restrictionMsg = null; // Unblocked
                             }
                         }
 
@@ -764,9 +800,17 @@ const TechTicketDetail = () => {
                                     {restrictionMsg && <Clock size={20} />}
                                 </button>
                                 {restrictionMsg && (
-                                    <p className="text-center text-xs text-red-500 font-bold bg-red-50 py-2 rounded-lg border border-red-100">
-                                        🚫 {restrictionMsg}
+                                    <p className="text-center text-xs text-red-500 font-bold bg-red-50 py-2 rounded-lg border border-red-100 mb-2">
+                                        🚫 {restrictionMsg} <br />
+                                        <span className="opacity-70 font-normal">Contacta con soporte o activa modo test.</span>
                                     </p>
+                                )}
+                                {techProfile?.bypass_time_restrictions && (
+                                    <div className="text-center mb-4">
+                                        <span className="text-[10px] font-black bg-orange-500 text-white px-2 py-0.5 rounded uppercase tracking-wider">
+                                            MODO TEST ACTIVO (Restricciones Anuladas)
+                                        </span>
+                                    </div>
                                 )}
 
 
