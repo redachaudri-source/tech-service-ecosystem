@@ -5,7 +5,7 @@ import { generateServiceReport, generateDepositReceipt, loadImage } from '../../
 import {
     ChevronLeft, MapPin, Phone, User,
     Navigation, PhoneCall, CheckCircle,
-    Eye, Scan, AlertTriangle, ClipboardCopy, Clock, History, Package, ArrowRightCircle, Copy, FileText, Search, PackagePlus, Calendar, ChevronDown
+    Eye, Scan, AlertTriangle, ClipboardCopy, Clock, History, Package, ArrowRightCircle, Copy, FileText, Search, PackagePlus, Calendar, ChevronDown, Camera
 } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 import TechLocationMap from '../../components/TechLocationMap';
