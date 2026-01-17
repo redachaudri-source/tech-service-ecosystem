@@ -192,7 +192,8 @@ const TechTicketDetail = () => {
             en_reparacion: 'En Reparación',
             finalizado: 'Finalizado',
             cancelado: 'Cancelado',
-            rejected: 'Rechazado'
+            rejected: 'Rechazado',
+            PENDING_PAYMENT: 'Pendiente de Cobro'
         };
         return map[s] || s;
     };
@@ -670,7 +671,8 @@ const TechTicketDetail = () => {
         pendiente_material: { label: 'PENDIENTE DE PIEZA', color: 'bg-orange-100 text-orange-800 border-orange-200', next: null },
         finalizado: { label: 'FINALIZADO', color: 'bg-green-100 text-green-700', next: null },
         cancelado: { label: 'CANCELADO', color: 'bg-red-100 text-red-700', next: null },
-        rejected: { label: 'RECHAZADO', color: 'bg-red-100 text-red-700', next: null }
+        rejected: { label: 'RECHAZADO', color: 'bg-red-100 text-red-700', next: null },
+        PENDING_PAYMENT: { label: 'PENDIENTE DE COBRO', color: 'bg-red-600 text-white shadow-red-200 animate-pulse', next: null }
     };
 
     const currentStatus = statusMap[ticket.status] || statusMap['solicitado'];
