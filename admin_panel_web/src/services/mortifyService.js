@@ -88,16 +88,28 @@ export const assessMortifyViability = async (applianceId, userInputs) => {
         // Rule: Total Spent < 50% of Market Value
         let scoreFinancial = 0;
 
-        // Use override if provided (e.g. passed from client), otherwise strictly we need data.
-        // For now, if no override, we might still fallback to repair_count heuristic or 0?
-        // Let's support the override first for consistency.
-        const totalSpent = (userInputs.total_spent_override !== undefined)
-            ? parseFloat(userInputs.total_spent_override)
-            : (appliance.repair_count || 0) * 100; // Rough fallback estimate if no override (100 per repair)
+        // Use override if provided, otherwise fetch REAL total spent from paid tickets
+        let realTotalSpent = 0;
+
+        if (userInputs.total_spent_override !== undefined) {
+            realTotalSpent = parseFloat(userInputs.total_spent_override);
+        } else {
+            // Query tickets sum
+            const { data: tickets } = await supabase
+                .from('tickets')
+                .select('final_price')
+                .eq('appliance_id', applianceId)
+                .eq('status', 'finalizado')
+                .eq('is_paid', true);
+
+            if (tickets && tickets.length > 0) {
+                realTotalSpent = tickets.reduce((sum, t) => sum + (t.final_price || 0), 0);
+            }
+        }
 
         const financialLimit = marketPrice * 0.5;
 
-        if (totalSpent < financialLimit) {
+        if (realTotalSpent < financialLimit) {
             scoreFinancial = 1;
         }
 
