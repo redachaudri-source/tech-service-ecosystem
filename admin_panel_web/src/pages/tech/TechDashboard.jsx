@@ -169,7 +169,7 @@ const TechDashboard = () => {
                     >
                         <div className="flex">
                             {[1, 2, 3, 4, 5].map(star => (
-                                <Star key={star} size={14} className={star <= Math.round(stats.rating || 5) ? "fill-yellow-400 text-yellow-400" : "text-slate-200"} />
+                                <Star key={star} size={14} className={star <= Math.round(stats.rating || 0) ? "fill-yellow-400 text-yellow-400" : "text-slate-200"} />
                             ))}
                         </div>
                         <span className="text-xs font-bold text-slate-600 border-b-2 border-blue-200 text-blue-600">

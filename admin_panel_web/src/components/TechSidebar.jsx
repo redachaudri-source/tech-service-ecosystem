@@ -63,7 +63,7 @@ const TechSidebar = ({ isOpen, onClose, user, onSignOut }) => {
                 const avg = totalRating / data.length;
                 setStats({ rating: avg.toFixed(1), reviews: data.length });
             } else {
-                setStats({ rating: 5.0, reviews: 0 }); // Default 5.0 for new techs
+                setStats({ rating: 0, reviews: 0 }); // Default 0 for new techs
             }
         } catch (err) {
             console.error("Error fetching stats", err);
