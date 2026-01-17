@@ -75,14 +75,31 @@ const TechServiceList = ({ filterType }) => {
         setLoading(false);
     };
 
-    // Client-side search
+    // Client-side search (Smart Search)
     const filteredTickets = tickets.filter(t => {
+        if (!searchTerm) return true;
         const s = searchTerm.toLowerCase();
+
+        // Helper safety check
+        const clientName = t.profiles?.full_name?.toLowerCase() || '';
+        const address = t.profiles?.address?.toLowerCase() || '';
+        const ticketNum = t.ticket_number?.toString() || '';
+        const brand = t.appliance_info?.brand?.toLowerCase() || '';
+        const type = t.appliance_info?.type?.toLowerCase() || '';
+
+        // Check for specific search patterns
+        // 1. Ticket Number exact or partial match
+        if (s.startsWith('#')) {
+            return ticketNum.includes(s.replace('#', ''));
+        }
+
+        // 2. Multi-field match
         return (
-            t.ticket_number?.toString().includes(s) ||
-            t.profiles?.full_name?.toLowerCase().includes(s) ||
-            t.profiles?.address?.toLowerCase().includes(s) ||
-            t.appliance_info?.brand?.toLowerCase().includes(s)
+            clientName.includes(s) ||
+            address.includes(s) ||
+            ticketNum.includes(s) ||
+            brand.includes(s) ||
+            type.includes(s)
         );
     });
 

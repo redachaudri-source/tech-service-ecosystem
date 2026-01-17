@@ -59,11 +59,19 @@ const TechManager = () => {
         setLoading(false);
     };
 
-    const toggleActive = async (tech) => {
-        const newState = !tech.is_active;
+    const updateStatus = async (tech, newStatus) => {
+        // Optimistic UI update could go here, but fetchTechs is fast enough usually
+
+        let updatePayload = { status: newStatus };
+        if (newStatus === 'suspended') {
+            updatePayload.is_active = false; // Legacy support
+        } else {
+            updatePayload.is_active = true;
+        }
+
         const { error } = await supabase
             .from('profiles')
-            .update({ is_active: newState })
+            .update(updatePayload)
             .eq('id', tech.id);
 
         if (error) alert('Error: ' + error.message);
@@ -204,15 +212,44 @@ const TechManager = () => {
                                 </div>
                             </div>
 
-                            {/* Active Toggle */}
-                            <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-2">
-                                <span className="text-sm font-medium text-slate-600">Estado de Cuenta</span>
-                                <button
-                                    onClick={() => toggleActive(tech)}
-                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${tech.is_active !== false ? 'bg-slate-900' : 'bg-slate-300'}`}
-                                >
-                                    <span className={`${tech.is_active !== false ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition`} />
-                                </button>
+                            {/* Status Traffic Light Selector */}
+                            <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-2 relative">
+                                <span className="text-sm font-medium text-slate-600">Estado</span>
+
+                                <div className="flex bg-slate-100 rounded-lg p-1 gap-1">
+                                    <button
+                                        onClick={() => updateStatus(tech, 'active')}
+                                        className={`w-8 h-8 rounded-md flex items-center justify-center transition-all ${(tech.status || 'active') === 'active'
+                                            ? 'bg-white text-emerald-500 shadow-sm ring-1 ring-emerald-500/20'
+                                            : 'text-slate-400 hover:bg-white/50'
+                                            }`}
+                                        title="Activo"
+                                    >
+                                        <div className={`w-3 h-3 rounded-full bg-emerald-500 ${(tech.status || 'active') === 'active' ? 'animate-pulse' : ''}`}></div>
+                                    </button>
+
+                                    <button
+                                        onClick={() => updateStatus(tech, 'paused')}
+                                        className={`w-8 h-8 rounded-md flex items-center justify-center transition-all ${tech.status === 'paused'
+                                            ? 'bg-white text-yellow-500 shadow-sm ring-1 ring-yellow-500/20'
+                                            : 'text-slate-400 hover:bg-white/50'
+                                            }`}
+                                        title="Pausado (Solo Agenda Hoy)"
+                                    >
+                                        <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                                    </button>
+
+                                    <button
+                                        onClick={() => updateStatus(tech, 'suspended')}
+                                        className={`w-8 h-8 rounded-md flex items-center justify-center transition-all ${tech.status === 'suspended'
+                                            ? 'bg-white text-red-500 shadow-sm ring-1 ring-red-500/20'
+                                            : 'text-slate-400 hover:bg-white/50'
+                                            }`}
+                                        title="Suspendido (Bloqueo Total)"
+                                    >
+                                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="flex gap-2 mt-4">

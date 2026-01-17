@@ -39,19 +39,42 @@ export const AuthProvider = ({ children }) => {
             // Fetch profile to get role
             const { data: profile, error } = await supabase
                 .from('profiles')
-                .select('role, full_name, permissions, is_super_admin')
+                .select('role, full_name, permissions, is_super_admin, status') // Added status
                 .eq('id', authUser.id)
                 .single();
 
             if (error) {
                 console.error("Error fetching role:", error);
-                // If profile doesn't exist but auth does, we might have an issue. 
-                // For now, assume guest/no-role.
                 setRole(null);
             } else {
                 setRole(profile.role);
-                // Extend user object with profile data for easy access
                 authUser.profile = profile;
+
+                // Security Check 1: Initial Load
+                if (profile.status === 'suspended') {
+                    alert('Tu cuenta ha sido suspendida. Contacta con administración.');
+                    await signOut();
+                    return;
+                }
+
+                // Security Check 2: Real-time Listener (Kill Switch)
+                const channel = supabase.channel(`auth_watch_${authUser.id}`)
+                    .on(
+                        'postgres_changes',
+                        { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${authUser.id}` },
+                        async (payload) => {
+                            const newStatus = payload.new.status;
+                            if (newStatus === 'suspended') {
+                                alert('Tu cuenta ha sido suspendida. Cerrando sesión...');
+                                await signOut();
+                                window.location.href = '/'; // Force clear
+                            } else {
+                                // Update local state for Paused mode etc without reload
+                                setUser(prev => ({ ...prev, profile: { ...prev.profile, status: newStatus } }));
+                            }
+                        }
+                    )
+                    .subscribe();
             }
             setUser(authUser);
         } catch (err) {

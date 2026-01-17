@@ -2,15 +2,18 @@ import React, { useState, useEffect } from 'react'; // Added hooks
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase'; // Added supabase
 import { X, Calendar, ClipboardList, CheckCircle, AlertCircle, Settings, LogOut, User, Star, Clock } from 'lucide-react'; // Added Star
+import TechReviewsModal from './TechReviewsModal';
 
 const TechSidebar = ({ isOpen, onClose, user, onSignOut }) => {
     const navigate = useNavigate();
     const location = useLocation();
     const [stats, setStats] = useState({ rating: 0, reviews: 0 });
+    const [showReviews, setShowReviews] = useState(false);
+    const [hasUpdates, setHasUpdates] = useState(false); // Red Dot
 
     // Menu: Removed 'Nuevos sin atender' as requested
     const menuItems = [
-        { label: 'Agenda de Hoy', icon: Calendar, path: '/tech/dashboard' },
+        { label: 'Agenda de Hoy', icon: Calendar, path: '/tech/dashboard', hasBadge: hasUpdates },
         { label: 'Mis Servicios', icon: ClipboardList, path: '/tech/all-services' },
         { label: 'Agenda Global', icon: Calendar, path: '/tech/agenda' },
         { label: 'Historial', icon: Clock, path: '/tech/history' },
@@ -20,8 +23,27 @@ const TechSidebar = ({ isOpen, onClose, user, onSignOut }) => {
     useEffect(() => {
         if (user && isOpen) {
             fetchStats();
+
+            // Listen for changes today to show red dot
+            const today = new Date().toISOString().split('T')[0];
+            const channel = supabase.channel('sidebar_updates')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets', filter: `technician_id=eq.${user.id}` }, (payload) => {
+                    // Check if update is related to today (simplified check)
+                    //Ideally parse payload.new.scheduled_at 
+                    setHasUpdates(true);
+                })
+                .subscribe();
+
+            return () => { supabase.removeChannel(channel); };
         }
     }, [user, isOpen]);
+
+    // Clear badge when visiting dashboard
+    useEffect(() => {
+        if (location.pathname === '/tech/dashboard') {
+            setHasUpdates(false);
+        }
+    }, [location.pathname]);
 
     const fetchStats = async () => {
         try {
@@ -46,10 +68,7 @@ const TechSidebar = ({ isOpen, onClose, user, onSignOut }) => {
         return (
             <div
                 className="flex items-center gap-1 mt-1 cursor-pointer group hover:bg-slate-800/50 p-1 rounded transition-colors"
-                onClick={() => {
-                    navigate('/tech/history'); // Redirect to history/reviews
-                    onClose();
-                }}
+                onClick={() => setShowReviews(true)}
             >
                 <div className="flex">
                     {[1, 2, 3, 4, 5].map((star) => (
@@ -107,10 +126,18 @@ const TechSidebar = ({ isOpen, onClose, user, onSignOut }) => {
                         </div>
                     </div>
 
-                    {/* Status Badge (Static for now, but visible) */}
+                    {/* Status Badge */}
                     <div className="flex items-center gap-2 mt-2 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
-                        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-                        <span className="text-xs font-medium text-emerald-400">Estado: Activo</span>
+                        <div className={`w-2 h-2 rounded-full animate-pulse shadow-[0_0_8px_rgba(255,255,255,0.2)] ${user?.profile?.status === 'paused' ? 'bg-yellow-500 shadow-yellow-500/50' :
+                                user?.profile?.status === 'suspended' ? 'bg-red-500 shadow-red-500/50' :
+                                    'bg-emerald-500 shadow-emerald-500/50'
+                            }`}></div>
+                        <span className={`text-xs font-medium ${user?.profile?.status === 'paused' ? 'text-yellow-400' :
+                                user?.profile?.status === 'suspended' ? 'text-red-400' :
+                                    'text-emerald-400'
+                            }`}>
+                            Estado: {user?.profile?.status === 'paused' ? 'Pausado' : user?.profile?.status === 'suspended' ? 'Suspendido' : 'Activo'}
+                        </span>
                     </div>
                 </div>
 
@@ -124,7 +151,7 @@ const TechSidebar = ({ isOpen, onClose, user, onSignOut }) => {
                                     navigate(item.path);
                                     onClose();
                                 }}
-                                className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 group ${location.pathname === item.path
+                                className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 group relative ${location.pathname === item.path
                                     ? 'bg-blue-50 text-blue-700 shadow-sm border border-blue-100'
                                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
                                     }`}
@@ -133,6 +160,10 @@ const TechSidebar = ({ isOpen, onClose, user, onSignOut }) => {
                                 <span className="font-semibold">{item.label}</span>
                                 {location.pathname === item.path && (
                                     <div className="ml-auto w-1.5 h-1.5 bg-blue-600 rounded-full"></div>
+                                )}
+                                {/* Red Dot Notification */}
+                                {item.hasBadge && (
+                                    <div className="absolute right-2 top-2 w-2.5 h-2.5 bg-red-500 rounded-full border border-white animate-bounce"></div>
                                 )}
                             </button>
                         ))}
@@ -158,9 +189,16 @@ const TechSidebar = ({ isOpen, onClose, user, onSignOut }) => {
                         <LogOut size={18} />
                         Cerrar Sesión
                     </button>
-                    <p className="text-center text-[10px] text-slate-300 mt-2">v4.2.0 PRO</p>
+                    <p className="text-center text-[10px] text-slate-300 mt-2">v4.5.0 PRO</p>
                 </div>
             </div>
+
+            {/* Modal */}
+            <TechReviewsModal
+                isOpen={showReviews}
+                onClose={() => setShowReviews(false)}
+                userId={user?.id}
+            />
         </>
     );
 };
