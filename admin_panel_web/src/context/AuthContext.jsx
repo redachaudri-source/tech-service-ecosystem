@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
             // Fetch profile to get role
             const { data: profile, error } = await supabase
                 .from('profiles')
-                .select('role, full_name, permissions, is_super_admin, status') // Added status
+                .select('role, full_name, permissions, is_super_admin, status, status_reason') // Added status_reason
                 .eq('id', authUser.id)
                 .single();
 
@@ -64,13 +64,25 @@ export const AuthProvider = ({ children }) => {
                         { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${authUser.id}` },
                         async (payload) => {
                             const newStatus = payload.new.status;
+                            const newReason = payload.new.status_reason;
+
                             if (newStatus === 'suspended') {
-                                alert('Tu cuenta ha sido suspendida. Cerrando sesión...');
+                                alert(`⛔ CUENTA SUSPENDIDA\n\nMotivo: ${newReason || 'Sin motivo especificado.'}\n\nCerrando sesión...`);
                                 await signOut();
                                 window.location.href = '/'; // Force clear
                             } else {
                                 // Update local state for Paused mode etc without reload
-                                setUser(prev => ({ ...prev, profile: { ...prev.profile, status: newStatus } }));
+                                setUser(prev => ({
+                                    ...prev,
+                                    profile: {
+                                        ...prev.profile,
+                                        status: newStatus,
+                                        status_reason: newReason
+                                    }
+                                }));
+
+                                // Optional: Alert on change to Paused if active?
+                                // if (newStatus === 'paused') alert(`⚠️ TU ESTADO HA CAMBIADO A: PAUSADO\n\nMotivo: ${newReason}`);
                             }
                         }
                     )
