@@ -117,6 +117,12 @@ export const generateServiceReport = (ticket, logoImg = null, options = {}) => {
 
     yPos = doc.lastAutoTable.finalY + 10;
 
+    // --- Diagnosis Payment Logic ---
+    const diagnosisPaid = Number(ticket.diagnosis_paid || 0);
+    // If diagnosis is paid, it counts towards the total PAID, but checking logic carefully:
+    // User wants: "precio total - el diagnostico ya pagado" if accepted.
+    // If isQuote (Budget), show it as paid ITEM.
+
     // --- Totals ---
     // Calculate totals manually to ensure accuracy with current data
     const subtotal = labor.reduce((s, i) => s + (Number(i.price) * (i.qty || 1)), 0) +
@@ -124,7 +130,8 @@ export const generateServiceReport = (ticket, logoImg = null, options = {}) => {
     const vat = subtotal * 0.21;
     const total = subtotal + vat;
     const deposit = Number(ticket.deposit_amount || ticket.payment_deposit || 0);
-    const totalPaid = ticket.is_paid ? total : deposit; // If marked as paid, full amount, else just deposit
+
+    const totalPaid = ticket.is_paid ? total : (deposit + diagnosisPaid);
     const remaining = total - totalPaid;
 
     doc.setFontSize(11);
@@ -143,10 +150,28 @@ export const generateServiceReport = (ticket, logoImg = null, options = {}) => {
         doc.setFont('helvetica', 'normal');
         doc.text(`A cuenta / Señal: -${deposit.toFixed(2)}€`, pageWidth - 50, yPos, { align: 'right' });
         yPos += 6;
-        if (!ticket.is_paid) {
-            doc.setFont('helvetica', 'bold');
-            doc.text(`PENDIENTE: ${remaining.toFixed(2)}€`, pageWidth - 50, yPos, { align: 'right' });
-        }
+    }
+
+    if (diagnosisPaid > 0) {
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Diagnóstico Pagado: -${diagnosisPaid.toFixed(2)}€`, pageWidth - 50, yPos, { align: 'right' });
+        yPos += 6;
+    }
+
+    if (!ticket.is_paid && (deposit > 0 || diagnosisPaid > 0)) {
+        doc.setFont('helvetica', 'bold');
+        doc.text(`PENDIENTE: ${remaining.toFixed(2)}€`, pageWidth - 50, yPos, { align: 'right' });
+    }
+
+    // Disclaimer for Budget w/ Diagnosis
+    if (isQuote && diagnosisPaid > 0) {
+        yPos += 8;
+        doc.setFontSize(9);
+        doc.setTextColor(200, 100, 0); // Orange
+        doc.text('NOTA: Si se acepta este presupuesto en 15 días, se descontará el importe del diagnóstico.', 20, yPos);
+        doc.setTextColor(0);
+        yPos += 6;
     }
 
     // Payment Terms / Legal
@@ -169,6 +194,11 @@ export const generateServiceReport = (ticket, logoImg = null, options = {}) => {
         doc.setTextColor(0, 0, 0);
     }
 
+    // --- TIMELINE VISUAL (AMAZON STYLE) ---
+    if (!isQuote) {
+        drawTimeline(doc, ticket, 200); // Draw at Y=200
+    }
+
     // --- Footer / Signatures ---
     yPos = 250;
     doc.setDrawColor(150);
@@ -183,6 +213,85 @@ export const generateServiceReport = (ticket, logoImg = null, options = {}) => {
     doc.text('Garantía de reparación de 3 meses según normativa vigente.', pageWidth / 2, 280, { align: 'center' });
 
     return doc;
+};
+
+// --- TIMELINE HELPER ---
+const drawTimeline = (doc, ticket, startY) => {
+    const pageWidth = doc.internal.pageSize.width;
+    const history = ticket.status_history || [];
+
+    // Define Milestones
+    const steps = [
+        { label: 'Entrada', status: ['abierto', 'asignado', 'pendiente'] },
+        { label: 'En Camino', status: ['en_camino'] },
+        { label: 'Diagnosis', status: ['en_diagnostico', 'presupuesto_pd', 'presupuestado', 'rechazado'] },
+        { label: 'Reparación', status: ['asignado_reparacion', 'en_espera_pieza', 'en_reparacion'] },
+        { label: 'Finalizado', status: ['finalizado'] }
+    ];
+
+    const margin = 20;
+    const totalWidth = pageWidth - (margin * 2);
+    const stepWidth = totalWidth / (steps.length - 1);
+
+    doc.saveGraphicsState();
+
+    // Draw Base Line
+    doc.setDrawColor(200);
+    doc.setLineWidth(1);
+    doc.line(margin, startY, pageWidth - margin, startY);
+
+    // Determine current progress index based on LATEST status
+    const currentStatus = ticket.status;
+    let maxStepIndex = 0;
+
+    // We can also try to find timestamps for each step
+    const stepTimestamps = steps.map(s => {
+        // Find existing history entry matching one of the statuses
+        const entry = history.slice().reverse().find(h => s.status.includes(h.status));
+        return entry ? new Date(entry.timestamp || entry.changed_at).toLocaleDateString([], { day: '2-digit', month: '2-digit' }) : null;
+    });
+
+    // Find active step index
+    steps.forEach((s, idx) => {
+        if (s.status.includes(currentStatus)) maxStepIndex = idx;
+        else if (history.some(h => s.status.includes(h.status)) && idx > maxStepIndex) maxStepIndex = idx;
+    });
+
+    // If finalized call logic, assume all steps done
+    if (currentStatus === 'finalizado') maxStepIndex = steps.length - 1;
+
+    // Draw Active Line
+    if (maxStepIndex > 0) {
+        doc.setDrawColor(0, 150, 0); // Green
+        doc.setLineWidth(1.5);
+        doc.line(margin, startY, margin + (maxStepIndex * stepWidth), startY);
+    }
+
+    // Draw Dots
+    steps.forEach((step, i) => {
+        const cx = margin + (i * stepWidth);
+        const isActive = i <= maxStepIndex;
+
+        doc.setFillColor(isActive ? 0 : 255, isActive ? 150 : 255, isActive ? 0 : 255); // Green if active, White if not
+        doc.setDrawColor(isActive ? 0 : 200, isActive ? 150 : 200, isActive ? 0 : 200);
+
+        doc.circle(cx, startY, 2.5, 'FD');
+
+        // Label
+        doc.setFontSize(8);
+        doc.setTextColor(isActive ? 0 : 150);
+        doc.setFont('helvetica', isActive ? 'bold' : 'normal');
+        doc.text(step.label, cx, startY - 5, { align: 'center' });
+
+        // Timestamp
+        if (stepTimestamps[i]) {
+            doc.setFontSize(7);
+            doc.setTextColor(100);
+            doc.text(stepTimestamps[i], cx, startY + 8, { align: 'center' });
+        }
+    });
+
+    doc.restoreGraphicsState();
 };
 
 export const generateDepositReceipt = (ticket, logoImg = null) => {

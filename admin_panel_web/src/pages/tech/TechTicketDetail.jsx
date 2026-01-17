@@ -73,7 +73,9 @@ const TechTicketDetail = () => {
 
     // UI Helper State
     const [newPart, setNewPart] = useState({ name: '', price: '', qty: 1 });
-    const [selectedLaborId, setSelectedLaborId] = useState('');
+    const [generatingPdf, setGeneratingPdf] = useState(false);
+    const [diagnosisPrice, setDiagnosisPrice] = useState(30);
+    const [diagnosisMethod, setDiagnosisMethod] = useState('CASH'); // CASH, CARD
     const [showCloseModal, setShowCloseModal] = useState(false);
 
 
@@ -1307,17 +1309,77 @@ const TechTicketDetail = () => {
 
                     {/* Rejected Action */}
                     {budgetDecision === 'rejected' && (
-                        <div className="bg-red-50 p-4 rounded-xl border border-red-100 animate-in zoom-in-95">
-                            <p className="text-sm text-red-800 mb-3 font-medium">
-                                El cliente no acepta la reparación. Genera el presupuesto para formalizar el rechazo o cobrar diagnóstico.
+                        <div className="bg-red-50 p-4 rounded-xl border border-red-100 animate-in zoom-in-95 space-y-4">
+                            <div>
+                                <h4 className="text-sm font-bold text-red-800 flex items-center gap-2 mb-2">
+                                    <Banknote size={16} />
+                                    Cobrar Diagnóstico (Opcional)
+                                </h4>
+                                <div className="bg-white p-3 rounded-lg border border-red-100 space-y-3">
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-400 block mb-1">Importe Diagnóstico</label>
+                                        <div className="relative">
+                                            <input
+                                                type="number"
+                                                value={diagnosisPrice}
+                                                onChange={e => setDiagnosisPrice(e.target.value)}
+                                                className="w-full pl-8 pr-3 py-2 border rounded-lg text-sm font-bold text-slate-700"
+                                            />
+                                            <span className="absolute left-3 top-2 text-slate-400">€</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setDiagnosisMethod('CASH')}
+                                            className={`flex-1 py-2 text-xs font-bold rounded-lg border ${diagnosisMethod === 'CASH' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-slate-50 text-slate-500'}`}
+                                        >
+                                            Efectivo
+                                        </button>
+                                        <button
+                                            onClick={() => setDiagnosisMethod('CARD')}
+                                            className={`flex-1 py-2 text-xs font-bold rounded-lg border ${diagnosisMethod === 'CARD' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-500'}`}
+                                        >
+                                            Tarjeta
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <p className="text-xs text-red-700/80">
+                                Al cobrar, se generará el presupuesto marcando el diagnóstico como PAGADO. Si el cliente acepta antes de 15 días, se le descontará.
                             </p>
+
                             <button
-                                onClick={handleGenerateQuote}
+                                onClick={async () => {
+                                    if (diagnosisPrice > 0) {
+                                        if (!confirm(`¿Confirmas que has cobrado ${diagnosisPrice}€ en ${diagnosisMethod === 'CASH' ? 'EFECTIVO' : 'TARJETA'} por el diagnóstico?`)) return;
+
+                                        // Save Diagnosis Payment
+                                        try {
+                                            setUpdating(true);
+                                            await supabase.from('tickets').update({
+                                                diagnosis_paid: parseFloat(diagnosisPrice),
+                                                diagnosis_paid_at: new Date().toISOString()
+                                                // Note: we don't set is_paid=true for the full ticket, just this field.
+                                            }).eq('id', ticket.id);
+
+                                            // Update local state temporarily for PDF generation (re-fetch will sync)
+                                            ticket.diagnosis_paid = parseFloat(diagnosisPrice);
+                                        } catch (err) {
+                                            console.error(err);
+                                            alert("Error guardando cobro: " + err.message);
+                                            setUpdating(false);
+                                            return;
+                                        }
+                                        setUpdating(false);
+                                    }
+                                    handleGenerateQuote();
+                                }}
                                 disabled={updating || generatingPdf}
-                                className="w-full py-3 bg-white text-red-600 border border-red-200 rounded-lg font-bold shadow-sm hover:bg-red-600 hover:text-white transition-colors flex items-center justify-center gap-2"
+                                className="w-full py-3 bg-red-600 text-white rounded-lg font-bold shadow-md shadow-red-200 hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
                             >
                                 <FileText size={18} />
-                                Generar Presupuesto (Rechazo)
+                                {diagnosisPrice > 0 ? 'Cobrar y Generar Presupuesto' : 'Generar Rechazo (Sin Cobro)'}
                             </button>
                         </div>
                     )}
