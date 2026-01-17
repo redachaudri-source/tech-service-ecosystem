@@ -22,6 +22,10 @@ const TeamManager = () => {
     // Company Name for email generation
     const [companyName, setCompanyName] = useState('empresa');
 
+    const [showReasonModal, setShowReasonModal] = useState(false);
+    const [pendingStatusChange, setPendingStatusChange] = useState(null); // { member, status }
+    const [statusReason, setStatusReason] = useState('');
+
     useEffect(() => {
         supabase.from('company_settings').select('company_name').single()
             .then(({ data }) => {
@@ -204,8 +208,29 @@ const TeamManager = () => {
         else fetchMembers();
     };
 
-    const updateStatus = async (member, newStatus) => {
-        let updatePayload = { status: newStatus };
+    const initiateStatusChange = (member, newStatus) => {
+        if (newStatus === 'active') {
+            updateStatus(member, newStatus, null);
+        } else {
+            setPendingStatusChange({ member, status: newStatus });
+            setStatusReason('');
+            setShowReasonModal(true);
+        }
+    };
+
+    const confirmStatusChange = () => {
+        if (!pendingStatusChange) return;
+        if (!statusReason.trim()) {
+            alert("Por favor, escribe una causa/razón para este cambio de estado.");
+            return;
+        }
+        updateStatus(pendingStatusChange.member, pendingStatusChange.status, statusReason);
+        setShowReasonModal(false);
+        setPendingStatusChange(null);
+    };
+
+    const updateStatus = async (member, newStatus, reason) => {
+        let updatePayload = { status: newStatus, status_reason: reason };
         if (newStatus === 'suspended') {
             updatePayload.is_active = false; // Legacy lock
         } else {
@@ -570,7 +595,7 @@ const TeamManager = () => {
                                         // Traffic Light for Techs
                                         <div className="flex bg-slate-100 rounded-lg p-1 gap-1 border border-slate-200 shadow-sm scale-90 origin-top-right">
                                             <button
-                                                onClick={() => updateStatus(member, 'active')}
+                                                onClick={() => initiateStatusChange(member, 'active')}
                                                 className={`w-6 h-6 rounded flex items-center justify-center transition-all ${(member.status || 'active') === 'active'
                                                     ? 'bg-white text-emerald-600 shadow-sm ring-1 ring-emerald-500/20'
                                                     : 'text-slate-300 hover:bg-white/50'
@@ -581,23 +606,23 @@ const TeamManager = () => {
                                             </button>
 
                                             <button
-                                                onClick={() => updateStatus(member, 'paused')}
+                                                onClick={() => initiateStatusChange(member, 'paused')}
                                                 className={`w-6 h-6 rounded flex items-center justify-center transition-all ${member.status === 'paused'
                                                     ? 'bg-white text-yellow-600 shadow-sm ring-1 ring-yellow-500/20'
                                                     : 'text-slate-300 hover:bg-white/50'
                                                     }`}
-                                                title="Pausado"
+                                                title={`Pausado\n${member.status_reason || ''}`}
                                             >
                                                 <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
                                             </button>
 
                                             <button
-                                                onClick={() => updateStatus(member, 'suspended')}
+                                                onClick={() => initiateStatusChange(member, 'suspended')}
                                                 className={`w-6 h-6 rounded flex items-center justify-center transition-all ${member.status === 'suspended'
                                                     ? 'bg-white text-red-600 shadow-sm ring-1 ring-red-500/20'
                                                     : 'text-slate-300 hover:bg-white/50'
                                                     }`}
-                                                title="Suspendido"
+                                                title={`Suspendido\n${member.status_reason || ''}`}
                                             >
                                                 <div className="w-2 h-2 rounded-full bg-red-500"></div>
                                             </button>
