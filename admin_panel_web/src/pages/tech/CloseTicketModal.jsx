@@ -1,5 +1,3 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
 import { Smartphone, Banknote, Camera, CheckCircle, Loader2, AlertTriangle, Upload, X } from 'lucide-react';
 
 const CloseTicketModal = ({ ticket, onClose, onComplete }) => {

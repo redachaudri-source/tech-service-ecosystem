@@ -8,6 +8,7 @@ import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import Dashboard from './pages/dashboard/Dashboard';
 import NewService from './pages/dashboard/NewService';
+import DashboardLayout from './layouts/DashboardLayout';
 import MyAppliances from './pages/MyAppliances';
 import Analytics from './pages/Analytics';
 
@@ -49,22 +50,12 @@ function App() {
         </Route>
 
         {/* Protected Dashboard Route */}
-        <Route
-          path="/dashboard"
-          element={session ? <Dashboard /> : <Navigate to="/auth/login" />}
-        />
-        <Route
-          path="/new-service"
-          element={session ? <NewService /> : <Navigate to="/auth/login" />}
-        />
-        <Route
-          path="/appliances"
-          element={session ? <MyAppliances /> : <Navigate to="/auth/login" />}
-        />
-        <Route
-          path="/analytics"
-          element={session ? <Analytics /> : <Navigate to="/auth/login" />}
-        />
+        <Route element={<DashboardLayout session={session} />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/new-service" element={<NewService />} />
+          <Route path="/appliances" element={<MyAppliances />} />
+          <Route path="/analytics" element={<Analytics />} />
+        </Route>
 
         {/* Default Redirect */}
         <Route path="*" element={<Navigate to={session ? "/dashboard" : "/auth/login"} />} />
