@@ -250,15 +250,35 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                                     </div>
                                 </div>
 
-                                {/* Bar Mockup */}
-                                <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden flex mb-2 border border-slate-200">
+                                {/* Progress Bar Container */}
+                                <div className="relative h-6 w-full bg-slate-200 rounded-full overflow-hidden border border-slate-300 mb-1">
+                                    {/* The Safe Zone (0-51%) */}
+                                    <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-emerald-400 to-emerald-500" style={{ width: (financialMetrics.percentLimit) + '%' }}></div>
+                                    {/* The DANGER Zone (51-100%) */}
+                                    <div className="absolute top-0 right-0 h-full bg-rose-100" style={{ width: (100 - financialMetrics.percentLimit) + '%' }}></div>
+
+                                    {/* Needle / Marker for Current Spend */}
                                     <div
-                                        className="h-full bg-slate-400 flex items-center justify-center text-[9px] text-white font-bold transition-all duration-1000"
-                                        style={{ width: Math.min(100, (financialMetrics.totalSpent / financialMetrics.currentValue) * 100) + '%' }}
-                                    >
-                                        {financialMetrics.totalSpent > 0 && (Math.round((financialMetrics.totalSpent / financialMetrics.currentValue) * 100) + '%')}
-                                    </div>
+                                        className="absolute top-0 bottom-0 w-1 bg-slate-900 z-10 transition-all duration-1000 shadow-[0_0_10px_rgba(0,0,0,0.5)]"
+                                        style={{ left: Math.min(100, (financialMetrics.totalSpent / financialMetrics.currentValue) * 100) + '%' }}
+                                    ></div>
+
+                                    {/* Percentage text inside bar if space allows, otherwise separate? Let's rely on labels below */}
                                 </div>
+
+                                {/* Labels */}
+                                <div className="flex justify-between text-[10px] text-slate-400 font-bold mt-1 uppercase">
+                                    <span>0€</span>
+                                    <span className="text-emerald-600">Límite Seguro ({financialMetrics.percentLimit.toFixed(0)}%): {financialMetrics.ruinLimit.toFixed(0)}€</span>
+                                    <span>100% ({financialMetrics.currentValue.toFixed(0)}€)</span>
+                                </div>
+
+                                {financialMetrics.remainingBudget <= 0 && (
+                                    <div className="mt-3 bg-red-50 text-red-600 px-3 py-2 rounded-lg text-xs font-bold border border-red-100 flex items-center gap-2 animate-pulse">
+                                        <AlertTriangle size={14} />
+                                        <span>PRECAUCIÓN: Límite financiero excedido.</span>
+                                    </div>
+                                )}
                             </div>
                         ) : null}
                     </div>
