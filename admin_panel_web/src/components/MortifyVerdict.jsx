@@ -1,4 +1,3 @@
-```
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import {
@@ -135,16 +134,6 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
     const handleRecalculate = async () => {
         setRecalculating(true);
         try {
-            // ... (keep existing recalculate logic, but it relies on triggers mostly now)
-            // Ideally trigger V11 handles this, but user might want manual force from UI.
-            // Re-using the same logic from before but updated to new schema references if needed.
-            // For brevity in this replacement, keeping the original logic flow but acknowledging the trigger does the heavy lifting.
-            // We'll just call the backend function or rely on the previous implementation's flow if strictly needed, 
-            // but the user wants the VISUALS.
-
-            // Let's keep the original recalculate logic attached to this tool call for safety, 
-            // but we really just want to refresh the view.
-
             // NEW: Use dedicated RPC for on-demand recalculation (fixes 0-ticket issue)
             const { error: rpcError } = await supabase.rpc('fn_calculate_mortify_score', {
                 p_appliance_id: appliance.id
@@ -215,8 +204,8 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
             if (updError) throw updError;
 
             // 2. Trigger RPC to Recalculate Total (Base + Financial + Recovered)
-            const { error: rpcError } = await supabase.rpc('fn_calculate_mortify_score', { 
-                p_appliance_id: appliance.id 
+            const { error: rpcError } = await supabase.rpc('fn_calculate_mortify_score', {
+                p_appliance_id: appliance.id
             });
 
             if (rpcError) throw rpcError;
@@ -458,26 +447,23 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                     </button>
                 </div>
             </div>
-        </div>
 
-            {/* Appliance Detail Modal (kept same) */ }
-    {
-        showApplianceModal && (
-            <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
-                <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden relative">
-                    <button onClick={() => setShowApplianceModal(false)} className="absolute top-4 right-4 bg-white/50 hover:bg-white p-2 rounded-full text-slate-800 transition z-10">
-                        <X size={24} />
-                    </button>
-                    <div className="p-6">
-                        <h3 className="text-2xl font-bold text-slate-900 mb-1">{appliance.brand}</h3>
-                        <p className="text-lg text-slate-600 font-medium mb-6">{appliance.type} {appliance.model}</p>
-                        {/* ... details ... */}
+            {/* Appliance Detail Modal (kept same) */}
+            {showApplianceModal && (
+                <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden relative">
+                        <button onClick={() => setShowApplianceModal(false)} className="absolute top-4 right-4 bg-white/50 hover:bg-white p-2 rounded-full text-slate-800 transition z-10">
+                            <X size={24} />
+                        </button>
+                        <div className="p-6">
+                            <h3 className="text-2xl font-bold text-slate-900 mb-1">{appliance.brand}</h3>
+                            <p className="text-lg text-slate-600 font-medium mb-6">{appliance.type} {appliance.model}</p>
+                            {/* ... details ... */}
+                        </div>
                     </div>
                 </div>
-            </div>
-        )
-    }
-        </div >
+            )}
+        </div>
     );
 };
 
