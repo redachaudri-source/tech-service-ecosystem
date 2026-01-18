@@ -2,17 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import {
     Scale, AlertCircle, CheckCircle, XCircle, Clock,
-    ChevronRight, Search, Filter, Settings, TrendingUp
+    ChevronRight, Search, Filter, Settings, TrendingUp, Eye, History
 } from 'lucide-react';
 import MortifyVerdict from '../components/MortifyVerdict';
 import MortifySettingsModal from '../components/MortifySettingsModal';
 
 const MortifyDashboard = () => {
-    const [assessments, setAssessments] = useState([]);
+    const [rawAssessments, setRawAssessments] = useState([]);
+    const [groupedAssessments, setGroupedAssessments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('PENDING_JUDGE'); // PENDING_JUDGE, HISTORY
     const [selectedAssessment, setSelectedAssessment] = useState(null);
     const [showSettings, setShowSettings] = useState(false);
+
+    // History Modal State
+    const [historyModalApplianceId, setHistoryModalApplianceId] = useState(null);
 
     // TEMPORARY DEBUG STATE
     const [debugError, setDebugError] = useState(null);
@@ -35,7 +39,7 @@ const MortifyDashboard = () => {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [filter]);
+    }, []);
 
     const fetchAssessments = async () => {
         setLoading(true);
@@ -57,21 +61,44 @@ const MortifyDashboard = () => {
                 `)
                 .order('created_at', { ascending: false });
 
-            if (filter === 'PENDING_JUDGE') {
-                query = query.eq('status', 'PENDING_JUDGE');
-            } else {
-                query = query.neq('status', 'PENDING_JUDGE');
-            }
-
             const { data, error } = await query;
             if (error) throw error;
-            setAssessments(data || []);
+
+            setRawAssessments(data || []);
+            processGroups(data || [], filter);
+
         } catch (err) {
             console.error('Error fetching assessments:', err);
             setDebugError(err.message || JSON.stringify(err));
         } finally {
             setLoading(false);
         }
+    };
+
+    // Re-process groups when filter changes
+    useEffect(() => {
+        processGroups(rawAssessments, filter);
+    }, [filter, rawAssessments]);
+
+    const processGroups = (data, currentFilter) => {
+        // 1. Filter by Status
+        let filtered = [];
+        if (currentFilter === 'PENDING_JUDGE') {
+            filtered = data.filter(a => a.status === 'PENDING_JUDGE');
+        } else {
+            filtered = data.filter(a => a.status !== 'PENDING_JUDGE');
+        }
+
+        // 2. Group by Appliance ID (Take latest)
+        const groups = {};
+        filtered.forEach(item => {
+            const appId = item.appliance_id;
+            if (!groups[appId]) {
+                groups[appId] = item; // First one found is latest because of order('created_at', descending)
+            }
+        });
+
+        setGroupedAssessments(Object.values(groups));
     };
 
     const handleVerdict = () => {
@@ -81,10 +108,10 @@ const MortifyDashboard = () => {
 
     // --- FINANCIAL INTELLIGENCE DASHBOARD (CALCULATED ON FLY) ---
     const stats = {
-        ingresos: (assessments.length * 9.99).toFixed(2),
-        ahorro: (assessments.filter(a => a.admin_verdict === 'CONFIRMED_VIABLE').length * 150).toFixed(2), // Estimación: 150€ ahorro medio vs comprar nuevo
-        tasa: assessments.length > 0
-            ? Math.round((assessments.filter(a => a.ia_suggestion === 'VIABLE').length / assessments.length) * 100)
+        ingresos: (rawAssessments.length * 9.99).toFixed(2),
+        ahorro: (rawAssessments.filter(a => a.admin_verdict === 'CONFIRMED_VIABLE').length * 150).toFixed(2),
+        tasa: rawAssessments.length > 0
+            ? Math.round((rawAssessments.filter(a => a.ia_suggestion === 'VIABLE').length / rawAssessments.length) * 100)
             : 0
     };
 
@@ -125,6 +152,69 @@ const MortifyDashboard = () => {
             </div>
         </div>
     );
+
+    const HistoryModal = () => {
+        if (!historyModalApplianceId) return null;
+
+        // Filter ALL history for this appliance, regardless of status
+        const historyData = rawAssessments.filter(a => a.appliance_id === historyModalApplianceId);
+        const latest = historyData[0]; // Assuming sorted desc
+
+        return (
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+                <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
+                    <div className="p-6 border-b border-slate-100 flex justify-between items-start bg-slate-50">
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-800">Historial de Evaluaciones</h3>
+                            <p className="text-sm text-slate-500 font-medium">
+                                {latest?.client_appliances?.type} {latest?.client_appliances?.brand} - {latest?.client_appliances?.profiles?.full_name}
+                            </p>
+                        </div>
+                        <button onClick={() => setHistoryModalApplianceId(null)} className="p-2 hover:bg-slate-200 rounded-full transition">
+                            <XCircle size={20} className="text-slate-400" />
+                        </button>
+                    </div>
+
+                    <div className="overflow-y-auto p-6 space-y-4">
+                        {historyData.map((item, idx) => (
+                            <div key={item.id} className="border border-slate-200 rounded-xl p-4 hover:border-indigo-200 transition-colors bg-white shadow-sm">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${item.status === 'PENDING_JUDGE' ? 'bg-amber-100 text-amber-700' :
+                                                item.admin_verdict === 'CONFIRMED_VIABLE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                            }`}>
+                                            {item.status === 'PENDING_JUDGE' ? 'Pendiente' : item.admin_verdict}
+                                        </span>
+                                        <span className="text-xs text-slate-400 font-medium flex items-center gap-1">
+                                            <Clock size={12} /> {new Date(item.created_at).toLocaleString()}
+                                        </span>
+                                    </div>
+                                    <span className="font-mono text-xs font-bold text-slate-400">#{item.id.slice(0, 8)}</span>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 text-sm mb-3">
+                                    <div>
+                                        <span className="text-xs text-slate-400 uppercase font-bold block">Puntuación Total</span>
+                                        <span className={`text-lg font-black ${item.total_score >= 18 ? 'text-green-600' : item.total_score < 10 ? 'text-red-600' : 'text-amber-600'}`}>
+                                            {item.total_score} <span className="text-xs text-slate-400 font-medium">/ 24</span>
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className="text-xs text-slate-400 uppercase font-bold block">Sugerencia IA</span>
+                                        <span className="font-bold text-slate-700">{item.ia_suggestion}</span>
+                                    </div>
+                                </div>
+
+                                <div className="bg-slate-50 p-3 rounded-lg text-xs text-slate-600 italic border border-slate-100">
+                                    "{item.admin_note || 'Sin notas'}"
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+    };
 
     return (
         <div className="h-full flex flex-col space-y-6">
@@ -199,7 +289,7 @@ const MortifyDashboard = () => {
                                             Cargando expedientes...
                                         </td>
                                     </tr>
-                                ) : assessments.length === 0 ? (
+                                ) : groupedAssessments.length === 0 ? (
                                     <tr>
                                         <td colSpan="5" className="px-6 py-12 text-center text-slate-400">
                                             {debugError ? (
@@ -217,7 +307,7 @@ const MortifyDashboard = () => {
                                         </td>
                                     </tr>
                                 ) : (
-                                    assessments.map((a) => (
+                                    groupedAssessments.map((a) => (
                                         <tr key={a.id} className="hover:bg-slate-50/50 transition-colors">
                                             <td className="px-6 py-4">
                                                 <div className="font-medium text-slate-900">
@@ -235,7 +325,7 @@ const MortifyDashboard = () => {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2">
-                                                    <span className={`text-lg font-bold ${a.total_score >= 8 ? 'text-green-600' :
+                                                    <span className={`text-lg font-bold ${a.total_score >= 18 ? 'text-green-600' :
                                                         a.total_score < 4 ? 'text-red-500' : 'text-amber-500'
                                                         }`}>
                                                         {a.total_score}
@@ -260,20 +350,31 @@ const MortifyDashboard = () => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                {filter === 'PENDING_JUDGE' ? (
+                                                <div className="flex items-center justify-end gap-2">
+                                                    {/* NEW: VIEW HISTORY BUTTON */}
                                                     <button
-                                                        onClick={() => setSelectedAssessment(a)}
-                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-xs font-bold shadow-sm shadow-indigo-200"
+                                                        onClick={() => setHistoryModalApplianceId(a.appliance_id)}
+                                                        className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 border border-blue-200 transition-colors"
+                                                        title="Ver historial completo"
                                                     >
-                                                        <Scale size={14} />
-                                                        JUZGAR
+                                                        <Eye size={16} />
                                                     </button>
-                                                ) : (
-                                                    <span className={`text-xs font-bold ${a.admin_verdict === 'CONFIRMED_VIABLE' ? 'text-green-600' : 'text-red-600'
-                                                        }`}>
-                                                        {a.admin_verdict === 'CONFIRMED_VIABLE' ? 'VIABLE ✅' : 'OBSOLETO ❌'}
-                                                    </span>
-                                                )}
+
+                                                    {filter === 'PENDING_JUDGE' ? (
+                                                        <button
+                                                            onClick={() => setSelectedAssessment(a)}
+                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-xs font-bold shadow-sm shadow-indigo-200"
+                                                        >
+                                                            <Scale size={14} />
+                                                            JUZGAR
+                                                        </button>
+                                                    ) : (
+                                                        <span className={`text-xs font-bold ${a.admin_verdict === 'CONFIRMED_VIABLE' ? 'text-green-600' : 'text-red-600'
+                                                            }`}>
+                                                            {a.admin_verdict === 'CONFIRMED_VIABLE' ? 'VIABLE ✅' : 'OBSOLETO ❌'}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))
@@ -286,6 +387,8 @@ const MortifyDashboard = () => {
             {showSettings && (
                 <MortifySettingsModal onClose={() => setShowSettings(false)} />
             )}
+
+            <HistoryModal />
         </div>
     );
 };
