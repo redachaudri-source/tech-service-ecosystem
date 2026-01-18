@@ -68,17 +68,22 @@ BEGIN
     IF v_market_price IS NULL THEN v_market_price := 600; END IF;
     IF v_lifespan IS NULL THEN v_lifespan := 10; END IF;
 
-    -- 4. Get Brand Score (Prestige)
-    SELECT score 
-    INTO v_brand_score
-    FROM mortify_brand_scores 
-    WHERE brand_name ILIKE v_brand;
-
-    IF v_brand_score >= 4 THEN v_multiplier := 2.2; -- Miele, Liebherr
-    ELSIF v_brand_score = 3 THEN v_multiplier := 1.6; -- Bosch, Balay
-    ELSIF v_brand_score = 2 THEN v_multiplier := 1.25; -- Beko
-    ELSE v_multiplier := 1.0; -- Generic
-    END IF;
+    -- 4. Get Brand Score (Hardcoded Fallback for Reliability)
+    -- We match common brands to prestige levels directly to avoid missing table errors
+    CASE 
+        WHEN v_brand ILIKE '%Miele%' OR v_brand ILIKE '%Liebherr%' OR v_brand ILIKE '%Gaggenau%' THEN
+            v_brand_score := 4;
+            v_multiplier := 2.2;
+        WHEN v_brand ILIKE '%Bosch%' OR v_brand ILIKE '%Balay%' OR v_brand ILIKE '%Siemens%' OR v_brand ILIKE '%Samsung%' THEN
+            v_brand_score := 3;
+            v_multiplier := 1.6;
+        WHEN v_brand ILIKE '%Beko%' OR v_brand ILIKE '%Indesit%' OR v_brand ILIKE '%Teka%' THEN
+            v_brand_score := 2;
+            v_multiplier := 1.25;
+        ELSE
+            v_brand_score := 1;
+            v_multiplier := 1.0;
+    END CASE;
 
     -- 5. Calculate Current Value (The "Miele Formula")
     -- Base * Multiplier * Depreciation
