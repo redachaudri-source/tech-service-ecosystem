@@ -2,21 +2,21 @@ import React from 'react';
 import { Wrench } from 'lucide-react';
 
 const ViabilityLabel = ({ score, size = 'md' }) => {
-    // 1. Calculate V-Level (Granular Mapping 0-14 to V1-V6)
-    // Scale:
-    // V6: 12-14
-    // V5: 10-11
-    // V4: 8-9
-    // V3: 6-7
-    // V2: 4-5
-    // V1: 0-3
+    // 1. Calculate V-Level (Granular Mapping 0-24 to V1-V6)
+    // Scale (Revised for V13 - Max 24):
+    // V6: 21-24 (Excellent)
+    // V5: 17-20 (Very Good)
+    // V4: 13-16 (Good)
+    // V3: 9-12 (Moderate)
+    // V2: 5-8 (Poor)
+    // V1: 0-4 (Obsolete)
     const rawScore = Math.floor(score || 0);
     let vLevel = 1;
-    if (rawScore >= 12) vLevel = 6;
-    else if (rawScore >= 10) vLevel = 5;
-    else if (rawScore >= 8) vLevel = 4;
-    else if (rawScore >= 6) vLevel = 3;
-    else if (rawScore >= 4) vLevel = 2;
+    if (rawScore >= 21) vLevel = 6;
+    else if (rawScore >= 17) vLevel = 5;
+    else if (rawScore >= 13) vLevel = 4;
+    else if (rawScore >= 9) vLevel = 3;
+    else if (rawScore >= 5) vLevel = 2;
     else vLevel = 1;
 
     // 2. Visual Config (STRICT MODE)
