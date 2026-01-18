@@ -108,21 +108,7 @@ const TechTicketDetail = () => {
         fetchLimit();
     }, [ticket?.appliance_id, ticket?.appliance_info]);
 
-    // --- FINANCIAL LIMITS (MORTIFY "EL CHIVATO") ---
-    const [financialLimit, setFinancialLimit] = useState(null);
 
-    useEffect(() => {
-        const fetchLimit = async () => {
-            if (!ticket?.appliance_id) return;
-            const { data, error } = await supabase.rpc('fn_get_appliance_financial_limit', {
-                p_appliance_id: ticket.appliance_id
-            });
-            if (data && data.length > 0) {
-                setFinancialLimit(data[0]);
-            }
-        };
-        fetchLimit();
-    }, [ticket?.appliance_id]);
 
     useEffect(() => {
         const fetchProfile = async () => {
