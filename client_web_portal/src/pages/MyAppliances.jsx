@@ -216,8 +216,12 @@ const MyAppliances = () => {
                 const tickets = app.tickets || [];
                 const repairCount = tickets.filter(t => ['finalizado', 'pagado'].includes(t.status)).length;
 
-                // Check active mortify assessment (take the latest)
-                const assessments = (app.mortify_assessments || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                // Check active mortify assessment (Safe handle for One-to-One vs One-to-Many)
+                let rawMA = app.mortify_assessments;
+                if (!Array.isArray(rawMA)) {
+                    rawMA = rawMA ? [rawMA] : [];
+                }
+                const assessments = rawMA.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                 const mortifyStatus = assessments.length > 0 ? assessments[0] : null;
 
                 // Calculate total spent
@@ -240,7 +244,7 @@ const MyAppliances = () => {
             setAppliances(processed);
         } catch (error) {
             console.error('Error fetching appliances:', error);
-            alert(`Debug Error: No se pudieron cargar los aparatos. \n${error.message || JSON.stringify(error)}`);
+            // Alert removed after debugging
         } finally {
             setLoading(false);
         }
