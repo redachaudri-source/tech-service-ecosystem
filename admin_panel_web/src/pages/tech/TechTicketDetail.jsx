@@ -110,7 +110,8 @@ const TechTicketDetail = () => {
                         full_name,
                         address,
                         phone,
-                        user_id
+                        user_id,
+                        id
                     )
                 `)
                 .eq('id', id)
@@ -1485,7 +1486,7 @@ const TechTicketDetail = () => {
                                 >
                                     <option value="cash">Efectivo</option>
                                     <option value="card">Tarjeta</option>
-                                    {(ticket.client?.user_id || ticket.origin_source?.toLowerCase().includes('app')) && <option value="APP_PAYMENT">Pago por App</option>}
+                                    {(ticket.client?.user_id || ticket.client?.id || ticket.origin_source?.toLowerCase().includes('app')) && <option value="APP_PAYMENT">Pago por App</option>}
                                     <option value="bizum">Bizum</option>
                                     <option value="transfer">Transferencia</option>
                                 </select>
