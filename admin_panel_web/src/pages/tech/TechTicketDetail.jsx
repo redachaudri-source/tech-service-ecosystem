@@ -398,7 +398,7 @@ const TechTicketDetail = () => {
         }
     };
 
-    const handleGeneratePDF = async () => {
+    const handleGeneratePDF = async (type = 'standard') => {
         if (!ticket) return;
         setGeneratingPdf(true);
         try {
@@ -407,11 +407,13 @@ const TechTicketDetail = () => {
             const currentData = getCurrentTicketData(); // USE LOCAL STATE
 
             // 1. Generate PDF Blob
-            const doc = generateServiceReport(currentData, logoImg, { signatureImg });
+            const title = type === 'warranty' ? 'PARTE DE GARANTÍA' : undefined;
+            const doc = generateServiceReport(currentData, logoImg, { signatureImg, title });
             const pdfBlob = doc.output('blob');
 
             // 2. Upload to Supabase
-            const fileName = `report_${ticket.ticket_number}_${Date.now()}.pdf`;
+            const prefix = type === 'warranty' ? 'warranty_' : 'report_';
+            const fileName = `${prefix}${ticket.ticket_number}_${Date.now()}.pdf`;
             const filePath = `${fileName}`;
 
             const { error: uploadError } = await supabase.storage
@@ -427,19 +429,25 @@ const TechTicketDetail = () => {
             const publicUrl = urlData.publicUrl;
 
             // 4. Update Ticket
+            const updateFields = type === 'warranty'
+                ? { warranty_pdf_url: publicUrl }
+                : { pdf_url: publicUrl, pdf_generated_at: new Date().toISOString() };
+
             const { error: dbError } = await supabase
                 .from('tickets')
-                .update({
-                    pdf_url: publicUrl,
-                    pdf_generated_at: new Date().toISOString()
-                })
+                .update(updateFields)
                 .eq('id', id);
 
             if (dbError) throw dbError;
 
             // 5. Update Local State
-            setTicket(prev => ({ ...prev, pdf_url: publicUrl }));
-            alert('PDF generado y guardado correctamente.');
+            if (type === 'warranty') {
+                setTicket(prev => ({ ...prev, warranty_pdf_url: publicUrl }));
+            } else {
+                setTicket(prev => ({ ...prev, pdf_url: publicUrl }));
+            }
+
+            alert(`PDF de ${type === 'warranty' ? 'Garantía' : 'Trabajo'} generado y guardado correctamente.`);
 
             // Open PDF
             window.open(publicUrl, '_blank');
@@ -1723,6 +1731,19 @@ const TechTicketDetail = () => {
                                 <CheckCircle size={24} />
                                 {isPaid ? 'Finalizar Reparación y Firmar' : 'Finalizar como PENDIENTE DE COBRO'}
                             </button>
+
+                            {/* WARRANTY BUTTON */}
+                            <button
+                                onClick={() => {
+                                    setSignaturePurpose('warranty_closing');
+                                    setShowSignaturePad(true);
+                                }}
+                                disabled={uploadingProof}
+                                className="w-full py-4 mt-2 bg-purple-600 text-white rounded-xl font-bold shadow-lg shadow-purple-200 flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-purple-700"
+                            >
+                                <ShieldCheck size={24} />
+                                Finalizar y Generar Parte de Garantía
+                            </button>
                         </div>
                     </div>
                 )
@@ -1909,6 +1930,30 @@ const TechTicketDetail = () => {
 
                                     await updateStatus('finalizado', warrantyData);
                                     alert("Servicio finalizado con garantía aplicada correctamente.");
+                                } else if (signaturePurpose === 'warranty_closing') {
+                                    // REPLICATE CLOSING LOGIC BUT GENERATE WARRANTY PDF INSTEAD
+                                    const now = new Date();
+                                    const laborDate = new Date(now);
+                                    laborDate.setMonth(laborDate.getMonth() + warrantyLabor);
+                                    const partsDate = new Date(now);
+                                    partsDate.setMonth(partsDate.getMonth() + warrantyParts);
+                                    const maxDate = laborDate > partsDate ? laborDate : partsDate;
+
+                                    const warrantyData = {
+                                        warranty_labor_months: warrantyLabor,
+                                        warranty_parts_months: warrantyParts,
+                                        warranty_labor_until: laborDate.toISOString(),
+                                        warranty_parts_until: partsDate.toISOString(),
+                                        warranty_until: maxDate.toISOString()
+                                    };
+
+                                    ticket.client_signature_url = publicUrl;
+
+                                    // Generate WARRANTY PDF
+                                    await handleGeneratePDF('warranty');
+
+                                    await updateStatus('finalizado', warrantyData);
+                                    alert("Servicio finalizado. Parte de Garantía generado correctamente.");
                                 }
 
                                 setShowSignaturePad(false);

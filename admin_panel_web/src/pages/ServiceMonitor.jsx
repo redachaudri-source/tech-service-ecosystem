@@ -370,7 +370,12 @@ const ServiceMonitor = () => {
                                                         </a>
                                                     ) : <span className="text-slate-200">-</span>}
                                                     {ticket.pdf_url ? (
-                                                        <a href={ticket.pdf_url} target="_blank" className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Factura/Informe">
+                                                        <a href={ticket.pdf_url} target="_blank" className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Parte de Trabajo">
+                                                            <FileText size={14} />
+                                                        </a>
+                                                    ) : <span className="text-slate-200">-</span>}
+                                                    {ticket.warranty_pdf_url ? (
+                                                        <a href={ticket.warranty_pdf_url} target="_blank" className="p-1 text-purple-600 hover:bg-purple-50 rounded" title="Parte de Garantía">
                                                             <FileText size={14} />
                                                         </a>
                                                     ) : <span className="text-slate-200">-</span>}

@@ -37,7 +37,8 @@ export const generateServiceReport = (ticket, logoImg = null, options = {}) => {
     }
 
     doc.setFontSize(22);
-    doc.text(isQuote ? 'PRESUPUESTO' : 'PARTE DE TRABAJO', pageWidth - 15, 25, { align: 'right' });
+    const title = options.title || (isQuote ? 'PRESUPUESTO' : 'PARTE DE TRABAJO');
+    doc.text(title, pageWidth - 15, 25, { align: 'right' });
 
     doc.setFontSize(10);
     doc.text('Servicio Técnico Especializado', pageWidth - 15, 30, { align: 'right' });
