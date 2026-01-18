@@ -169,7 +169,24 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
     };
 
     const addProposal = (slot) => {
-        if (proposals.length >= 3) return alert("Máximo 3 opciones.");
+        const maxSlots = ticket.client?.has_webapp ? 3 : 1;
+
+        if (proposals.length >= maxSlots) {
+            // If Single Slot Mode (Non-App), replace the existing one automatically for better UX
+            if (maxSlots === 1) {
+                setProposals([{
+                    technician_id: slot.technician_id,
+                    technician_name: slot.technician_name,
+                    date: selectedDate,
+                    start: slot.slot_start,
+                    duration: duration,
+                    type_name: selectedServiceType?.name
+                }]);
+                return;
+            }
+            return alert(`Máximo ${maxSlots} opciones.`);
+        }
+
         // Check dupe
         if (proposals.some(p => p.technician_id === slot.technician_id && p.start === slot.slot_start)) {
             return;
