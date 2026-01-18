@@ -271,7 +271,11 @@ const ServiceMonitor = () => {
                                         <tr key={ticket.id} className="hover:bg-slate-50 transition-colors">
                                             {/* ID / Cita (Enhanced based on screenshot) */}
                                             <td className="px-3 py-2 md:px-4 md:py-3 sticky left-0 bg-white group-hover:bg-slate-50 transition-colors border-r border-slate-100 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.1)] align-top min-w-[120px] md:min-w-[140px]">
-                                                <div className="font-mono font-bold text-lg text-slate-800 tracking-tight">#{ticket.ticket_number}</div>
+                                                <div className={`font-mono font-bold text-lg tracking-tight flex items-center gap-1 ${ticket.is_warranty ? 'text-purple-700' : 'text-slate-800'}`}>
+                                                    {ticket.is_warranty && <ShieldAlert size={16} />}
+                                                    #{ticket.ticket_number}
+                                                </div>
+                                                {ticket.is_warranty && <div className="text-[9px] bg-purple-100 text-purple-700 px-1 rounded border border-purple-200 inline-block mt-1 font-bold">GARANTÍA</div>}
 
                                                 {ticket.scheduled_at ? (
                                                     <div className="mt-2 space-y-1.5 leading-none">

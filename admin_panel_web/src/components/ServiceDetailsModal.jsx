@@ -9,10 +9,11 @@ const ServiceDetailsModal = ({ ticket, onClose, onOpenWarrantyClaim }) => {
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
 
                 {/* Header */}
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
+                <div className={`p-6 border-b border-slate-100 flex justify-between items-center shrink-0 ${ticket.is_warranty ? 'bg-purple-50 border-purple-100' : 'bg-slate-50'}`}>
                     <div>
-                        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                            Ticket #{ticket.ticket_number}
+                        <h2 className={`text-xl font-bold flex items-center gap-2 ${ticket.is_warranty ? 'text-purple-800' : 'text-slate-800'}`}>
+                            {ticket.is_warranty && <ShieldAlert size={20} className="text-purple-600" />}
+                            {ticket.is_warranty ? 'GARANTÍA' : 'Ticket'} #{ticket.ticket_number}
                             <span className={`text-xs px-2 py-1 rounded-full border ${ticket.status === 'solicitado' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
                                 ticket.status === 'asignado' ? 'bg-blue-100 text-blue-800 border-blue-200' :
                                     ticket.status === 'presupuesto_pendiente' ? 'bg-amber-100 text-amber-800 border-amber-200' :
@@ -25,7 +26,9 @@ const ServiceDetailsModal = ({ ticket, onClose, onOpenWarrantyClaim }) => {
                                 {ticket.status.toUpperCase().replace('_', ' ')}
                             </span>
                         </h2>
-                        <p className="text-sm text-slate-500 mt-1">Detalles completos del servicio</p>
+                        <p className={`text-sm mt-1 ${ticket.is_warranty ? 'text-purple-600' : 'text-slate-500'}`}>
+                            {ticket.is_warranty ? 'Detalles de Reclamación' : 'Detalles completos del servicio'}
+                        </p>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-white rounded-full transition shadow-sm border border-transparent hover:border-slate-200">
                         <X size={20} className="text-slate-500" />
