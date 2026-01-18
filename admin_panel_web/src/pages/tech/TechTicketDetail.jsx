@@ -109,6 +109,12 @@ const TechTicketDetail = () => {
     }, [ticket?.appliance_id, ticket?.appliance_info]);
 
 
+    // --- FINANCIAL LIMITS (MORTIFY "EL CHIVATO") ---
+    // Moved up to avoid duplicates
+
+    // --- WARRANTY CONFIGURATION ---
+    const [warrantyLabor, setWarrantyLabor] = useState(3); // Months
+    const [warrantyParts, setWarrantyParts] = useState(24); // Months
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -226,7 +232,7 @@ const TechTicketDetail = () => {
         return map[s] || s;
     };
 
-    const updateStatus = async (newStatus) => {
+    const updateStatus = async (newStatus, extraFields = {}) => {
         setUpdating(true);
 
         try {
@@ -248,47 +254,38 @@ const TechTicketDetail = () => {
 
             // Save current data state AND new status/history
             // Try updating WITH history first (assuming schema is up to date)
-            const { error: historyError } = await supabase.from('tickets').update({
+            const { error } = await supabase.from('tickets').update({
+                status: newStatus,
+                status_history: updatedHistory,
+                updated_at: new Date().toISOString(),
+                // Ensure data persistence
                 tech_diagnosis: diagnosis,
                 tech_solution: solution,
                 parts_list: parts,
                 labor_list: labor,
-                deposit_amount: deposit,
-                is_paid: isPaid,
-                payment_method: paymentMethod,
-                payment_proof_url: paymentProofUrl,
-                status: newStatus,
-                status_history: updatedHistory,
-                final_price: finalPrice // Ensure final price is saved
+                final_price: finalPrice,
+                ...extraFields
             }).eq('id', id);
 
-            if (historyError) {
-                console.warn('History update failed, trying fallback without history layer...', historyError);
+            if (error) throw error;
 
-                // Fallback: Update WITHOUT status_history (older schema compatibility)
-                const { error: fallbackError } = await supabase.from('tickets').update({
-                    tech_diagnosis: diagnosis,
-                    tech_solution: solution,
-                    parts_list: parts,
-                    labor_list: labor,
-                    deposit_amount: deposit,
-                    is_paid: isPaid,
-                    payment_method: paymentMethod,
-                    payment_proof_url: paymentProofUrl,
-                    status: newStatus
-                }).eq('id', id);
+            // Refresh local state
+            setTicket(prev => ({ ...prev, status: newStatus, status_history: updatedHistory, ...extraFields }));
 
-                if (fallbackError) throw fallbackError;
+            // If finalized, maybe navigate or just show success
+            if (newStatus === 'finalizado') {
+                navigate('/tech/dashboard');
             }
 
-            await fetchTicket();
         } catch (error) {
             console.error('Error updating status:', error);
-            alert(`Error al actualizar estado (posible error de red o permisos): ${error.message}`);
+            alert('Error actualizando estado: ' + error.message);
         } finally {
             setUpdating(false);
         }
     };
+
+
 
     // Helper to get current ticket data with local edits
     const getCurrentTicketData = () => {
@@ -1513,6 +1510,42 @@ const TechTicketDetail = () => {
                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Cobro y Documentación</h3>
 
                     <div className="flex flex-col gap-3">
+
+                        {/* WARRANTY CONFIGURATION */}
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-2">
+                            <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
+                                <ShieldCheck size={14} /> Configuración de Garantía
+                            </h4>
+                            <div className="flex gap-4">
+                                <div className="flex-1">
+                                    <label className="text-[10px] font-bold text-slate-400 block mb-1">Mano de Obra</label>
+                                    <select
+                                        value={warrantyLabor}
+                                        onChange={e => setWarrantyLabor(Number(e.target.value))}
+                                        className="w-full text-sm font-bold p-2 rounded-lg border border-slate-200 bg-white"
+                                    >
+                                        <option value={0}>Sin Garantía</option>
+                                        <option value={3}>3 Meses</option>
+                                        <option value={6}>6 Meses</option>
+                                        <option value={12}>1 Año</option>
+                                    </select>
+                                </div>
+                                <div className="flex-1">
+                                    <label className="text-[10px] font-bold text-slate-400 block mb-1">Piezas / Recambios</label>
+                                    <select
+                                        value={warrantyParts}
+                                        onChange={e => setWarrantyParts(Number(e.target.value))}
+                                        className="w-full text-sm font-bold p-2 rounded-lg border border-slate-200 bg-white"
+                                    >
+                                        <option value={0}>Sin Garantía</option>
+                                        <option value={6}>6 Meses</option>
+                                        <option value={12}>1 Año</option>
+                                        <option value={24}>2 Años</option>
+                                        <option value={36}>3 Años</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
                         <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
                             <input
                                 type="checkbox"
@@ -1655,6 +1688,19 @@ const TechTicketDetail = () => {
 
 
                         </div>
+
+                        <button
+                            onClick={() => {
+                                setSignaturePurpose('closing');
+                                setShowSignaturePad(true);
+                            }}
+                            disabled={uploadingProof}
+                            className={`w-full py-4 mt-2 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-all ${isPaid ? 'bg-green-600 hover:bg-green-700 shadow-green-200' : 'bg-slate-700 hover:bg-slate-800 shadow-slate-300'
+                                }`}
+                        >
+                            <CheckCircle size={24} />
+                            {isPaid ? 'Finalizar Reparación y Firmar' : 'Finalizar como PENDIENTE DE COBRO'}
+                        </button>
                     </div>
                 </div>
             )}
@@ -1802,34 +1848,37 @@ const TechTicketDetail = () => {
                                 setBudgetDecision('accepted');
                                 alert("Presupuesto aceptado y firmado.");
                             } else if (signaturePurpose === 'closing') {
-                                // For Closing, we continue to generate PDF + Finalize
-                                // We wait for PDF generation
-                                // Note: handleGeneratePDF uses 'ticket.client_signature_url' from state.
-                                // We just updated state 'ticket', but React state update is async.
-                                // handleGeneratePDF reads 'ticket' from state or we can pass signature?
-                                // Actually handleGeneratePDF reads 'ticket' state.
-                                // To assume it has the new signature, we should update the local 'ticket' object passed to it OR
-                                // handleGeneratePDF should re-fetch?
-                                // Best to update local ticket state immediately before calling.
-                                // We did setTicket(...). But inside this function scope, 'ticket' is old.
-                                // We should manually patch it for the next call.
+                                // 4. CALCULATE WARRANTY DATES
+                                const now = new Date();
 
-                                // Actually, handleGeneratePDF uses 'ticket.client_signature_url' inside it? 
-                                // Let's look at handleGeneratePDF implementation:
-                                // const signatureImg = ticket.client_signature_url ? ...
-                                // Yes, it uses state.
-                                // We need to ensure it sees the new URL.
-                                // We can pass it as a temp override? No, handleGeneratePDF doesn't take overrides easily for ticket props.
-                                // But we can just duplicate the PDF generation call here slightly or force a delay?
-                                // Or better: Alert user "Firma guardada. Ahora finalizando..." and trigger the finalization logic?
-                                // Or just call handleGeneratePDF but we need to monkey-patch ticket state?
+                                // Labor Warranty
+                                const laborDate = new Date(now);
+                                laborDate.setMonth(laborDate.getMonth() + warrantyLabor);
 
-                                // Quick fix: Temporarily mutate ticket object for this closure?
+                                // Parts Warranty
+                                const partsDate = new Date(now);
+                                partsDate.setMonth(partsDate.getMonth() + warrantyParts);
+
+                                // General Max Warranty (for quick checks)
+                                const maxDate = laborDate > partsDate ? laborDate : partsDate;
+
+                                const warrantyData = {
+                                    warranty_labor_months: warrantyLabor,
+                                    warranty_parts_months: warrantyParts,
+                                    warranty_labor_until: laborDate.toISOString(),
+                                    warranty_parts_until: partsDate.toISOString(),
+                                    warranty_until: maxDate.toISOString()
+                                };
+
+                                // Quick fix: Temporarily mutate ticket object for this closure
                                 ticket.client_signature_url = publicUrl;
+                                // Ideally we should attach warranty info to ticket state for PDF generation too?
+                                // For now, we save it to DB. The PDF might need an update later to show these.
 
-                                await handleGeneratePDF();
-                                await updateStatus('finalizado');
-                                alert("Servicio finalizado y firmado correctamnte.");
+                                await handleGeneratePDF(); /* Note: PDF might not show warranty yet */
+
+                                await updateStatus('finalizado', warrantyData);
+                                alert("Servicio finalizado con garantía aplicada correctamente.");
                             }
 
                             setShowSignaturePad(false);
