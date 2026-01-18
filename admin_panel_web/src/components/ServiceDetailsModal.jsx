@@ -244,7 +244,7 @@ const ServiceDetailsModal = ({ ticket, onClose, onOpenWarrantyClaim }) => {
                                     <ShieldAlert size={18} />
                                     Reclamar Garantía
                                 </button>
-                            ) : (new Date(ticket.warranty_until) <= new Date()) ? (
+                            ) : (ticket.warranty_until && new Date(ticket.warranty_until) <= new Date()) ? (
                                 <span className="text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-full border border-slate-200 flex items-center gap-1">
                                     <ShieldCheck size={12} />
                                     Garantía Expirada ({new Date(ticket.warranty_until).toLocaleDateString()})

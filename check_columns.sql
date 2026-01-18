@@ -1,4 +1,4 @@
--- Check columns for V7 logic
-SELECT column_name, table_name 
+SELECT column_name, data_type 
 FROM information_schema.columns 
-WHERE table_name IN ('client_appliances', 'mortify_brand_scores', 'appliance_category_defaults');
+WHERE table_name = 'tickets' 
+AND column_name LIKE 'warranty%';

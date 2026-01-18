@@ -1795,6 +1795,20 @@ const TechTicketDetail = () => {
                                     </a>
                                 )}
 
+                                {/* REGENERATE WORK REPORT (If missing on finalized - e.g. after App Payment) */}
+                                {ticket.status === 'finalizado' && !ticket.pdf_url && (
+                                    <button
+                                        onClick={() => {
+                                            setSignaturePurpose('closing');
+                                            setShowSignaturePad(true);
+                                        }}
+                                        className="w-full py-3 bg-red-100 text-red-700 border border-red-200 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-red-200 transition"
+                                    >
+                                        <AlertTriangle size={20} />
+                                        <span>Generar Parte de Trabajo (Faltante)</span>
+                                    </button>
+                                )}
+
                                 {/* REGENERATE WARRANTY PDF (If missing on finalized) */}
                                 {ticket.status === 'finalizado' && ticket.is_warranty && !ticket.warranty_pdf_url && (
                                     <button
