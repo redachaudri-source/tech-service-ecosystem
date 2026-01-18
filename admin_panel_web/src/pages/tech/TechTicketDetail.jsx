@@ -1730,12 +1730,12 @@ const TechTicketDetail = () => {
                             // 1. Upload Signature
                             const fileName = `sig_${ticket.ticket_number}_${Date.now()}.png`;
                             const { error: uploadError } = await supabase.storage
-                                .from('signatures') // Ensure this bucket exists or use 'service-reports' path
+                                .from('service-attachments')
                                 .upload(fileName, await (await fetch(signatureDataUrl)).blob(), { contentType: 'image/png' });
 
                             if (uploadError) throw uploadError;
 
-                            const { data } = supabase.storage.from('signatures').getPublicUrl(fileName);
+                            const { data } = supabase.storage.from('service-attachments').getPublicUrl(fileName);
                             const publicUrl = data.publicUrl;
 
                             // 2. Update Ticket with Signature
