@@ -350,13 +350,13 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                                         <Eye size={16} />
                                     </button>
                                 </div>
-                                <p className="text-slate-500 font-medium">{appliance.type} {appliance.model ? `- ${ appliance.model } ` : ''}</p>
+                                <p className="text-slate-500 font-medium">{appliance.type} {appliance.model ? ("- " + appliance.model) : ''}</p>
                             </div>
                         </div>
 
                         <div className="space-y-3">
                             <ScoreRow icon={ShieldCheck} color="text-blue-500" label="Calidad de Marca" score={assessment.score_brand} description="Basado en la reputación." />
-                            <ScoreRow icon={Calendar} color="text-amber-500" label={`Antigüedad: ${ financialMetrics?.age || '?' } años`} score={assessment.score_age} description="Vida útil restante." />
+                            <ScoreRow icon={Calendar} color="text-amber-500" label={"Antigüedad: " + (financialMetrics?.age || '?') + " años"} score={assessment.score_age} description="Vida útil restante." />
                             <ScoreRow icon={Thermometer} color="text-purple-500" label="Instalación" score={assessment.score_installation} description="Accesibilidad." />
                             <ScoreRow icon={Banknote} color="text-green-500" label="Puntuación Financiera (V11)" score={financialMetrics?.financialScore ?? assessment.score_financial} description="0-10 basado en gasto/valor." />
                         </div>
@@ -364,13 +364,13 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
 
                     {/* AI Suggestion */}
                     {/* ... matches original ... */}
-                    <div className={`p - 4 rounded - xl border border - l - 4 shadow - sm ${
-    assessment.ia_suggestion === 'VIABLE'
-        ? 'bg-green-50 border-green-200 border-l-green-500'
-        : assessment.ia_suggestion === 'OBSOLETE'
-            ? 'bg-red-50 border-red-200 border-l-red-500'
-            : 'bg-amber-50 border-amber-200 border-l-amber-500'
-} `}>
+                    <div className={"p-4 rounded-xl border border-l-4 shadow-sm " + (
+                        assessment.ia_suggestion === 'VIABLE'
+                            ? 'bg-green-50 border-green-200 border-l-green-500'
+                            : assessment.ia_suggestion === 'OBSOLETE'
+                                ? 'bg-red-50 border-red-200 border-l-red-500'
+                                : 'bg-amber-50 border-amber-200 border-l-amber-500'
+                    )}>
                         <h4 className="text-sm font-bold opacity-80 mb-1 flex items-center gap-2">
                             <AlertTriangle size={14} /> Sugerencia Algoritmo:
                         </h4>
