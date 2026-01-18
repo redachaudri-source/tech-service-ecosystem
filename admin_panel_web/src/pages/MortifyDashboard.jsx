@@ -268,12 +268,17 @@ const MortifyDashboard = () => {
                     <button
                         onClick={async () => {
                             if (confirm("¿Estás seguro de BORRAR todo el historial de veredictos? Esta acción es para testing.")) {
-                                const { error } = await supabase.rpc('fn_clear_mortify_history');
-                                if (!error) {
-                                    fetchAssessments();
-                                    alert("Historial limpiado.");
-                                } else {
-                                    alert("Error: " + error.message);
+                                try {
+                                    const { data: count, error } = await supabase.rpc('fn_clear_mortify_history');
+                                    if (error) throw error;
+
+                                    await fetchAssessments();
+                                    alert(`Historial limpiado. Se borraron ${count} registros.`);
+                                    // Force hard refresh to be sure
+                                    window.location.reload();
+                                } catch (err) {
+                                    console.error(err);
+                                    alert("Error: " + err.message);
                                 }
                             }
                         }}
