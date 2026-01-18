@@ -386,17 +386,20 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
 
                         {/* Actions */}
                         <div className="space-y-2 mt-auto">
-                            <button
-                                onClick={handleSendProposals}
-                                disabled={proposals.length === 0}
-                                className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-200 transition text-sm flex items-center justify-center gap-2"
-                            >
-                                <CheckCircle size={16} /> Enviar Propuestas
-                            </button>
+                            {ticket.client?.has_webapp && (
+                                <button
+                                    onClick={handleSendProposals}
+                                    disabled={proposals.length === 0}
+                                    className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-200 transition text-sm flex items-center justify-center gap-2"
+                                >
+                                    <CheckCircle size={16} /> Enviar Propuestas
+                                </button>
+                            )}
+
                             <button
                                 onClick={handleConfirmDirect}
                                 disabled={proposals.length === 0}
-                                className="w-full py-3 bg-white text-slate-700 border border-slate-300 rounded-xl font-bold hover:bg-slate-50 disabled:opacity-50 transition text-sm flex items-center justify-center gap-2"
+                                className="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-200 transition text-sm flex items-center justify-center gap-2"
                             >
                                 <CheckCircle size={16} /> Asignar Directo
                             </button>
