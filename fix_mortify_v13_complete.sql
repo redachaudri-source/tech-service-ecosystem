@@ -81,7 +81,8 @@ BEGIN
     INTO v_base_market_price, v_lifespan 
     FROM appliance_category_defaults WHERE category_name ILIKE v_app_type LIMIT 1;
     
-    IF v_base_market_price IS NULL THEN v_base_market_price := 400; END IF;
+    -- SYNC FIX: Default to 700€ (matches Frontend) instead of 400€ to avoid "Ruina" on missing categories
+    IF v_base_market_price IS NULL THEN v_base_market_price := 700; END IF;
     IF v_lifespan IS NULL THEN v_lifespan := 10; END IF;
 
     -- Get Brand Score (1-4)
@@ -179,7 +180,10 @@ BEGIN
         v_total_score := 0; -- Veto
     END IF;
 
-    -- 10. UPSERT
+    -- 10. UPSERT (RESTRICTED: ONLY UPDATE EXISTING)
+    -- BUSINESS RULE: We do NOT create new assessments automatically (Cost to client).
+    -- We ONLY update if one already exists (e.g. bought previously).
+    
     IF v_existing_id IS NOT NULL THEN
         UPDATE mortify_assessments SET
             input_year = v_app_year,
@@ -196,36 +200,8 @@ BEGIN
             END,
             created_at = NOW() 
         WHERE id = v_existing_id;
-    ELSE
-        INSERT INTO mortify_assessments (
-            appliance_id,
-            input_year,
-            score_brand,
-            score_age,
-            score_installation,
-            score_financial,
-            total_score,
-            status,
-            admin_note,
-            ia_suggestion,
-            created_at
-        ) VALUES (
-            v_app_id,
-            v_app_year,
-            v_score_brand,
-            v_score_age_pts,
-            v_score_install,
-            v_score_fin,
-            v_total_score,
-            'PENDING_JUDGE',
-            v_template_text,
-            CASE 
-                WHEN v_score_fin = 0 THEN 'OBSOLETE'
-                WHEN v_total_score >= 18 THEN 'VIABLE'
-                ELSE 'DOUBTFUL'
-            END,
-            NOW()
-        );
+        
+        -- NOTE: Removed the ELSE INSERT block. New assessments must be created manually via UI (paying).
     END IF;
 
     RETURN NEW;
@@ -235,15 +211,14 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- === C. APPLY TRIGGERS ===
 
 -- 1. On Tickets (Update - e.g. Payment/Close)
+-- This will now only trigger updates to EXISTING assessments.
 DROP TRIGGER IF EXISTS trg_mortify_v13_tickets ON tickets;
 CREATE TRIGGER trg_mortify_v13_tickets
     AFTER UPDATE ON tickets
     FOR EACH ROW
     EXECUTE FUNCTION trigger_mortify_v13_god_tier();
 
--- 2. On Client Appliances (Insert/Update - Initial Valuation)
+-- 2. REMOVE AUTO-START TRIGGER ON APPLIANCES
+-- We do NOT want to evaluate purely on creation.
 DROP TRIGGER IF EXISTS trg_mortify_v13_appliances ON client_appliances;
-CREATE TRIGGER trg_mortify_v13_appliances
-    AFTER INSERT OR UPDATE ON client_appliances
-    FOR EACH ROW
-    EXECUTE FUNCTION trigger_mortify_v13_god_tier();
+-- (No Create Trigger)
