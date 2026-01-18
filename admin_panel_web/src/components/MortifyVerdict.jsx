@@ -341,10 +341,24 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                     <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6">El Veredicto</h3>
 
                     <div className="flex-1 flex flex-col justify-center space-y-6 max-w-md mx-auto w-full">
-                        <div className="w-full flex justify-center mb-2">
+                        <div className="w-full flex justify-center mb-2 flex-col items-center">
                             <ViabilityLabel
                                 score={assessment.total_score}
                             />
+                            {/* DEBUG MODE: Show breakdown if mismatch detected or explicit debug requested */}
+                            {(
+                                (assessment.score_brand || 0) +
+                                (assessment.score_age || 0) +
+                                (assessment.score_installation || 0) +
+                                (financialMetrics?.financialScore ?? 0)
+                            ) !== assessment.total_score && (
+                                    <div className="mt-2 text-[10px] font-mono text-red-500 bg-red-50 p-2 rounded border border-red-200 w-full text-center">
+                                        [DEBUG: DB SYNC ERROR] <br />
+                                        DB Total: {assessment.total_score} <br />
+                                        Real Sum: {(assessment.score_brand || 0) + (assessment.score_age || 0) + (assessment.score_installation || 0) + (financialMetrics?.financialScore || 0)} <br />
+                                        (Brand:{assessment.score_brand} + Age:{assessment.score_age} + Inst:{assessment.score_installation} + Fin:{financialMetrics?.financialScore})
+                                    </div>
+                                )}
                         </div>
 
                         <button onClick={handleRecalculate} disabled={recalculating || processing} className="text-xs w-full py-2 bg-slate-50 border border-slate-200 text-slate-500 rounded-lg hover:bg-slate-100 hover:text-indigo-600 transition flex items-center justify-center gap-2">
