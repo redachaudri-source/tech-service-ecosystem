@@ -246,7 +246,8 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
             const val = financialMetrics ? financialMetrics.currentValue.toFixed(2) : '???';
             const spent = financialMetrics ? financialMetrics.totalSpent.toFixed(2) : '???';
 
-            const improved = `Tras el análisis técnico, se observa que: ${ note.toLowerCase() }.\n\nDatos Financieros: El aparato tiene un valor residual estimado de ${ val }€. Se han invertido ${ spent }€ en reparaciones hasta la fecha.\n\nRecomendación: Basado en la regla del 51 %, sugerimos ${ assessment.ia_suggestion === 'VIABLE' ? 'proceder con la reparación' : 'no invertir más en este equipo' } para proteger su economía.\n\nFirma: Departamento Técnico.`;
+            const suggestionText = assessment.ia_suggestion === 'VIABLE' ? 'proceder con la reparación' : 'no invertir más en este equipo';
+            const improved = "Tras el análisis técnico, se observa que: " + note.toLowerCase() + ".\n\nDatos Financieros: El aparato tiene un valor residual estimado de " + val + "€. Se han invertido " + spent + "€ en reparaciones hasta la fecha.\n\nRecomendación: Basado en la regla del 51%, sugerimos " + suggestionText + " para proteger su economía.\n\nFirma: Departamento Técnico.";
 
             setNote(improved);
             setProcessing(false);
