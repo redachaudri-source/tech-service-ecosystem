@@ -89,7 +89,7 @@ const ServiceMonitor = () => {
             // 1. Tickets (Try complex join first)
             const { data: ticketData, error } = await supabase
                 .from('tickets')
-                .select('*, profiles:client_id(full_name, address, phone), creator:created_by(full_name), reviews(rating)')
+                .select('*, profiles:client_id(full_name, address, phone, user_id), creator:created_by(full_name), reviews(rating)')
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
@@ -101,7 +101,7 @@ const ServiceMonitor = () => {
             // Fallback: Simple fetch without creator join but keeping reviews
             const { data: ticketData } = await supabase
                 .from('tickets')
-                .select('*, profiles:client_id(full_name, address, phone), reviews(rating)')
+                .select('*, profiles:client_id(full_name, address, phone, user_id), reviews(rating)')
                 .order('created_at', { ascending: false });
 
             if (ticketData) setTickets(ticketData || []);
