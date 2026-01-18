@@ -216,15 +216,18 @@ const NewService = () => {
                             </div>
                         </div>
 
-                        {/* Appliance Info */}
+                        {/* Appliance Info - LOCKED IF PRE-FILLED */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Tipo de Aparato</label>
                                 <select
                                     name="type"
-                                    className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                                    className={`w-full p-3 border rounded-xl outline-none transition-colors ${applianceId
+                                        ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed'
+                                        : 'bg-white border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'}`}
                                     value={formData.type}
                                     onChange={handleChange}
+                                    disabled={!!applianceId}
                                 >
                                     {applianceTypes.map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
@@ -233,6 +236,7 @@ const NewService = () => {
                                 <SmartBrandSelector
                                     label="Marca"
                                     value={formData.brand}
+                                    disabled={!!applianceId}
                                     onChange={(brandObj) => {
                                         if (brandObj && typeof brandObj === 'object') {
                                             setFormData(prev => ({ ...prev, brand: brandObj.name, brand_id: brandObj.id }));
@@ -262,9 +266,12 @@ const NewService = () => {
                                     type="text"
                                     name="model"
                                     placeholder="Ej: WW90T534DTW (Opcional)"
-                                    className="flex-1 p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                                    className={`flex-1 p-3 border rounded-xl outline-none transition-colors ${applianceId && formData.model
+                                        ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed'
+                                        : 'bg-white border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'}`}
                                     value={formData.model}
                                     onChange={handleChange}
+                                    readOnly={!!applianceId && !!formData.model}
                                 />
                                 <div className="relative">
                                     <input

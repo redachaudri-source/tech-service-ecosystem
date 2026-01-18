@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Check, ChevronsUpDown, Plus, Search } from 'lucide-react';
 
 // Simplified version for Client Portal (tailored to client styles if needed, but keeping consistent)
-const SmartBrandSelector = ({ value, onChange, label = "Marca" }) => {
+const SmartBrandSelector = ({ value, onChange, label = "Marca", disabled = false }) => {
     const [query, setQuery] = useState('');
     const [brands, setBrands] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -14,34 +14,43 @@ const SmartBrandSelector = ({ value, onChange, label = "Marca" }) => {
         fetchBrands();
     }, []);
 
+    // Sync internal query with external value (important for pre-fill)
+    useEffect(() => {
+        if (value && value !== query) {
+            setQuery(value);
+        }
+    }, [value]);
+
     const fetchBrands = async () => {
-        const { data } = await supabase.from('brands').select('*').eq('is_active', true).order('name');
+        const { data } = await supabase.from('mortify_brand_scores').select('*').order('brand_name'); // Updated to sync with new table
         setBrands(data || []);
     };
 
     const filteredBrands =
         query === ''
             ? brands
-            : brands.filter((brand) => brand.name.toLowerCase().includes(query.toLowerCase()));
+            : brands.filter((brand) => brand.brand_name.toLowerCase().includes(query.toLowerCase()));
 
     const handleSelect = (brand) => {
         setSelectedBrand(brand);
-        onChange(brand); // Return Object
+        // Standardize output to mimic expected object structure { name: 'Brand', id: 'uuid' }
+        onChange({ name: brand.brand_name, id: brand.id });
         setIsOpen(false);
-        setQuery(brand.name);
+        setQuery(brand.brand_name);
     };
 
     const handleCreate = async () => {
         if (!query) return;
         setLoading(true);
-        const { data: newId, error } = await supabase.rpc('manage_brand', { brand_name: query });
+        // New Trigger handles creation, so we just return the name and let the backend sync handle it later on Appliance creation?
+        // Actually for New Ticket, we might need a Brand ID immediately?
+        // If we use the new Auto-Harvest logic, we can just insert into the 'mortify_brand_scores' via rpc if needed, 
+        // OR rely on the fact that if it doesn't exist, we send text string.
+        // But NewService handles { name, id }. 
+        // Let's stick to simple text for new brands for now to avoid complexity, or try to find existing.
 
-        if (!error && newId) {
-            const { data: all } = await supabase.from('brands').select('*').eq('is_active', true).order('name');
-            setBrands(all || []);
-            const newlyCreated = all?.find(b => b.id === newId);
-            if (newlyCreated) handleSelect(newlyCreated);
-        }
+        onChange({ name: query, id: null }); // Pass as new
+        setIsOpen(false);
         setLoading(false);
     };
 
@@ -51,7 +60,11 @@ const SmartBrandSelector = ({ value, onChange, label = "Marca" }) => {
             <div className="relative">
                 <input
                     type="text"
-                    className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none pl-10"
+                    disabled={disabled}
+                    className={`w-full p-3 border rounded-xl outline-none pl-10 transition-colors
+                        ${disabled
+                            ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed'
+                            : 'bg-white border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'}`}
                     placeholder="Buscar marca (ej. Samsung)..."
                     value={query}
                     onChange={(e) => {
@@ -59,10 +72,10 @@ const SmartBrandSelector = ({ value, onChange, label = "Marca" }) => {
                         setIsOpen(true);
                         if (e.target.value === '') { setSelectedBrand(null); onChange(null); }
                     }}
-                    onFocus={() => setIsOpen(true)}
+                    onFocus={() => !disabled && setIsOpen(true)}
                 />
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                    <Search className="h-5 w-5 text-slate-400" />
+                    <Search className={`h-5 w-5 ${disabled ? 'text-slate-300' : 'text-slate-400'}`} />
                 </div>
             </div>
 
