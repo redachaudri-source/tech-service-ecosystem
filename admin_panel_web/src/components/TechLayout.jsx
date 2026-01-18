@@ -32,7 +32,10 @@ const TechLayout = () => {
             />
 
             {/* Mobile Header - Improved */}
-            <header className="bg-slate-900 text-white px-4 py-3 shadow-md sticky top-0 z-40">
+            <header
+                className="bg-slate-900 text-white px-4 pb-3 shadow-md sticky top-0 z-40"
+                style={{ paddingTop: '40px' }}
+            >
                 <div className="flex justify-between items-center max-w-2xl mx-auto w-full">
 
                     {/* Hamburger Menu & Welcome */}
