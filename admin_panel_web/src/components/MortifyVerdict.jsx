@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+```
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import {
-    ArrowLeft, CheckCircle, XCircle, AlertTriangle,
-    Thermometer, ShieldCheck, Banknote, Calendar,
-    Eye, Sparkles, X, Info, Loader2, Bot, MapPin, Phone
+    AlertTriangle, CheckCircle, XCircle, Sparkles, Loader2, ArrowLeft,
+    ShieldCheck, Calendar, Thermometer, Banknote, Bot, Eye, X,
+    Skull, Ghost, Plus, Minus, ArrowRight
 } from 'lucide-react';
 import ViabilityLabel from './ViabilityLabel';
 
@@ -187,7 +188,45 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
             onComplete();
         } catch (err) {
             console.error('Error saving verdict:', err);
-            alert(`Error al guardar el veredicto: ${err.message || JSON.stringify(err)}`);
+            alert(`Error al guardar el veredicto: ${ err.message || JSON.stringify(err) } `);
+        } finally {
+            setProcessing(false);
+        }
+    // State for The Cemetery (Recovery)
+    const [localRecovered, setLocalRecovered] = useState(0);
+
+    // Initialize recovered points from DB
+    useEffect(() => {
+        if (assessment) {
+            setLocalRecovered(assessment.admin_recovered_points || 0);
+        }
+    }, [assessment]);
+
+    const handleSaveRecovery = async () => {
+        setProcessing(true);
+        try {
+            // 1. Update the Secret Column
+            const { error: updError } = await supabase
+                .from('mortify_assessments')
+                .update({ admin_recovered_points: localRecovered })
+                .eq('id', assessment.id);
+
+            if (updError) throw updError;
+
+            // 2. Trigger RPC to Recalculate Total (Base + Financial + Recovered)
+            const { error: rpcError } = await supabase.rpc('fn_calculate_mortify_score', { 
+                p_appliance_id: appliance.id 
+            });
+
+            if (rpcError) throw rpcError;
+
+            // 3. Close with success
+            alert(`¡Puntos resucitados correctamente!(${ localRecovered } pts)`);
+            onComplete();
+
+        } catch (err) {
+            console.error('Error in Necromancy:', err);
+            alert('Fallo al resucitar puntos: ' + err.message);
         } finally {
             setProcessing(false);
         }
@@ -206,7 +245,7 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
             const val = financialMetrics ? financialMetrics.currentValue.toFixed(2) : '???';
             const spent = financialMetrics ? financialMetrics.totalSpent.toFixed(2) : '???';
 
-            const improved = `Tras el análisis técnico, se observa que: ${note.toLowerCase()}. \n\nDatos Financieros: El aparato tiene un valor residual estimado de ${val}€. Se han invertido ${spent}€ en reparaciones hasta la fecha.\n\nRecomendación: Basado en la regla del 51%, sugerimos ${assessment.ia_suggestion === 'VIABLE' ? 'proceder con la reparación' : 'no invertir más en este equipo'} para proteger su economía.\n\nFirma: Departamento Técnico.`;
+            const improved = `Tras el análisis técnico, se observa que: ${ note.toLowerCase() }.\n\nDatos Financieros: El aparato tiene un valor residual estimado de ${ val }€. Se han invertido ${ spent }€ en reparaciones hasta la fecha.\n\nRecomendación: Basado en la regla del 51 %, sugerimos ${ assessment.ia_suggestion === 'VIABLE' ? 'proceder con la reparación' : 'no invertir más en este equipo' } para proteger su economía.\n\nFirma: Departamento Técnico.`;
 
             setNote(improved);
             setProcessing(false);
@@ -261,9 +300,9 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                                     {/* Spent Part */}
                                     <div
                                         className="h-full bg-slate-400 flex items-center justify-center text-[9px] text-white font-bold transition-all duration-1000"
-                                        style={{ width: `${Math.min(100, (financialMetrics.totalSpent / financialMetrics.currentValue) * 100)}%` }}
+                                        style={{ width: `${ Math.min(100, (financialMetrics.totalSpent / financialMetrics.currentValue) * 100) }% ` }}
                                     >
-                                        {financialMetrics.totalSpent > 0 && `${Math.round((financialMetrics.totalSpent / financialMetrics.currentValue) * 100)}%`}
+                                        {financialMetrics.totalSpent > 0 && `${ Math.round((financialMetrics.totalSpent / financialMetrics.currentValue) * 100) }% `}
                                     </div>
 
                                     {/* Remaining Safe Part (up to 51%) */}
@@ -279,7 +318,7 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                                     {/* Needle / Marker for Current Spend */}
                                     <div
                                         className="absolute top-0 bottom-0 w-1 bg-slate-900 z-10 transition-all duration-1000 shadow-[0_0_10px_rgba(0,0,0,0.5)]"
-                                        style={{ left: `${Math.min(100, (financialMetrics.totalSpent / financialMetrics.currentValue) * 100)}%` }}
+                                        style={{ left: `${ Math.min(100, (financialMetrics.totalSpent / financialMetrics.currentValue) * 100) }% ` }}
                                     ></div>
                                 </div>
                                 <div className="flex justify-between text-[10px] text-slate-400 font-bold mt-1 uppercase">
@@ -309,13 +348,13 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                                         <Eye size={16} />
                                     </button>
                                 </div>
-                                <p className="text-slate-500 font-medium">{appliance.type} {appliance.model ? `- ${appliance.model}` : ''}</p>
+                                <p className="text-slate-500 font-medium">{appliance.type} {appliance.model ? `- ${ appliance.model } ` : ''}</p>
                             </div>
                         </div>
 
                         <div className="space-y-3">
                             <ScoreRow icon={ShieldCheck} color="text-blue-500" label="Calidad de Marca" score={assessment.score_brand} description="Basado en la reputación." />
-                            <ScoreRow icon={Calendar} color="text-amber-500" label={`Antigüedad: ${financialMetrics?.age || '?'} años`} score={assessment.score_age} description="Vida útil restante." />
+                            <ScoreRow icon={Calendar} color="text-amber-500" label={`Antigüedad: ${ financialMetrics?.age || '?' } años`} score={assessment.score_age} description="Vida útil restante." />
                             <ScoreRow icon={Thermometer} color="text-purple-500" label="Instalación" score={assessment.score_installation} description="Accesibilidad." />
                             <ScoreRow icon={Banknote} color="text-green-500" label="Puntuación Financiera (V11)" score={financialMetrics?.financialScore ?? assessment.score_financial} description="0-10 basado en gasto/valor." />
                         </div>
@@ -323,12 +362,13 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
 
                     {/* AI Suggestion */}
                     {/* ... matches original ... */}
-                    <div className={`p-4 rounded-xl border border-l-4 shadow-sm ${assessment.ia_suggestion === 'VIABLE'
-                        ? 'bg-green-50 border-green-200 border-l-green-500'
-                        : assessment.ia_suggestion === 'OBSOLETE'
-                            ? 'bg-red-50 border-red-200 border-l-red-500'
-                            : 'bg-amber-50 border-amber-200 border-l-amber-500'
-                        }`}>
+                    <div className={`p - 4 rounded - xl border border - l - 4 shadow - sm ${
+    assessment.ia_suggestion === 'VIABLE'
+        ? 'bg-green-50 border-green-200 border-l-green-500'
+        : assessment.ia_suggestion === 'OBSOLETE'
+            ? 'bg-red-50 border-red-200 border-l-red-500'
+            : 'bg-amber-50 border-amber-200 border-l-amber-500'
+} `}>
                         <h4 className="text-sm font-bold opacity-80 mb-1 flex items-center gap-2">
                             <AlertTriangle size={14} /> Sugerencia Algoritmo:
                         </h4>
@@ -344,71 +384,98 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                 <div className="w-1/2 p-6 flex flex-col bg-white">
                     <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6">El Veredicto</h3>
 
-                    <div className="flex-1 flex flex-col justify-center space-y-6 max-w-md mx-auto w-full">
-                        <div className="w-full flex justify-center mb-2 flex-col items-center">
-                            <ViabilityLabel
-                                score={assessment.total_score}
-                            />
+                    {/* === ZONA CEMENTERIO (THE NECROMANCER UI) === */}
+                    <div className="bg-slate-900 rounded-xl p-5 text-white shadow-2xl relative overflow-hidden group/cemetery border border-slate-700">
+                        {/* Background Effect */}
+                        <div className="absolute top-0 right-0 p-8 opacity-5">
+                            <Ghost size={120} />
                         </div>
 
-                        <button onClick={handleRecalculate} disabled={recalculating || processing} className="text-xs w-full py-2 bg-slate-50 border border-slate-200 text-slate-500 rounded-lg hover:bg-slate-100 hover:text-indigo-600 transition flex items-center justify-center gap-2">
-                            {recalculating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                            Actualizar Puntuación (Trigger V11)
-                        </button>
+                        <div className="relative z-10">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h4 className="text-sm font-black text-purple-400 uppercase tracking-widest flex items-center gap-2">
+                                        <Skull size={16} /> Cementerio Financiero
+                                    </h4>
+                                    <p className="text-xs text-slate-400 mt-1">Recupera puntos perdidos por antigüedad o coste.</p>
+                                </div>
+                                <div className="bg-slate-800 px-3 py-1 rounded text-xs font-bold text-slate-300 border border-slate-700">
+                                    Max Rescatable: {Math.max(0, 10 - (financialMetrics?.financialScore || 0))} pts
+                                </div>
+                            </div>
 
-                        <div className="space-y-2">
-                            <div className="flex justify-between items-end">
-                                <label className="text-sm font-bold text-slate-700">Nota del Juez (Visible al cliente)</label>
-                                <button onClick={handleImproveText} disabled={processing} className="absolute bottom-2 right-2 text-xs text-purple-600 hover:bg-purple-50 px-2 py-1 rounded-full flex items-center gap-1 transition-colors">
-                                    <Bot size={14} />
-                                    {processing ? 'Mejorando...' : 'Mejorar con IA'}
+                            {/* Controls */}
+                            <div className="flex items-center justify-between bg-slate-800/50 rounded-lg p-3 border border-slate-700 mb-4">
+                                <button
+                                    onClick={() => setLocalRecovered(Math.max(0, localRecovered - 1))}
+                                    className="p-2 hover:bg-slate-700 rounded-lg transition text-slate-400 hover:text-white"
+                                    disabled={processing}
+                                >
+                                    <Minus size={20} />
+                                </button>
+
+                                <div className="text-center">
+                                    <span className="block text-3xl font-black text-purple-400">{localRecovered}</span>
+                                    <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Puntos Rescatados</span>
+                                </div>
+
+                                <button
+                                    onClick={() => {
+                                        const lost = Math.max(0, 10 - (financialMetrics?.financialScore || 0));
+                                        if (localRecovered < lost) setLocalRecovered(localRecovered + 1);
+                                    }}
+                                    className="p-2 hover:bg-slate-700 rounded-lg transition text-slate-400 hover:text-white"
+                                    disabled={processing}
+                                >
+                                    <Plus size={20} />
                                 </button>
                             </div>
-                            <textarea
-                                value={note}
-                                onChange={e => setNote(e.target.value)}
-                                className="w-full h-40 p-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 text-sm resize-none shadow-sm leading-relaxed"
-                                placeholder="Explica tu decisión al cliente de forma profesional..."
-                            />
-                        </div>
 
-                        <div className="grid grid-cols-1 gap-4">
-                            <button onClick={() => handleDecision('CONFIRMED_VIABLE')} disabled={processing} className="group relative flex items-center justify-center gap-3 w-full py-4 bg-green-50 text-green-700 border border-green-200 rounded-xl font-bold hover:bg-green-600 hover:text-white hover:border-green-600 transition-all shadow-sm">
-                                <CheckCircle size={24} />
-                                <span className="text-lg">CONFIRMAR VIABILIDAD</span>
-                            </button>
-
-                            <div className="relative flex items-center py-2">
-                                <div className="flex-grow border-t border-slate-200"></div>
-                                <span className="flex-shrink-0 mx-4 text-slate-400 text-xs font-bold uppercase">O</span>
-                                <div className="flex-grow border-t border-slate-200"></div>
+                            {/* Live Preview */}
+                            <div className="flex items-center gap-3 text-xs text-slate-400 font-medium mb-4 justify-center bg-slate-950/30 py-2 rounded">
+                                <span>Nota Original: {assessment.total_score - (assessment.admin_recovered_points || 0)}</span>
+                                <ArrowRight size={12} />
+                                <span className="text-white font-bold">Nueva Nota: {(assessment.total_score - (assessment.admin_recovered_points || 0)) + localRecovered}</span>
                             </div>
 
-                            <button onClick={() => handleDecision('CONFIRMED_OBSOLETE')} disabled={processing} className="group relative flex items-center justify-center gap-3 w-full py-4 bg-red-50 text-red-700 border border-red-200 rounded-xl font-bold hover:bg-red-600 hover:text-white hover:border-red-600 transition-all shadow-sm">
-                                <XCircle size={24} />
-                                <span className="text-lg">DECLARAR OBSOLETO</span>
+                            {/* Action Button */}
+                            <button
+                                onClick={handleSaveRecovery}
+                                disabled={processing || recalculating}
+                                className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-purple-900/20 border border-purple-500"
+                            >
+                                {processing ? <Loader2 size={18} className="animate-spin" /> : <Ghost size={18} />}
+                                {localRecovered > 0 ? 'RESUCITAR PUNTOS & GUARDAR' : 'CONFIRMAR SIN CAMBIOS'}
                             </button>
                         </div>
+                    </div>
+
+                    {/* Force Recalc (Secondary) */}
+                    <button onClick={handleRecalculate} disabled={recalculating || processing} className="text-xs w-full py-2 text-slate-400 hover:text-slate-600 transition flex items-center justify-center gap-1 mt-2">
+                        <Sparkles size={12} /> Forzar Recálculo del Sistema
+                    </button>
+                </div>
+            </div>
+        </div>
+
+            {/* Appliance Detail Modal (kept same) */ }
+    {
+        showApplianceModal && (
+            <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+                <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden relative">
+                    <button onClick={() => setShowApplianceModal(false)} className="absolute top-4 right-4 bg-white/50 hover:bg-white p-2 rounded-full text-slate-800 transition z-10">
+                        <X size={24} />
+                    </button>
+                    <div className="p-6">
+                        <h3 className="text-2xl font-bold text-slate-900 mb-1">{appliance.brand}</h3>
+                        <p className="text-lg text-slate-600 font-medium mb-6">{appliance.type} {appliance.model}</p>
+                        {/* ... details ... */}
                     </div>
                 </div>
             </div>
-
-            {/* Appliance Detail Modal (kept same) */}
-            {showApplianceModal && (
-                <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
-                    <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden relative">
-                        <button onClick={() => setShowApplianceModal(false)} className="absolute top-4 right-4 bg-white/50 hover:bg-white p-2 rounded-full text-slate-800 transition z-10">
-                            <X size={24} />
-                        </button>
-                        <div className="p-6">
-                            <h3 className="text-2xl font-bold text-slate-900 mb-1">{appliance.brand}</h3>
-                            <p className="text-lg text-slate-600 font-medium mb-6">{appliance.type} {appliance.model}</p>
-                            {/* ... details ... */}
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
+        )
+    }
+        </div >
     );
 };
 
