@@ -241,26 +241,48 @@ const MortifyDashboard = () => {
                 </button>
             </div>
 
-            {/* Filters */}
-            <div className="flex bg-white p-1 rounded-lg border border-slate-200 w-fit">
-                <button
-                    onClick={() => setFilter('PENDING_JUDGE')}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${filter === 'PENDING_JUDGE'
-                        ? 'bg-indigo-50 text-indigo-700'
-                        : 'text-slate-500 hover:text-slate-700'
-                        }`}
-                >
-                    Pendientes de Juicio
-                </button>
-                <button
-                    onClick={() => setFilter('HISTORY')}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${filter === 'HISTORY'
-                        ? 'bg-indigo-50 text-indigo-700'
-                        : 'text-slate-500 hover:text-slate-700'
-                        }`}
-                >
-                    Histórico de Veredictos
-                </button>
+            {/* Filters & Actions */}
+            <div className="flex justify-between items-center bg-white p-1 rounded-lg border border-slate-200 w-fit gap-2">
+                <div className="flex">
+                    <button
+                        onClick={() => setFilter('PENDING_JUDGE')}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${filter === 'PENDING_JUDGE'
+                            ? 'bg-indigo-50 text-indigo-700'
+                            : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                    >
+                        Pendientes de Juicio
+                    </button>
+                    <button
+                        onClick={() => setFilter('HISTORY')}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${filter === 'HISTORY'
+                            ? 'bg-indigo-50 text-indigo-700'
+                            : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                    >
+                        Histórico de Veredictos
+                    </button>
+                </div>
+
+                {filter === 'HISTORY' && (
+                    <button
+                        onClick={async () => {
+                            if (confirm("¿Estás seguro de BORRAR todo el historial de veredictos? Esta acción es para testing.")) {
+                                const { error } = await supabase.rpc('fn_clear_mortify_history');
+                                if (!error) {
+                                    fetchAssessments();
+                                    alert("Historial limpiado.");
+                                } else {
+                                    alert("Error: " + error.message);
+                                }
+                            }
+                        }}
+                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                        title="Limpiar Historial (Testing)"
+                    >
+                        <History size={16} />
+                    </button>
+                )}
             </div>
 
             {/* FINANCIAL DASHBOARD */}
