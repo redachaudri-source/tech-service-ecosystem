@@ -158,7 +158,7 @@ const CloseTicketModal = ({ ticket, onClose, onComplete }) => {
                             </div>
 
                             <div className="grid grid-cols-1 gap-3">
-                                {ticket.client?.has_webapp ? (
+                                {(ticket.client?.user_id || ticket.origin_source?.toLowerCase().includes('app')) ? (
                                     <button
                                         onClick={handleDigitalPayment}
                                         className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold flex items-center justify-center gap-3 shadow-lg shadow-blue-200 hover:scale-[1.02] transition-transform"

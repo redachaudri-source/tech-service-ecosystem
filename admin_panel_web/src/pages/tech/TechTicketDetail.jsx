@@ -109,7 +109,8 @@ const TechTicketDetail = () => {
                     client:profiles!client_id (
                         full_name,
                         address,
-                        phone
+                        phone,
+                        user_id
                     )
                 `)
                 .eq('id', id)
