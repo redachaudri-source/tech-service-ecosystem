@@ -22,21 +22,20 @@ const SmartBrandSelector = ({ value, onChange, label = "Marca", disabled = false
     }, [value]);
 
     const fetchBrands = async () => {
-        const { data } = await supabase.from('mortify_brand_scores').select('*').order('brand_name'); // Updated to sync with new table
+        const { data } = await supabase.from('brands').select('id, name').order('name');
         setBrands(data || []);
     };
 
     const filteredBrands =
         query === ''
             ? brands
-            : brands.filter((brand) => brand.brand_name.toLowerCase().includes(query.toLowerCase()));
+            : brands.filter((brand) => brand.name.toLowerCase().includes(query.toLowerCase()));
 
     const handleSelect = (brand) => {
         setSelectedBrand(brand);
-        // Standardize output to mimic expected object structure { name: 'Brand', id: 'uuid' }
-        onChange({ name: brand.brand_name, id: brand.id });
+        onChange({ name: brand.name, id: brand.id });
         setIsOpen(false);
-        setQuery(brand.brand_name);
+        setQuery(brand.name);
     };
 
     const handleCreate = async () => {
