@@ -144,8 +144,12 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
             // Let's keep the original recalculate logic attached to this tool call for safety, 
             // but we really just want to refresh the view.
 
-            // Calling a "touch" to trigger the database trigger?
-            await supabase.from('tickets').update({ updated_at: new Date() }).eq('appliance_id', appliance.id).eq('status', 'finalizado').limit(1);
+            // NEW: Use dedicated RPC for on-demand recalculation (fixes 0-ticket issue)
+            const { error: rpcError } = await supabase.rpc('fn_calculate_mortify_score', {
+                p_appliance_id: appliance.id
+            });
+
+            if (rpcError) throw rpcError;
 
             alert("Solicitud de recálculo enviada al sistema (Trigger V11).");
             onComplete();
@@ -342,8 +346,8 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
 
                     <div className="flex-1 flex flex-col justify-center space-y-6 max-w-md mx-auto w-full">
                         <div className="w-full flex justify-center mb-2 flex-col items-center">
-                            <ViabilityLabel 
-                                score={assessment.total_score} 
+                            <ViabilityLabel
+                                score={assessment.total_score}
                             />
                         </div>
 
