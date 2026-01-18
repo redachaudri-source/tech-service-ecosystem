@@ -1752,8 +1752,8 @@ const TechTicketDetail = () => {
                     </div>
                 </div>
             )}
-            {/* GPS Tracker Component */}
-            {ticket && user && (
+            {/* GPS Tracker Component - Only visible during EN CAMINO */}
+            {ticket && user && ticket.status === 'en_camino' && (
                 <div className="mt-8 mb-4">
                     <ErrorBoundary>
                         <TechLocationMap
