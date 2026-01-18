@@ -9,7 +9,7 @@ import ViabilityLabel from './ViabilityLabel';
 
 const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
     const [processing, setProcessing] = useState(false);
-    const [note, setNote] = useState('');
+    const [explanation, setExplanation] = useState(''); // FOR THE CLIENT
     const [showApplianceModal, setShowApplianceModal] = useState(false);
     const [recalculating, setRecalculating] = useState(false);
 
@@ -20,8 +20,11 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
     const { client_appliances: appliance } = assessment;
 
     // Load Financial Data on Mount
-    React.useEffect(() => {
+    useEffect(() => {
         if (!assessment || !appliance) return;
+
+        // Initialize Admin Note if exists
+        setExplanation(assessment.admin_note || '');
 
         const loadFinancials = async () => {
             try {
@@ -34,14 +37,12 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                 const marketPrice = catData?.average_market_price || 700;
                 const lifespan = catData?.average_lifespan_years || 10;
 
-                // 2. PRESTIGE LOGIC (V13 Sync)
-                // Derive Multiplier from Brand Score (1-4)
+                // 2. PRESTIGE LOGIC
                 let multiplier = 1.0;
                 const bScore = assessment.score_brand || 1;
-                if (bScore >= 4) multiplier = 2.2;      // Premium
-                else if (bScore === 3) multiplier = 1.6; // High
-                else if (bScore === 2) multiplier = 1.25; // Standard
-                else multiplier = 1.0;
+                if (bScore >= 4) multiplier = 2.2;
+                else if (bScore === 3) multiplier = 1.6;
+                else if (bScore === 2) multiplier = 1.25;
 
                 const prestigePrice = marketPrice * multiplier;
 
@@ -53,7 +54,6 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
 
                 let currentValue = 0;
                 if (age < lifespan) {
-                    // Depreciate based on PRESTIGE VALUE
                     currentValue = prestigePrice * (1.0 - (age / lifespan));
                 }
 
@@ -84,25 +84,14 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                     if (spendRatio > limitRatio) {
                         financialScore = 0;
                     } else {
-                        // Map 0 -> 10, Limit -> 1
                         financialScore = Math.round(10 * (1.0 - (spendRatio / limitRatio)));
                         if (financialScore < 1) financialScore = 1;
                     }
                 }
 
                 setFinancialMetrics({
-                    marketPrice,
-                    prestigePrice,
-                    multiplier,
-                    lifespan,
-                    age,
-                    currentValue,
-                    totalSpent,
-                    ruinLimit,
-                    remainingBudget,
-                    percentSpent,
-                    percentLimit,
-                    financialScore // Add to state
+                    marketPrice, prestigePrice, multiplier, lifespan, age, currentValue,
+                    totalSpent, ruinLimit, remainingBudget, percentSpent, percentLimit, financialScore
                 });
 
             } catch (err) {
@@ -115,73 +104,10 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
         loadFinancials();
     }, [assessment, appliance]);
 
-    if (!appliance) {
-        return (
-            <div className="p-8 text-center bg-red-50 text-red-600 rounded-xl border border-red-200">
-                <AlertTriangle size={48} className="mx-auto mb-4 opacity-50" />
-                <h3 className="text-lg font-bold">Error de Datos</h3>
-                <p>No se encontraron datos del aparato para este expediente.</p>
-                <button onClick={onBack} className="mt-4 px-4 py-2 bg-white border border-red-200 rounded-lg hover:bg-red-50 text-sm font-bold">
-                    Volver
-                </button>
-            </div>
-        );
-    }
+    if (!appliance) return null;
 
-    // FIX: Access profiles instead of clients
     const clientName = appliance?.profiles?.full_name || 'Desconocido';
 
-    const handleRecalculate = async () => {
-        setRecalculating(true);
-        try {
-            // NEW: Use dedicated RPC for on-demand recalculation (fixes 0-ticket issue)
-            const { error: rpcError } = await supabase.rpc('fn_calculate_mortify_score', {
-                p_appliance_id: appliance.id
-            });
-
-            if (rpcError) throw rpcError;
-
-            alert("Solicitud de recálculo enviada al sistema (Trigger V11).");
-            onComplete();
-
-        } catch (err) {
-            console.error(err);
-            alert('Error al recalcular: ' + err.message);
-        } finally {
-            setRecalculating(false);
-        }
-    };
-
-    const handleDecision = async (verdict) => {
-        if (!confirm('¿Estás seguro de emitir este veredicto? Es irreversible.')) return;
-
-        setProcessing(true);
-        try {
-            const { error: asmtError } = await supabase
-                .from('mortify_assessments')
-                .update({
-                    status: 'JUDGED',
-                    admin_verdict: verdict,
-                    admin_note: note,
-                    admin_decision_date: new Date().toISOString()
-                })
-                .eq('id', assessment.id);
-
-            if (asmtError) throw asmtError;
-
-            await supabase
-                .from('client_appliances')
-                .update({ updated_at: new Date().toISOString() })
-                .eq('id', assessment.appliance_id);
-
-            onComplete();
-        } catch (err) {
-            console.error('Error saving verdict:', err);
-            alert("Error al guardar el veredicto: " + (err.message || JSON.stringify(err)));
-        } finally {
-            setProcessing(false);
-        }
-    };
     // State for The Cemetery (Recovery)
     const [localRecovered, setLocalRecovered] = useState(0);
 
@@ -192,13 +118,46 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
         }
     }, [assessment]);
 
+    // REACTIVE LIVE SCORE
+    const baseScore = assessment.total_score - (assessment.admin_recovered_points || 0);
+    const liveScore = baseScore + localRecovered;
+
+    // Determine Live Verdict Label
+    let liveVerdict = 'DUDOSO';
+    if (liveScore >= 18) liveVerdict = 'VIABLE';
+    else if ((financialMetrics?.financialScore === 0) && localRecovered === 0) liveVerdict = 'OBSOLETO';
+
+
+    const handleRecalculate = async () => {
+        setRecalculating(true);
+        try {
+            const { error: rpcError } = await supabase.rpc('fn_calculate_mortify_score', {
+                p_appliance_id: appliance.id
+            });
+            if (rpcError) throw rpcError;
+            alert("Solicitud de recálculo enviada al sistema (Trigger V11).");
+            onComplete();
+        } catch (err) {
+            console.error(err);
+            alert('Error al recalcular: ' + err.message);
+        } finally {
+            setRecalculating(false);
+        }
+    };
+
     const handleSaveRecovery = async () => {
         setProcessing(true);
         try {
-            // 1. Update the Secret Column
+            // 1. Update the Secret Column + The Explanation
             const { error: updError } = await supabase
                 .from('mortify_assessments')
-                .update({ admin_recovered_points: localRecovered })
+                .update({
+                    admin_recovered_points: localRecovered,
+                    admin_note: explanation, // SAVE THE CLIENT NOTE HERE
+                    status: 'JUDGED', // Force Judge status
+                    admin_verdict: liveScore >= 18 ? 'CONFIRMED_VIABLE' : 'OBSOLETE', // Auto-set verdict based on final score
+                    admin_decision_date: new Date().toISOString()
+                })
                 .eq('id', assessment.id);
 
             if (updError) throw updError;
@@ -211,36 +170,33 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
             if (rpcError) throw rpcError;
 
             // 3. Close with success
-            alert("¡Puntos resucitados correctamente! (" + localRecovered + " pts)");
+            alert("¡Expediente actualizado correctamente! (" + localRecovered + " pts resucitados)");
             onComplete();
 
         } catch (err) {
             console.error('Error in Necromancy:', err);
-            alert('Fallo al resucitar puntos: ' + err.message);
+            alert('Fallo al guardar: ' + err.message);
         } finally {
             setProcessing(false);
         }
     };
 
     const handleImproveText = () => {
-        // ... (keep existing AI text logic)
-        if (!note.trim()) {
-            alert("Escribe algo primero para mejorar.");
+        if (!explanation.trim()) {
+            setExplanation("El cliente es leal y merece una consideración especial. A pesar del coste de reparación, el valor residual del aparato justifica la inversión.");
             return;
         }
 
         setProcessing(true);
         setTimeout(() => {
-            // Use the DYNAMIC values if available
-            const val = financialMetrics ? financialMetrics.currentValue.toFixed(2) : '???';
-            const spent = financialMetrics ? financialMetrics.totalSpent.toFixed(2) : '???';
+            const val = financialMetrics ? financialMetrics.currentValue.toFixed(0) : '???';
+            const spent = financialMetrics ? financialMetrics.totalSpent.toFixed(0) : '???';
 
-            const suggestionText = assessment.ia_suggestion === 'VIABLE' ? 'proceder con la reparación' : 'no invertir más en este equipo';
-            const improved = "Tras el análisis técnico, se observa que: " + note.toLowerCase() + ".\n\nDatos Financieros: El aparato tiene un valor residual estimado de " + val + "€. Se han invertido " + spent + "€ en reparaciones hasta la fecha.\n\nRecomendación: Basado en la regla del 51%, sugerimos " + suggestionText + " para proteger su economía.\n\nFirma: Departamento Técnico.";
+            const improved = `Estimado cliente, tras analizar su caso hemos considerado factores adicionales: ${explanation.toLowerCase()}. Teniendo en cuenta el valor de mercado (${val}€) y su historial (${spent}€ invertidos), hemos aplicado una bonificación de calidad para aprobar esta reparación.`;
 
-            setNote(improved);
+            setExplanation(improved);
             setProcessing(false);
-        }, 1200);
+        }, 800);
     };
 
     return (
@@ -250,18 +206,26 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                 <button onClick={onBack} className="p-2 hover:bg-slate-200 rounded-lg transition-colors text-slate-500">
                     <ArrowLeft size={20} />
                 </button>
-                <div>
+                <div className="flex-1">
                     <h2 className="text-lg font-bold text-slate-800">Expediente #{assessment.id.slice(0, 8)}</h2>
                     <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">
                         Solicitado por: <span className="text-indigo-600">{clientName}</span>
                     </p>
+                </div>
+                {/* BIG SCORE HEADER - REACTIVE NOW */}
+                <div className="text-right">
+                    <div className="text-2xl font-black text-slate-800">{liveScore} <span className="text-sm text-slate-400 font-bold">/ 24</span></div>
+                    <div className={`text-xs font-bold uppercase px-2 py-0.5 rounded ${liveVerdict === 'VIABLE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                        }`}>
+                        {liveVerdict}
+                    </div>
                 </div>
             </div>
 
             <div className="flex flex-1 overflow-hidden">
                 {/* LEFT: THE FACTS */}
                 <div className="w-1/2 p-6 border-r border-slate-100 overflow-y-auto bg-slate-50/30">
-                    {/* FINANCIAL HEALTH BAR (NEW UI PRO) */}
+                    {/* FINANCIAL HEALTH BAR */}
                     <div className="bg-white p-5 rounded-2xl border border-indigo-100 shadow-lg shadow-indigo-500/5 mb-6">
                         <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                             <Banknote size={14} className="text-indigo-500" />
@@ -286,51 +250,21 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                                     </div>
                                 </div>
 
-                                {/* Progress Bar */}
+                                {/* Bar Mockup */}
                                 <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden flex mb-2 border border-slate-200">
-                                    {/* Spent Part */}
                                     <div
                                         className="h-full bg-slate-400 flex items-center justify-center text-[9px] text-white font-bold transition-all duration-1000"
                                         style={{ width: Math.min(100, (financialMetrics.totalSpent / financialMetrics.currentValue) * 100) + '%' }}
                                     >
                                         {financialMetrics.totalSpent > 0 && (Math.round((financialMetrics.totalSpent / financialMetrics.currentValue) * 100) + '%')}
                                     </div>
-
-                                    {/* Remaining Safe Part (up to 51%) */}
-                                    {/* This visualization is tricky. Let's make it simpler: 0 to Limit. */}
                                 </div>
-
-                                <div className="relative h-6 w-full bg-slate-200 rounded-full overflow-hidden border border-slate-300">
-                                    {/* The Safe Zone (0-51%) */}
-                                    <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-emerald-400 to-emerald-500" style={{ width: '51%' }}></div>
-                                    {/* The DANGER Zone (51-100%) */}
-                                    <div className="absolute top-0 right-0 h-full bg-rose-100 striped-bg" style={{ width: '49%' }}></div>
-
-                                    {/* Needle / Marker for Current Spend */}
-                                    <div
-                                        className="absolute top-0 bottom-0 w-1 bg-slate-900 z-10 transition-all duration-1000 shadow-[0_0_10px_rgba(0,0,0,0.5)]"
-                                        style={{ left: Math.min(100, (financialMetrics.totalSpent / financialMetrics.currentValue) * 100) + '%' }}
-                                    ></div>
-                                </div>
-                                <div className="flex justify-between text-[10px] text-slate-400 font-bold mt-1 uppercase">
-                                    <span>0€</span>
-                                    <span className="text-emerald-600">Límite Seguro (51%): {financialMetrics.ruinLimit.toFixed(0)}€</span>
-                                    <span>100% ({financialMetrics.currentValue.toFixed(0)}€)</span>
-                                </div>
-
-                                {financialMetrics.remainingBudget <= 0 && (
-                                    <div className="mt-3 bg-red-50 text-red-600 px-3 py-2 rounded-lg text-xs font-bold border border-red-100 flex items-center gap-2 animate-pulse">
-                                        <AlertTriangle size={14} />
-                                        <span>PRECAUCIÓN: Límite financiero excedido.</span>
-                                    </div>
-                                )}
                             </div>
                         ) : null}
                     </div>
 
                     {/* Appliance Card */}
                     <div className="bg-white p-4 rounded-xl border border-slate-200 mb-6 shadow-sm relative group/card">
-                        {/* ... matches original ... */}
                         <div className="flex items-start justify-between mb-4">
                             <div>
                                 <div className="flex items-center gap-2">
@@ -350,34 +284,14 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                             <ScoreRow icon={Banknote} color="text-green-500" label="Puntuación Financiera (V11)" score={financialMetrics?.financialScore ?? assessment.score_financial} description="0-10 basado en gasto/valor." />
                         </div>
                     </div>
-
-                    {/* AI Suggestion */}
-                    {/* ... matches original ... */}
-                    <div className={"p-4 rounded-xl border border-l-4 shadow-sm " + (
-                        assessment.ia_suggestion === 'VIABLE'
-                            ? 'bg-green-50 border-green-200 border-l-green-500'
-                            : assessment.ia_suggestion === 'OBSOLETE'
-                                ? 'bg-red-50 border-red-200 border-l-red-500'
-                                : 'bg-amber-50 border-amber-200 border-l-amber-500'
-                    )}>
-                        <h4 className="text-sm font-bold opacity-80 mb-1 flex items-center gap-2">
-                            <AlertTriangle size={14} /> Sugerencia Algoritmo:
-                        </h4>
-                        <p className="text-lg font-black">
-                            {assessment.ia_suggestion === 'VIABLE' ? 'REPARACIÓN VIABLE' :
-                                assessment.ia_suggestion === 'OBSOLETE' ? 'OBSOLESCENCIA DETECTADA' :
-                                    assessment.ia_suggestion}
-                        </p>
-                    </div>
                 </div>
 
                 {/* RIGHT: THE VERDICT */}
-                <div className="w-1/2 p-6 flex flex-col bg-white">
+                <div className="w-1/2 p-6 flex flex-col bg-white overflow-y-auto">
                     <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6">El Veredicto</h3>
 
                     {/* === ZONA CEMENTERIO (THE NECROMANCER UI) === */}
-                    <div className="bg-slate-900 rounded-xl p-5 text-white shadow-2xl relative overflow-hidden group/cemetery border border-slate-700">
-                        {/* Background Effect */}
+                    <div className="bg-slate-900 rounded-xl p-5 text-white shadow-2xl relative overflow-hidden group/cemetery border border-slate-700 mb-6">
                         <div className="absolute top-0 right-0 p-8 opacity-5">
                             <Ghost size={120} />
                         </div>
@@ -388,10 +302,10 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                                     <h4 className="text-sm font-black text-purple-400 uppercase tracking-widest flex items-center gap-2">
                                         <Skull size={16} /> Cementerio Financiero
                                     </h4>
-                                    <p className="text-xs text-slate-400 mt-1">Recupera puntos perdidos por antigüedad o coste.</p>
+                                    <p className="text-xs text-slate-400 mt-1">Recupera puntos para aprobar la reparación.</p>
                                 </div>
                                 <div className="bg-slate-800 px-3 py-1 rounded text-xs font-bold text-slate-300 border border-slate-700">
-                                    Max Rescatable: {Math.max(0, 10 - (financialMetrics?.financialScore || 0))} pts
+                                    Rescatable: {Math.max(0, 10 - (financialMetrics?.financialScore || 0))} pts
                                 </div>
                             </div>
 
@@ -421,34 +335,45 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                                     <Plus size={20} />
                                 </button>
                             </div>
-
-                            {/* Live Preview */}
-                            <div className="flex items-center gap-3 text-xs text-slate-400 font-medium mb-4 justify-center bg-slate-950/30 py-2 rounded">
-                                <span>Nota Original: {assessment.total_score - (assessment.admin_recovered_points || 0)}</span>
-                                <ArrowRight size={12} />
-                                <span className="text-white font-bold">Nueva Nota: {(assessment.total_score - (assessment.admin_recovered_points || 0)) + localRecovered}</span>
-                            </div>
-
-                            {/* Action Button */}
-                            <button
-                                onClick={handleSaveRecovery}
-                                disabled={processing || recalculating}
-                                className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-purple-900/20 border border-purple-500"
-                            >
-                                {processing ? <Loader2 size={18} className="animate-spin" /> : <Ghost size={18} />}
-                                {localRecovered > 0 ? 'RESUCITAR PUNTOS & GUARDAR' : 'CONFIRMAR SIN CAMBIOS'}
-                            </button>
                         </div>
                     </div>
 
-                    {/* Force Recalc (Secondary) */}
-                    <button onClick={handleRecalculate} disabled={recalculating || processing} className="text-xs w-full py-2 text-slate-400 hover:text-slate-600 transition flex items-center justify-center gap-1 mt-2">
-                        <Sparkles size={12} /> Forzar Recálculo del Sistema
+                    {/* === CLIENT EXPLANATION (NEW) === */}
+                    <div className="mb-6 flex-1 flex flex-col">
+                        <div className="flex justify-between items-center mb-2">
+                            <h4 className="text-xs font-bold text-slate-700 uppercase">Explicación para el Cliente</h4>
+                            <button
+                                onClick={handleImproveText}
+                                className="text-[10px] flex items-center gap-1 text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full hover:bg-indigo-100 transition"
+                            >
+                                <Sparkles size={10} /> {explanation ? 'Mejorar Redacción con IA' : 'Generar Explicación Auto'}
+                            </button>
+                        </div>
+                        <textarea
+                            value={explanation}
+                            onChange={(e) => setExplanation(e.target.value)}
+                            placeholder="Escribe aquí por qué has decidido rescatar puntos (ej: cliente VIP, aparato histórico)..."
+                            className="w-full flex-1 p-3 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none bg-slate-50"
+                        />
+                    </div>
+
+                    {/* ACTION BUTTON */}
+                    <button
+                        onClick={handleSaveRecovery}
+                        disabled={processing || recalculating}
+                        className="w-full py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20 active:scale-95"
+                    >
+                        {processing ? <Loader2 size={18} className="animate-spin" /> : <Ghost size={18} />}
+                        {localRecovered > 0 ? 'CONFIRMAR RESURRECCIÓN' : 'GUARDAR VEREDICTO'}
+                    </button>
+
+                    <button onClick={handleRecalculate} disabled={recalculating} className="mt-3 text-xs text-slate-400 underline text-center">
+                        Forzar Recálculo
                     </button>
                 </div>
             </div>
 
-            {/* Appliance Detail Modal (kept same) */}
+            {/* Modal Logic (same) */}
             {showApplianceModal && (
                 <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden relative">
@@ -458,7 +383,6 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                         <div className="p-6">
                             <h3 className="text-2xl font-bold text-slate-900 mb-1">{appliance.brand}</h3>
                             <p className="text-lg text-slate-600 font-medium mb-6">{appliance.type} {appliance.model}</p>
-                            {/* ... details ... */}
                         </div>
                     </div>
                 </div>
