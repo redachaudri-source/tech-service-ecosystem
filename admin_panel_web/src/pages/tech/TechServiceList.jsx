@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, MapPin, Wrench, CheckCircle, Clock, AlertCircle, ChevronRight, Search, ClipboardList } from 'lucide-react';
+import { Calendar, MapPin, Wrench, CheckCircle, Clock, AlertCircle, ChevronRight, Search, ClipboardList, ShieldAlert } from 'lucide-react';
 
 const TechServiceList = ({ filterType }) => {
     const { user } = useAuth();
@@ -63,6 +63,9 @@ const TechServiceList = ({ filterType }) => {
         } else if (filterType === 'all') {
             // "Todos" 
             query = query.order('created_at', { ascending: false });
+        } else if (filterType === 'warranty') {
+            // "Reclamaciones de Garantía"
+            query = query.eq('is_warranty', true).order('created_at', { ascending: false });
         }
 
         const { data, error } = await query;
@@ -124,6 +127,7 @@ const TechServiceList = ({ filterType }) => {
             case 'new': return 'Nuevos sin Atender';
             case 'pending_material': return 'En Espera de Material';
             case 'history': return 'Historial Completado';
+            case 'warranty': return 'Reclamaciones de Garantía';
             default: return 'Todos los Servicios';
         }
     };
@@ -221,8 +225,8 @@ const TechServiceList = ({ filterType }) => {
                             </div>
 
                             <div className="flex items-start gap-3 mb-3">
-                                <div className={`mt-1 p-2 rounded-lg shrink-0 ${filterType === 'history' ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-blue-600'}`}>
-                                    {filterType === 'history' ? <CheckCircle size={18} /> : <Wrench size={18} />}
+                                <div className={`mt-1 p-2 rounded-lg shrink-0 ${filterType === 'history' ? 'bg-green-50 text-green-600' : ticket.is_warranty ? 'bg-purple-100 text-purple-600' : 'bg-blue-50 text-blue-600'}`}>
+                                    {ticket.is_warranty ? <ShieldAlert size={18} /> : filterType === 'history' ? <CheckCircle size={18} /> : <Wrench size={18} />}
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-slate-800 text-base leading-tight mb-1">

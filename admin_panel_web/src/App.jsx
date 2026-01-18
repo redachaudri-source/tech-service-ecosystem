@@ -82,6 +82,7 @@ function App() {
                                 <Route path="materials" element={<TechMaterialList />} />
                                 <Route path="agenda" element={<TechAgenda />} />
                                 <Route path="history" element={<TechServiceList filterType="history" />} />
+                                <Route path="warranties" element={<TechServiceList filterType="warranty" />} />
                                 <Route path="settings" element={<TechSettings />} />
                             </Route>
                         </Routes>

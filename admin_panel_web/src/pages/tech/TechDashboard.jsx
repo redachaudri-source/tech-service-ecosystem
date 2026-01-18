@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Phone, Calendar, Clock, ChevronRight, Search, Filter, Package, History, Star } from 'lucide-react';
+import { MapPin, Phone, Calendar, Clock, ChevronRight, Search, Filter, Package, History, Star, ShieldAlert } from 'lucide-react'; // Added ShieldAlert
 import TechRouteLine from '../../components/TechRouteLine';
 import TechReviewsModal from '../../components/TechReviewsModal'; // Added import
 
@@ -20,6 +20,7 @@ const TechDashboard = () => {
     const [stats, setStats] = useState({ rating: 0, reviews: 0 });
     const [currentTime, setCurrentTime] = useState(new Date());
     const [showReviewsModal, setShowReviewsModal] = useState(false); // Added state
+    const [statusFilter, setStatusFilter] = useState('Todos'); // Added Filter State
 
     // Live Clock
     useEffect(() => {
@@ -106,12 +107,27 @@ const TechDashboard = () => {
     // Filtered Display
     const filterList = (list) => {
         const query = searchQuery.toLowerCase();
-        return list.filter(t =>
-            (t.client?.full_name || '').toLowerCase().includes(query) ||
-            (t.ticket_number || '').includes(query) ||
-            (t.client?.address || '').toLowerCase().includes(query) ||
-            (t.appliance_info?.brand || '').toLowerCase().includes(query)
-        );
+        return list.filter(t => {
+            // Text Search
+            const matchesText = (t.client?.full_name || '').toLowerCase().includes(query) ||
+                (t.ticket_number || '').includes(query) ||
+                (t.client?.address || '').toLowerCase().includes(query) ||
+                (t.appliance_info?.brand || '').toLowerCase().includes(query);
+
+            // Status/Type Filter
+            if (statusFilter === 'Todos') return matchesText;
+            if (statusFilter === 'Garantía') return matchesText && t.is_warranty;
+            if (statusFilter === 'Pendiente') return matchesText && t.status === 'solicitado';
+
+            // Map other filters loosely or exactly
+            const statusMap = {
+                'En Camino': 'en_camino',
+                'Diagnóstico': 'en_diagnostico'
+            };
+            if (statusMap[statusFilter]) return matchesText && t.status === statusMap[statusFilter];
+
+            return matchesText;
+        });
     };
 
     const displayOpen = filterList(tickets);
@@ -203,8 +219,12 @@ const TechDashboard = () => {
 
             {/* Filter Buttons (Quick Status) */}
             <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                {['Todos', 'En Camino', 'Diagnóstico', 'Pendiente'].map((f) => (
-                    <button key={f} className="px-4 py-2 bg-white rounded-xl border border-slate-200 text-xs font-bold text-slate-600 whitespace-nowrap active:bg-blue-50 active:border-blue-200 active:text-blue-600 transition-colors shadow-sm">
+                {['Todos', 'Garantía', 'En Camino', 'Diagnóstico', 'Pendiente'].map((f) => (
+                    <button
+                        key={f}
+                        onClick={() => setStatusFilter(f)}
+                        className={`px-4 py-2 rounded-xl border text-xs font-bold whitespace-nowrap transition-colors shadow-sm ${statusFilter === f ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-200 text-slate-600 active:bg-blue-50'}`}
+                    >
                         {f}
                     </button>
                 ))}
@@ -227,7 +247,7 @@ const TechDashboard = () => {
                         <div
                             key={ticket.id}
                             onClick={() => handleTicketClick(ticket.id)}
-                            className={`relative bg-white rounded-2xl p-0 shadow-sm border border-slate-100 overflow-hidden active:scale-[0.98] transition-transform ${idx === 0 ? 'ring-2 ring-blue-500 shadow-blue-100' : ''} ${user?.profile?.status === 'paused' ? 'opacity-75 grayscale-[0.5]' : ''}`}
+                            className={`relative bg-white rounded-2xl p-0 shadow-sm border border-slate-100 overflow-hidden active:scale-[0.98] transition-transform ${idx === 0 ? 'ring-2 ring-blue-500 shadow-blue-100' : ''} ${user?.profile?.status === 'paused' ? 'opacity-75 grayscale-[0.5]' : ''} ${ticket.is_warranty ? 'border-l-4 border-l-purple-500' : ''}`}
                         >
                             {/* Priority Indicator for first item */}
                             {idx === 0 && <div className="bg-blue-600 text-white text-[10px] font-bold text-center py-1">SIGUIENTE PARADA</div>}
@@ -259,7 +279,10 @@ const TechDashboard = () => {
                                     <div className="flex justify-between items-center mb-1">
                                         <span className="text-[10px] font-bold text-slate-400 uppercase">Avería Reportada</span>
                                         {/* Ticket # in Corner */}
-                                        <span className="text-[10px] font-bold text-yellow-600 bg-yellow-100 px-1.5 rounded">#{ticket.ticket_number}</span>
+                                        <span className={`text-[10px] font-bold px-1.5 rounded flex items-center gap-1 ${ticket.is_warranty ? 'text-purple-600 bg-purple-100' : 'text-yellow-600 bg-yellow-100'}`}>
+                                            {ticket.is_warranty && <ShieldAlert size={10} />}
+                                            #{ticket.ticket_number}
+                                        </span>
                                     </div>
                                     <p className="text-sm font-medium text-slate-700 line-clamp-2">
                                         {ticket.description || ticket.issue || 'Sin descripción del problema.'}
