@@ -60,11 +60,15 @@ const MortifyVerdictModal = ({ assessment, onClose }) => {
                 let limitRatio = 0.51;
                 if (age >= 3 && age <= 7) limitRatio = 0.70;
 
+                const ruinLimit = currentValue * limitRatio;
+                const remainingBudget = Math.max(0, ruinLimit - totalSpent);
+
                 setFinancials({
                     currentValue,
                     totalSpent,
                     limitRatio,
-                    ruinLimit: currentValue * limitRatio
+                    ruinLimit,
+                    remainingBudget
                 });
             } catch (err) {
                 console.error("Error loading financials for client modal:", err);
@@ -137,38 +141,51 @@ const MortifyVerdictModal = ({ assessment, onClose }) => {
                         </div>
                     </div>
 
-                    {/* DECAY VISUALIZATION (THE CLIENT-FACING CHART) */}
+                    {/* FINANCIAL INSIGHTS (The "Premium" Data) */}
                     <div className="bg-white px-8 pt-6 pb-2">
-                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                            <h4 className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-3 flex items-center gap-1">
-                                <Info size={12} /> Balance Económico
-                            </h4>
-                            {!loadingFin && financials ? (
+                        <div className="p-5 bg-gradient-to-br from-slate-50 to-indigo-50/30 rounded-2xl border border-indigo-100 shadow-sm relative overflow-hidden">
+                            <div className="flex justify-between items-start mb-4 relative z-10">
                                 <div>
-                                    <div className="flex justify-between items-end mb-2 text-sm">
-                                        <div className="text-slate-600 font-medium">Gastado: <span className="text-slate-900 font-bold">{financials.totalSpent.toFixed(0)}€</span></div>
-                                        <div className="text-slate-400 font-medium">Valor Actual: <span className="text-slate-900 font-bold">{financials.currentValue.toFixed(0)}€</span></div>
-                                    </div>
-                                    {/* The Bar */}
-                                    <div className="h-3 w-full bg-slate-200 rounded-full overflow-hidden flex relative">
-                                        {/* Safe Zone (Green) */}
-                                        <div className="h-full bg-emerald-400" style={{ width: (financials.limitRatio * 100) + '%' }}></div>
-                                        {/* Danger Zone (Red) */}
-                                        <div className="h-full bg-rose-200" style={{ width: (100 - (financials.limitRatio * 100)) + '%' }}></div>
-
-                                        {/* Usage Marker */}
-                                        <div
-                                            className="absolute top-0 bottom-0 w-1 bg-slate-800 shadow-[0_0_8px_black]"
-                                            style={{ left: Math.min(100, (financials.totalSpent / financials.currentValue) * 100) + '%' }}
-                                        ></div>
-                                    </div>
-                                    <div className="flex justify-between text-[10px] text-slate-400 mt-1 uppercase font-bold">
-                                        <span>Seguro</span>
-                                        <span>Riesgo</span>
-                                    </div>
+                                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Valor Actual Estimado</p>
+                                    <h3 className="text-2xl font-black text-slate-800">
+                                        {loadingFin || !financials ? '...' : financials.currentValue.toFixed(0)}€
+                                    </h3>
                                 </div>
-                            ) : (
-                                <div className="h-8 bg-slate-200 animate-pulse rounded"></div>
+                                <div className="text-right">
+                                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Margen de Inversión</p>
+                                    <h3 className={`text-2xl font-black ${financials?.remainingBudget > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                        {loadingFin || !financials ? '...' : financials.remainingBudget.toFixed(0)}€
+                                    </h3>
+                                </div>
+                            </div>
+
+                            {/* The Bar */}
+                            {financials && (
+                                <div className="relative pt-2">
+                                    <div className="flex justify-between text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-wide">
+                                        <span>Gastado: {financials.totalSpent.toFixed(0)}€</span>
+                                        <span>Límite Seguro: {financials.ruinLimit.toFixed(0)}€</span>
+                                    </div>
+                                    <div className="h-4 w-full bg-slate-200 rounded-full overflow-hidden flex relative shadow-inner">
+                                        {/* Safe Zone (Green to Emerald) */}
+                                        <div className="h-full bg-gradient-to-r from-emerald-400 to-teal-500" style={{ width: (financials.limitRatio * 100) + '%' }}></div>
+                                        {/* Danger Zone (Rose) */}
+                                        <div className="h-full bg-rose-100 pattern-diagonal-lines" style={{ width: (100 - (financials.limitRatio * 100)) + '%' }}></div>
+
+                                        {/* Needle / Marker */}
+                                        <div
+                                            className="absolute top-0 bottom-0 w-1.5 bg-slate-800 z-10 shadow-[0_0_10px_rgba(0,0,0,0.3)] transition-all duration-1000 ease-out"
+                                            style={{ left: Math.min(100, (financials.totalSpent / financials.currentValue) * 100) + '%' }}
+                                        >
+                                            <div className="absolute -top-1 -left-[3px] w-3 h-3 bg-slate-800 rounded-full"></div>
+                                        </div>
+                                    </div>
+                                    {financials.remainingBudget <= 0 && (
+                                        <p className="text-[10px] text-rose-500 font-bold mt-2 text-center bg-rose-50 py-1 rounded border border-rose-100">
+                                            ⚠️ Has superado el límite de inversión recomendado.
+                                        </p>
+                                    )}
+                                </div>
                             )}
                         </div>
                     </div>
