@@ -215,79 +215,106 @@ export const generateServiceReport = (ticket, logoImg = null, options = {}) => {
     return doc;
 };
 
-// --- TIMELINE HELPER ---
+// --- TIMELINE HELPER (PRO UI) ---
 const drawTimeline = (doc, ticket, startY) => {
     const pageWidth = doc.internal.pageSize.width;
     const history = ticket.status_history || [];
 
-    // Define Milestones
+    // Define Milestones with Colors (Tailwind-ish RGB)
     const steps = [
-        { label: 'Entrada', status: ['abierto', 'asignado', 'pendiente'] },
-        { label: 'En Camino', status: ['en_camino'] },
-        { label: 'Diagnosis', status: ['en_diagnostico', 'presupuesto_pd', 'presupuestado', 'rechazado'] },
-        { label: 'Reparación', status: ['asignado_reparacion', 'en_espera_pieza', 'en_reparacion'] },
-        { label: 'Finalizado', status: ['finalizado'] }
+        { label: 'Entrada', status: ['abierto', 'asignado', 'pendiente'], color: [29, 78, 216] }, // Blue
+        { label: 'En Camino', status: ['en_camino'], color: [67, 56, 202] }, // Indigo
+        { label: 'Diagnosis', status: ['en_diagnostico', 'presupuesto_pd', 'presupuestado', 'rechazado'], color: [126, 34, 206] }, // Purple
+        { label: 'Reparación', status: ['asignado_reparacion', 'en_espera_pieza', 'en_reparacion', 'pendiente_material'], color: [194, 65, 12] }, // Orange
+        { label: 'Finalizado', status: ['finalizado', 'pagado'], color: [21, 128, 61] } // Green
     ];
 
-    const margin = 20;
+    const margin = 25;
     const totalWidth = pageWidth - (margin * 2);
     const stepWidth = totalWidth / (steps.length - 1);
 
     doc.saveGraphicsState();
 
-    // Draw Base Line
-    doc.setDrawColor(200);
-    doc.setLineWidth(1);
+    // 1. Draw Base Line (Dark Grey, Thin)
+    doc.setDrawColor(75, 85, 99); // Gray-600
+    doc.setLineWidth(0.5);
     doc.line(margin, startY, pageWidth - margin, startY);
 
-    // Determine current progress index based on LATEST status
+    // Determine current progress
     const currentStatus = ticket.status;
     let maxStepIndex = 0;
 
-    // We can also try to find timestamps for each step
-    const stepTimestamps = steps.map(s => {
-        // Find existing history entry matching one of the statuses
+    // Parse Timestamps details
+    const stepDetails = steps.map(s => {
+        // Find LATEST entry matching one of the statuses
         const entry = history.slice().reverse().find(h => s.status.includes(h.status));
-        return entry ? new Date(entry.timestamp || entry.changed_at).toLocaleDateString([], { day: '2-digit', month: '2-digit' }) : null;
+        if (!entry) return null;
+
+        const d = new Date(entry.timestamp || entry.changed_at);
+        return {
+            date: d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+            time: d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+        };
     });
 
-    // Find active step index
+    // Find active step index based on logic
     steps.forEach((s, idx) => {
         if (s.status.includes(currentStatus)) maxStepIndex = idx;
         else if (history.some(h => s.status.includes(h.status)) && idx > maxStepIndex) maxStepIndex = idx;
     });
+    if (currentStatus === 'finalizado' || currentStatus === 'pagado') maxStepIndex = steps.length - 1;
 
-    // If finalized call logic, assume all steps done
-    if (currentStatus === 'finalizado') maxStepIndex = steps.length - 1;
+    // 2. Draw Active Line (Darker Overlay? Or just colored dots)
+    // User asked for "linea de gris oscuro". We already did that. 
+    // Maybe "Active" part shouldn't be green line, just the dots colored? 
+    // "puntos en la misma secuencia de colores... la linea que sea de gris oscuro".
+    // So ONLY dots are colored. Line is always gray.
 
-    // Draw Active Line
-    if (maxStepIndex > 0) {
-        doc.setDrawColor(0, 150, 0); // Green
-        doc.setLineWidth(1.5);
-        doc.line(margin, startY, margin + (maxStepIndex * stepWidth), startY);
-    }
-
-    // Draw Dots
+    // Draw Dots & Text
     steps.forEach((step, i) => {
         const cx = margin + (i * stepWidth);
         const isActive = i <= maxStepIndex;
+        const hasData = !!stepDetails[i];
 
-        doc.setFillColor(isActive ? 0 : 255, isActive ? 150 : 255, isActive ? 0 : 255); // Green if active, White if not
-        doc.setDrawColor(isActive ? 0 : 200, isActive ? 150 : 200, isActive ? 0 : 200);
+        // Dot Style
+        let circleColor = [229, 231, 235]; // Gray-200 (Inactive)
+        let ringColor = [156, 163, 175]; // Gray-400
 
-        doc.circle(cx, startY, 2.5, 'FD');
+        if (isActive || hasData) {
+            circleColor = step.color;
+            ringColor = step.color;
+        }
 
-        // Label
+        // Draw Dot
+        doc.setFillColor(...circleColor);
+        doc.setDrawColor(...(isActive ? [255, 255, 255] : ringColor));
+        doc.setLineWidth(0.5);
+
+        // External Ring for aesthetics
+        if (isActive) {
+            doc.setDrawColor(...step.color);
+            doc.circle(cx, startY, 2.5, 'FD'); // Filled Dot
+        } else {
+            // Hollow or Gray filled
+            doc.circle(cx, startY, 2, 'FD');
+        }
+
+        // Label (Top)
         doc.setFontSize(8);
         doc.setTextColor(isActive ? 0 : 150);
         doc.setFont('helvetica', isActive ? 'bold' : 'normal');
-        doc.text(step.label, cx, startY - 5, { align: 'center' });
+        doc.text(step.label, cx, startY - 6, { align: 'center' });
 
-        // Timestamp
-        if (stepTimestamps[i]) {
+        // Date & Time (Bottom)
+        if (hasData) {
             doc.setFontSize(7);
-            doc.setTextColor(100);
-            doc.text(stepTimestamps[i], cx, startY + 8, { align: 'center' });
+            doc.setTextColor(80);
+            doc.setFont('helvetica', 'normal');
+            doc.text(stepDetails[i].date, cx, startY + 6, { align: 'center' });
+
+            doc.setFontSize(6);
+            doc.setTextColor(120);
+            doc.text(stepDetails[i].time, cx, startY + 9, { align: 'center' });
         }
     });
 

@@ -747,15 +747,7 @@ const TechTicketDetail = () => {
                     )}
 
                     {/* ASWO Link for Technicians */}
-                    <a
-                        href="https://shop.aswo.com/aswoShop/startPage.faces?storeId=520"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="bg-white text-slate-700 px-4 py-2 rounded-lg text-xs font-bold shadow-sm border border-slate-200 flex items-center gap-2 hover:bg-slate-800 hover:text-white transition group"
-                    >
-                        <PackagePlus size={16} className="text-blue-500 group-hover:text-yellow-400" />
-                        Acceso ASWO
-                    </a>
+
                 </div>
             )}
 
