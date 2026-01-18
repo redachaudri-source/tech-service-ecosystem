@@ -424,13 +424,15 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
                                 <User size={18} />
                                 Información del Cliente
                             </h3>
-                            <button
-                                type="button"
-                                onClick={() => setIsNewClient(!isNewClient)}
-                                className="text-sm text-blue-600 font-medium hover:underline"
-                            >
-                                {isNewClient ? 'Seleccionar Existente' : '+ Registrar Nuevo'}
-                            </button>
+                            {!warrantyClaimFrom && (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsNewClient(!isNewClient)}
+                                    className="text-sm text-blue-600 font-medium hover:underline"
+                                >
+                                    {isNewClient ? 'Seleccionar Existente' : '+ Registrar Nuevo'}
+                                </button>
+                            )}
                         </div>
 
                         {isNewClient ? (
@@ -496,9 +498,10 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
                             <div>
                                 <select
                                     required
-                                    className="w-full p-2 border border-slate-200 rounded-lg bg-white"
+                                    className={`w-full p-2 border border-slate-200 rounded-lg bg-white ${warrantyClaimFrom ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : ''}`}
                                     value={clientId}
                                     onChange={e => setClientId(e.target.value)}
+                                    disabled={!!warrantyClaimFrom}
                                 >
                                     <option value="">-- Seleccionar Cliente --</option>
                                     {clients.map(c => (
@@ -536,7 +539,12 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
                         <div className="grid grid-cols-2 gap-4 mb-4">
                             <div>
                                 <label className="block text-sm text-slate-600 mb-1">Tipo Equipo</label>
-                                <select className="w-full p-2 border rounded-lg" value={applianceType} onChange={e => setApplianceType(e.target.value)}>
+                                <select
+                                    className={`w-full p-2 border rounded-lg ${warrantyClaimFrom ? 'bg-slate-100 text-slate-500' : ''}`}
+                                    value={applianceType}
+                                    onChange={e => setApplianceType(e.target.value)}
+                                    disabled={!!warrantyClaimFrom}
+                                >
                                     <option>Lavadora</option>
                                     <option>Secadora</option>
                                     <option>Lavasecadora</option>
@@ -555,18 +563,20 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
                                 </select>
                             </div>
                             <div>
-                                <SmartBrandSelector
-                                    value={applianceBrand}
-                                    onChange={(brandObj) => {
-                                        if (brandObj && typeof brandObj === 'object') {
-                                            setApplianceBrand(brandObj.name);
-                                            setSelectedBrandId(brandObj.id);
-                                        } else {
-                                            setApplianceBrand(brandObj || '');
-                                            setSelectedBrandId(null);
-                                        }
-                                    }}
-                                />
+                                <div className={warrantyClaimFrom ? 'pointer-events-none opacity-70' : ''}>
+                                    <SmartBrandSelector
+                                        value={applianceBrand}
+                                        onChange={(brandObj) => {
+                                            if (brandObj && typeof brandObj === 'object') {
+                                                setApplianceBrand(brandObj.name);
+                                                setSelectedBrandId(brandObj.id);
+                                            } else {
+                                                setApplianceBrand(brandObj || '');
+                                                setSelectedBrandId(null);
+                                            }
+                                        }}
+                                    />
+                                </div>
                             </div>
                         </div>
                         <div className="mb-4">

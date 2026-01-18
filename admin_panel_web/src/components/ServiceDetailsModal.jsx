@@ -232,13 +232,28 @@ const ServiceDetailsModal = ({ ticket, onClose, onOpenWarrantyClaim }) => {
                     </button>
 
                     {ticket.status === 'finalizado' && onOpenWarrantyClaim && (
-                        <button
-                            onClick={() => onOpenWarrantyClaim(ticket)}
-                            className="px-5 py-2.5 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition flex items-center gap-2 shadow-lg shadow-purple-200"
-                        >
-                            <ShieldAlert size={18} />
-                            Reclamar Garantía
-                        </button>
+                        <div className="flex flex-col items-end gap-1">
+                            {ticket.warranty_until && new Date(ticket.warranty_until) > new Date() ? (
+                                <button
+                                    onClick={() => onOpenWarrantyClaim(ticket)}
+                                    className="px-5 py-2.5 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition flex items-center gap-2 shadow-lg shadow-purple-200"
+                                >
+                                    <ShieldAlert size={18} />
+                                    Reclamar Garantía
+                                </button>
+                            ) : (new Date(ticket.warranty_until) <= new Date()) ? (
+                                <span className="text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-full border border-slate-200 flex items-center gap-1">
+                                    <ShieldCheck size={12} />
+                                    Garantía Expirada ({new Date(ticket.warranty_until).toLocaleDateString()})
+                                </span>
+                            ) : null}
+
+                            {ticket.warranty_until && new Date(ticket.warranty_until) > new Date() && (
+                                <span className="text-[10px] text-purple-700 font-bold">
+                                    Vence: {new Date(ticket.warranty_until).toLocaleDateString()}
+                                </span>
+                            )}
+                        </div>
                     )}
                     {/* Could add specific actions like 'Edit' or 'Assign' here too if needed, but keeping it as View Details for now */}
                 </div>
