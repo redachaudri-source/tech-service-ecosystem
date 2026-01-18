@@ -551,6 +551,7 @@ const MyAppliances = () => {
                         onClick={(e) => {
                             e.stopPropagation();
                             setVerdictAssessment({ ...appliance.mortifyStatus, total_score: finalScore }); // Pass summed score
+                            setSelectedAppliance(appliance);
                             setShowVerdictModal(true);
                         }}
                         className="cursor-pointer hover:scale-105 transition-transform"
