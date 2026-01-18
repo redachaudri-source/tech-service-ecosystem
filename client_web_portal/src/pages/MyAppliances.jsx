@@ -537,26 +537,34 @@ const MyAppliances = () => {
             );
         }
 
-        // JUDGED: Show New V-Label (Clickable)
-        if (appliance.mortifyStatus && appliance.mortifyStatus.status === 'JUDGED') {
-            const score = appliance.mortifyStatus.total_score;
-            // Use small size for the card view, wrapped in interactive div
+        // SHOW RESULT (For any status that is not PENDING_JUDGE)
+        if (appliance.mortifyStatus) {
+            // Calculate Final Score (Algo + Necromancer Bonus)
+            const rawScore = appliance.mortifyStatus.total_score || 0;
+            const bonus = appliance.mortifyStatus.admin_recovered_points || 0;
+            const finalScore = rawScore + bonus;
+
             return (
                 <div className="flex flex-col items-end gap-1">
                     <div
                         onClick={(e) => {
                             e.stopPropagation();
-                            setVerdictAssessment(appliance.mortifyStatus);
+                            setVerdictAssessment({ ...appliance.mortifyStatus, total_score: finalScore }); // Pass summed score
                             setShowVerdictModal(true);
                         }}
                         className="cursor-pointer hover:scale-105 transition-transform"
                         title="Ver Dictamen Detallado"
                     >
-                        <ViabilityLabel score={score} size="sm" />
+                        <ViabilityLabel score={finalScore} size="sm" />
                     </div>
                     <span className="text-[9px] text-slate-400 font-medium">
                         {new Date(appliance.mortifyStatus.created_at).toLocaleDateString()}
                     </span>
+                    {bonus > 0 && (
+                        <span className="text-[8px] font-bold text-purple-500 bg-purple-50 px-1 rounded border border-purple-100">
+                            +{bonus} pts extra
+                        </span>
+                    )}
                 </div>
             );
         }
