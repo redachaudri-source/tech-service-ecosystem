@@ -12,14 +12,24 @@ const MortifyVerdictModal = ({ assessment, onClose }) => {
     // If not, show mapped ia_suggestion (AI).
     const hasAdminNote = !!(admin_note && admin_note.trim().length > 0);
 
+    // Extract Appliance Details
+    const app = assessment.client_appliances || {};
+    const type = app.type || 'aparato';
+    const brand = app.brand || '';
+    const pYear = assessment.input_year || app.purchase_year;
+    const currentYear = new Date().getFullYear();
+    const age = pYear ? (currentYear - parseInt(pYear)) : 'unos';
+
     const getFallBackText = (suggestion) => {
-        if (!suggestion) return "El análisis ha concluido con una puntuación basada en el valor de mercado actual y el coste estimado de reparación.";
+        const baseInfo = `su ${type} ${brand} de ${age} años`;
+
+        if (!suggestion) return `El análisis de ${baseInfo} ha concluido con una puntuación basada en el valor de mercado actual y el coste estimado de reparación.`;
 
         switch (suggestion) {
-            case 'VIABLE': return "Excelente noticia. El algoritmo determina que su aparato conserva un alto valor y la reparación es una inversión totalmente recomendada.";
-            case 'DOUBTFUL': return "Análisis complejo. El coste de reparación es considerable respecto al valor actual del equipo. Recomendamos proceder con cautela.";
-            case 'OBSOLETE': return "Desaconsejado. El aparato ha superado su vida útil económica o el coste de reparación excede el límite de seguridad.";
-            default: return suggestion; // Just in case
+            case 'VIABLE': return `Excelente noticia. Su ${type} ${brand} conserva un alto valor pese a tener ${age} años. La reparación es una inversión totalmente recomendada.`;
+            case 'DOUBTFUL': return `Análisis complejo para ${baseInfo}. El coste de reparación es considerable respecto al valor actual del equipo. Recomendamos proceder con cautela.`;
+            case 'OBSOLETE': return `Desaconsejado. Su ${type} ${brand} ha superado su vida útil económica (${age} años) o el coste de reparación excede el límite de seguridad.`;
+            default: return suggestion;
         }
     }
 
