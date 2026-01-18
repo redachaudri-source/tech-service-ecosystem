@@ -381,8 +381,7 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
                 appointment_status: appointmentSt,
                 status: ticketStatus,
                 created_by: (await supabase.auth.getUser()).data.user?.id,
-                status: ticketStatus,
-                created_by: (await supabase.auth.getUser()).data.user?.id,
+
                 origin_source: 'direct',
                 is_warranty: !!warrantyClaimFrom,
                 link_ticket_id: warrantyClaimFrom ? warrantyClaimFrom.id : null

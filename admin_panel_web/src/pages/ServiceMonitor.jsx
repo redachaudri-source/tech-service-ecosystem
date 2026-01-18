@@ -468,7 +468,7 @@ const ServiceMonitor = () => {
                     setShowCreateModal(true);
                 }}
             />
-            )}
+
 
             {selectedTicketForBudget && (
                 <BudgetManagerModal
