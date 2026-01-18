@@ -5,7 +5,7 @@ import { generateServiceReport, generateDepositReceipt, loadImage } from '../../
 import {
     ChevronLeft, MapPin, Phone, User,
     Navigation, PhoneCall, CheckCircle,
-    Eye, Scan, AlertTriangle, ClipboardCopy, Clock, History, Package, ArrowRightCircle, Copy, FileText, Search, PackagePlus, Calendar, ChevronDown, Camera, Smartphone
+    Eye, Scan, AlertTriangle, ClipboardCopy, Clock, History, Package, ArrowRightCircle, Copy, FileText, Search, PackagePlus, Calendar, ChevronDown, Camera, Smartphone, Banknote
 } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 import TechLocationMap from '../../components/TechLocationMap';
@@ -1254,7 +1254,7 @@ const TechTicketDetail = () => {
 
                     <div className="flex gap-3 mb-4">
                         <button
-                            onClick={() => setBudgetDecision('accepted')}
+                            onClick={() => setShowSignaturePad(true)}
                             className={`flex-1 py-4 rounded-xl font-bold border-2 transition-all flex flex-col items-center gap-1 ${budgetDecision === 'accepted' ? 'bg-green-50 text-green-700 border-green-200 ring-1 ring-green-500' : 'bg-slate-50 text-slate-500 border-slate-100 hover:bg-green-50 hover:text-green-600 hover:border-green-100'}`}
                         >
                             <CheckCircle size={24} className={budgetDecision === 'accepted' ? 'fill-green-200' : ''} />
