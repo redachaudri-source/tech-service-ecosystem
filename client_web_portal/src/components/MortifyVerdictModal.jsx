@@ -3,19 +3,21 @@ import ViabilityLabel from './ViabilityLabel';
 import { Quote, Briefcase, Bot, CheckCircle, Ghost, Info } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
-const MortifyVerdictModal = ({ assessment, onClose }) => {
+const MortifyVerdictModal = ({ assessment, appliance, onClose }) => {
     const [financials, setFinancials] = useState(null);
     const [loadingFin, setLoadingFin] = useState(true);
 
     if (!assessment) return null;
+    const activeAppliance = appliance || assessment.client_appliances;
 
     const { admin_note, ia_suggestion, total_score, admin_recovered_points } = assessment;
 
     // Load Financial Context (Similar to Admin Panel V13 Logic)
     useEffect(() => {
         const loadFin = async () => {
-            if (!assessment.client_appliances) return;
-            const app = assessment.client_appliances;
+            if (!activeAppliance) return;
+            // Use local var to avoid closure staleness if needed, but activeAppliance is stable enough
+            const app = activeAppliance;
 
             try {
                 // 1. Get Categories for Default Price
@@ -77,12 +79,12 @@ const MortifyVerdictModal = ({ assessment, onClose }) => {
             }
         };
         loadFin();
-    }, [assessment]);
+    }, [assessment, activeAppliance]);
 
 
     // Determine content source logic
     const hasAdminNote = !!(admin_note && admin_note.trim().length > 0);
-    const app = assessment.client_appliances || {};
+    const app = activeAppliance || {};
     const type = app.type || 'aparato';
     const brand = app.brand || '';
     const pYear = assessment.input_year || app.purchase_year;

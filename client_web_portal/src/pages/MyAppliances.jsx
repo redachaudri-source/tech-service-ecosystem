@@ -139,6 +139,7 @@ const MyAppliances = () => {
     // Verdict Modal State
     const [showVerdictModal, setShowVerdictModal] = useState(false);
     const [verdictAssessment, setVerdictAssessment] = useState(null);
+    const [selectedAppliance, setSelectedAppliance] = useState(null);
 
     // Form State
     const initialForm = {
@@ -931,6 +932,7 @@ const MyAppliances = () => {
                     showVerdictModal && (
                         <MortifyVerdictModal
                             assessment={verdictAssessment}
+                            appliance={selectedAppliance}
                             onClose={() => setShowVerdictModal(false)}
                         />
                     )
