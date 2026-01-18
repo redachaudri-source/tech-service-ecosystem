@@ -77,6 +77,19 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                 const percentSpent = currentValue > 0 ? (totalSpent / currentValue) * 100 : 100;
                 const percentLimit = limitRatio * 100;
 
+                // Calculate Financial Score (0-10) for UI display consistency
+                let financialScore = 10;
+                if (totalSpent > 0) {
+                    const spendRatio = totalSpent / currentValue;
+                    if (spendRatio > limitRatio) {
+                        financialScore = 0;
+                    } else {
+                        // Map 0 -> 10, Limit -> 1
+                        financialScore = Math.round(10 * (1.0 - (spendRatio / limitRatio)));
+                        if (financialScore < 1) financialScore = 1;
+                    }
+                }
+
                 setFinancialMetrics({
                     marketPrice,
                     prestigePrice,
@@ -88,7 +101,8 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                     ruinLimit,
                     remainingBudget,
                     percentSpent,
-                    percentLimit
+                    percentLimit,
+                    financialScore // Add to state
                 });
 
             } catch (err) {
@@ -299,7 +313,7 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                             <ScoreRow icon={ShieldCheck} color="text-blue-500" label="Calidad de Marca" score={assessment.score_brand} description="Basado en la reputación." />
                             <ScoreRow icon={Calendar} color="text-amber-500" label={`Antigüedad: ${financialMetrics?.age || '?'} años`} score={assessment.score_age} description="Vida útil restante." />
                             <ScoreRow icon={Thermometer} color="text-purple-500" label="Instalación" score={assessment.score_installation} description="Accesibilidad." />
-                            <ScoreRow icon={Banknote} color="text-green-500" label="Puntuación Financiera (V11)" score={assessment.score_financial} description="0-10 basado en gasto/valor." />
+                            <ScoreRow icon={Banknote} color="text-green-500" label="Puntuación Financiera (V11)" score={financialMetrics?.financialScore ?? assessment.score_financial} description="0-10 basado en gasto/valor." />
                         </div>
                     </div>
 
