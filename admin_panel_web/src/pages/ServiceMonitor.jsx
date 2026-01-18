@@ -22,6 +22,7 @@ const ServiceMonitor = () => {
     const [selectedTicketForAssign, setSelectedTicketForAssign] = useState(null); // New
     const [selectedTicketForDetails, setSelectedTicketForDetails] = useState(null); // New Details Modal
     const [selectedTicketForBudget, setSelectedTicketForBudget] = useState(null); // New Budget Modal
+    const [warrantyTicket, setWarrantyTicket] = useState(null); // Warranty Claim State
 
     const [filterDate, setFilterDate] = useState('');
     const [filterTime, setFilterTime] = useState('');
@@ -416,10 +417,13 @@ const ServiceMonitor = () => {
             {/* MODALS */}
             {showCreateModal && (
                 <CreateTicketModal
-                    onClose={() => setShowCreateModal(false)}
+                    warrantyClaimFrom={warrantyTicket}
+                    title={warrantyTicket ? 'Nueva Reclamación de Garantía' : 'Nuevo Servicio'}
+                    onClose={() => { setShowCreateModal(false); setWarrantyTicket(null); }}
                     onSuccess={(newTicket, shouldOpenSmart) => {
                         fetchData();
                         setShowCreateModal(false);
+                        setWarrantyTicket(null);
                         if (shouldOpenSmart && newTicket) {
                             setTimeout(() => { setSelectedTicketForAssign(newTicket); }, 100);
                         } else if (newTicket) {
@@ -451,11 +455,15 @@ const ServiceMonitor = () => {
                 />
             )}
 
-            {selectedTicketForDetails && (
-                <ServiceDetailsModal
-                    ticket={selectedTicketForDetails}
-                    onClose={() => setSelectedTicketForDetails(null)}
-                />
+            <ServiceDetailsModal
+                ticket={selectedTicketForDetails}
+                onClose={() => setSelectedTicketForDetails(null)}
+                onOpenWarrantyClaim={(t) => {
+                    setSelectedTicketForDetails(null);
+                    setWarrantyTicket(t);
+                    setShowCreateModal(true);
+                }}
+            />
             )}
 
             {selectedTicketForBudget && (

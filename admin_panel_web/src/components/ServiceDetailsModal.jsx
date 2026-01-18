@@ -1,7 +1,7 @@
-import { X, Phone, MapPin, User, FileText, Calendar, Clock, Image as ImageIcon, Banknote, ShieldCheck } from 'lucide-react';
+import { X, Phone, MapPin, User, FileText, Calendar, Clock, Image as ImageIcon, Banknote, ShieldCheck, ShieldAlert } from 'lucide-react';
 import ViabilityJudge from './ViabilityJudge'; // Import
 
-const ServiceDetailsModal = ({ ticket, onClose }) => {
+const ServiceDetailsModal = ({ ticket, onClose, onOpenWarrantyClaim }) => {
     if (!ticket) return null;
 
     return (
@@ -230,6 +230,16 @@ const ServiceDetailsModal = ({ ticket, onClose }) => {
                     >
                         Cerrar
                     </button>
+
+                    {ticket.status === 'finalizado' && onOpenWarrantyClaim && (
+                        <button
+                            onClick={() => onOpenWarrantyClaim(ticket)}
+                            className="px-5 py-2.5 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition flex items-center gap-2 shadow-lg shadow-purple-200"
+                        >
+                            <ShieldAlert size={18} />
+                            Reclamar Garantía
+                        </button>
+                    )}
                     {/* Could add specific actions like 'Edit' or 'Assign' here too if needed, but keeping it as View Details for now */}
                 </div>
             </div>

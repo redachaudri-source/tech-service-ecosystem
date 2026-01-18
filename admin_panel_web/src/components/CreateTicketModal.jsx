@@ -4,7 +4,7 @@ import { X, Save, User, Smartphone, Plus, Clock } from 'lucide-react';
 import AgendaPicker from './AgendaPicker';
 import SmartBrandSelector from './SmartBrandSelector';
 
-const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submitLabel = 'Crear Ticket' }) => {
+const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submitLabel = 'Crear Ticket', warrantyClaimFrom = null }) => {
     const [loading, setLoading] = useState(false);
     const [showAgenda, setShowAgenda] = useState(false);
 
@@ -74,6 +74,19 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
         }, 1500);
         return () => clearTimeout(timer);
     }, [newClientAddress, newClientCity]);
+
+    // PRE-FILL WARRANTY DATA
+    useEffect(() => {
+        if (warrantyClaimFrom) {
+            setClientId(warrantyClaimFrom.client_id);
+            setApplianceType(warrantyClaimFrom.appliance_info?.type || 'Lavadora');
+            setApplianceBrand(warrantyClaimFrom.appliance_info?.brand || '');
+            setApplianceModel(warrantyClaimFrom.appliance_info?.model || '');
+            setDescription(`RECLAMACIÓN GARANTÍA (Ticket #${warrantyClaimFrom.ticket_number}): `);
+            // Optionally set initial tech to previous tech
+            // setTechId(warrantyClaimFrom.technician_id || ''); 
+        }
+    }, [warrantyClaimFrom]);
 
     // --- INSTANT PHONE CHECK LOGIC ---
     useEffect(() => {
@@ -368,7 +381,11 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
                 appointment_status: appointmentSt,
                 status: ticketStatus,
                 created_by: (await supabase.auth.getUser()).data.user?.id,
-                origin_source: 'direct'
+                status: ticketStatus,
+                created_by: (await supabase.auth.getUser()).data.user?.id,
+                origin_source: 'direct',
+                is_warranty: !!warrantyClaimFrom,
+                link_ticket_id: warrantyClaimFrom ? warrantyClaimFrom.id : null
             })
             .select()
             .single();
