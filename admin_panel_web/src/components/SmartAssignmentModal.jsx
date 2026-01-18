@@ -169,7 +169,9 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
     };
 
     const addProposal = (slot) => {
-        const maxSlots = ticket.client?.has_webapp ? 3 : 1;
+        // Logic: Allow 3 slots ONLY if client has App AND it's a client-originated request
+        const allowProposals = ticket.client?.has_webapp && ticket.origin_source?.startsWith('client');
+        const maxSlots = allowProposals ? 3 : 1;
 
         if (proposals.length >= maxSlots) {
             // If Single Slot Mode (Non-App), replace the existing one automatically for better UX
@@ -403,7 +405,8 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
 
                         {/* Actions */}
                         <div className="space-y-2 mt-auto">
-                            {ticket.client?.has_webapp && (
+                            {/* Logic: Client must have App AND Request must come from Client (App/Web) */}
+                            {(ticket.client?.has_webapp && ticket.origin_source?.startsWith('client')) && (
                                 <button
                                     onClick={handleSendProposals}
                                     disabled={proposals.length === 0}
