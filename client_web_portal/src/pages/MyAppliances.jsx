@@ -32,7 +32,7 @@ const BrandAutocomplete = ({ value, onChange }) => {
     const [error, setError] = useState(false);
 
     useEffect(() => {
-        // Fetch brands from DB
+        // Fetch brands from DB (mortify_brand_scores)
         const fetchBrands = async () => {
             const { data, error } = await supabase
                 .from('mortify_brand_scores')
@@ -43,7 +43,11 @@ const BrandAutocomplete = ({ value, onChange }) => {
                 console.error("Error loading brands:", error);
                 setError(true);
             }
-            if (data) setBrands(data.map(b => b.brand_name));
+            if (data) {
+                const list = data.map(b => b.brand_name);
+                setBrands(list);
+                setSuggestions(list); // Init suggestions
+            }
         };
         fetchBrands();
     }, []);
@@ -51,12 +55,14 @@ const BrandAutocomplete = ({ value, onChange }) => {
     const handleChange = (e) => {
         const val = e.target.value;
         onChange(val);
+
         if (val.length > 0) {
             const filtered = brands.filter(b => b.toLowerCase().includes(val.toLowerCase()));
             setSuggestions(filtered);
-            setShowSuggestions(!!filtered.length);
+            setShowSuggestions(true); // Always show if typing
         } else {
-            setShowSuggestions(false);
+            setSuggestions(brands); // Reset to full list
+            setShowSuggestions(true); // Keep showing list even if empty
         }
     };
 
@@ -71,11 +77,16 @@ const BrandAutocomplete = ({ value, onChange }) => {
                 <input
                     required
                     className={`w-full p-3 bg-slate-50 border ${error ? 'border-red-300' : 'border-slate-200'} rounded-xl focus:ring-2 focus:ring-blue-100 outline-none pr-10`}
-                    placeholder={error ? "Error cargando lista" : "Escribe para buscar..."}
+                    placeholder={error ? "Error cargando lista" : "Escribe o selecciona..."}
                     value={value}
                     onChange={handleChange}
-                    onFocus={() => value && setShowSuggestions(true)}
+                    onFocus={() => {
+                        // Always show list on focus, resetting filter if needed
+                        if (!value) setSuggestions(brands);
+                        setShowSuggestions(true);
+                    }}
                     onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                    autoComplete="off"
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
                     <ChevronDown size={16} />
@@ -83,15 +94,22 @@ const BrandAutocomplete = ({ value, onChange }) => {
             </div>
             {showSuggestions && (
                 <ul className="absolute z-50 w-full bg-white border border-slate-200 rounded-xl mt-1 max-h-48 overflow-y-auto shadow-lg animate-in fade-in zoom-in-95 duration-100">
-                    {suggestions.map((brand, idx) => (
-                        <li
-                            key={idx}
-                            className="p-3 hover:bg-blue-50 cursor-pointer text-slate-700 text-sm border-b border-slate-50 last:border-0"
-                            onClick={() => handleSelect(brand)}
-                        >
-                            {brand}
+                    {suggestions.length === 0 ? (
+                        <li className="p-3 text-slate-400 text-sm italic text-center">
+                            No se encontraron marcas. <br />
+                            <span className="text-xs">Escribe para añadir una nueva.</span>
                         </li>
-                    ))}
+                    ) : (
+                        suggestions.map((brand, idx) => (
+                            <li
+                                key={idx}
+                                className="p-3 hover:bg-blue-50 cursor-pointer text-slate-700 text-sm border-b border-slate-50 last:border-0"
+                                onClick={() => handleSelect(brand)}
+                            >
+                                {brand}
+                            </li>
+                        ))
+                    )}
                 </ul>
             )}
         </div>
