@@ -195,35 +195,36 @@ export const generateServiceReport = (ticket, logoImg = null, options = {}) => {
         doc.setTextColor(0, 0, 0);
     }
 
-    // --- TIMELINE VISUAL (AMAZON STYLE) ---
-    if (!isQuote) {
-        drawTimeline(doc, ticket, 240); // Move to bottom (Y=240)
-    }
-
     // --- Footer / Signatures ---
-    yPos = 250;
-    doc.setDrawColor(150);
+    yPos = 245; // Moved up slightly to make space
+    doc.setDrawColor(200);
     doc.line(30, yPos, 90, yPos);
     doc.line(120, yPos, 180, yPos);
 
-    doc.setFontSize(8);
     doc.setFontSize(8);
     // Draw Signature Image if available
     if (signatureImg) {
         try {
             const format = signatureImg.match(/^data:image\/(.*);base64/)?.[1]?.toUpperCase() || 'PNG';
-            doc.addImage(signatureImg, format, 40, yPos - 15, 40, 20); // Adjust pos/size
+            doc.addImage(signatureImg, format, 40, yPos - 15, 40, 20);
         } catch (e) {
             console.error("Sig err", e);
         }
     }
 
-    // We will place text "Firma Cliente" anyway.
     doc.text('Firma Cliente', 60, yPos + 5, { align: 'center' });
     doc.text('Firma Técnico', 150, yPos + 5, { align: 'center' });
 
-    doc.setFontSize(7);
-    doc.text('Garantía de reparación de 3 meses según normativa vigente.', pageWidth / 2, 280, { align: 'center' });
+
+    // --- TIMELINE VISUAL (PRO COMPACT UI) ---
+    // Moved below signatures
+    if (!isQuote) {
+        drawTimeline(doc, ticket, 275);
+    }
+
+    doc.setFontSize(6);
+    doc.setTextColor(150);
+    doc.text('Garantía de reparación de 3 meses según normativa vigente.', pageWidth / 2, 290, { align: 'center' });
 
     return doc;
 };
@@ -233,24 +234,24 @@ const drawTimeline = (doc, ticket, startY) => {
     const pageWidth = doc.internal.pageSize.width;
     const history = ticket.status_history || [];
 
-    // Define Milestones with Colors (Tailwind-ish RGB)
+    // Define Milestones with Colors (Modern Muted Palette)
     const steps = [
-        { label: 'Entrada', status: ['abierto', 'asignado', 'pendiente'], color: [29, 78, 216] }, // Blue
-        { label: 'En Camino', status: ['en_camino'], color: [67, 56, 202] }, // Indigo
-        { label: 'Diagnosis', status: ['en_diagnostico', 'presupuesto_pd', 'presupuestado', 'rechazado'], color: [126, 34, 206] }, // Purple
-        { label: 'Reparación', status: ['asignado_reparacion', 'en_espera_pieza', 'en_reparacion', 'pendiente_material'], color: [194, 65, 12] }, // Orange
-        { label: 'Finalizado', status: ['finalizado', 'pagado'], color: [21, 128, 61] } // Green
+        { label: 'Entrada', status: ['abierto', 'asignado', 'pendiente'], color: [59, 130, 246] }, // Blue-500
+        { label: 'En Camino', status: ['en_camino'], color: [99, 102, 241] }, // Indigo-500
+        { label: 'Diagnosis', status: ['en_diagnostico', 'presupuesto_pd', 'presupuestado', 'rechazado'], color: [168, 85, 247] }, // Purple-500
+        { label: 'Reparación', status: ['asignado_reparacion', 'en_espera_pieza', 'en_reparacion', 'pendiente_material'], color: [249, 115, 22] }, // Orange-500
+        { label: 'Finalizado', status: ['finalizado', 'pagado'], color: [34, 197, 94] } // Green-500
     ];
 
-    const margin = 25;
+    const margin = 35; // Wider margins = Compact timeline
     const totalWidth = pageWidth - (margin * 2);
     const stepWidth = totalWidth / (steps.length - 1);
 
     doc.saveGraphicsState();
 
-    // 1. Draw Base Line (Dark Grey, Thin)
-    doc.setDrawColor(75, 85, 99); // Gray-600
-    doc.setLineWidth(0.5);
+    // 1. Draw Base Line (Very Light & Thin)
+    doc.setDrawColor(220, 220, 220); // Gray-200
+    doc.setLineWidth(0.3); // Thinner
     doc.line(margin, startY, pageWidth - margin, startY);
 
     // Determine current progress
@@ -259,10 +260,8 @@ const drawTimeline = (doc, ticket, startY) => {
 
     // Parse Timestamps details
     const stepDetails = steps.map(s => {
-        // Find LATEST entry matching one of the statuses
         const entry = history.slice().reverse().find(h => s.status.includes(h.status));
         if (!entry) return null;
-
         const d = new Date(entry.timestamp || entry.changed_at);
         return {
             date: d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
@@ -270,18 +269,19 @@ const drawTimeline = (doc, ticket, startY) => {
         };
     });
 
-    // Find active step index based on logic
     steps.forEach((s, idx) => {
         if (s.status.includes(currentStatus)) maxStepIndex = idx;
         else if (history.some(h => s.status.includes(h.status)) && idx > maxStepIndex) maxStepIndex = idx;
     });
     if (currentStatus === 'finalizado' || currentStatus === 'pagado') maxStepIndex = steps.length - 1;
 
-    // 2. Draw Active Line (Darker Overlay? Or just colored dots)
-    // User asked for "linea de gris oscuro". We already did that. 
-    // Maybe "Active" part shouldn't be green line, just the dots colored? 
-    // "puntos en la misma secuencia de colores... la linea que sea de gris oscuro".
-    // So ONLY dots are colored. Line is always gray.
+    // 2. Draw Active Path (Darker Gray Line)
+    if (maxStepIndex > 0) {
+        const activeWidth = stepWidth * maxStepIndex;
+        doc.setDrawColor(100, 100, 100); // Gray-500
+        doc.setLineWidth(0.3);
+        doc.line(margin, startY, margin + activeWidth, startY);
+    }
 
     // Draw Dots & Text
     steps.forEach((step, i) => {
@@ -289,45 +289,51 @@ const drawTimeline = (doc, ticket, startY) => {
         const isActive = i <= maxStepIndex;
         const hasData = !!stepDetails[i];
 
-        // Dot Style
-        let circleColor = [229, 231, 235]; // Gray-200 (Inactive)
-        let ringColor = [156, 163, 175]; // Gray-400
+        // Dot Style (Minimalist)
+        let circleColor = [243, 244, 246]; // Gray-100 (Inactive)
+        let ringColor = [209, 213, 219]; // Gray-300
 
         if (isActive || hasData) {
             circleColor = step.color;
-            ringColor = step.color;
+            ringColor = step.color; // No ring, just solid color looks cleaner small
         }
 
         // Draw Dot
         doc.setFillColor(...circleColor);
-        doc.setDrawColor(...(isActive ? [255, 255, 255] : ringColor));
-        doc.setLineWidth(0.5);
+        // doc.setDrawColor(...(isActive ? [255, 255, 255] : ringColor));
+        doc.setDrawColor(...ringColor);
+        doc.setLineWidth(0.2);
 
-        // External Ring for aesthetics
+        // Tiny dots
         if (isActive) {
-            doc.setDrawColor(...step.color);
-            doc.circle(cx, startY, 2.5, 'FD'); // Filled Dot
+            // Filled Colored Dot
+            doc.circle(cx, startY, 1.2, 'F');
         } else {
-            // Hollow or Gray filled
-            doc.circle(cx, startY, 2, 'FD');
+            // Hollow or Light Gray
+            doc.circle(cx, startY, 1.2, 'F');
         }
 
-        // Label (Top)
-        doc.setFontSize(6); // Smaller Label
-        doc.setTextColor(isActive ? 0 : 150);
+        // Label (Top) - Very subtle
+        doc.setFontSize(5);
+        doc.setTextColor(isActive ? 50 : 180);
         doc.setFont('helvetica', isActive ? 'bold' : 'normal');
-        doc.text(step.label, cx, startY - 4, { align: 'center' });
+        doc.text(step.label.toUpperCase(), cx, startY - 3, { align: 'center' });
 
         // Date & Time (Bottom)
         if (hasData) {
-            doc.setFontSize(7);
-            doc.setTextColor(80);
+            doc.setFontSize(4.5);
+            doc.setTextColor(100);
             doc.setFont('helvetica', 'normal');
-            doc.text(stepDetails[i].date, cx, startY + 6, { align: 'center' });
+            doc.text(stepDetails[i].date, cx, startY + 4, { align: 'center' });
 
-            doc.setFontSize(5); // Smaller Time
-            doc.setTextColor(120);
-            doc.text(stepDetails[i].time, cx, startY + 7, { align: 'center' });
+            // doc.setTextColor(150);
+            // doc.text(stepDetails[i].time, cx, startY + 6, { align: 'center' }); // Hide time to save space/cleanliness? User asked for "more pro". 
+            // Let's keep date only for "super clean", OR date+time very tight.
+            // Let's keep just date for cleaner look unless they requested time.
+            // Actually, timestamps are useful. Let's keep time but very small.
+            doc.setFontSize(4);
+            doc.setTextColor(150);
+            doc.text(stepDetails[i].time, cx, startY + 6, { align: 'center' });
         }
     });
 
