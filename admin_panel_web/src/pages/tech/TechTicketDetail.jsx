@@ -72,6 +72,7 @@ const TechTicketDetail = () => {
     const [generatingReceipt, setGeneratingReceipt] = useState(false);
     const [budgetDecision, setBudgetDecision] = useState(null); // 'accepted', 'rejected'
     const [showSignaturePad, setShowSignaturePad] = useState(false); // NEW
+    const [signaturePurpose, setSignaturePurpose] = useState('budget'); // 'budget' | 'closing'
 
     // UI Helper State
     const [newPart, setNewPart] = useState({ name: '', price: '', qty: 1 });
@@ -804,6 +805,16 @@ const TechTicketDetail = () => {
                                     onClick={async () => {
                                         if (currentStatus.next === 'finalizado') {
                                             // Direct Finalization (Bypassing Modal)
+                                            // 1. Check if we have signature
+                                            if (!ticket.client_signature_url) {
+                                                if (window.confirm("Se requiere la firma del cliente para finalizar. ¿Firmar ahora?")) {
+                                                    setSignaturePurpose('closing');
+                                                    setShowSignaturePad(true);
+                                                }
+                                                return;
+                                            }
+
+                                            // 2. If signed, proceed to generate PDF and finalize
                                             if (!ticket.pdf_url) {
                                                 // Generate PDF automatically validation
                                                 try {
@@ -813,6 +824,7 @@ const TechTicketDetail = () => {
                                                 } catch (e) {
                                                     console.error(e);
                                                     alert("Error generando PDF: " + e.message);
+                                                    return; // Stop if PDF fails
                                                 }
                                             } else {
                                                 if (!window.confirm("¿Estás seguro de FINALIZAR el servicio?")) return;
@@ -1254,7 +1266,10 @@ const TechTicketDetail = () => {
 
                     <div className="flex gap-3 mb-4">
                         <button
-                            onClick={() => setShowSignaturePad(true)}
+                            onClick={() => {
+                                setSignaturePurpose('budget');
+                                setShowSignaturePad(true);
+                            }}
                             className={`flex-1 py-4 rounded-xl font-bold border-2 transition-all flex flex-col items-center gap-1 ${budgetDecision === 'accepted' ? 'bg-green-50 text-green-700 border-green-200 ring-1 ring-green-500' : 'bg-slate-50 text-slate-500 border-slate-100 hover:bg-green-50 hover:text-green-600 hover:border-green-100'}`}
                         >
                             <CheckCircle size={24} className={budgetDecision === 'accepted' ? 'fill-green-200' : ''} />
@@ -1442,7 +1457,8 @@ const TechTicketDetail = () => {
             )}
 
             {/* Payment Check & PDF - Only at End */}
-            {(ticket.status === 'en_reparacion' || ticket.status === 'finalizado') && (
+            {/* HIDDEN IF FINALIZED per user request */}
+            {(ticket.status === 'en_reparacion' && ticket.status !== 'finalizado') && (
                 <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-4 animate-in fade-in slide-in-from-bottom-4">
                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Cobro y Documentación</h3>
 
@@ -1587,21 +1603,7 @@ const TechTicketDetail = () => {
                                 </a>
                             )}
 
-                            <button
-                                onClick={handleGeneratePDF}
-                                disabled={generatingPdf}
-                                className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-sm active:scale-[0.98] transition-all ${ticket.pdf_url
-                                    ? 'bg-white text-slate-700 border-2 border-slate-200 hover:bg-slate-50'
-                                    : 'bg-slate-800 text-white hover:bg-slate-900'
-                                    }`}
-                            >
-                                {generatingPdf ? (
-                                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                                ) : (
-                                    <FileText size={20} />
-                                )}
-                                <span>{ticket.pdf_url ? 'Regenerar PDF (Actualizar Datos)' : 'Generar Parte de Trabajo'}</span>
-                            </button>
+
                         </div>
                     </div>
                 </div>
@@ -1736,27 +1738,51 @@ const TechTicketDetail = () => {
                             const { data } = supabase.storage.from('signatures').getPublicUrl(fileName);
                             const publicUrl = data.publicUrl;
 
-                            // 2. Update Ticket (Status -> Presupuesto Aceptado logic OR En Reparación?)
-                            // User workflow: "Aceptar Presupuesto" -> Signature -> "Presupuesto Aceptado"
-                            // Usually this leads to "En Reparación" if auto-start?
-                            // Let's stick to setting budgetDecision = 'accepted' inside component state, 
-                            // and let the existing logic handle the rest? 
-                            // BUT wait, "Aceptar" usually just sets `budgetDecision` state to show the next UI block (Solicitar Repuesto).
-                            // It DOES NOT update DB status immediately until they click "Confirmar Pago y Pedir Material" or "Iniciar Reparación"?
-                            // Let's check existing logic.
-                            // The exiting logic for "Aceptar" was just `setBudgetDecision('accepted')`.
-                            // So I should do that + save signature URL to ticket.
-
-                            // I'll save signature to DB immediately.
+                            // 2. Update Ticket with Signature
                             await supabase.from('tickets').update({
                                 client_signature_url: publicUrl,
                                 signature_timestamp: new Date().toISOString()
                             }).eq('id', ticket.id);
 
+                            // Update local state
                             setTicket(prev => ({ ...prev, client_signature_url: publicUrl }));
-                            setBudgetDecision('accepted');
+
+                            // 3. Branch Logic based on Purpose
+                            if (signaturePurpose === 'budget') {
+                                setBudgetDecision('accepted');
+                                alert("Presupuesto aceptado y firmado.");
+                            } else if (signaturePurpose === 'closing') {
+                                // For Closing, we continue to generate PDF + Finalize
+                                // We wait for PDF generation
+                                // Note: handleGeneratePDF uses 'ticket.client_signature_url' from state.
+                                // We just updated state 'ticket', but React state update is async.
+                                // handleGeneratePDF reads 'ticket' from state or we can pass signature?
+                                // Actually handleGeneratePDF reads 'ticket' state.
+                                // To assume it has the new signature, we should update the local 'ticket' object passed to it OR
+                                // handleGeneratePDF should re-fetch?
+                                // Best to update local ticket state immediately before calling.
+                                // We did setTicket(...). But inside this function scope, 'ticket' is old.
+                                // We should manually patch it for the next call.
+
+                                // Actually, handleGeneratePDF uses 'ticket.client_signature_url' inside it? 
+                                // Let's look at handleGeneratePDF implementation:
+                                // const signatureImg = ticket.client_signature_url ? ...
+                                // Yes, it uses state.
+                                // We need to ensure it sees the new URL.
+                                // We can pass it as a temp override? No, handleGeneratePDF doesn't take overrides easily for ticket props.
+                                // But we can just duplicate the PDF generation call here slightly or force a delay?
+                                // Or better: Alert user "Firma guardada. Ahora finalizando..." and trigger the finalization logic?
+                                // Or just call handleGeneratePDF but we need to monkey-patch ticket state?
+
+                                // Quick fix: Temporarily mutate ticket object for this closure?
+                                ticket.client_signature_url = publicUrl;
+
+                                await handleGeneratePDF();
+                                await updateStatus('finalizado');
+                                alert("Servicio finalizado y firmado correctamnte.");
+                            }
+
                             setShowSignaturePad(false);
-                            alert("Firma guardada correctamente.");
                         } catch (e) {
                             console.error(e);
                             alert("Error guardando firma: " + e.message);
