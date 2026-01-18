@@ -90,6 +90,21 @@ const TechTicketDetail = () => {
 
     // Bypass & Profile State
     const [techProfile, setTechProfile] = useState(null);
+    // --- FINANCIAL LIMITS (MORTIFY "EL CHIVATO") ---
+    const [financialLimit, setFinancialLimit] = useState(null);
+
+    useEffect(() => {
+        const fetchLimit = async () => {
+            if (!ticket?.appliance_id) return;
+            const { data, error } = await supabase.rpc('fn_get_appliance_financial_limit', {
+                p_appliance_id: ticket.appliance_id
+            });
+            if (data && data.length > 0) {
+                setFinancialLimit(data[0]);
+            }
+        };
+        fetchLimit();
+    }, [ticket?.appliance_id]);
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -695,6 +710,7 @@ const TechTicketDetail = () => {
     const currentStatus = statusMap[ticket.status] || statusMap['solicitado'];
     const { subtotal, vat, total } = ticket ? calculateTotal() : { subtotal: 0, vat: 0, total: 0 };
     const remaining = total - deposit;
+    const isOverLimit = financialLimit && total > financialLimit.remaining_budget;
     const isEditingAllowed = ticket && (ticket.status === 'en_diagnostico' || ticket.status === 'en_reparacion' || ticket.status === 'presupuesto_pendiente' || ticket.status === 'presupuesto_aceptado');
 
     return (
@@ -1239,27 +1255,7 @@ const TechTicketDetail = () => {
                         )}
                     </div>
 
-    // --- FINANCIAL LIMITS (MORTIFY "EL CHIVATO") ---
-                    const [financialLimit, setFinancialLimit] = useState(null);
-
-    useEffect(() => {
-        const fetchLimit = async () => {
-            if (!ticket?.appliance_id) return;
-                    const {data, error} = await supabase.rpc('fn_get_appliance_financial_limit', {
-                        p_appliance_id: ticket.appliance_id
-            });
-            if (data && data.length > 0) {
-                        setFinancialLimit(data[0]);
-            }
-        };
-                    fetchLimit();
-    }, [ticket?.appliance_id]);
-
-                    // Totals Calculation (Live)
-                    const {subtotal, vat, total} = calculateTotal();
-    const isOverLimit = financialLimit && total > financialLimit.remaining_budget;
-
-                    return (
+                    {/* Totals Calculation */}
                     <div className="bg-slate-50 p-4 rounded-xl space-y-2 border border-slate-200">
                         {/* MORTIFY ALERT */}
                         {isOverLimit && (
