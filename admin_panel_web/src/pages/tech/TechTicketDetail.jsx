@@ -1255,7 +1255,29 @@ const TechTicketDetail = () => {
                         )}
                     </div>
 
-                    {/* Totals Calculation */}
+    // --- FINANCIAL LIMITS (MORTIFY "EL CHIVATO") ---
+                    const [financialLimit, setFinancialLimit] = useState(null);
+
+    useEffect(() => {
+        const fetchLimit = async () => {
+            const appId = ticket?.appliance_id || ticket?.appliance_info?.id;
+                    if (!appId) return;
+
+                    const {data, error} = await supabase.rpc('fn_get_appliance_financial_limit', {
+                        p_appliance_id: appId
+            });
+            if (data && data.length > 0) {
+                        setFinancialLimit(data[0]);
+            }
+        };
+                    fetchLimit();
+    }, [ticket?.appliance_id, ticket?.appliance_info]);
+
+                    // Totals Calculation (Live)
+                    const {subtotal, vat, total} = calculateTotal();
+    const isOverLimit = financialLimit && total > financialLimit.remaining_budget;
+
+                    return (
                     <div className="bg-slate-50 p-4 rounded-xl space-y-2 border border-slate-200">
                         {/* MORTIFY ALERT */}
                         {isOverLimit && (
@@ -1297,7 +1319,16 @@ const TechTicketDetail = () => {
                             <span>TOTAL PRESUPUESTO</span>
                             <span className="text-lg">{total.toFixed(2)}€</span>
                         </div>
+
+                        {/* DEBUG SECTION - IMPROVED */}
+                        <div className="mt-4 p-2 bg-black text-green-400 font-mono text-[10px] rounded-lg overflow-hidden opacity-50 hover:opacity-100 transition-opacity">
+                            <p>DEBUG V3</p>
+                            <p>ID direct: {ticket.appliance_id || 'NULL'}</p>
+                            <p>ID info: {ticket.appliance_info?.id || 'NULL'}</p>
+                            <p>Limit: {financialLimit ? financialLimit.remaining_budget : 'Waiting...'}</p>
+                        </div>
                     </div>
+                    );
                 </div>
             )}
 

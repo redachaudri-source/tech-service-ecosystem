@@ -19,7 +19,16 @@ if (!supabaseUrl || !targetKey) {
 const supabase = createClient(supabaseUrl, targetKey);
 
 async function applySql() {
-    const sqlPath = path.join(__dirname, 'fix_mortify_trigger_v9_reliable.sql');
+    // Get filename from args or fallback
+    const targetFile = process.argv[2] || 'fix_mortify_trigger_v9_reliable.sql';
+    const sqlPath = path.join(__dirname, targetFile);
+    console.log(`Applying SQL file: ${targetFile}`);
+
+    if (!fs.existsSync(sqlPath)) {
+        console.error(`File not found: ${sqlPath}`);
+        process.exit(1);
+    }
+
     const sql = fs.readFileSync(sqlPath, 'utf8');
 
     // Supabase JS client doesn't support raw SQL execution directly on client usually unless via rpc or special endpoint.
