@@ -23,6 +23,7 @@ export const generateServiceReport = (ticket, logoImg = null, options = {}) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
     const isQuote = options.isQuote || false;
+    const signatureImg = options.signatureImg || null;
 
     // --- Header ---
     if (logoImg) {
@@ -196,7 +197,7 @@ export const generateServiceReport = (ticket, logoImg = null, options = {}) => {
 
     // --- TIMELINE VISUAL (AMAZON STYLE) ---
     if (!isQuote) {
-        drawTimeline(doc, ticket, 200); // Draw at Y=200
+        drawTimeline(doc, ticket, 240); // Move to bottom (Y=240)
     }
 
     // --- Footer / Signatures ---
@@ -206,6 +207,18 @@ export const generateServiceReport = (ticket, logoImg = null, options = {}) => {
     doc.line(120, yPos, 180, yPos);
 
     doc.setFontSize(8);
+    doc.setFontSize(8);
+    // Draw Signature Image if available
+    if (signatureImg) {
+        try {
+            const format = signatureImg.match(/^data:image\/(.*);base64/)?.[1]?.toUpperCase() || 'PNG';
+            doc.addImage(signatureImg, format, 40, yPos - 15, 40, 20); // Adjust pos/size
+        } catch (e) {
+            console.error("Sig err", e);
+        }
+    }
+
+    // We will place text "Firma Cliente" anyway.
     doc.text('Firma Cliente', 60, yPos + 5, { align: 'center' });
     doc.text('Firma Técnico', 150, yPos + 5, { align: 'center' });
 
@@ -300,10 +313,10 @@ const drawTimeline = (doc, ticket, startY) => {
         }
 
         // Label (Top)
-        doc.setFontSize(8);
+        doc.setFontSize(6); // Smaller Label
         doc.setTextColor(isActive ? 0 : 150);
         doc.setFont('helvetica', isActive ? 'bold' : 'normal');
-        doc.text(step.label, cx, startY - 6, { align: 'center' });
+        doc.text(step.label, cx, startY - 4, { align: 'center' });
 
         // Date & Time (Bottom)
         if (hasData) {
@@ -312,9 +325,9 @@ const drawTimeline = (doc, ticket, startY) => {
             doc.setFont('helvetica', 'normal');
             doc.text(stepDetails[i].date, cx, startY + 6, { align: 'center' });
 
-            doc.setFontSize(6);
+            doc.setFontSize(5); // Smaller Time
             doc.setTextColor(120);
-            doc.text(stepDetails[i].time, cx, startY + 9, { align: 'center' });
+            doc.text(stepDetails[i].time, cx, startY + 7, { align: 'center' });
         }
     });
 

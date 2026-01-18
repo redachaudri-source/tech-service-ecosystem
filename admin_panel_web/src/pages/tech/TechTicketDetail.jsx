@@ -10,6 +10,7 @@ import {
 import Tesseract from 'tesseract.js';
 import TechLocationMap from '../../components/TechLocationMap';
 import ErrorBoundary from '../../components/ErrorBoundary';
+import SignaturePad from '../../components/SignaturePad'; // NEW
 import { useAuth } from '../../context/AuthContext';
 
 
@@ -70,6 +71,7 @@ const TechTicketDetail = () => {
 
     const [generatingReceipt, setGeneratingReceipt] = useState(false);
     const [budgetDecision, setBudgetDecision] = useState(null); // 'accepted', 'rejected'
+    const [showSignaturePad, setShowSignaturePad] = useState(false); // NEW
 
     // UI Helper State
     const [newPart, setNewPart] = useState({ name: '', price: '', qty: 1 });
@@ -382,10 +384,11 @@ const TechTicketDetail = () => {
         setGeneratingPdf(true);
         try {
             const logoImg = settings?.logo_url ? await loadImage(settings.logo_url) : null;
+            const signatureImg = ticket.client_signature_url ? await loadImage(ticket.client_signature_url) : null;
             const currentData = getCurrentTicketData(); // USE LOCAL STATE
 
             // 1. Generate PDF Blob
-            const doc = generateServiceReport(currentData, logoImg);
+            const doc = generateServiceReport(currentData, logoImg, { signatureImg });
             const pdfBlob = doc.output('blob');
 
             // 2. Upload to Supabase
@@ -1465,9 +1468,7 @@ const TechTicketDetail = () => {
                                 >
                                     <option value="cash">Efectivo</option>
                                     <option value="card">Tarjeta</option>
-                                    <option value="card">Tarjeta</option>
                                     {ticket.client?.has_webapp && <option value="APP_PAYMENT">Pago por App</option>}
-                                    <option value="bizum">Bizum</option>
                                     <option value="bizum">Bizum</option>
                                     <option value="transfer">Transferencia</option>
                                 </select>
@@ -1716,6 +1717,55 @@ const TechTicketDetail = () => {
                         />
                     </ErrorBoundary>
                 </div>
+            )}
+
+            {/* SIGNATURE PAD */}
+            {showSignaturePad && (
+                <SignaturePad
+                    onSave={async (signatureDataUrl) => {
+                        try {
+                            setUpdating(true);
+                            // 1. Upload Signature
+                            const fileName = `sig_${ticket.ticket_number}_${Date.now()}.png`;
+                            const { error: uploadError } = await supabase.storage
+                                .from('signatures') // Ensure this bucket exists or use 'service-reports' path
+                                .upload(fileName, await (await fetch(signatureDataUrl)).blob(), { contentType: 'image/png' });
+
+                            if (uploadError) throw uploadError;
+
+                            const { data } = supabase.storage.from('signatures').getPublicUrl(fileName);
+                            const publicUrl = data.publicUrl;
+
+                            // 2. Update Ticket (Status -> Presupuesto Aceptado logic OR En Reparación?)
+                            // User workflow: "Aceptar Presupuesto" -> Signature -> "Presupuesto Aceptado"
+                            // Usually this leads to "En Reparación" if auto-start?
+                            // Let's stick to setting budgetDecision = 'accepted' inside component state, 
+                            // and let the existing logic handle the rest? 
+                            // BUT wait, "Aceptar" usually just sets `budgetDecision` state to show the next UI block (Solicitar Repuesto).
+                            // It DOES NOT update DB status immediately until they click "Confirmar Pago y Pedir Material" or "Iniciar Reparación"?
+                            // Let's check existing logic.
+                            // The exiting logic for "Aceptar" was just `setBudgetDecision('accepted')`.
+                            // So I should do that + save signature URL to ticket.
+
+                            // I'll save signature to DB immediately.
+                            await supabase.from('tickets').update({
+                                client_signature_url: publicUrl,
+                                signature_timestamp: new Date().toISOString()
+                            }).eq('id', ticket.id);
+
+                            setTicket(prev => ({ ...prev, client_signature_url: publicUrl }));
+                            setBudgetDecision('accepted');
+                            setShowSignaturePad(false);
+                            alert("Firma guardada correctamente.");
+                        } catch (e) {
+                            console.error(e);
+                            alert("Error guardando firma: " + e.message);
+                        } finally {
+                            setUpdating(false);
+                        }
+                    }}
+                    onCancel={() => setShowSignaturePad(false)}
+                />
             )}
 
         </div>
