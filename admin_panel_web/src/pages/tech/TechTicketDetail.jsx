@@ -1302,13 +1302,7 @@ const TechTicketDetail = () => {
                             <span className="text-lg">{total.toFixed(2)}€</span>
                         </div>
 
-                        {/* DEBUG SECTION - IMPROVED */}
-                        <div className="mt-4 p-2 bg-black text-green-400 font-mono text-[10px] rounded-lg overflow-hidden opacity-50 hover:opacity-100 transition-opacity">
-                            <p>DEBUG V3</p>
-                            <p>ID direct: {ticket.appliance_id || 'NULL'}</p>
-                            <p>ID info: {ticket.appliance_info?.id || 'NULL'}</p>
-                            <p>Limit: {financialLimit ? financialLimit.remaining_budget : 'Waiting...'}</p>
-                        </div>
+
                     </div>
                 </div>
             )}
