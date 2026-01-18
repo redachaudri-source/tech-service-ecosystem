@@ -192,6 +192,7 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
         } finally {
             setProcessing(false);
         }
+    };
     // State for The Cemetery (Recovery)
     const [localRecovered, setLocalRecovered] = useState(0);
 
