@@ -342,14 +342,8 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
 
                     <div className="flex-1 flex flex-col justify-center space-y-6 max-w-md mx-auto w-full">
                         <div className="w-full flex justify-center mb-2">
-                            {/* VISUAL HACK: Use derived score if available to match the parts displayed above */}
                             <ViabilityLabel
-                                score={(
-                                    (assessment.score_brand || 0) +
-                                    (assessment.score_age || 0) +
-                                    (assessment.score_installation || 0) +
-                                    (financialMetrics?.financialScore ?? assessment.score_financial ?? 0)
-                                )}
+                                score={assessment.total_score}
                             />
                         </div>
 
