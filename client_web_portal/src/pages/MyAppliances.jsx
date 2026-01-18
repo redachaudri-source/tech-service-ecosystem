@@ -240,6 +240,7 @@ const MyAppliances = () => {
             setAppliances(processed);
         } catch (error) {
             console.error('Error fetching appliances:', error);
+            alert(`Debug Error: No se pudieron cargar los aparatos. \n${error.message || JSON.stringify(error)}`);
         } finally {
             setLoading(false);
         }
