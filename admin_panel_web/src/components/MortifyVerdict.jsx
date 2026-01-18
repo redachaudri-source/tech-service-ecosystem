@@ -302,9 +302,9 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                                     {/* Spent Part */}
                                     <div
                                         className="h-full bg-slate-400 flex items-center justify-center text-[9px] text-white font-bold transition-all duration-1000"
-                                        style={{ width: `${ Math.min(100, (financialMetrics.totalSpent / financialMetrics.currentValue) * 100) }% ` }}
+                                        style={{ width: Math.min(100, (financialMetrics.totalSpent / financialMetrics.currentValue) * 100) + '%' }}
                                     >
-                                        {financialMetrics.totalSpent > 0 && `${ Math.round((financialMetrics.totalSpent / financialMetrics.currentValue) * 100) }% `}
+                                        {financialMetrics.totalSpent > 0 && (Math.round((financialMetrics.totalSpent / financialMetrics.currentValue) * 100) + '%')}
                                     </div>
 
                                     {/* Remaining Safe Part (up to 51%) */}
@@ -320,7 +320,7 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                                     {/* Needle / Marker for Current Spend */}
                                     <div
                                         className="absolute top-0 bottom-0 w-1 bg-slate-900 z-10 transition-all duration-1000 shadow-[0_0_10px_rgba(0,0,0,0.5)]"
-                                        style={{ left: `${ Math.min(100, (financialMetrics.totalSpent / financialMetrics.currentValue) * 100) }% ` }}
+                                        style={{ left: Math.min(100, (financialMetrics.totalSpent / financialMetrics.currentValue) * 100) + '%' }}
                                     ></div>
                                 </div>
                                 <div className="flex justify-between text-[10px] text-slate-400 font-bold mt-1 uppercase">
