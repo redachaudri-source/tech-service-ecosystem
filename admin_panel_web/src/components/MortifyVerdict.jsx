@@ -188,7 +188,7 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
             onComplete();
         } catch (err) {
             console.error('Error saving verdict:', err);
-            alert(`Error al guardar el veredicto: ${ err.message || JSON.stringify(err) } `);
+            alert("Error al guardar el veredicto: " + (err.message || JSON.stringify(err)));
         } finally {
             setProcessing(false);
         }
@@ -222,7 +222,7 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
             if (rpcError) throw rpcError;
 
             // 3. Close with success
-            alert(`¡Puntos resucitados correctamente!(${ localRecovered } pts)`);
+            alert("¡Puntos resucitados correctamente! (" + localRecovered + " pts)");
             onComplete();
 
         } catch (err) {
