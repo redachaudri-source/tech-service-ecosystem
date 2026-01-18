@@ -1298,9 +1298,6 @@ const TechTicketDetail = () => {
                             <span className="text-lg">{total.toFixed(2)}€</span>
                         </div>
                     </div>
-                    );
-
-
                 </div>
             )}
 
