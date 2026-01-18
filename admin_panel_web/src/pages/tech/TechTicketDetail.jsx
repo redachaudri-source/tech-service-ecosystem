@@ -1239,8 +1239,56 @@ const TechTicketDetail = () => {
                         )}
                     </div>
 
-                    {/* Totals Calculation */}
+    // --- FINANCIAL LIMITS (MORTIFY "EL CHIVATO") ---
+                    const [financialLimit, setFinancialLimit] = useState(null);
+
+    useEffect(() => {
+        const fetchLimit = async () => {
+            if (!ticket?.appliance_id) return;
+                    const {data, error} = await supabase.rpc('fn_get_appliance_financial_limit', {
+                        p_appliance_id: ticket.appliance_id
+            });
+            if (data && data.length > 0) {
+                        setFinancialLimit(data[0]);
+            }
+        };
+                    fetchLimit();
+    }, [ticket?.appliance_id]);
+
+                    // Totals Calculation (Live)
+                    const {subtotal, vat, total} = calculateTotal();
+    const isOverLimit = financialLimit && total > financialLimit.remaining_budget;
+
+                    return (
                     <div className="bg-slate-50 p-4 rounded-xl space-y-2 border border-slate-200">
+                        {/* MORTIFY ALERT */}
+                        {isOverLimit && (
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3 animate-pulse">
+                                <div className="flex items-start gap-2">
+                                    <AlertTriangle className="text-red-600 shrink-0 mt-0.5" size={18} />
+                                    <div>
+                                        <p className="text-xs font-bold text-red-700 uppercase tracking-wider mb-1">
+                                            ⚠️ Límite Financiero Excedido
+                                        </p>
+                                        <p className="text-sm text-red-800 font-medium leading-snug">
+                                            El límite recomendado es <span className="font-black underline">{financialLimit.remaining_budget.toFixed(0)}€</span>.
+                                            Estás presupuestando <span className="font-black">{total.toFixed(0)}€</span>.
+                                        </p>
+                                        <p className="text-[10px] text-red-600 mt-1 font-bold">
+                                            * Habla con el cliente antes de proceder.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        {/* SAFE LIMIT INFO (If not over, just show info) */}
+                        {!isOverLimit && financialLimit && (
+                            <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-2 mb-2 flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-emerald-700 uppercase">Límite Seguro Inversión</span>
+                                <span className="text-xs font-bold text-emerald-700">{financialLimit.remaining_budget.toFixed(0)}€</span>
+                            </div>
+                        )}
+
                         <div className="flex justify-between text-sm text-slate-500">
                             <span>Subtotal Neto</span>
                             <span>{subtotal.toFixed(2)}€</span>
@@ -1249,11 +1297,12 @@ const TechTicketDetail = () => {
                             <span>IVA (21%)</span>
                             <span>{vat.toFixed(2)}€</span>
                         </div>
-                        <div className="flex justify-between items-center text-base font-bold text-slate-800 pt-2 border-t border-slate-200">
+                        <div className={`flex justify-between items-center text-base font-bold pt-2 border-t border-slate-200 ${isOverLimit ? 'text-red-600' : 'text-slate-800'}`}>
                             <span>TOTAL PRESUPUESTO</span>
                             <span className="text-lg">{total.toFixed(2)}€</span>
                         </div>
                     </div>
+                    );
 
 
                 </div>
