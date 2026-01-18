@@ -95,6 +95,24 @@ const TechTicketDetail = () => {
 
     useEffect(() => {
         const fetchLimit = async () => {
+            const appId = ticket?.appliance_id || ticket?.appliance_info?.id;
+            if (!appId) return;
+
+            const { data } = await supabase.rpc('fn_get_appliance_financial_limit', {
+                p_appliance_id: appId
+            });
+            if (data && data.length > 0) {
+                setFinancialLimit(data[0]);
+            }
+        };
+        fetchLimit();
+    }, [ticket?.appliance_id, ticket?.appliance_info]);
+
+    // --- FINANCIAL LIMITS (MORTIFY "EL CHIVATO") ---
+    const [financialLimit, setFinancialLimit] = useState(null);
+
+    useEffect(() => {
+        const fetchLimit = async () => {
             if (!ticket?.appliance_id) return;
             const { data, error } = await supabase.rpc('fn_get_appliance_financial_limit', {
                 p_appliance_id: ticket.appliance_id
@@ -1255,29 +1273,7 @@ const TechTicketDetail = () => {
                         )}
                     </div>
 
-    // --- FINANCIAL LIMITS (MORTIFY "EL CHIVATO") ---
-                    const [financialLimit, setFinancialLimit] = useState(null);
-
-    useEffect(() => {
-        const fetchLimit = async () => {
-            const appId = ticket?.appliance_id || ticket?.appliance_info?.id;
-                    if (!appId) return;
-
-                    const {data, error} = await supabase.rpc('fn_get_appliance_financial_limit', {
-                        p_appliance_id: appId
-            });
-            if (data && data.length > 0) {
-                        setFinancialLimit(data[0]);
-            }
-        };
-                    fetchLimit();
-    }, [ticket?.appliance_id, ticket?.appliance_info]);
-
-                    // Totals Calculation (Live)
-                    const {subtotal, vat, total} = calculateTotal();
-    const isOverLimit = financialLimit && total > financialLimit.remaining_budget;
-
-                    return (
+                    {/* Totals Calculation */}
                     <div className="bg-slate-50 p-4 rounded-xl space-y-2 border border-slate-200">
                         {/* MORTIFY ALERT */}
                         {isOverLimit && (
@@ -1328,7 +1324,6 @@ const TechTicketDetail = () => {
                             <p>Limit: {financialLimit ? financialLimit.remaining_budget : 'Waiting...'}</p>
                         </div>
                     </div>
-                    );
                 </div>
             )}
 
