@@ -9,10 +9,21 @@ const MortifyVerdictModal = ({ assessment, onClose }) => {
 
     // Determine content source logic:
     // If admin_note exists, show it (Human Expert).
-    // If not, show ia_suggestion (AI).
-    // Fallback if both missing.
+    // If not, show mapped ia_suggestion (AI).
     const hasAdminNote = !!(admin_note && admin_note.trim().length > 0);
-    const content = hasAdminNote ? admin_note : (ia_suggestion || "El análisis ha concluido con una puntuación basada en el valor de mercado actual y el coste estimado de reparación.");
+
+    const getFallBackText = (suggestion) => {
+        if (!suggestion) return "El análisis ha concluido con una puntuación basada en el valor de mercado actual y el coste estimado de reparación.";
+
+        switch (suggestion) {
+            case 'VIABLE': return "Excelente noticia. El algoritmo determina que su aparato conserva un alto valor y la reparación es una inversión totalmente recomendada.";
+            case 'DOUBTFUL': return "Análisis complejo. El coste de reparación es considerable respecto al valor actual del equipo. Recomendamos proceder con cautela.";
+            case 'OBSOLETE': return "Desaconsejado. El aparato ha superado su vida útil económica o el coste de reparación excede el límite de seguridad.";
+            default: return suggestion; // Just in case
+        }
+    }
+
+    const content = hasAdminNote ? admin_note : getFallBackText(ia_suggestion);
 
     const authorLabel = hasAdminNote ? "Opinión del Experto Técnico" : "Análisis Automático (IA)";
     const AuthorIcon = hasAdminNote ? Briefcase : Bot;
