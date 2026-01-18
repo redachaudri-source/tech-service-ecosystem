@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'; // Added hooks
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase'; // Added supabase
-import { X, Calendar, ClipboardList, CheckCircle, AlertCircle, Settings, LogOut, User, Star, Clock } from 'lucide-react'; // Added Star
+import { X, Calendar, ClipboardList, CheckCircle, AlertCircle, Settings, LogOut, User, Star, Clock, Package } from 'lucide-react'; // Added Star
 import TechReviewsModal from './TechReviewsModal';
 
 const TechSidebar = ({ isOpen, onClose, user, onSignOut }) => {
@@ -15,6 +15,7 @@ const TechSidebar = ({ isOpen, onClose, user, onSignOut }) => {
     const menuItems = [
         { label: 'Agenda de Hoy', icon: Calendar, path: '/tech/dashboard', hasBadge: hasUpdates },
         { label: 'Mis Servicios', icon: ClipboardList, path: '/tech/all-services' },
+        { label: 'Repuestos Pendientes', icon: Package, path: '/tech/materials' },
         { label: 'Agenda Global', icon: Calendar, path: '/tech/agenda' },
         { label: 'Historial', icon: Clock, path: '/tech/history' },
     ];

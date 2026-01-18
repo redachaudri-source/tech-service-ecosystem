@@ -29,6 +29,7 @@ import TechTicketDetail from './pages/tech/TechTicketDetail';
 import TechServiceList from './pages/tech/TechServiceList';
 import TechAgenda from './pages/tech/TechAgenda';
 import TechSettings from './pages/tech/TechSettings';
+import TechMaterialList from './pages/tech/TechMaterialList';
 
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -78,6 +79,7 @@ function App() {
                                 <Route path="all-services" element={<TechServiceList filterType="all" />} />
                                 <Route path="new-services" element={<TechServiceList filterType="new" />} />
                                 <Route path="pending-material" element={<TechServiceList filterType="pending_material" />} />
+                                <Route path="materials" element={<TechMaterialList />} />
                                 <Route path="agenda" element={<TechAgenda />} />
                                 <Route path="history" element={<TechServiceList filterType="history" />} />
                                 <Route path="settings" element={<TechSettings />} />
