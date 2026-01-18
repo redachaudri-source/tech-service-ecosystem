@@ -78,7 +78,7 @@ const ViabilityLabel = ({ score, size = 'md' }) => {
                         <span className="text-4xl font-black">V{vLevel}</span>
                         <span className="text-sm font-bold opacity-60 mb-1 ml-1">/6</span>
                     </div>
-                    <span className="text-[10px] font-mono mt-1 opacity-70">Score: {rawScore}/14</span>
+                    <span className="text-[10px] font-mono mt-1 opacity-70">Score: {rawScore}/24</span>
                 </div>
             </div>
 

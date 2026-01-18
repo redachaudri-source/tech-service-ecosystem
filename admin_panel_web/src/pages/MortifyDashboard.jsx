@@ -240,7 +240,7 @@ const MortifyDashboard = () => {
                                                         }`}>
                                                         {a.total_score}
                                                     </span>
-                                                    <span className="text-xs text-slate-400">/ 14 pts</span>
+                                                    <span className="text-xs text-slate-400">/ 24 pts</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">

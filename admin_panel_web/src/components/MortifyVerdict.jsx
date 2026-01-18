@@ -34,7 +34,18 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
                 const marketPrice = catData?.average_market_price || 700;
                 const lifespan = catData?.average_lifespan_years || 10;
 
-                // 2. Calculate Age & Current Value
+                // 2. PRESTIGE LOGIC (V13 Sync)
+                // Derive Multiplier from Brand Score (1-4)
+                let multiplier = 1.0;
+                const bScore = assessment.score_brand || 1;
+                if (bScore >= 4) multiplier = 2.2;      // Premium
+                else if (bScore === 3) multiplier = 1.6; // High
+                else if (bScore === 2) multiplier = 1.25; // Standard
+                else multiplier = 1.0;
+
+                const prestigePrice = marketPrice * multiplier;
+
+                // 3. Calculate Age & Current Value
                 const pYear = assessment.input_year || appliance.purchase_year;
                 const currentYear = new Date().getFullYear();
                 let age = pYear ? (currentYear - parseInt(pYear)) : 0;
@@ -42,31 +53,42 @@ const MortifyVerdict = ({ assessment, onBack, onComplete }) => {
 
                 let currentValue = 0;
                 if (age < lifespan) {
-                    currentValue = marketPrice * (1.0 - (age / lifespan));
+                    // Depreciate based on PRESTIGE VALUE
+                    currentValue = prestigePrice * (1.0 - (age / lifespan));
                 }
 
-                // 3. Get Total Spent
+                // 4. Get Total Spent
                 const { data: tickets } = await supabase.from('tickets')
                     .select('final_price')
                     .eq('appliance_id', appliance.id)
-                    .in('status', ['finalizado', 'pagado']); // Or is_paid=true checks
+                    .in('status', ['finalizado', 'pagado']);
 
                 const totalSpent = tickets?.reduce((sum, t) => sum + (Number(t.final_price) || 0), 0) || 0;
 
-                // 4. Limits
-                const ruinLimit = currentValue * 0.51; // 51% rule
+                // 5. AMNESTY LOGIC (The Bathtub Curve)
+                let limitRatio = 0.51; // Default
+                if (age >= 3 && age <= 7) {
+                    limitRatio = 0.70; // Amnesty for prime age
+                }
+
+                // 6. Limits
+                const ruinLimit = currentValue * limitRatio;
                 const remainingBudget = Math.max(0, ruinLimit - totalSpent);
                 const percentSpent = currentValue > 0 ? (totalSpent / currentValue) * 100 : 100;
+                const percentLimit = limitRatio * 100;
 
                 setFinancialMetrics({
                     marketPrice,
+                    prestigePrice,
+                    multiplier,
                     lifespan,
                     age,
                     currentValue,
                     totalSpent,
                     ruinLimit,
                     remainingBudget,
-                    percentSpent
+                    percentSpent,
+                    percentLimit
                 });
 
             } catch (err) {
