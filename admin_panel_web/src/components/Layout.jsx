@@ -69,10 +69,12 @@ const Layout = () => {
                 .select('*', { count: 'exact', head: true })
                 .eq('status', 'PENDING_JUDGE');
             setMortifyCount(count || 0);
+
+            // Auto-dismiss if 0
+            if (count === 0) setShowMortifyBanner(false);
         };
         fetchMortifyCount();
 
-        // 2. Realtime Subscription
         // 2. Realtime Subscription (Robust Re-fetch Strategy)
         const channel = supabase
             .channel('admin-mortify-notifications')
@@ -96,6 +98,19 @@ const Layout = () => {
             supabase.removeChannel(channel);
         };
     }, []);
+
+    // AUTO-DISMISS LOGIC
+    useEffect(() => {
+        if (mortifyCount === 0) {
+            setShowMortifyBanner(false);
+        }
+    }, [mortifyCount]);
+
+    useEffect(() => {
+        if (location.pathname === '/mortify') {
+            setShowMortifyBanner(false);
+        }
+    }, [location.pathname]);
 
     // Sound Effect Helper
     const playNotificationSound = () => {
