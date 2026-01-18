@@ -11,13 +11,13 @@ DECLARE
     v_rows INTEGER;
 BEGIN
     -- 1. Delete ALL Assessments
-    DELETE FROM mortify_assessments;
+    DELETE FROM mortify_assessments WHERE id IS NOT NULL;
     GET DIAGNOSTICS v_rows = ROW_COUNT;
     v_total := v_total + v_rows;
 
     -- 2. Delete ALL Tickets (Reset Financial History)
     -- Using CASCADE logic implicitly if FKs exist, otherwise straightforward delete
-    DELETE FROM tickets;
+    DELETE FROM tickets WHERE id IS NOT NULL;
     GET DIAGNOSTICS v_rows = ROW_COUNT;
     v_total := v_total + v_rows;
 
