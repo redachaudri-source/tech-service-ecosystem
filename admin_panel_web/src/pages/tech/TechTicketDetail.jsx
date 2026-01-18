@@ -136,7 +136,8 @@ const TechTicketDetail = () => {
                         address,
                         phone,
                         user_id,
-                        id
+                        id,
+                        has_mortify
                     )
                 `)
                 .eq('id', id)
@@ -786,7 +787,7 @@ const TechTicketDetail = () => {
     const currentStatus = statusMap[ticket.status] || statusMap['solicitado'];
     const { subtotal, vat, total } = ticket ? calculateTotal() : { subtotal: 0, vat: 0, total: 0 };
     const remaining = total - deposit;
-    const isOverLimit = financialLimit && total > financialLimit.remaining_budget;
+    const isOverLimit = (ticket.client?.has_mortify) && financialLimit && total > financialLimit.remaining_budget;
     const isEditingAllowed = ticket && (ticket.status === 'en_diagnostico' || ticket.status === 'en_reparacion' || ticket.status === 'presupuesto_pendiente' || ticket.status === 'presupuesto_aceptado');
 
     return (

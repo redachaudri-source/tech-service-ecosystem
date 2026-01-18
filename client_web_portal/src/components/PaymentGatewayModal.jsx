@@ -17,7 +17,7 @@ const PaymentGatewayModal = ({ ticket, onClose, onSuccess }) => {
                 const { error } = await supabase
                     .from('tickets')
                     .update({
-                        status: 'finalizado',
+                        // status: 'finalizado', // DO NOT FINALIZE AUTOMATICALLY - Tech must sign
                         is_paid: true,
                         payment_method: 'APP_PAYMENT',
                         // final_price should already be set by tech

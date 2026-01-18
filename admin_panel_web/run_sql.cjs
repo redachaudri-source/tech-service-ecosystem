@@ -10,9 +10,9 @@ const client = new Client({
 async function run() {
     try {
         await client.connect();
-        const sql = fs.readFileSync('../drop_mortify_trigger.sql', 'utf8');
-        await client.query(sql);
-        console.log("SQL Executed Successfully");
+        const sql = fs.readFileSync('../add_mortify_column.sql', 'utf8');
+        const res = await client.query(sql);
+        console.log("Rows:", res.rows);
     } catch (e) {
         console.error(e);
     } finally {

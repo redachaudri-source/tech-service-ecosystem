@@ -251,17 +251,31 @@ const ServiceDetailsModal = ({ ticket, onClose, onOpenWarrantyClaim }) => {
                                 </span>
                             ) : null}
 
-                            {ticket.warranty_until && new Date(ticket.warranty_until) > new Date() && (
-                                <span className="text-[10px] text-purple-700 font-bold">
-                                    Vence: {new Date(ticket.warranty_until).toLocaleDateString()}
-                                </span>
+                            {/* DETAIL OF WARRANTY (Labor vs Parts) */}
+                            {ticket.warranty_until && (
+                                <div className="text-[10px] text-slate-400 mt-1 text-right flex flex-col">
+                                    {ticket.warranty_labor_until && (
+                                        <span>Mano de Obra hasta: {new Date(ticket.warranty_labor_until).toLocaleDateString()}</span>
+                                    )}
+                                    {ticket.warranty_parts_until && (
+                                        <span>Piezas hasta: {new Date(ticket.warranty_parts_until).toLocaleDateString()}</span>
+                                    )}
+                                </div>
                             )}
-                        </div>
+                        </span>
+                    ) : null}
+
+                    {ticket.warranty_until && new Date(ticket.warranty_until) > new Date() && (
+                        <span className="text-[10px] text-purple-700 font-bold">
+                            Vence: {new Date(ticket.warranty_until).toLocaleDateString()}
+                        </span>
                     )}
-                    {/* Could add specific actions like 'Edit' or 'Assign' here too if needed, but keeping it as View Details for now */}
                 </div>
+                    )}
+                {/* Could add specific actions like 'Edit' or 'Assign' here too if needed, but keeping it as View Details for now */}
             </div>
         </div>
+        </div >
     );
 };
 
