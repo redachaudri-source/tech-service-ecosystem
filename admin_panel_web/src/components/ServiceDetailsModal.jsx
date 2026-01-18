@@ -262,13 +262,15 @@ const ServiceDetailsModal = ({ ticket, onClose, onOpenWarrantyClaim }) => {
                                     )}
                                 </div>
                             )}
-                        </span>
-                    ) : null}
+                        </div>
+                    )}
 
                     {ticket.warranty_until && new Date(ticket.warranty_until) > new Date() && (
-                        <span className="text-[10px] text-purple-700 font-bold">
-                            Vence: {new Date(ticket.warranty_until).toLocaleDateString()}
-                        </span>
+                        <div className="flex justify-end mt-1">
+                            <span className="text-[10px] text-purple-700 font-bold">
+                                Vence: {new Date(ticket.warranty_until).toLocaleDateString()}
+                            </span>
+                        </div>
                     )}
                 </div>
                     )}
