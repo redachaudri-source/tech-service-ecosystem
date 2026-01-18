@@ -189,6 +189,73 @@ const TechTicketDetail = () => {
         fetchSettings();
     }, [id]);
 
+    // --- REAL-TIME GPS BROADCASTING ---
+    useEffect(() => {
+        let watchId;
+        const minimumDistance = 10; // Meters to trigger update (approx)
+        let lastLat = 0;
+        let lastLng = 0;
+        let lastUpdate = 0;
+
+        if (ticket && ticket.status === 'en_camino' && user) {
+            if (!('geolocation' in navigator)) {
+                console.warn('Geolocation not supported');
+                return;
+            }
+
+            console.log('Starting GPS Tracking...');
+
+            const updateLocation = async (lat, lng) => {
+                const now = Date.now();
+                // Throttle updates: max once every 5 seconds
+                if (now - lastUpdate < 5000) return;
+
+                console.log('Broadcasting Location:', lat, lng);
+                try {
+                    await supabase
+                        .from('profiles')
+                        .update({
+                            current_lat: lat,
+                            current_lng: lng,
+                            last_location_update: new Date().toISOString()
+                        })
+                        .eq('user_id', user.id);
+
+                    lastUpdate = now;
+                    lastLat = lat;
+                    lastLng = lng;
+                } catch (err) {
+                    console.error('Error updating location:', err);
+                }
+            };
+
+            watchId = navigator.geolocation.watchPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    updateLocation(latitude, longitude);
+                },
+                (error) => {
+                    console.error('GPS Error:', error);
+                },
+                {
+                    enableHighAccuracy: true,
+                    maximumAge: 10000,
+                    timeout: 5000
+                }
+            );
+        } else {
+            // Stop watching if status changes or component unmounts
+            if (watchId) {
+                console.log('Stopping GPS Tracking');
+                navigator.geolocation.clearWatch(watchId);
+            }
+        }
+
+        return () => {
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+        };
+    }, [ticket?.status, user]); // Depend on status and user
+
     const saveChanges = async () => {
         setUpdating(true);
         try {
@@ -1714,6 +1781,33 @@ const TechTicketDetail = () => {
                                         <FileText size={20} />
                                         <span>Ver Parte Actual (PDF)</span>
                                     </a>
+                                )}
+
+                                {ticket.warranty_pdf_url && (
+                                    <a
+                                        href={ticket.warranty_pdf_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="w-full py-3 bg-purple-50 text-purple-700 border border-purple-100 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-purple-100 transition"
+                                    >
+                                        <ShieldCheck size={20} />
+                                        <span>Ver Parte Garantía (PDF)</span>
+                                    </a>
+                                )}
+
+                                {/* REGENERATE WARRANTY PDF (If missing on finalized) */}
+                                {ticket.status === 'finalizado' && ticket.is_warranty && !ticket.warranty_pdf_url && (
+                                    <button
+                                        onClick={async () => {
+                                            if (!window.confirm('¿Generar Parte de Garantía faltante?')) return;
+                                            await handleGeneratePDF('warranty');
+                                        }}
+                                        disabled={generatingPdf}
+                                        className="w-full py-3 bg-purple-100 text-purple-700 border border-purple-200 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-purple-200 transition"
+                                    >
+                                        <ShieldAlert size={20} />
+                                        <span>Regenerar Parte Garantía (Faltante)</span>
+                                    </button>
                                 )}
 
 

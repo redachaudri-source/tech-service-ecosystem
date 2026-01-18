@@ -378,6 +378,10 @@ const ServiceMonitor = () => {
                                                         <a href={ticket.warranty_pdf_url} target="_blank" className="p-1 text-purple-600 hover:bg-purple-50 rounded" title="Parte de Garantía">
                                                             <FileText size={14} />
                                                         </a>
+                                                    ) : (ticket.is_warranty && ticket.status === 'finalizado') ? (
+                                                        <div className="p-1 text-red-400" title="Falta PDF de Garantía">
+                                                            <AlertTriangle size={14} />
+                                                        </div>
                                                     ) : <span className="text-slate-200">-</span>}
                                                 </div>
                                             </td>
