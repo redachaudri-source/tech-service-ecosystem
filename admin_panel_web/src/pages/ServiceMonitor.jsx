@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../components/ToastProvider';
-import { Search, Plus, Trash2, FileText, CheckCircle, Clock, AlertCircle, Eye, AlertTriangle, Phone, Star } from 'lucide-react';
+import { Search, Plus, Trash2, FileText, CheckCircle, Clock, AlertCircle, Eye, AlertTriangle, Phone, Star, ShieldAlert } from 'lucide-react';
 import CreateTicketModal from '../components/CreateTicketModal';
 import SmartAssignmentModal from '../components/SmartAssignmentModal'; // Import
 import ServiceDetailsModal from '../components/ServiceDetailsModal'; // Import Details Modal
