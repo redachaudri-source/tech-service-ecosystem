@@ -1238,53 +1238,7 @@ const TechTicketDetail = () => {
                         </div>
                     </div>
 
-                    {/* Deposit & Payments (Hidden in Repair Phase) */}
-                    {ticket.status !== 'en_reparacion' && (
-                        <div className="mt-4 pt-4 border-t border-slate-100">
-                            <label className="block text-xs font-bold text-slate-600 mb-2">Pagos a Cuenta / Señal</label>
-                            <div className="flex gap-2 items-center mb-2">
-                                <input
-                                    type="number"
-                                    disabled={!isEditingAllowed}
-                                    className="w-full p-2 border border-slate-200 rounded-lg font-mono text-slate-800"
-                                    value={deposit}
-                                    onChange={e => setDeposit(parseFloat(e.target.value) || 0)}
-                                />
-                                <span className="text-sm font-bold text-slate-400">€</span>
-                            </div>
 
-                            {deposit > 0 && (
-                                <div className="bg-green-50 text-green-800 p-3 rounded-lg text-sm border border-green-100 flex justify-between items-center font-bold">
-                                    <div>
-                                        <span className="block text-xs font-normal opacity-70">A cuenta</span>
-                                        <span>-{deposit.toFixed(2)}€</span>
-                                    </div>
-                                    <div className="text-right">
-                                        <span className="block text-xs font-normal opacity-70 text-slate-500">Restante</span>
-                                        <span className="text-lg">{remaining > 0 ? remaining.toFixed(2) : '0.00'}€</span>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* DEPOSIT RECEIPT BUTTON */}
-                            {deposit > 0 && (ticket.status === 'en_diagnostico' || ticket.status === 'en_reparacion') && (
-                                <div className="mt-2 text-right">
-                                    <button
-                                        onClick={handleGenerateReceipt}
-                                        disabled={generatingReceipt}
-                                        className="inline-flex items-center gap-1 text-xs bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg font-bold hover:bg-slate-200 transition-colors"
-                                    >
-                                        {generatingReceipt ? (
-                                            <div className="w-3 h-3 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
-                                        ) : (
-                                            <FileText size={12} />
-                                        )}
-                                        Generar Recibo de Señal
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    )}
                 </div>
             )}
 
