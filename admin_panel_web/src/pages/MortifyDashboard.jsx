@@ -157,8 +157,12 @@ const MortifyDashboard = () => {
         if (!historyModalApplianceId) return null;
 
         // Filter ALL history for this appliance, regardless of status
-        const historyData = rawAssessments.filter(a => a.appliance_id === historyModalApplianceId);
-        const latest = historyData[0]; // Assuming sorted desc
+        // Sort Chronologically (Oldest First) to show the "Story" top-down
+        const historyData = rawAssessments
+            .filter(a => a.appliance_id === historyModalApplianceId)
+            .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+        const latest = historyData[historyData.length - 1]; // Latest is now last
 
         return (
             <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
@@ -181,7 +185,7 @@ const MortifyDashboard = () => {
                                 <div className="flex justify-between items-start mb-2">
                                     <div className="flex items-center gap-2">
                                         <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${item.status === 'PENDING_JUDGE' ? 'bg-amber-100 text-amber-700' :
-                                                item.admin_verdict === 'CONFIRMED_VIABLE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                            item.admin_verdict === 'CONFIRMED_VIABLE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                                             }`}>
                                             {item.status === 'PENDING_JUDGE' ? 'Pendiente' : item.admin_verdict}
                                         </span>
