@@ -169,9 +169,9 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
     };
 
     const addProposal = (slot) => {
-        // Logic: Allow 3 slots ONLY if client has App (user_id) AND not manual
-        const allowProposals = ticket.client?.user_id && ticket.created_via !== 'manual';
-        const maxSlots = allowProposals ? 3 : 1;
+        // Logic: Allow 3 slots if Digital Origin OR (Digital User + Not Manual)
+        const isDigitalHeading = (ticket.origin_source?.includes('client') || ticket.origin_source === 'tech_app') || (!!ticket.client?.user_id && ticket.created_via !== 'manual');
+        const maxSlots = isDigitalHeading ? 3 : 1;
 
         if (proposals.length >= maxSlots) {
             // If Single Slot Mode (Non-App), replace the existing one automatically for better UX
@@ -405,8 +405,8 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
 
                         {/* Actions */}
                         <div className="space-y-2 mt-auto">
-                            {/* Logic: Client must have App (user_id) AND Request must NOT be manual (Office) */}
-                            {(!!ticket.client?.user_id && ticket.created_via !== 'manual') && (
+                            {/* Logic: Client has App/Web Origin OR (User ID exists AND Not Manual) */}
+                            {((ticket.origin_source?.includes('client') || ticket.origin_source === 'tech_app') || (!!ticket.client?.user_id && ticket.created_via !== 'manual')) && (
                                 <button
                                     onClick={handleSendProposals}
                                     disabled={proposals.length === 0}
