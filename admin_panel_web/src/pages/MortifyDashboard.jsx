@@ -267,14 +267,13 @@ const MortifyDashboard = () => {
                 {filter === 'HISTORY' && (
                     <button
                         onClick={async () => {
-                            if (confirm("¿Estás seguro de BORRAR todo el historial de veredictos? Esta acción es para testing.")) {
+                            if (confirm("⚠️ PELIGRO: ¿Borrar TODO el historial y los TICKETS COBRADOS? \n\nEsto reseteará el sistema al estado 'Fábrica' para testing. Se perderán ingresos y datos de reparaciones.")) {
                                 try {
                                     const { data: count, error } = await supabase.rpc('fn_clear_mortify_history');
                                     if (error) throw error;
 
                                     await fetchAssessments();
-                                    alert(`Historial limpiado. Se borraron ${count} registros.`);
-                                    // Force hard refresh to be sure
+                                    alert(`Sistema reseteado: Se eliminaron ${count} registros (Evaluaciones + Tickets).`);
                                     window.location.reload();
                                 } catch (err) {
                                     console.error(err);
@@ -283,7 +282,7 @@ const MortifyDashboard = () => {
                             }
                         }}
                         className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                        title="Limpiar Historial (Testing)"
+                        title="RESET TOTAL (Testing)"
                     >
                         <History size={16} />
                     </button>
