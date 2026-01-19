@@ -1,1 +1,2 @@
-SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'auth' AND table_name = 'identities';
+SELECT permissions FROM profiles WHERE email = 'amorbuba@fixarr.es';
+SELECT id, email, role FROM profiles WHERE role::text NOT IN ('admin', 'tech', 'technician');

@@ -1,11 +1,18 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext'; // Import useAuth
 import { Plus, User, MapPin, Trash2, Edit2, X, Phone, Mail, History, Filter, Search as SearchIcon, Lock, Unlock, Package, Zap, Waves, Wind, Refrigerator, Flame, Thermometer, Tv, Smartphone, Disc, TrendingUp, AlertTriangle, CheckCircle, Clock, Star, ShieldAlert, Building2, Laptop } from 'lucide-react';
 import { format } from 'date-fns';
 
 const ClientManager = () => {
+    const { user } = useAuth(); // Get current user
     const [clients, setClients] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // Delete Modal State
+    const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+    const [deleteTargetClient, setDeleteTargetClient] = useState(null);
+    const [deletePassword, setDeletePassword] = useState('');
 
     // UI State
     const [showModal, setShowModal] = useState(false);
@@ -148,14 +155,45 @@ const ClientManager = () => {
         setBlockActionData(null);
     };
 
-    const handleDelete = async (clientId) => {
-        if (!confirm('¿Eliminar definitivamente? Esta acción es irreversible.')) return;
+    const handleDelete = (client) => {
+        setDeleteTargetClient(client);
+        setDeletePassword(''); // Reset password field
+        setShowDeleteConfirmModal(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteTargetClient || !deletePassword) return;
         setLoading(true);
-        // Cascade deletion should be handled by DB or explicit logic
-        const { error } = await supabase.from('profiles').delete().eq('id', clientId);
-        if (error) alert('Error: ' + error.message);
-        else await fetchClients();
-        setLoading(false);
+
+        try {
+            // 1. Verify Password
+            const { error: authError } = await supabase.auth.signInWithPassword({
+                email: user.email,
+                password: deletePassword
+            });
+
+            if (authError) {
+                alert("Contraseña incorrecta. No se puede borrar.");
+                setLoading(false);
+                return;
+            }
+
+            // 2. Perform Delete
+            const { error: deleteError } = await supabase.from('profiles').delete().eq('id', deleteTargetClient.id);
+            if (deleteError) throw deleteError;
+
+            // Success
+            await fetchClients();
+            setShowDeleteConfirmModal(false);
+            setDeleteTargetClient(null);
+            setDeletePassword('');
+
+        } catch (err) {
+            console.error("Delete failed:", err);
+            alert("Error al borrar: " + err.message);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleEdit = (client) => {
@@ -414,7 +452,7 @@ const ClientManager = () => {
                                                     {client.is_active ? <Lock size={16} /> : <Unlock size={16} />}
                                                 </button>
                                             ) : (
-                                                <button onClick={() => handleDelete(client.id)} className="p-1.5 text-slate-300 hover:text-red-600 rounded" title="Eliminar">
+                                                <button onClick={() => handleDelete(client)} className="p-1.5 text-slate-300 hover:text-red-600 rounded" title="Eliminar">
                                                     <Trash2 size={16} />
                                                 </button>
                                             )}
@@ -567,6 +605,49 @@ const ClientManager = () => {
                                     ))}
                                 </div>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirm Modal */}
+            {showDeleteConfirmModal && (
+                <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in backdrop-blur-sm">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden p-6 text-center">
+                        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
+                            <Trash2 size={32} />
+                        </div>
+                        <h2 className="text-xl font-bold text-slate-800 mb-2">Eliminar Cliente Definitivamente</h2>
+                        <p className="text-sm text-slate-600 mb-4">
+                            Esta acción borrará al cliente <strong>{deleteTargetClient?.full_name}</strong> y es <strong>irreversible</strong>.
+                        </p>
+
+                        <div className="mb-4 text-left">
+                            <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Tu Contraseña de Super Admin</label>
+                            <input
+                                type="password"
+                                autoFocus
+                                value={deletePassword}
+                                onChange={e => setDeletePassword(e.target.value)}
+                                className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition"
+                                placeholder="Escribe tu contraseña..."
+                            />
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => { setShowDeleteConfirmModal(false); setDeletePassword(''); setDeleteTargetClient(null); }}
+                                className="flex-1 py-2.5 rounded-lg border border-slate-200 font-bold text-slate-600 hover:bg-slate-50"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={confirmDelete}
+                                disabled={!deletePassword}
+                                className="flex-1 py-2.5 rounded-lg font-bold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {loading ? 'Borrando...' : 'Confirmar Borrado'}
+                            </button>
                         </div>
                     </div>
                 </div>

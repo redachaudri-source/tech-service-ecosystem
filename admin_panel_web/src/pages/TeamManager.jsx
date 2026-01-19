@@ -467,7 +467,7 @@ const TeamManager = () => {
                 </div>
 
                 {/* Standard New Button v3.0 */}
-                {user?.profile?.permissions?.can_manage_team && (
+                {(user?.profile?.permissions?.can_manage_team || user?.profile?.is_super_admin) && (
                     <button
                         onClick={() => {
                             setFormData({
