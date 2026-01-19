@@ -177,12 +177,7 @@ const GlobalAgenda = () => {
     const [proposedMoves, setProposedMoves] = useState([]); // { appt, newStart }
     const [calledIds, setCalledIds] = useState([]); // To track calls made
 
-    // ⚡ HOT RELOAD: Auto-Calculate on Day or Strategy Change
-    useEffect(() => {
-        if (optimizingDay && showOptimizer && optimizerStep === 'ANALYSIS') {
-            runOptimizerAnalysis(optimizingDay, optimizationStrategy);
-        }
-    }, [optimizingDay, optimizationStrategy]);
+    // ⚡ HOT RELOAD REMOVED: Manual Trigger Only as requested.
 
     // --- AI LOGIC (v3.0 - SANDWICH + STACKING) ---
     const runOptimizerAnalysis = async (day, activeStrategy = 'BOOMERANG') => {
