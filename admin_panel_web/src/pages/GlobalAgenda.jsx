@@ -1377,56 +1377,56 @@ const GlobalAgenda = () => {
                                                          ${colorClass} ${selectedAppt?.id === appt.id ? 'ring-2 ring-indigo-600 z-40' : 'z-10'}`}
                                                     style={{ top: `${top}px`, height: `${height - 2}px`, left: `${left}%`, width: `${width}%` }}
                                                 >
-                                                    {/* 🏷️ TIME BADGE HEADER */}
-                                                    <div className="flex justify-between items-center text-[10px] font-bold opacity-90 mb-0.5 leading-none">
-                                                        <span>{appt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {endTimeStr}</span>
-                                                        <span className='opacity-50 text-[8px]'>{appt.duration}m</span>
+                                                    {/* --- HEADER: TIME & DURATION --- */}
+                                                    <div className="flex justify-between items-start text-[10px] font-bold opacity-90 mb-1 leading-none border-b border-white/20 pb-1">
+                                                        <span className="tracking-tight">{appt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {endTimeStr}</span>
+                                                        <span className='opacity-70 text-[9px]'>{appt.duration}m</span>
                                                     </div>
 
-                                                    {/* --- BODY: LOGO, TYPE, CONCEPT --- */}
-                                                    <div className="relative flex-1 flex flex-col items-center justify-center p-1 overflow-hidden text-center">
+                                                    {/* --- BODY: CLIENT & INFO --- */}
+                                                    <div className="flex-1 flex flex-col gap-0.5 overflow-hidden text-left relative z-10">
+                                                        {/* Client Name (Priority) */}
+                                                        <div className="font-extrabold text-[11px] leading-tight truncate pr-1 drop-shadow-sm">
+                                                            {appt.client?.full_name || 'Cliente Desconocido'}
+                                                        </div>
 
-                                                        {/* A) Watermark Logo (Brand) */}
-                                                        {appt.brand_logo && (
-                                                            <img src={appt.brand_logo} className="absolute inset-0 w-full h-full object-contain opacity-15 p-2 pointer-events-none mix-blend-multiply" />
-                                                        )}
+                                                        {/* Address/Location (Context) */}
+                                                        <div className="flex items-center gap-1 text-[9px] opacity-90 truncate font-medium">
+                                                            <span className="truncate">{appt.client?.address || appt.client?.city || 'Sin dirección'}</span>
+                                                        </div>
 
-                                                        <div className="relative z-10 w-full">
-                                                            {/* B) APPLIANCE TYPE (Equipo) - Pop Text */}
-                                                            <div className="font-black text-[11px] uppercase tracking-tight leading-none text-slate-900 drop-shadow-sm mb-0.5 truncate">
+                                                        {/* Ticket/Concept Badge */}
+                                                        <div className="mt-auto pt-1 flex items-center justify-between gap-1">
+                                                            <div className="px-1.5 py-0.5 bg-white/20 rounded text-[9px] font-bold backdrop-blur-sm truncate max-w-[70%]">
                                                                 {displayType}
                                                             </div>
-
-                                                            {/* C) CONCEPT (Avería) - Sticker Label */}
-                                                            <div className="text-[9px] font-bold leading-tight text-slate-800/90 line-clamp-2 bg-white/30 rounded px-1.5 py-0.5 backdrop-blur-[2px] mt-0.5 inline-block">
-                                                                {appt.ticket_id ? `#${appt.ticket_id}` : (displayConcept || 'Sin concepto')}
-                                                            </div>
-
-                                                            {/* Brand Text if No Logo */}
-                                                            {!appt.brand_logo && displayBrand && (
-                                                                <div className="text-[8px] font-bold text-slate-600 uppercase mt-0.5 tracking-wider opacity-80">{displayBrand}</div>
+                                                            {appt.ticket_id && (
+                                                                <span className="text-[8px] font-mono opacity-80">#{appt.ticket_id}</span>
                                                             )}
                                                         </div>
                                                     </div>
 
-                                                    {/* --- FOOTER: MATRÍCULA (Tech & CP) --- */}
-                                                    <div className="shrink-0 h-5 bg-black/10 flex items-center justify-between px-2 backdrop-blur-sm">
-                                                        <div className="flex items-center gap-1 max-w-[60%]">
-                                                            <span className="text-[9px] font-black text-slate-900 truncate">👤 {techName}</span>
+                                                    {/* Watermark Logo (Background) */}
+                                                    {appt.brand_logo && (
+                                                        <img src={appt.brand_logo} className="absolute bottom-6 right-1 w-12 h-12 object-contain opacity-10 pointer-events-none mix-blend-multiply grayscale" />
+                                                    )}
+
+                                                    {/* --- FOOTER: TECH & CP --- */}
+                                                    <div className="mt-1 shrink-0 flex items-center justify-between text-[9px] border-t border-white/10 pt-1">
+                                                        <div className="flex items-center gap-1 font-bold opacity-90">
+                                                            <span>🛠️ {techName}</span>
                                                         </div>
-                                                        <div className="flex items-center">
-                                                            <span className="text-[9px] font-mono font-black text-slate-800 opacity-90 tracking-wide">
-                                                                {appt.profiles?.postal_code || '---'}
-                                                            </span>
+                                                        <div className="font-mono font-black opacity-75 text-[8px] bg-black/10 px-1 rounded">
+                                                            {appt.client?.postal_code || '---'}
                                                         </div>
                                                     </div>
 
                                                     {/* 📏 RESIZE HANDLE */}
                                                     <div
-                                                        className="absolute bottom-0 left-0 w-full h-2 cursor-ns-resize z-50 hover:bg-black/10 flex justify-center items-end pb-0.5 group-hover:bg-black/5"
+                                                        className="absolute bottom-0 left-0 w-full h-1.5 cursor-ns-resize z-50 hover:bg-white/20 flex justify-center items-end"
                                                         onMouseDown={(e) => handleResizeStart(e, appt)}
                                                     >
-                                                        <div className="w-8 h-1 bg-slate-400/50 rounded-full"></div>
+                                                        <div className="w-6 h-0.5 bg-white/40 rounded-full mb-0.5"></div>
                                                     </div>
                                                 </div>
                                             );
