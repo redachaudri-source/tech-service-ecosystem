@@ -1385,9 +1385,21 @@ const GlobalAgenda = () => {
 
                                                     {/* --- BODY: CLIENT & INFO --- */}
                                                     <div className="flex-1 flex flex-col gap-0.5 overflow-hidden text-left relative z-10">
-                                                        {/* Client Name (Priority) */}
-                                                        <div className="font-extrabold text-[11px] leading-tight truncate pr-1 drop-shadow-sm">
-                                                            {appt.client?.full_name || 'Cliente Desconocido'}
+                                                        {/* Client Name (Priority) & Phone Shortcut */}
+                                                        <div className="flex justify-between items-start gap-1">
+                                                            <div className="font-extrabold text-[11px] leading-tight truncate drop-shadow-sm flex-1">
+                                                                {appt.client?.full_name || 'Cliente Desconocido'}
+                                                            </div>
+                                                            {appt.client?.phone && (
+                                                                <a
+                                                                    href={`tel:${appt.client.phone}`}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    className="shrink-0 bg-green-500/90 text-white p-1 rounded-full hover:bg-green-600 hover:scale-110 transition-all shadow-sm flex items-center justify-center group/phone"
+                                                                    title={`Llamar: ${appt.client.phone}`}
+                                                                >
+                                                                    <Phone size={10} className="group-hover/phone:animate-pulse" />
+                                                                </a>
+                                                            )}
                                                         </div>
 
                                                         {/* Address/Location (Context) */}
