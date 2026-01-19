@@ -10,7 +10,7 @@ const client = new Client({
 async function run() {
     try {
         await client.connect();
-        const sql = fs.readFileSync('../add_mortify_column.sql', 'utf8');
+        const sql = fs.readFileSync('check_client_row.sql', 'utf8');
         const res = await client.query(sql);
         console.log("Rows:", res.rows);
     } catch (e) {
