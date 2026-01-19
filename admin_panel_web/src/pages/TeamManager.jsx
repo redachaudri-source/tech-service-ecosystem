@@ -561,7 +561,6 @@ const TeamManager = () => {
                                         </div>
                                     </div>
 
-                                    {/* STATUS SWITCHER (Top Right) */}
                                     {/* STATUS SWITCHER (Top Right) - GOD TIER PILL */}
                                     <div className="relative z-20">
                                         {member.is_super_admin ? (
@@ -571,11 +570,11 @@ const TeamManager = () => {
                                         ) : member.role === 'tech' ? (
                                             <div className="relative group/status">
                                                 <button className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-extrabold shadow-sm transition-all active:scale-95 ${(member.status || 'active') === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:shadow-emerald-100' :
-                                                        member.status === 'paused' ? 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100 hover:shadow-yellow-100' :
-                                                            'bg-red-50 text-red-700 border-red-200 hover:bg-red-100 hover:shadow-red-100'
+                                                    member.status === 'paused' ? 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100 hover:shadow-yellow-100' :
+                                                        'bg-red-50 text-red-700 border-red-200 hover:bg-red-100 hover:shadow-red-100'
                                                     }`}>
                                                     <div className={`w-2 h-2 rounded-full ${(member.status || 'active') === 'active' ? 'bg-emerald-500 animate-pulse' :
-                                                            member.status === 'paused' ? 'bg-yellow-500' : 'bg-red-500'
+                                                        member.status === 'paused' ? 'bg-yellow-500' : 'bg-red-500'
                                                         }`}></div>
                                                     <span className="uppercase tracking-widest pl-1">
                                                         {(member.status || 'active') === 'active' ? 'ACTIVO' :
@@ -643,18 +642,18 @@ const TeamManager = () => {
                                 )}
                             </div>
 
-                            {/* ACTIONS FOOTER */}
-                            {user?.profile?.permissions?.can_manage_team && !showDeleted && (
-                                <div className="bg-white p-3 border-t border-slate-100 flex items-center justify-between gap-2 mt-auto">
+                            {/* ACTIONS FOOTER - SOLID BUTTONS & VISIBLE */}
+                            {(user?.profile?.permissions?.can_manage_team || user?.profile?.is_super_admin) && !showDeleted && (
+                                <div className="bg-slate-50 p-4 border-t border-slate-100 mt-auto rounded-b-2xl">
                                     {!member.is_super_admin && (
-                                        <>
-                                            <button onClick={() => handleOpenModal(member)} className="flex-1 py-2 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition flex items-center justify-center gap-2 border border-transparent hover:border-slate-200">
-                                                <Edit2 size={14} /> Editar
+                                        <div className="flex items-center gap-3">
+                                            <button onClick={() => handleOpenModal(member)} className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-white text-slate-700 hover:bg-blue-600 hover:text-white hover:border-blue-600 border border-slate-200 shadow-sm transition-all flex items-center justify-center gap-2 group/btn">
+                                                <Edit2 size={16} className="text-slate-400 group-hover/btn:text-white transition-colors" /> Editar
                                             </button>
 
                                             {activeTab === 'techs' && (
-                                                <button onClick={() => setViewingReviews(member)} className="flex-1 py-2 rounded-lg text-xs font-bold text-slate-600 hover:bg-yellow-50 hover:text-yellow-600 transition flex items-center justify-center gap-2 border border-transparent hover:border-yellow-200">
-                                                    <MessageSquare size={14} /> Opiniones
+                                                <button onClick={() => setViewingReviews(member)} className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-white text-slate-700 hover:bg-amber-500 hover:text-white hover:border-amber-500 border border-slate-200 shadow-sm transition-all flex items-center justify-center gap-2 group/btn">
+                                                    <MessageSquare size={16} className="text-slate-400 group-hover/btn:text-white transition-colors" /> Reseñas
                                                 </button>
                                             )}
 
@@ -666,17 +665,18 @@ const TeamManager = () => {
                                                         });
                                                     }
                                                 }}
-                                                className="flex-1 py-2 rounded-lg text-xs font-bold text-slate-400 hover:bg-red-50 hover:text-red-600 transition flex items-center justify-center gap-2 border border-transparent hover:border-red-200"
+                                                className="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 shadow-sm hover:bg-red-500 hover:text-white hover:border-red-500 transition-all group/trash"
+                                                title="Borrar usuario"
                                             >
-                                                <Trash2 size={14} />
+                                                <Trash2 size={18} className="text-slate-400 group-hover/trash:text-white transition-colors" />
                                             </button>
 
                                             {member.role !== 'tech' && (
-                                                <button onClick={() => handleOpenPermissions(member)} className="p-2 text-slate-300 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition" title="Permisos">
-                                                    <Shield size={16} />
+                                                <button onClick={() => handleOpenPermissions(member)} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-white hover:bg-purple-600 hover:border-purple-600 shadow-sm transition" title="Permisos">
+                                                    <Shield size={18} />
                                                 </button>
                                             )}
-                                        </>
+                                        </div>
                                     )}
                                 </div>
                             )}
