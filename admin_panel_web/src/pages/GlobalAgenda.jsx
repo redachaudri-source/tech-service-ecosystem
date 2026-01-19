@@ -173,6 +173,7 @@ const GlobalAgenda = () => {
 
     // MRCP v2.0 State
     const [optimizerStep, setOptimizerStep] = useState('ANALYSIS'); // 'ANALYSIS' | 'PROPOSAL'
+    const [optimizationStrategy, setOptimizationStrategy] = useState('BOOMERANG'); // 'BOOMERANG' | 'EXPANSIVE'
     const [proposedMoves, setProposedMoves] = useState([]); // { appt, newStart }
     const [calledIds, setCalledIds] = useState([]); // To track calls made
 
@@ -227,37 +228,56 @@ const GlobalAgenda = () => {
 
         const getCP = (t) => parseInt(t.client?.postal_code?.replace(/\D/g, '') || '99999');
 
-        // 3. SANDWICH STRATEGY: Define Anchors
+        // 3. ✨ STRATEGY SELECTION: 'BOOMERANG' vs 'EXPANSIVE' (Sandwich legacy)
+        // Default Logic: BOOMERANG (Start Close -> Jump Far -> Coming Back Home)
+
         let pool = [...dayEvents];
         const idealSequence = [];
 
-        // A. Start Anchor (Closest to Home)
-        pool.sort((a, b) => Math.abs(getCP(a) - startCP) - Math.abs(getCP(b) - startCP));
-        const startAnchor = pool.shift();
-        idealSequence.push(startAnchor);
+        if (optimizationStrategy === 'BOOMERANG') {
+            console.log('🪃 Estrategia BOOMERANG Activa');
 
-        // B. End Anchor (Next Closest to Home - to return)
-        let endAnchor = null;
-        if (pool.length > 0) {
+            // A. Start Anchor (Closest to Home)
             pool.sort((a, b) => Math.abs(getCP(a) - startCP) - Math.abs(getCP(b) - startCP));
-            endAnchor = pool.shift();
+            const startAnchor = pool.shift();
+            idealSequence.push(startAnchor);
+
+            if (pool.length > 0) {
+                // B. Jump to Furthest (The "Boomerang Throw")
+                pool.sort((a, b) => Math.abs(getCP(b) - startCP) - Math.abs(getCP(a) - startCP)); // Descending Dist
+                const furtestPoint = pool.shift();
+                idealSequence.push(furtestPoint);
+
+                // C. Return Path (From Furthest -> Towards Home)
+                // We want remaining points sorted by distance to Home (Descending) effectively?
+                // Or rather: From 'furtestPoint', find closest neighbor that is also closer to Home?
+                // Simple Heuristic: Sort remaining by distance to Home (Descending). 
+                // So we visit the ones far away (but closer than max) -> towards home.
+                pool.sort((a, b) => Math.abs(getCP(b) - startCP) - Math.abs(getCP(a) - startCP));
+                idealSequence.push(...pool);
+            }
+
+        } else {
+            // 'EXPANSIVE' (Classic / Nearest Neighbor Pure) - Mancha de aceite
+            // Just find closest neighbor iteratively
+            console.log('💧 Estrategia EXPANSIVA Activa');
+
+            // Start closest to home
+            pool.sort((a, b) => Math.abs(getCP(a) - startCP) - Math.abs(getCP(b) - startCP));
+            const first = pool.shift();
+            idealSequence.push(first);
+
+            let ptrCP = getCP(first);
+            while (pool.length > 0) {
+                pool.sort((a, b) => Math.abs(getCP(a) - ptrCP) - Math.abs(getCP(b) - ptrCP));
+                const next = pool.shift();
+                idealSequence.push(next);
+                ptrCP = getCP(next);
+            }
         }
 
-        // C. Filling (Connect Start -> Rest -> End)
-        // Sort remaining pool by Nearest Neighbor from StartAnchor
-        let ptrCP = getCP(startAnchor);
-        const filling = [];
-
-        while (pool.length > 0) {
-            pool.sort((a, b) => Math.abs(getCP(a) - ptrCP) - Math.abs(getCP(b) - ptrCP));
-            const next = pool.shift();
-            filling.push(next);
-            ptrCP = getCP(next);
-        }
-
-        // Final Ideal Array
-        const fullSequence = [...idealSequence, ...filling];
-        if (endAnchor) fullSequence.push(endAnchor);
+        // Final Ideal Array (Already built in idealSequence)
+        const fullSequence = idealSequence;
 
         // 4. SMART STACKING (Timeline Reconstruction)
         // Start Time: 09:00 (or first event's original start if earlier, clamped to Business Hours)
@@ -1087,6 +1107,36 @@ const GlobalAgenda = () => {
                             {/* VIEW A: ANALYSIS DASHBOARD */}
                             {optimizerStep === 'ANALYSIS' && (
                                 <div className="space-y-6 animate-fade-in">
+                                    {/* 0. Strategy Selector */}
+                                    <section className="bg-white p-3 rounded-xl border border-slate-200">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                                                <Navigation size={12} /> ESTRATEGIA
+                                            </h3>
+                                            <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono">v2.0</span>
+                                        </div>
+
+                                        <div className="flex bg-slate-100 rounded-lg p-1 border border-slate-200">
+                                            <button
+                                                onClick={() => setOptimizationStrategy('BOOMERANG')}
+                                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-md text-[10px] font-bold transition-all ${optimizationStrategy === 'BOOMERANG' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-slate-400 hover:text-slate-600'}`}
+                                            >
+                                                <span>🪃</span> BOOMERANG
+                                            </button>
+                                            <button
+                                                onClick={() => setOptimizationStrategy('EXPANSIVE')}
+                                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-md text-[10px] font-bold transition-all ${optimizationStrategy === 'EXPANSIVE' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-slate-400 hover:text-slate-600'}`}
+                                            >
+                                                <span>💧</span> EXPANSIVO
+                                            </button>
+                                        </div>
+                                        <p className="text-[10px] text-slate-500 mt-2 px-1 text-center leading-tight">
+                                            {optimizationStrategy === 'BOOMERANG'
+                                                ? "Prioriza: Empezar cerca → Salto Lejano → Volver a Casa."
+                                                : "Prioriza: Distancia mínima entre puntos (Barrido)."}
+                                        </p>
+                                    </section>
+
                                     {/* 1. Selector */}
                                     <section>
                                         <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><Calendar size={14} /> SELECCIONAR DÍA</h3>
@@ -1178,8 +1228,20 @@ const GlobalAgenda = () => {
                                                     <div className="font-bold text-xs text-slate-700 truncate max-w-[70%]">
                                                         {move.appt.client?.full_name}
                                                     </div>
-                                                    <div className="text-[10px] text-slate-400 font-mono">
-                                                        CP: {move.appt.client?.postal_code}
+                                                    <div className="flex items-center gap-2">
+                                                        {move.appt.client?.phone && (
+                                                            <a
+                                                                href={`tel:${move.appt.client.phone}`}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center hover:bg-green-500 hover:text-white transition-all shadow-sm"
+                                                                title="Llamar Cliente"
+                                                            >
+                                                                <Phone size={10} />
+                                                            </a>
+                                                        )}
+                                                        <div className="text-[10px] text-slate-400 font-mono">
+                                                            CP: {move.appt.client?.postal_code}
+                                                        </div>
                                                     </div>
                                                 </div>
 
