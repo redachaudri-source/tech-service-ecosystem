@@ -273,11 +273,9 @@ const ServiceDetailsModal = ({ ticket, onClose, onOpenWarrantyClaim }) => {
                         </div>
                     )}
                 </div>
-                    )}
                 {/* Could add specific actions like 'Edit' or 'Assign' here too if needed, but keeping it as View Details for now */}
             </div>
         </div>
-        </div >
     );
 };
 
