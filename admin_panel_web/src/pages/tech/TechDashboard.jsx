@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Phone, Calendar, Clock, ChevronRight, Search, Filter, Package, History, Star, ShieldAlert } from 'lucide-react'; // Added ShieldAlert
+import { MapPin, Phone, Calendar, Clock, ChevronRight, Search, Filter, Package, History, Star, ShieldAlert, CheckCircle } from 'lucide-react'; // Added ShieldAlert, CheckCircle
 import TechRouteLine from '../../components/TechRouteLine';
 import TechReviewsModal from '../../components/TechReviewsModal'; // Added import
 
