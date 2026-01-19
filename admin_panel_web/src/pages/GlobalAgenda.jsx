@@ -187,9 +187,9 @@ const GlobalAgenda = () => {
         // 🚀 Speed Up: No artificial delay
         // await new Promise(r => setTimeout(r, 800));
 
-        const dayStartStr = day.toISOString().split('T')[0];
-        // 1. Get Events for the day & Tech
-        const dayEvents = appointments.filter(a => a.start.toISOString().split('T')[0] === dayStartStr && selectedTechs.includes(a.technician_id));
+        // 1. Get Events for the day & Tech (Local Date Fix)
+        const dayLocalStr = day.toDateString();
+        const dayEvents = appointments.filter(a => a.start.toDateString() === dayLocalStr && selectedTechs.includes(a.technician_id));
 
         if (dayEvents.length < 2) {
             addToast('Mínimo 2 tickets para optimizar.', 'info');
@@ -1189,55 +1189,16 @@ const GlobalAgenda = () => {
                             {/* VIEW A: ANALYSIS DASHBOARD */}
                             {optimizerStep === 'ANALYSIS' && (
                                 <div className="space-y-6 animate-fade-in">
-                                    {/* 0. Strategy Selector */}
-                                    <section className="bg-white p-3 rounded-xl border border-slate-200">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                                                <Navigation size={12} /> ESTRATEGIA P.R.O.C.
-                                            </h3>
-                                            <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-mono font-bold">CORE v1.0</span>
-                                        </div>
-
-                                        <div className="flex bg-slate-100 rounded-lg p-1 border border-slate-200">
-                                            <button
-                                                onClick={() => setOptimizationStrategy('CENTRIFUGA')}
-                                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-1 rounded-md text-[9px] font-bold transition-all ${optimizationStrategy === 'CENTRIFUGA' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-slate-400 hover:text-slate-600'}`}
-                                                title="Empieza por Coste 0 (Barrio) -> Expande en espiral"
-                                            >
-                                                <span>🌀</span> CENTRÍFUGA
-                                            </button>
-                                            <button
-                                                onClick={() => setOptimizationStrategy('SANDWICH')}
-                                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-1 rounded-md text-[9px] font-bold transition-all ${optimizationStrategy === 'SANDWICH' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-slate-400 hover:text-slate-600'}`}
-                                                title="Entrante Local -> Plato Fuerte Lejos -> Postre Local"
-                                            >
-                                                <span>🥪</span> SANDWICH
-                                            </button>
-                                            <button
-                                                onClick={() => setOptimizationStrategy('BOOMERANG')}
-                                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-1 rounded-md text-[9px] font-bold transition-all ${optimizationStrategy === 'BOOMERANG' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-slate-400 hover:text-slate-600'}`}
-                                                title="Salto al mas lejano -> Vuelta a casa"
-                                            >
-                                                <span>🪃</span> BOOMERANG
-                                            </button>
-                                        </div>
-                                        <p className="text-[10px] text-slate-500 mt-2 px-1 text-center leading-tight">
-                                            {optimizationStrategy === 'CENTRIFUGA' && "Prioridad: Eliminar rápido trabajos cercanos y expandir."}
-                                            {optimizationStrategy === 'SANDWICH' && "Prioridad: Mix equilibrado. Empieza y acaba cerca."}
-                                            {optimizationStrategy === 'BOOMERANG' && "Prioridad: Asegurar retorno. Empieza lejos, acaba en casa."}
-                                        </p>
-                                    </section>
-
-                                    {/* 1. Selector */}
+                                    {/* 1. SELECCIONAR DÍA (Fix Version) */}
                                     <section>
-                                        <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><Calendar size={14} /> SELECCIONAR DÍA</h3>
+                                        <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><Calendar size={14} /> 1. SELECCIONAR DÍA</h3>
                                         <div className="grid grid-cols-4 gap-2">
                                             {gridDates.slice(0, 7).map(d => {
-                                                const isSelected = optimizingDay?.toDateString() === d.toDateString();
+                                                const isSelected = optimizingDay && optimizingDay.toDateString() === d.toDateString();
                                                 return (
                                                     <button
                                                         key={d.toISOString()}
-                                                        onClick={() => runOptimizerAnalysis(d, optimizationStrategy)}
+                                                        onClick={() => setOptimizingDay(d)}
                                                         disabled={isOptimizing}
                                                         className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-200 ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg transform -translate-y-1' : 'bg-white border-slate-200 text-slate-400 hover:border-indigo-300 hover:text-indigo-500'}`}
                                                     >
@@ -1249,46 +1210,82 @@ const GlobalAgenda = () => {
                                         </div>
                                     </section>
 
-                                    {/* 2. Stats & CTA */}
-                                    {optimizingDay && (
-                                        <section className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
-                                            <div className="flex items-center justify-between mb-6">
-                                                <h4 className="font-bold text-slate-700">Análisis: {optimizingDay.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' })}</h4>
-                                                {isOptimizing ? <span className="text-xs text-amber-500 font-bold animate-pulse">ANALIZANDO...</span> : <span className="text-xs text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded-full">COMPLETADO</span>}
-                                            </div>
+                                    {/* 2. Strategy Selector */}
+                                    <section className={`bg-white p-3 rounded-xl border border-slate-200 transition-opacity duration-300 ${!optimizingDay ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                                                <Navigation size={12} /> 2. ESTRATEGIA
+                                            </h3>
+                                            <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-mono font-bold">CORE v1.0</span>
+                                        </div>
 
-                                            {/* Chaos vs Order Visual */}
-                                            <div className="flex gap-4 mb-6">
-                                                <div className="flex-1 bg-red-50 rounded-xl p-3 border border-red-100 text-center opacity-50 grayscale">
-                                                    <div className="text-2xl mb-1">🔴</div>
-                                                    <div className="text-[10px] uppercase font-bold text-red-800">Ruta Actual</div>
-                                                    <div className="text-xs text-red-600 font-medium">Alta Dispersión</div>
-                                                </div>
-                                                <div className="flex items-center text-slate-300"><ArrowRight /></div>
-                                                <div className="flex-1 bg-emerald-50 rounded-xl p-3 border border-emerald-100 text-center shadow-md transform scale-110">
-                                                    <div className="text-2xl mb-1">🟢</div>
-                                                    <div className="text-[10px] uppercase font-bold text-emerald-800">Propuesta IA</div>
-                                                    <div className="text-xs text-emerald-600 font-bold">Agrupada por CP</div>
-                                                </div>
-                                            </div>
+                                        <div className="flex bg-slate-100 rounded-lg p-1 border border-slate-200">
+                                            <button
+                                                onClick={() => setOptimizationStrategy('CENTRIFUGA')}
+                                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-1 rounded-md text-[9px] font-bold transition-all ${optimizationStrategy === 'CENTRIFUGA' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-slate-400 hover:text-slate-600'}`}
+                                            >
+                                                <span>🌀</span> CENTRÍFUGA
+                                            </button>
+                                            <button
+                                                onClick={() => setOptimizationStrategy('SANDWICH')}
+                                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-1 rounded-md text-[9px] font-bold transition-all ${optimizationStrategy === 'SANDWICH' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-slate-400 hover:text-slate-600'}`}
+                                            >
+                                                <span>🥪</span> SANDWICH
+                                            </button>
+                                            <button
+                                                onClick={() => setOptimizationStrategy('BOOMERANG')}
+                                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-1 rounded-md text-[9px] font-bold transition-all ${optimizationStrategy === 'BOOMERANG' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-slate-400 hover:text-slate-600'}`}
+                                            >
+                                                <span>🪃</span> BOOMERANG
+                                            </button>
+                                        </div>
+                                        <p className="text-[10px] text-slate-500 mt-2 px-1 text-center leading-tight">
+                                            {optimizationStrategy === 'CENTRIFUGA' && "Prioridad: Eliminar rápido trabajos cercanos y expandir."}
+                                            {optimizationStrategy === 'SANDWICH' && "Prioridad: Mix equilibrado. Empieza y acaba cerca."}
+                                            {optimizationStrategy === 'BOOMERANG' && "Prioridad: Asegurar retorno. Empieza lejos, acaba en casa."}
+                                        </p>
+                                    </section>
 
-                                            {/* Results Summary */}
-                                            {!isOptimizing && proposedMoves.length > 0 ? (
-                                                <div className="text-center">
-                                                    <p className="text-sm text-slate-600 mb-4">Se han encontrado <strong className="text-indigo-600">{proposedMoves.length} mejoras</strong> significativas.</p>
-                                                    <button
-                                                        onClick={() => setOptimizerStep('PROPOSAL')}
-                                                        className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2"
-                                                    >
-                                                        <Zap size={16} className="fill-white" />
-                                                        <span>VER PROPUESTA DETALLADA</span>
-                                                    </button>
+                                    {/* 3. Action Button / Results */}
+                                    <section className={`transition-all duration-300 ${!optimizingDay ? 'opacity-50 pointer-events-none grayscale' : 'opacity-100'}`}>
+                                        {!isOptimizing && proposedMoves.length === 0 ? (
+                                            <button
+                                                onClick={() => runOptimizerAnalysis(optimizingDay, optimizationStrategy)}
+                                                className="w-full py-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-black rounded-xl shadow-xl shadow-indigo-200 transition-all flex items-center justify-center gap-2 transform active:scale-95"
+                                            >
+                                                <Zap size={18} className="fill-white animate-pulse" />
+                                                <span>ANALIZAR RUTA ({optimizingDay ? optimizingDay.toLocaleDateString() : '...'})</span>
+                                            </button>
+                                        ) : (
+                                            /* Results */
+                                            <div className="bg-white rounded-2xl p-5 shadow-sm border border-emerald-100 mt-4">
+                                                <div className="flex items-center justify-between mb-4">
+                                                    <h4 className="font-bold text-emerald-800 flex items-center gap-2"><CheckSquare size={16} /> ANÁLISIS COMPLETADO</h4>
+                                                    <button onClick={() => { setProposedMoves([]); setOptimizingDay(null); }} className="text-[10px] text-slate-400 hover:text-red-500 font-bold border rounded px-1">RESET</button>
                                                 </div>
-                                            ) : (
-                                                !isOptimizing && <div className="text-center text-xs text-slate-400 italic">Selecciona un día para analizar.</div>
-                                            )}
-                                        </section>
-                                    )}
+
+                                                <div className="flex gap-4 mb-6">
+                                                    <div className="flex-1 bg-red-50 rounded-xl p-3 border border-red-100 text-center opacity-50 grayscale">
+                                                        <div className="text-2xl mb-1">🔴</div>
+                                                        <div className="text-[10px] uppercase font-bold text-red-800">Ruta Actual</div>
+                                                    </div>
+                                                    <div className="flex items-center text-slate-300"><ArrowRight /></div>
+                                                    <div className="flex-1 bg-emerald-50 rounded-xl p-3 border border-emerald-100 text-center shadow-md transform scale-110">
+                                                        <div className="text-2xl mb-1">🟢</div>
+                                                        <div className="text-[10px] uppercase font-bold text-emerald-800">Propuesta IA</div>
+                                                    </div>
+                                                </div>
+
+                                                <p className="text-sm text-slate-600 mb-4 text-center">Se han encontrado <strong className="text-emerald-600">{proposedMoves.length} mejoras</strong>.</p>
+                                                <button
+                                                    onClick={() => setOptimizerStep('PROPOSAL')}
+                                                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-200 transition-all flex items-center justify-center gap-2"
+                                                >
+                                                    <span>VER PROPUESTA</span> <ArrowRight size={16} />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </section>
                                 </div>
                             )}
 
