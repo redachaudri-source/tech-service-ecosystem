@@ -443,19 +443,19 @@ const ClientManager = () => {
                                             <button onClick={() => handleEdit(client)} className="p-1.5 text-slate-500 hover:text-orange-600 hover:bg-orange-50 rounded" title="Editar">
                                                 <Edit2 size={16} />
                                             </button>
-                                            {client.created_via === 'app' ? (
+                                            {client.created_via === 'app' && (
                                                 <button
                                                     onClick={() => { setBlockActionData({ client, action: client.is_active ? 'bloquear' : 'desbloquear' }); setShowBlockModal(true); }}
                                                     className={`p-1.5 rounded ${client.is_active ? 'text-slate-400 hover:text-red-600' : 'text-red-600 bg-red-100'}`}
-                                                    title="Bloquear/Desbloquear"
+                                                    title="Bloquear/Desbloquear Acceso App"
                                                 >
                                                     {client.is_active ? <Lock size={16} /> : <Unlock size={16} />}
                                                 </button>
-                                            ) : (
-                                                <button onClick={() => handleDelete(client)} className="p-1.5 text-slate-300 hover:text-red-600 rounded" title="Eliminar">
-                                                    <Trash2 size={16} />
-                                                </button>
                                             )}
+
+                                            <button onClick={() => handleDelete(client)} className="p-1.5 text-slate-300 hover:text-red-600 rounded" title="Eliminar Definitivamente">
+                                                <Trash2 size={16} />
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
