@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { createClient } from '@supabase/supabase-js'; // For creating users without killing session
-import { Plus, User, MapPin, Trash2, Edit2, X, Shield, ShieldAlert, Lock, Unlock, Smartphone, Upload, RotateCcw, Star, MessageSquare } from 'lucide-react';
+import { Plus, User, MapPin, Trash2, Edit2, X, Shield, ShieldAlert, Lock, Unlock, Smartphone, Upload, RotateCcw, Star, MessageSquare, ChevronDown } from 'lucide-react';
 import AdminReviewModal from '../components/AdminReviewModal';
 import PermissionsModal from '../components/PermissionsModal';
 
@@ -524,182 +524,140 @@ const TeamManager = () => {
                     </div>
                 ) : (
                     members.map(member => (
-                        <div key={member.id} className={`relative bg-white rounded-xl shadow-sm border p-6 flex flex-col transition-all ${member.is_active ? 'border-slate-200' : 'border-red-200 bg-red-50/30'}`}>
+                        <div key={member.id} className={`group relative bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border overflow-hidden flex flex-col ${member.is_active ? 'border-slate-100' : 'border-red-200 bg-red-50/10'}`}>
 
-                            <div className="flex items-start gap-4 mb-2">
-                                {/* Avatar */}
-                                <div className="shrink-0 relative">
-                                    <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200">
-                                        {member.avatar_url ? (
-                                            <img src={member.avatar_url} alt={member.full_name} className="w-full h-full object-cover" />
+                            {/* TOP STATUS BAR */}
+                            <div className={`h-1.5 w-full ${member.is_super_admin ? 'bg-gradient-to-r from-amber-400 to-orange-500' : member.role === 'tech' ? 'bg-gradient-to-r from-blue-500 to-indigo-600' : 'bg-slate-800'}`}></div>
+
+                            <div className="p-5 flex-1 flex flex-col">
+                                <div className="flex items-start justify-between mb-4">
+                                    {/* INFO + AVATAR */}
+                                    <div className="flex items-center gap-4">
+                                        <div className="relative shrink-0">
+                                            <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center overflow-hidden border-2 border-white shadow-md">
+                                                {member.avatar_url ? (
+                                                    <img src={member.avatar_url} alt={member.full_name} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <User size={24} className="text-slate-300" />
+                                                )}
+                                            </div>
+                                            {/* ONLINE/OFFLINE DOT */}
+                                            <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm flex items-center justify-center ${member.is_active ? 'bg-emerald-500' : 'bg-red-500'}`}>
+                                                {member.is_super_admin && <Star size={8} className="text-white" fill="currentColor" />}
+                                            </div>
+                                        </div>
+
+                                        <div className="min-w-0">
+                                            <h3 className="font-bold text-lg text-slate-800 leading-tight truncate pr-2">{member.full_name}</h3>
+                                            <p className="text-xs text-slate-500 font-mono truncate opacity-80">{member.email?.endsWith('@example.com') ? member.username : member.email}</p>
+
+                                            {/* ROLE BADGE */}
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${member.role === 'tech' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-700'}`}>
+                                                    {member.role === 'tech' ? 'Técnico' : 'Admin'}
+                                                </span>
+                                                {member.is_super_admin && <span className="text-[10px] font-bold text-amber-500 flex items-center gap-1"><Shield size={10} fill="currentColor" /> SUPER</span>}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* STATUS SWITCHER (Top Right) */}
+                                    <div>
+                                        {member.is_super_admin ? (
+                                            <div title="Super Admin Protegido" className="p-2 bg-amber-50 rounded-lg text-amber-500">
+                                                <Shield size={20} fill="currentColor" />
+                                            </div>
+                                        ) : member.role === 'tech' ? (
+                                            <div className="flex bg-slate-50 rounded-lg p-1 gap-1 border border-slate-100">
+                                                <button onClick={() => initiateStatusChange(member, 'active')} className={`w-7 h-7 rounded-md flex items-center justify-center transition-all ${(member.status || 'active') === 'active' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-300 hover:text-emerald-500'}`} title="Activo">
+                                                    <div className={`w-2 h-2 rounded-full bg-emerald-500 ${(member.status || 'active') === 'active' ? 'animate-pulse' : ''}`}></div>
+                                                </button>
+                                                <button onClick={() => initiateStatusChange(member, 'paused')} className={`w-7 h-7 rounded-md flex items-center justify-center transition-all ${member.status === 'paused' ? 'bg-white text-yellow-600 shadow-sm' : 'text-slate-300 hover:text-yellow-500'}`} title="Pausado">
+                                                    <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                                                </button>
+                                                <button onClick={() => initiateStatusChange(member, 'suspended')} className={`w-7 h-7 rounded-md flex items-center justify-center transition-all ${member.status === 'suspended' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-300 hover:text-red-500'}`} title="Suspendido">
+                                                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                                                </button>
+                                            </div>
                                         ) : (
-                                            <User size={24} className="text-slate-400" />
+                                            <button onClick={() => handleToggleStatus(member)} className={`p-2 rounded-lg transition-all ${member.is_active ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-red-50 text-red-500 hover:bg-red-100'}`} title={member.is_active ? "Cuenta Activa" : "Cuenta Bloqueada"}>
+                                                {member.is_active ? <Unlock size={18} /> : <Lock size={18} />}
+                                            </button>
                                         )}
                                     </div>
                                 </div>
 
-                                {/* Info */}
-                                <div className="flex-1 min-w-0 pr-12">
-                                    <h3 className="font-bold text-lg text-slate-800 truncate">{member.full_name}</h3>
-                                    <div className="text-sm text-slate-500 font-mono truncate mb-2">
-                                        {member.email?.endsWith('@example.com') ? member.username : member.email}
+                                {/* TECH STATS & REVIEWS */}
+                                {activeTab === 'techs' && (
+                                    <div className="mt-2 space-y-4">
+                                        {/* Reviews */}
+                                        <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                            <div className="flex items-center gap-2">
+                                                {member.avg_rating > 0 ? (
+                                                    <div className="flex gap-0.5">
+                                                        {[...Array(5)].map((_, i) => (
+                                                            <Star key={i} size={14} className={i < Math.round(member.avg_rating) ? "text-amber-400 fill-amber-400" : "text-slate-200 fill-slate-200"} />
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-xs text-slate-400 italic">Sin valoraciones</span>
+                                                )}
+                                            </div>
+                                            <div className="text-xs font-bold text-slate-600">
+                                                {member.avg_rating || '0.0'} <span className="font-normal text-slate-400">({member.total_reviews || 0})</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Stats Grid */}
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <div className="bg-blue-50/50 p-2 rounded-xl text-center border border-blue-100/50">
+                                                <div className="text-lg font-black text-blue-600 leading-none mb-1">{member.stats?.assigned || 0}</div>
+                                                <div className="text-[9px] font-bold text-blue-400 uppercase tracking-wide">Asignados</div>
+                                            </div>
+                                            <div className="bg-indigo-50/50 p-2 rounded-xl text-center border border-indigo-100/50">
+                                                <div className="text-lg font-black text-indigo-600 leading-none mb-1">{member.stats?.in_process || 0}</div>
+                                                <div className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide">En Proceso</div>
+                                            </div>
+                                            <div className="bg-emerald-50/50 p-2 rounded-xl text-center border border-emerald-100/50">
+                                                <div className="text-lg font-black text-emerald-600 leading-none mb-1">{member.stats?.closed || 0}</div>
+                                                <div className="text-[9px] font-bold text-emerald-400 uppercase tracking-wide">Hechos</div>
+                                            </div>
+                                        </div>
                                     </div>
-
-                                    {/* REPUTATION DISPLAY */}
-                                    {activeTab === 'techs' && (
-                                        <div className="flex items-center gap-2 mb-2 bg-yellow-50 px-2 py-1 rounded w-fit border border-yellow-100">
-                                            <div className="flex items-center text-yellow-500 font-bold">
-                                                <Star size={14} fill="currentColor" className="mr-1" />
-                                                {member.avg_rating ? member.avg_rating : '-'}
-                                            </div>
-                                            <span className="text-xs text-slate-400">|</span>
-                                            <button
-                                                onClick={() => setViewingReviews(member)}
-                                                className="text-xs text-slate-500 hover:text-blue-600 underline font-medium"
-                                            >
-                                                {member.total_reviews || 0} reseñas
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    {activeTab === 'techs' && (
-                                        <div className="mt-2">
-                                            <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
-                                                Técnico
-                                            </span>
-                                            <div className="flex gap-4 mt-3">
-                                                <div className="text-center">
-                                                    <div className="text-md font-bold text-slate-700 leading-none">{member.stats?.assigned || 0}</div>
-                                                    <div className="text-[10px] text-slate-400 mt-0.5">ASIG.</div>
-                                                </div>
-                                                <div className="text-center">
-                                                    <div className="text-md font-bold text-slate-700 leading-none">{member.stats?.in_process || 0}</div>
-                                                    <div className="text-[10px] text-slate-400 mt-0.5">PROC.</div>
-                                                </div>
-                                                <div className="text-center">
-                                                    <div className="text-md font-bold text-slate-700 leading-none">{member.stats?.closed || 0}</div>
-                                                    <div className="text-[10px] text-slate-400 mt-0.5">FIN.</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {activeTab === 'admins' && (
-                                        <div className="mt-2">
-                                            <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
-                                                Administrador
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Top Right Status Switch (Traffic Light for Techs, Lock for Admins) */}
-                                <div className="absolute top-4 right-4">
-                                    {member.is_super_admin ? (
-                                        <Shield size={20} className="text-amber-400" fill="currentColor" />
-                                    ) : member.role === 'tech' ? (
-                                        // Traffic Light for Techs
-                                        <div className="flex bg-slate-100 rounded-lg p-1 gap-1 border border-slate-200 shadow-sm scale-90 origin-top-right">
-                                            <button
-                                                onClick={() => initiateStatusChange(member, 'active')}
-                                                className={`w-6 h-6 rounded flex items-center justify-center transition-all ${(member.status || 'active') === 'active'
-                                                    ? 'bg-white text-emerald-600 shadow-sm ring-1 ring-emerald-500/20'
-                                                    : 'text-slate-300 hover:bg-white/50'
-                                                    }`}
-                                                title="Activo"
-                                            >
-                                                <div className={`w-2 h-2 rounded-full bg-emerald-500 ${(member.status || 'active') === 'active' ? 'animate-pulse' : ''}`}></div>
-                                            </button>
-
-                                            <button
-                                                onClick={() => initiateStatusChange(member, 'paused')}
-                                                className={`w-6 h-6 rounded flex items-center justify-center transition-all ${member.status === 'paused'
-                                                    ? 'bg-white text-yellow-600 shadow-sm ring-1 ring-yellow-500/20'
-                                                    : 'text-slate-300 hover:bg-white/50'
-                                                    }`}
-                                                title={`Pausado\n${member.status_reason || ''}`}
-                                            >
-                                                <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-                                            </button>
-
-                                            <button
-                                                onClick={() => initiateStatusChange(member, 'suspended')}
-                                                className={`w-6 h-6 rounded flex items-center justify-center transition-all ${member.status === 'suspended'
-                                                    ? 'bg-white text-red-600 shadow-sm ring-1 ring-red-500/20'
-                                                    : 'text-slate-300 hover:bg-white/50'
-                                                    }`}
-                                                title={`Suspendido\n${member.status_reason || ''}`}
-                                            >
-                                                <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        // Standard Lock for Admins
-                                        <button
-                                            onClick={() => handleToggleStatus(member)}
-                                            className={`p-1.5 rounded-full transition-all border-2 ${member.is_active
-                                                ? 'bg-white border-green-400 text-green-600 shadow-[0_2px_8px_rgba(34,197,94,0.25)] hover:bg-green-50'
-                                                : 'bg-red-50 border-red-200 text-red-400 hover:bg-red-100'
-                                                }`}
-                                            title={member.is_active ? "Bloquear Acceso" : "Desbloquear Acceso"}
-                                        >
-                                            {member.is_active ? <Unlock size={16} /> : <Lock size={16} />}
-                                        </button>
-                                    )}
-                                </div>
+                                )}
                             </div>
 
-                            {/* Actions Bottom Row */}
+                            {/* ACTIONS FOOTER */}
                             {user?.profile?.permissions?.can_manage_team && !showDeleted && (
-                                <div className="flex items-center gap-3 pt-4 border-t border-slate-50 mt-auto">
+                                <div className="bg-white p-3 border-t border-slate-100 flex items-center justify-between gap-2 mt-auto">
                                     {!member.is_super_admin && (
                                         <>
-                                            <button
-                                                onClick={() => handleOpenModal(member)}
-                                                className="flex items-center gap-2 text-slate-500 hover:text-blue-600 px-2 py-1 hover:bg-blue-50 rounded-lg transition text-sm font-medium"
-                                                title="Editar"
-                                            >
-                                                <Edit2 size={16} />
-                                                Editar
+                                            <button onClick={() => handleOpenModal(member)} className="flex-1 py-2 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition flex items-center justify-center gap-2 border border-transparent hover:border-slate-200">
+                                                <Edit2 size={14} /> Editar
                                             </button>
 
                                             {activeTab === 'techs' && (
-                                                <button
-                                                    onClick={() => setViewingReviews(member)}
-                                                    className="flex items-center gap-2 text-slate-500 hover:text-yellow-600 px-2 py-1 hover:bg-yellow-50 rounded-lg transition text-sm font-medium"
-                                                    title="Ver Reseñas"
-                                                >
-                                                    <MessageSquare size={16} />
-                                                    Reseñas
+                                                <button onClick={() => setViewingReviews(member)} className="flex-1 py-2 rounded-lg text-xs font-bold text-slate-600 hover:bg-yellow-50 hover:text-yellow-600 transition flex items-center justify-center gap-2 border border-transparent hover:border-yellow-200">
+                                                    <MessageSquare size={14} /> Opiniones
                                                 </button>
                                             )}
 
                                             <button
                                                 onClick={() => {
                                                     if (confirm(`¿Mover a ${member.full_name} a la papelera?`)) {
-                                                        supabase.from('profiles').update({
-                                                            deleted_at: new Date().toISOString(),
-                                                            is_active: false
-                                                        }).eq('id', member.id).then(({ error }) => {
-                                                            if (error) alert(error.message);
-                                                            else fetchMembers();
+                                                        supabase.from('profiles').update({ deleted_at: new Date().toISOString(), is_active: false }).eq('id', member.id).then(({ error }) => {
+                                                            if (error) alert(error.message); else fetchMembers();
                                                         });
                                                     }
                                                 }}
-                                                className="flex items-center gap-2 text-slate-500 hover:text-red-600 px-2 py-1 hover:bg-red-50 rounded-lg transition text-sm font-medium"
-                                                title="Borrar"
+                                                className="flex-1 py-2 rounded-lg text-xs font-bold text-slate-400 hover:bg-red-50 hover:text-red-600 transition flex items-center justify-center gap-2 border border-transparent hover:border-red-200"
                                             >
-                                                <Trash2 size={16} />
-                                                Borrar
+                                                <Trash2 size={14} />
                                             </button>
 
                                             {member.role !== 'tech' && (
-                                                <button
-                                                    onClick={() => handleOpenPermissions(member)}
-                                                    className="ml-auto text-slate-300 hover:text-purple-600 p-1.5 hover:bg-purple-50 rounded-lg transition"
-                                                    title="Gestionar Permisos"
-                                                >
-                                                    <Shield size={18} />
+                                                <button onClick={() => handleOpenPermissions(member)} className="p-2 text-slate-300 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition" title="Permisos">
+                                                    <Shield size={16} />
                                                 </button>
                                             )}
                                         </>
@@ -708,12 +666,9 @@ const TeamManager = () => {
                             )}
 
                             {showDeleted && (
-                                <div className="flex justify-end pt-4 border-t border-slate-50 mt-auto">
-                                    <button
-                                        onClick={() => handleRestoreMember(member)}
-                                        className="bg-green-100 text-green-700 px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-green-200 transition"
-                                    >
-                                        <RotateCcw size={14} /> RESTAURAR
+                                <div className="p-4 bg-red-50/50 border-t border-red-100">
+                                    <button onClick={() => handleRestoreMember(member)} className="w-full py-2 bg-white border border-green-200 text-green-700 rounded-xl text-sm font-bold shadow-sm hover:shadow-md transition flex items-center justify-center gap-2">
+                                        <RotateCcw size={16} /> Restaurar Acceso
                                     </button>
                                 </div>
                             )}
