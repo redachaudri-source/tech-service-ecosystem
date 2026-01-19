@@ -173,7 +173,7 @@ const GlobalAgenda = () => {
 
     // MRCP v2.0 State
     const [optimizerStep, setOptimizerStep] = useState('ANALYSIS'); // 'ANALYSIS' | 'PROPOSAL'
-    const [optimizationStrategy, setOptimizationStrategy] = useState('BOOMERANG'); // 'BOOMERANG' | 'EXPANSIVE'
+    const [optimizationStrategy, setOptimizationStrategy] = useState(null); // 'BOOMERANG' | 'EXPANSIVE' | null
     const [proposedMoves, setProposedMoves] = useState([]); // { appt, newStart }
     const [calledIds, setCalledIds] = useState([]); // To track calls made
 
