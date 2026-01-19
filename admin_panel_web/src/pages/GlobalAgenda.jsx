@@ -176,15 +176,15 @@ const GlobalAgenda = () => {
     const [proposedMoves, setProposedMoves] = useState([]); // { appt, newStart }
     const [calledIds, setCalledIds] = useState([]); // To track calls made
 
-    // --- AI LOGIC (v2.2 - STRICT KM0 + COLLISION PHYSICS) ---
+    // --- AI LOGIC (v3.0 - SANDWICH + STACKING) ---
     const runOptimizerAnalysis = async (day) => {
         setOptimizingDay(day);
         setIsOptimizing(true);
         setOptimizerStep('ANALYSIS');
         setProposedMoves([]);
 
-        // 🤖 AI/Algorithm Simulation
-        await new Promise(r => setTimeout(r, 800));
+        // 🚀 Speed Up: No artificial delay
+        // await new Promise(r => setTimeout(r, 800));
 
         const dayStartStr = day.toISOString().split('T')[0];
         // 1. Get Events for the day & Tech
@@ -214,160 +214,168 @@ const GlobalAgenda = () => {
             return;
         }
 
-        console.log('🏁 Algoritmo Km0 Iniciado. Origen STRICT:', startCP);
+        console.log('🏁 Algoritmo Sandwich Iniciado. Origen STRICT:', startCP);
 
-        // 3. Current State (Time Order)
-        const currentOrder = [...dayEvents].sort((a, b) => a.start - b.start);
-
-        // 4. Ideal State (Nearest Neighbor Heuristic)
-        let ptrCP = startCP;
-        const pool = [...dayEvents];
-        const idealOrder = [];
-
-        while (pool.length > 0) {
-            // Find closest to ptrCP
-            pool.sort((a, b) => {
-                const cpA = parseInt(a.client?.postal_code?.replace(/\D/g, '') || '99999');
-                const cpB = parseInt(b.client?.postal_code?.replace(/\D/g, '') || '99999');
-                return Math.abs(cpA - ptrCP) - Math.abs(cpB - ptrCP);
-            });
-
-            const next = pool.shift();
-            idealOrder.push(next);
-            // Update pointer to this event's CP (Chain reaction)
-            ptrCP = parseInt(next.client?.postal_code?.replace(/\D/g, '') || '29000');
-        }
-
-        // 5. Detect Deviations & Generate SWAPS (With Collision Physics)
-        const moves = [];
-
-        // Helper: Collision Physics Engine
-        const checkCollision = (targetTime, durationMin, excludeId) => {
-            const targetStart = targetTime.getTime();
-            const targetEnd = targetStart + (durationMin * 60000);
-
-            return dayEvents.some(evt => {
-                if (evt.id === excludeId) return false; // Ignore self
-                const evtStart = evt.start.getTime();
-                const evtEnd = evtStart + (evt.duration * 60000);
-
-                // Check Overlap
-                const hasOverlap = (targetStart < evtEnd && targetEnd > evtStart);
-                return hasOverlap;
-            });
+        // Helper: Estimate Travel Time (Heuristic)
+        const getTravelTime = (cpA, cpB) => {
+            if (!cpA || !cpB) return 15; // Default safe buffer
+            const dist = Math.abs(cpA - cpB);
+            // Base 15 mins + 2 mins per CP unit diff (simplified heuristic)
+            // Clamped to max 60 to avoid absurdity
+            return Math.min(60, 15 + (dist * 2));
         };
 
-        for (let i = 0; i < currentOrder.length; i++) {
-            const actual = currentOrder[i];
-            const ideal = idealOrder[i];
+        const getCP = (t) => parseInt(t.client?.postal_code?.replace(/\D/g, '') || '99999');
 
-            if (actual.id !== ideal.id) {
-                // Check if we already have a pending swap for these two (atomic pair)
-                const alreadyPlanned = moves.find(m =>
-                    (m.apptA.id === actual.id && m.apptB.id === ideal.id) ||
-                    (m.apptA.id === ideal.id && m.apptB.id === actual.id)
-                );
+        // 3. SANDWICH STRATEGY: Define Anchors
+        let pool = [...dayEvents];
+        const idealSequence = [];
 
-                if (!alreadyPlanned) {
-                    // Calculate Saving (Mock or Real Diff)
-                    const timeDiff = Math.abs((actual.start - ideal.start) / 60000); // Minutes apart
+        // A. Start Anchor (Closest to Home)
+        pool.sort((a, b) => Math.abs(getCP(a) - startCP) - Math.abs(getCP(b) - startCP));
+        const startAnchor = pool.shift();
+        idealSequence.push(startAnchor);
 
-                    // HEURISTIC: Swap is valuable if they are far apart in time (meaning high displacement)
-                    if (timeDiff > 30) {
-
-                        // 🧱 PHYSICS CHECK: DOES IT FIT?
-                        // Scenario: A takes B's start time. B takes A's start time.
-                        const newStartA = ideal.start;
-                        const newStartB = actual.start;
-
-                        const collisionA = checkCollision(newStartA, actual.duration, actual.id); // Can A fit in B's slot?
-                        const collisionB = checkCollision(newStartB, ideal.duration, ideal.id);   // Can B fit in A's slot?
-
-                        if (!collisionA && !collisionB) {
-                            moves.push({
-                                type: 'SWAP',
-                                apptA: actual, // "The Far Client" (currently at early slot)
-                                apptB: ideal,  // "The Near Client" (currently at late slot)
-                                slotTime: actual.start, // The slot we are optimizing
-                                saving: Math.round(timeDiff * 0.3) // Synthetic saving calc
-                            });
-                        } else {
-                            console.log(`🚫 Swap Rejected due to Collision: ${actual.client?.full_name} <-> ${ideal.client?.full_name}`);
-                        }
-                    }
-                }
-            }
+        // B. End Anchor (Next Closest to Home - to return)
+        let endAnchor = null;
+        if (pool.length > 0) {
+            pool.sort((a, b) => Math.abs(getCP(a) - startCP) - Math.abs(getCP(b) - startCP));
+            endAnchor = pool.shift();
         }
 
-        if (moves.length === 0 && idealOrder.some((item, idx) => item.id !== currentOrder[idx].id)) {
-            // If we found efficiency but physics blocked it
-            addToast('Ruta ineficiente detectada, pero sin huecos libres para reordenar (Agenda muy apretada).', 'warning', 4000);
+        // C. Filling (Connect Start -> Rest -> End)
+        // Sort remaining pool by Nearest Neighbor from StartAnchor
+        let ptrCP = getCP(startAnchor);
+        const filling = [];
+
+        while (pool.length > 0) {
+            pool.sort((a, b) => Math.abs(getCP(a) - ptrCP) - Math.abs(getCP(b) - ptrCP));
+            const next = pool.shift();
+            filling.push(next);
+            ptrCP = getCP(next);
+        }
+
+        // Final Ideal Array
+        const fullSequence = [...idealSequence, ...filling];
+        if (endAnchor) fullSequence.push(endAnchor);
+
+        // 4. SMART STACKING (Timeline Reconstruction)
+        // Start Time: 09:00 (or first event's original start if earlier, clamped to Business Hours)
+        // We'll assume strict Business Start at 09:00 for the optimized route.
+        const workDayStart = new Date(day);
+        workDayStart.setHours(9, 0, 0, 0);
+
+        let currentTime = workDayStart.getTime();
+        let currentLocCP = startCP;
+
+        const moves = [];
+
+        for (let i = 0; i < fullSequence.length; i++) {
+            const ticket = fullSequence[i];
+            const displayCP = getCP(ticket);
+
+            // Calculate Travel from Prev
+            const travelMin = getTravelTime(currentLocCP, displayCP);
+
+            // Check Travel Constraints (> 30 min rule)
+            let warning = null;
+            if (travelMin > 30) {
+                warning = `⚠️ Trayecto largo (${travelMin} min)`;
+                // In a real advanced engine, we would 'continue' and try next, 
+                // but 'pool' is already sorted by nearest, so this IS the best option locally.
+                // We flag it as warned.
+            }
+
+            // Calculate New Start (Stacking)
+            // Start = CurrentTime + Travel (approx buffer included in travel)
+            // Actually, usually Tech travels implies arrival time. 
+            // We set 'Start' = Arrival.
+            // But we must respect 'currentTime' is when the PREVIOUS job led to availability.
+            // First job starts at 9:00 (travel from home happening before).
+
+            let proposedStart;
+            if (i === 0) {
+                proposedStart = workDayStart.getTime();
+            } else {
+                proposedStart = currentTime + (travelMin * 60000); // Add travel time buffer explicitly
+            }
+
+            // Round to nearest 5 mins for cleanliness
+            const remainder = proposedStart % (5 * 60000);
+            if (remainder !== 0) proposedStart += ((5 * 60000) - remainder);
+
+            const newStartDate = new Date(proposedStart);
+            const originalStart = new Date(ticket.start);
+
+            // Diff Check (Did it change?)
+            const isDifferent = Math.abs(newStartDate - originalStart) > 60000;
+
+            if (isDifferent || warning) { // Include if warning even if time same (rare)
+                moves.push({
+                    type: 'RESCHEDULE',
+                    appt: ticket,
+                    newStart: newStartDate,
+                    travelMin: travelMin,
+                    warning: warning
+                });
+            }
+
+            // Advance Timer
+            // End Time = Start + Duration
+            currentTime = proposedStart + (ticket.duration * 60000);
+            currentLocCP = displayCP;
+        }
+
+        if (moves.length === 0) {
+            addToast('La ruta ya está optimizada perfectamente (Sandwich + Tiempos).', 'success');
         }
 
         setProposedMoves(moves);
         setIsOptimizing(false);
+        setOptimizerStep('PROPOSAL');
     };
 
-    // ⚡ TELEPORT SWAP (Atomic + Animation)
-    const handleTeleportSwap = async (move) => {
-        const { apptA, apptB } = move;
+    // ⚡ APPLY BATCH OPTIMIZATION
+    const applyOptimizationBatch = async () => {
+        setIsOptimizing(true);
 
-        // 1. 🎞️ Capture DOM Elements & Apply Blur
-        const domA = document.querySelector(`[data-event-id="${apptA.id}"]`);
-        const domB = document.querySelector(`[data-event-id="${apptB.id}"]`);
-
-        if (domA) domA.classList.add('teleport-blur');
-        if (domB) domB.classList.add('teleport-blur');
-
-        // 2. ⏳ Sleep (Cinematic Feel)
-        await new Promise(r => setTimeout(r, 450));
-
-        // 3. 🔄 ATOMIC DATA SWAP
-        // Swap Time Slots
-        const timeA_start = new Date(apptA.start);
-        const timeA_end = new Date(timeA_start.getTime() + apptA.duration * 60000);
-
-        const timeB_start = new Date(apptB.start);
-        const timeB_end = new Date(timeB_start.getTime() + apptB.duration * 60000); // Use own duration
-
-        // We want A to take B's place, and B to take A's place.
-        // WAIT: The algorithm identifies 'apptA' is at 'slotTime' (Pos 1), and 'apptB' is at Pos X.
-        // We want 'apptB' (The Ideal one) to come to 'slotTime' (Pos 1).
-        // So: B -> A.start, A -> B.start.
-
-        const newStartA = timeB_start; // A goes to B's slot
-        const newStartB = timeA_start; // B comes to A's slot (Optimization)
-
-        // Optimistic State Update
-        setAppointments(prev => prev.map(p => {
-            if (p.id === apptA.id) return { ...p, start: newStartA, scheduled_at: newStartA.toISOString() };
-            if (p.id === apptB.id) return { ...p, start: newStartB, scheduled_at: newStartB.toISOString() };
-            return p;
-        }));
-
-        // Remove Move from List
-        setProposedMoves(prev => prev.filter(m => m.apptA.id !== apptA.id));
-
-        // 4. 🚀 DATABASE UPDATE (Parallel)
         try {
-            await Promise.all([
-                supabase.from('tickets').update({ scheduled_at: newStartA.toISOString() }).eq('id', apptA.id),
-                supabase.from('tickets').update({ scheduled_at: newStartB.toISOString() }).eq('id', apptB.id)
-            ]);
-            addToast('⚡ Intercambio completado', 'success', 2000);
-        } catch (err) {
-            console.error(err);
-            addToast('Error guardando intercambio', 'error');
-            // Revert would go here
-        }
+            // Optimistic Updates
+            const movesMap = new Map();
+            proposedMoves.forEach(m => movesMap.set(m.appt.id, m.newStart));
 
-        // 5. 🧹 Cleanup Styles (React render will clear, but manual cleanup ensures no flicker)
-        if (domA) domA.classList.remove('teleport-blur');
-        if (domB) domB.classList.remove('teleport-blur');
+            setAppointments(prev => prev.map(p => {
+                if (movesMap.has(p.id)) {
+                    const newStart = movesMap.get(p.id);
+                    return { ...p, start: newStart, scheduled_at: newStart.toISOString() };
+                }
+                return p;
+            }));
+
+            // Parallel DB Updates
+            const promises = proposedMoves.map(m =>
+                supabase.from('tickets').update({ scheduled_at: m.newStart.toISOString() }).eq('id', m.appt.id)
+            );
+
+            await Promise.all(promises);
+            addToast(`🚀 Ruta optimizada (${proposedMoves.length} cambios aplicados)`, 'success');
+            setProposedMoves([]); // Clear
+            setOptimizerStep('ANALYSIS'); // Reset UI
+
+        } catch (err) {
+            console.error('Error batch update:', err);
+            addToast('Error guardando la optimización.', 'error');
+            fetchAgendaData(); // Revert/Refresh
+        } finally {
+            setIsOptimizing(false);
+        }
     };
 
-    const discardOptimizationMove = (idA) => {
-        setProposedMoves(prev => prev.filter(m => m.apptA.id !== idA));
+    const discardOptimizationMove = (id) => {
+        // In Stacking, removing one move breaks the chain. 
+        // But for flexibility, we allow removing it (it stays at old time, others move).
+        // This might cause overlaps, but user logic prevails.
+        setProposedMoves(prev => prev.filter(m => m.appt.id !== id));
     };
 
     // --- AI LOGIC ---
@@ -1102,85 +1110,71 @@ const GlobalAgenda = () => {
                                 </div>
                             )}
 
-                            {/* VIEW B: SWAP PROPOSAL DETAIL (v2.1) */}
+                            {/* VIEW B: OPTIMIZATION TIMELINE PREVIEW (v3.0) */}
                             {optimizerStep === 'PROPOSAL' && (
                                 <div className="animate-slide-in-right">
                                     <button onClick={() => setOptimizerStep('ANALYSIS')} className="mb-4 text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1">
-                                        <ChevronLeft size={14} /> VOLVER AL RESUMEN
+                                        <ChevronLeft size={14} /> CANCELAR
                                     </button>
 
                                     <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
                                         <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-xs">{proposedMoves.length}</span>
-                                        Pares Ineficientes (Swaps)
+                                        Cambios Propuestos
                                     </h3>
 
-                                    <div className="space-y-4 pb-20">
+                                    <div className="space-y-3 pb-24">
                                         {proposedMoves.map((move, idx) => (
-                                            <div key={idx} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
+                                            <div key={idx} className={`bg-white p-3 rounded-xl border relative ${move.warning ? 'border-amber-200 bg-amber-50/50' : 'border-slate-200'}`}>
 
-                                                {/* Header: Saving */}
-                                                <div className="flex justify-between items-center mb-3">
-                                                    <span className="text-[10px] uppercase font-bold text-slate-400">Intercambio Sugerido</span>
-                                                    <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-full">-{move.saving} min trayecto</span>
-                                                </div>
-
-                                                {/* VERSUS CARDS (With Phone Links) */}
-                                                <div className="flex flex-col gap-2 mb-4 relative">
-                                                    {/* CARD A (Current Bad) */}
-                                                    <div className="flex items-center gap-3 p-2 bg-red-50/50 border border-red-100 rounded-lg opacity-70">
-                                                        <div className="text-xs font-bold text-slate-500 w-10">{move.apptA.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center justify-between">
-                                                                <div className="text-xs font-bold text-slate-700 truncate">{move.apptA.client?.full_name}</div>
-                                                                <a href={`tel:${move.apptA.client?.phone}`} className="w-6 h-6 flex items-center justify-center bg-white rounded-full text-slate-400 hover:text-green-600 shadow-sm border border-slate-100">
-                                                                    <Phone size={12} />
-                                                                </a>
-                                                            </div>
-                                                            <div className="text-[10px] text-slate-500 truncate">CP: {move.apptA.client?.postal_code} (Lejano)</div>
-                                                        </div>
+                                                {/* Warning Banner */}
+                                                {move.warning && (
+                                                    <div className="absolute top-0 right-0 bg-amber-100 text-amber-700 text-[9px] font-bold px-2 py-0.5 rounded-bl-lg">
+                                                        {move.warning}
                                                     </div>
+                                                )}
 
-                                                    {/* Swap Icon */}
-                                                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 bg-white border rounded-full p-1 shadow-sm">
-                                                        <div className="animate-spin-slow"><Zap size={14} className="fill-amber-400 text-amber-500" /></div>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div className="font-bold text-xs text-slate-700 truncate max-w-[70%]">
+                                                        {move.appt.client?.full_name}
                                                     </div>
-
-                                                    {/* CARD B (Ideal) */}
-                                                    <div className="flex items-center gap-3 p-2 bg-emerald-50/50 border border-emerald-100 rounded-lg">
-                                                        <div className="text-xs font-bold text-slate-500 w-10">{move.apptB.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center justify-between">
-                                                                <div className="text-xs font-bold text-slate-700 truncate">{move.apptB.client?.full_name}</div>
-                                                                <a href={`tel:${move.apptB.client?.phone}`} className="w-6 h-6 flex items-center justify-center bg-white rounded-full text-slate-400 hover:text-green-600 shadow-sm border border-slate-100">
-                                                                    <Phone size={12} />
-                                                                </a>
-                                                            </div>
-                                                            <div className="text-[10px] text-slate-500 truncate">CP: {move.apptB.client?.postal_code} (Cercano)</div>
-                                                        </div>
+                                                    <div className="text-[10px] text-slate-400 font-mono">
+                                                        CP: {move.appt.client?.postal_code}
                                                     </div>
                                                 </div>
 
-                                                {/* Actions */}
-                                                <div className="flex gap-2">
-                                                    <button // Spacer/Aux (Removed Clipboard)
-                                                        className="hidden"
-                                                    ></button>
-                                                    <button
-                                                        onClick={() => discardOptimizationMove(move.apptA.id)}
-                                                        className="flex-1 py-2 text-xs font-bold text-slate-500 bg-slate-50 hover:bg-slate-100 rounded-lg"
-                                                    >
-                                                        DESCARTAR
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleTeleportSwap(move)}
-                                                        className="flex-1 py-2 text-xs font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200 active:scale-95 transition-all"
-                                                    >
-                                                        🔀 ACEPTAR
-                                                    </button>
+                                                <div className="flex items-center gap-3">
+                                                    {/* Old Time */}
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-[10px] text-slate-400 line-through">
+                                                            {new Date(move.appt.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        </span>
+                                                    </div>
+
+                                                    <ArrowRight size={12} className="text-indigo-400" />
+
+                                                    {/* New Time */}
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-sm font-bold text-indigo-700">
+                                                            {move.newStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        </span>
+                                                    </div>
                                                 </div>
 
+                                                {/* Action: Exclude single logic if needed */}
+                                                {/* <button onClick={() => discardOptimizationMove(move.appt.id)} className="absolute bottom-2 right-2 text-slate-300 hover:text-red-500"><X size={14}/></button> */}
                                             </div>
                                         ))}
+
+                                        {/* BATCH ACTION BUTTON */}
+                                        <div className="fixed bottom-4 right-4 left-[calc(100%-350px)] p-4 bg-gradient-to-t from-white via-white to-transparent pointer-events-none">
+                                            <button
+                                                onClick={applyOptimizationBatch}
+                                                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-xl shadow-indigo-200 hover:scale-105 active:scale-95 transition-all pointer-events-auto flex items-center justify-center gap-2"
+                                            >
+                                                <Zap size={18} className="fill-white" />
+                                                APLICAR NUEVA RUTA
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             )}
