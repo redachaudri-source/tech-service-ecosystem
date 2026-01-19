@@ -361,19 +361,17 @@ const GlobalAgenda = () => {
                 return p;
             }));
 
-            // Parallel DB Updates
-            const results = await Promise.all(proposedMoves.map(m =>
-                supabase.from('tickets')
+            // Sequential DB Updates (Safer for Triggers/Locks)
+            for (const m of proposedMoves) {
+                const { error } = await supabase.from('tickets')
                     .update({
                         scheduled_at: m.newStart.toISOString(),
                         technician_id: m.appt.technician_id //Mirror working logic
                     })
-                    .eq('id', m.appt.id)
-            ));
+                    .eq('id', m.appt.id);
 
-            // CRITICO: Verificar errores individuales en el lote
-            const firstError = results.find(r => r.error)?.error;
-            if (firstError) throw firstError;
+                if (error) throw error;
+            }
 
             addToast(`Ruta optimizada con éxito (${proposedMoves.length} tickets actualizados)`, 'success');
 
@@ -382,8 +380,8 @@ const GlobalAgenda = () => {
 
         } catch (error) {
             console.error("Error applying optimization:", error);
-            // Rollback UI
-            addToast("Error al guardar la optimización. Verifica la consola.", "error");
+            // Rollback UI with Specific Error
+            addToast(`Error al guardar: ${error.message || 'Desconocido'}`, "error");
             await fetchAgendaData(); // Revert to DB state
         } finally {
             setProposedMoves([]);
