@@ -557,9 +557,11 @@ const GlobalAgenda = () => {
         setLoading(true);
         try {
             // Fetch range: Based on Grid Start and Grid Length
-            const startStr = gridStart.toISOString().split('T')[0];
+            // Fetch range: Based on Grid Start and Grid Length
+            // 🛡️ BUFFER: Fetch -1 Day and +1 Day to handle Timezone spills (UTC vs Local)
+            const startStr = new Date(gridStart.getTime() - 86400000).toISOString().split('T')[0];
             const endDate = new Date(gridStart);
-            endDate.setDate(endDate.getDate() + gridDates.length);
+            endDate.setDate(endDate.getDate() + gridDates.length + 1);
             const endStr = endDate.toISOString().split('T')[0];
 
             // 1. Fetch Techs
@@ -718,12 +720,13 @@ const GlobalAgenda = () => {
     // --- GRID LAYOUT LOGIC (BY DAY) ---
     const getPositionedEvents = (dayDate) => {
         // Filter: Must be on 'dayDate' AND assigned to 'selectedTechs'
-        const dayStartStr = dayDate.toISOString().split('T')[0];
+        // FIX: Use toDateString() for LOCAL DAY comparison to avoid UTC shifts
+        const dayLocalStr = dayDate.toDateString();
 
         const events = appointments
             .filter(a => {
-                const aDate = a.start.toISOString().split('T')[0];
-                return aDate === dayStartStr && selectedTechs.includes(a.technician_id);
+                const aDateStr = a.start.toDateString();
+                return aDateStr === dayLocalStr && selectedTechs.includes(a.technician_id);
             })
             .map(a => {
                 const startH = a.start.getHours();
@@ -1004,8 +1007,15 @@ const GlobalAgenda = () => {
             return; // Reject Drop
         }
 
-        const newDate = new Date(targetDate);
-        newDate.setHours(startHour + Math.floor(hoursToAdd), (hoursToAdd % 1) * 60);
+        // 🛡️ FIX: Construct Date explicitly using Local Year/Month/Day from targetDate
+        // This prevents day jumping or UTC shifts.
+        const newDate = new Date(
+            targetDate.getFullYear(),
+            targetDate.getMonth(),
+            targetDate.getDate(),
+            startHour + Math.floor(hoursToAdd),
+            (hoursToAdd % 1) * 60
+        );
 
         // Calculate End Date for Confirmation
         const newEndDate = new Date(newDate.getTime() + (appt.duration || 60) * 60000);
