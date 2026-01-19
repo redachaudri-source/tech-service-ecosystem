@@ -1,5 +1,15 @@
 {
   "appId": "com.fixarr.techgo",
   "appName": "Fixarr Tech'Go",
-  "webDir": "dist"
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "android": {
+    "buildOptions": {
+      "keystorePath": null,
+      "keystoreAlias": null
+    }
+  }
 }

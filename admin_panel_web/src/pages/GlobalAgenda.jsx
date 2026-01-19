@@ -176,7 +176,7 @@ const GlobalAgenda = () => {
     const [proposedMoves, setProposedMoves] = useState([]); // { appt, newStart }
     const [calledIds, setCalledIds] = useState([]); // To track calls made
 
-    // --- AI LOGIC (v2.1 - KM0 + SWAP) ---
+    // --- AI LOGIC (v2.2 - STRICT KM0 + COLLISION PHYSICS) ---
     const runOptimizerAnalysis = async (day) => {
         setOptimizingDay(day);
         setIsOptimizing(true);
@@ -191,18 +191,30 @@ const GlobalAgenda = () => {
         const dayEvents = appointments.filter(a => a.start.toISOString().split('T')[0] === dayStartStr && selectedTechs.includes(a.technician_id));
 
         if (dayEvents.length < 2) {
-            addToast('Mínimo 2 tickets para optimizar (Swap).', 'info');
+            addToast('Mínimo 2 tickets para optimizar.', 'info');
             setIsOptimizing(false);
             return;
         }
 
-        // 2. Identify "Km0" (Tech Home or Office)
-        // Assuming selectedTechs[0] is the target. 
-        const tech = techs.find(t => t.id === selectedTechs[0]);
-        // Fallback to first event CP if no tech CP (should be fixed by previous step)
-        const startCP = parseInt(tech?.postal_code?.replace(/\D/g, '') || dayEvents[0]?.client?.postal_code?.replace(/\D/g, '') || '29000');
+        // 2. Identify "Km0" (Tech Home or Office) - STRICT MODE
+        const techId = selectedTechs[0];
+        const tech = techs.find(t => t.id === techId);
 
-        console.log('🏁 Algoritmo Km0 Iniciado. Origen:', startCP);
+        // 🔒 GATEKEEPER: Strict CP Check
+        if (!tech?.postal_code) {
+            addToast(`⚠️ Imposible optimizar: El técnico ${tech?.full_name || 'seleccionado'} no tiene Código Postal (Km0) configurado.`, 'error', 5000);
+            setIsOptimizing(false);
+            return;
+        }
+
+        const startCP = parseInt(tech.postal_code.replace(/\D/g, '') || '0');
+        if (startCP === 0) {
+            addToast(`⚠️ Error en CP del técnico: Formato inválido (${tech.postal_code}).`, 'error');
+            setIsOptimizing(false);
+            return;
+        }
+
+        console.log('🏁 Algoritmo Km0 Iniciado. Origen STRICT:', startCP);
 
         // 3. Current State (Time Order)
         const currentOrder = [...dayEvents].sort((a, b) => a.start - b.start);
@@ -226,11 +238,24 @@ const GlobalAgenda = () => {
             ptrCP = parseInt(next.client?.postal_code?.replace(/\D/g, '') || '29000');
         }
 
-        // 5. Detect Deviations & Generate SWAPS
+        // 5. Detect Deviations & Generate SWAPS (With Collision Physics)
         const moves = [];
-        // We iterate and match pairs. 
-        // If currentOrder[i] is NOT idealOrder[i], it means idealOrder[i] is "misplaced" somewhere later.
-        // We propose swapping currentOrder[i] (The intruder) with idealOrder[i] (The rightful owner of this slot).
+
+        // Helper: Collision Physics Engine
+        const checkCollision = (targetTime, durationMin, excludeId) => {
+            const targetStart = targetTime.getTime();
+            const targetEnd = targetStart + (durationMin * 60000);
+
+            return dayEvents.some(evt => {
+                if (evt.id === excludeId) return false; // Ignore self
+                const evtStart = evt.start.getTime();
+                const evtEnd = evtStart + (evt.duration * 60000);
+
+                // Check Overlap
+                const hasOverlap = (targetStart < evtEnd && targetEnd > evtStart);
+                return hasOverlap;
+            });
+        };
 
         for (let i = 0; i < currentOrder.length; i++) {
             const actual = currentOrder[i];
@@ -246,18 +271,37 @@ const GlobalAgenda = () => {
                 if (!alreadyPlanned) {
                     // Calculate Saving (Mock or Real Diff)
                     const timeDiff = Math.abs((actual.start - ideal.start) / 60000); // Minutes apart
+
                     // HEURISTIC: Swap is valuable if they are far apart in time (meaning high displacement)
                     if (timeDiff > 30) {
-                        moves.push({
-                            type: 'SWAP',
-                            apptA: actual, // "The Far Client" (currently at early slot)
-                            apptB: ideal,  // "The Near Client" (currently at late slot)
-                            slotTime: actual.start, // The slot we are optimizing
-                            saving: Math.round(timeDiff * 0.3) // Synthetic saving calc
-                        });
+
+                        // 🧱 PHYSICS CHECK: DOES IT FIT?
+                        // Scenario: A takes B's start time. B takes A's start time.
+                        const newStartA = ideal.start;
+                        const newStartB = actual.start;
+
+                        const collisionA = checkCollision(newStartA, actual.duration, actual.id); // Can A fit in B's slot?
+                        const collisionB = checkCollision(newStartB, ideal.duration, ideal.id);   // Can B fit in A's slot?
+
+                        if (!collisionA && !collisionB) {
+                            moves.push({
+                                type: 'SWAP',
+                                apptA: actual, // "The Far Client" (currently at early slot)
+                                apptB: ideal,  // "The Near Client" (currently at late slot)
+                                slotTime: actual.start, // The slot we are optimizing
+                                saving: Math.round(timeDiff * 0.3) // Synthetic saving calc
+                            });
+                        } else {
+                            console.log(`🚫 Swap Rejected due to Collision: ${actual.client?.full_name} <-> ${ideal.client?.full_name}`);
+                        }
                     }
                 }
             }
+        }
+
+        if (moves.length === 0 && idealOrder.some((item, idx) => item.id !== currentOrder[idx].id)) {
+            // If we found efficiency but physics blocked it
+            addToast('Ruta ineficiente detectada, pero sin huecos libres para reordenar (Agenda muy apretada).', 'warning', 4000);
         }
 
         setProposedMoves(moves);
