@@ -337,6 +337,15 @@ const GlobalAgenda = () => {
 
     // ⚡ APPLY BATCH OPTIMIZATION
     const applyOptimizationBatch = async () => {
+        // ⚠️ CONFIRMATION (Mirroring Manual Logic)
+        const isConfirmed = window.confirm(
+            `🚀 ¿CONFIRMAR OPTIMIZACIÓN?\n\n` +
+            `Se van a reprogramar ${proposedMoves.length} citas para reducir tiempos de viaje.\n` +
+            `Esta acción actualizará la agenda en tiempo real.`
+        );
+
+        if (!isConfirmed) return;
+
         setIsOptimizing(true);
 
         try {
@@ -353,21 +362,33 @@ const GlobalAgenda = () => {
             }));
 
             // Parallel DB Updates
-            const promises = proposedMoves.map(m =>
-                supabase.from('tickets').update({ scheduled_at: m.newStart.toISOString() }).eq('id', m.appt.id)
-            );
+            const results = await Promise.all(proposedMoves.map(m =>
+                supabase.from('tickets')
+                    .update({
+                        scheduled_at: m.newStart.toISOString(),
+                        technician_id: m.appt.technician_id //Mirror working logic
+                    })
+                    .eq('id', m.appt.id)
+            ));
 
-            await Promise.all(promises);
-            addToast(`🚀 Ruta optimizada (${proposedMoves.length} cambios aplicados)`, 'success');
-            setProposedMoves([]); // Clear
-            setOptimizerStep('ANALYSIS'); // Reset UI
+            // CRITICO: Verificar errores individuales en el lote
+            const firstError = results.find(r => r.error)?.error;
+            if (firstError) throw firstError;
 
-        } catch (err) {
-            console.error('Error batch update:', err);
-            addToast('Error guardando la optimización.', 'error');
-            fetchAgendaData(); // Revert/Refresh
+            addToast(`Ruta optimizada con éxito (${proposedMoves.length} tickets actualizados)`, 'success');
+
+            // Refetch to ensure truth
+            await fetchAgendaData();
+
+        } catch (error) {
+            console.error("Error applying optimization:", error);
+            // Rollback UI
+            addToast("Error al guardar la optimización. Verifica la consola.", "error");
+            await fetchAgendaData(); // Revert to DB state
         } finally {
+            setProposedMoves([]);
             setIsOptimizing(false);
+            setOptimizerStep('ANALYSIS');
         }
     };
 
