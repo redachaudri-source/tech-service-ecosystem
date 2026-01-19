@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Eraser, Check } from 'lucide-react';
+import { Eraser, Check, X } from 'lucide-react';
 
 const SignaturePad = ({ onSave, onCancel }) => {
     const canvasRef = useRef(null);
@@ -15,42 +15,83 @@ const SignaturePad = ({ onSave, onCancel }) => {
         ctx.lineCap = 'round';
         ctx.strokeStyle = '#000000';
 
-        // Handle resizing
+        // 1. ROBUST RESIZING
         const resizeCanvas = () => {
             const ratio = Math.max(window.devicePixelRatio || 1, 1);
-            canvas.width = canvas.offsetWidth * ratio;
-            canvas.height = canvas.offsetHeight * ratio;
+            // Get the parent width/height effectively
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * ratio;
+            canvas.height = rect.height * ratio;
             ctx.scale(ratio, ratio);
         };
+
+        // Initial Resize
         resizeCanvas();
-        // window.addEventListener('resize', resizeCanvas); // Optional: might clear signature
+
+        // 2. PREVENT SCROLLING ON TOUCH
+        // We use passive: false to allow preventDefault()
+        const preventScroll = (e) => {
+            if (e.target === canvas) {
+                e.preventDefault();
+            }
+        };
+
+        // Attach listeners dynamically to support non-passive
+        canvas.addEventListener('touchstart', preventScroll, { passive: false });
+        canvas.addEventListener('touchmove', preventScroll, { passive: false });
+        canvas.addEventListener('touchend', preventScroll, { passive: false });
+
+        return () => {
+            canvas.removeEventListener('touchstart', preventScroll);
+            canvas.removeEventListener('touchmove', preventScroll);
+            canvas.removeEventListener('touchend', preventScroll);
+        };
     }, []);
 
-    const startDrawing = (e) => {
+    // Helper to get coordinates correctly on both Mobile & Desktop
+    const getCoords = (e) => {
         const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
         const rect = canvas.getBoundingClientRect();
 
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        let clientX, clientY;
+
+        if (e.touches && e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        }
+
+        return {
+            x: clientX - rect.left,
+            y: clientY - rect.top
+        };
+    };
+
+    const startDrawing = (e) => {
+        // e.preventDefault(); // Handled by listener above
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        const { x, y } = getCoords(e);
 
         ctx.beginPath();
-        ctx.moveTo(clientX - rect.left, clientY - rect.top);
+        ctx.moveTo(x, y);
         setIsDrawing(true);
         setHasSignature(true);
     };
 
     const draw = (e) => {
+        // e.preventDefault();
         if (!isDrawing) return;
+
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
-        const rect = canvas.getBoundingClientRect();
+        const { x, y } = getCoords(e);
 
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-        ctx.lineTo(clientX - rect.left, clientY - rect.top);
+        ctx.lineTo(x, y);
         ctx.stroke();
     };
 
@@ -61,8 +102,13 @@ const SignaturePad = ({ onSave, onCancel }) => {
     const clear = () => {
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // Clear considering the scale
+        const rect = canvas.getBoundingClientRect();
+        ctx.clearRect(0, 0, rect.width, rect.height); // Use logic dims
         setHasSignature(false);
+
+        // Reset path to avoid connecting to old lines
+        ctx.beginPath();
     };
 
     const handleSave = () => {
@@ -73,43 +119,52 @@ const SignaturePad = ({ onSave, onCancel }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 animate-in fade-in">
-            <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
-                <div className="p-4 bg-slate-50 border-b flex justify-between items-center">
-                    <h3 className="font-bold text-slate-800">Firma del Cliente</h3>
-                    <button onClick={onCancel} className="text-slate-400 hover:text-slate-600 font-bold text-sm">Cancelar</button>
-                </div>
+        <div className="fixed inset-0 z-[9999] bg-black/90 flex flex-col items-center justify-center p-4 animate-in fade-in backdrop-blur-sm">
 
-                <div className="p-4 bg-white relative">
-                    <div className="border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 touch-none">
-                        <canvas
-                            ref={canvasRef}
-                            className="w-full h-64 touch-none cursor-crosshair"
-                            onMouseDown={startDrawing}
-                            onMouseMove={draw}
-                            onMouseUp={stopDrawing}
-                            onMouseLeave={stopDrawing}
-                            onTouchStart={startDrawing}
-                            onTouchMove={draw}
-                            onTouchEnd={stopDrawing}
-                        />
+            {/* Header */}
+            <div className="w-full max-w-lg flex justify-between items-center text-white mb-4">
+                <h3 className="font-bold text-lg">Firmar Documento</h3>
+                <button onClick={onCancel} className="p-2 bg-white/10 rounded-full hover:bg-white/20">
+                    <X size={20} />
+                </button>
+            </div>
+
+            <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col">
+                <div className="relative bg-white touch-none">
+                    {/* 3. CSS TOUCH-ACTION: NONE is critical */}
+                    <canvas
+                        ref={canvasRef}
+                        className="w-full h-[60vh] md:h-80 touch-none cursor-crosshair block bg-white"
+                        style={{ touchAction: 'none' }}
+                        onMouseDown={startDrawing}
+                        onMouseMove={draw}
+                        onMouseUp={stopDrawing}
+                        onMouseLeave={stopDrawing}
+                        // Touch events are handled by the ref listener to support passive: false
+                        // But we keep these for React consistency if needed, though native listeners take precedence
+                        onTouchStart={startDrawing}
+                        onTouchMove={draw}
+                        onTouchEnd={stopDrawing}
+                    />
+
+                    <div className="absolute bottom-4 left-0 right-0 text-center pointer-events-none opacity-50">
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Fimar Aquí</p>
                     </div>
-                    <p className="text-center text-xs text-slate-400 mt-2">Firme dentro del cuadro</p>
                 </div>
 
-                <div className="p-4 border-t bg-slate-50 flex gap-3">
+                <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-3">
                     <button
                         onClick={clear}
-                        className="flex-1 py-3 text-slate-600 font-bold bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-2 hover:bg-slate-100"
+                        className="flex-1 py-3.5 text-slate-600 font-bold bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-2 hover:bg-slate-100 active:scale-95 transition-all"
                     >
                         <Eraser size={18} /> Borrar
                     </button>
                     <button
                         onClick={handleSave}
                         disabled={!hasSignature}
-                        className={`flex-1 py-3 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors ${hasSignature ? 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200' : 'bg-slate-300 cursor-not-allowed'}`}
+                        className={`flex-1 py-3.5 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 ${hasSignature ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-200' : 'bg-slate-300 cursor-not-allowed'}`}
                     >
-                        <Check size={18} /> Confirmar Firma
+                        <Check size={20} /> Guardar Firma
                     </button>
                 </div>
             </div>

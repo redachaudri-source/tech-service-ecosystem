@@ -10,7 +10,8 @@ import {
 import Tesseract from 'tesseract.js';
 import TechLocationMap from '../../components/TechLocationMap';
 import ErrorBoundary from '../../components/ErrorBoundary';
-import SignaturePad from '../../components/SignaturePad'; // NEW
+import SignaturePad from '../../components/SignaturePad';
+import ServiceCompletionModal from '../../components/ServiceCompletionModal'; // NEW ROBUST MODAL
 import { useAuth } from '../../context/AuthContext';
 
 
@@ -71,7 +72,9 @@ const TechTicketDetail = () => {
 
     const [generatingReceipt, setGeneratingReceipt] = useState(false);
     const [budgetDecision, setBudgetDecision] = useState(null); // 'accepted', 'rejected'
-    const [showSignaturePad, setShowSignaturePad] = useState(false); // NEW
+    const [showSignaturePad, setShowSignaturePad] = useState(false);
+    const [showSuccessModal, setShowSuccessModal] = useState(false); // NEW ROBUST SUCCESS
+    const [completionType, setCompletionType] = useState('standard'); // 'standard' | 'warranty'
     const [signaturePurpose, setSignaturePurpose] = useState('budget'); // 'budget' | 'closing'
 
     // UI Helper State
@@ -2007,19 +2010,16 @@ const TechTicketDetail = () => {
                                 if (signaturePurpose === 'budget') {
                                     setBudgetDecision('accepted');
                                     alert("Presupuesto aceptado y firmado.");
-                                } else if (signaturePurpose === 'closing') {
+                                    setShowSignaturePad(false);
+                                } else if (signaturePurpose === 'closing' || signaturePurpose === 'warranty_closing') {
+                                    const isWarranty = signaturePurpose === 'warranty_closing';
+
                                     // 4. CALCULATE WARRANTY DATES
                                     const now = new Date();
-
-                                    // Labor Warranty
                                     const laborDate = new Date(now);
                                     laborDate.setMonth(laborDate.getMonth() + warrantyLabor);
-
-                                    // Parts Warranty
                                     const partsDate = new Date(now);
                                     partsDate.setMonth(partsDate.getMonth() + warrantyParts);
-
-                                    // General Max Warranty (for quick checks)
                                     const maxDate = laborDate > partsDate ? laborDate : partsDate;
 
                                     const warrantyData = {
@@ -2032,40 +2032,18 @@ const TechTicketDetail = () => {
 
                                     // Quick fix: Temporarily mutate ticket object for this closure
                                     ticket.client_signature_url = publicUrl;
-                                    // Ideally we should attach warranty info to ticket state for PDF generation too?
-                                    // For now, we save it to DB. The PDF might need an update later to show these.
 
-                                    await handleGeneratePDF(); /* Note: PDF might not show warranty yet */
+                                    // Generate PDF (Robust await)
+                                    await handleGeneratePDF(isWarranty ? 'warranty' : 'standard');
 
+                                    // Finalize
                                     await updateStatus('finalizado', warrantyData);
-                                    alert("Servicio finalizado con garantía aplicada correctamente.");
-                                } else if (signaturePurpose === 'warranty_closing') {
-                                    // REPLICATE CLOSING LOGIC BUT GENERATE WARRANTY PDF INSTEAD
-                                    const now = new Date();
-                                    const laborDate = new Date(now);
-                                    laborDate.setMonth(laborDate.getMonth() + warrantyLabor);
-                                    const partsDate = new Date(now);
-                                    partsDate.setMonth(partsDate.getMonth() + warrantyParts);
-                                    const maxDate = laborDate > partsDate ? laborDate : partsDate;
 
-                                    const warrantyData = {
-                                        warranty_labor_months: warrantyLabor,
-                                        warranty_parts_months: warrantyParts,
-                                        warranty_labor_until: laborDate.toISOString(),
-                                        warranty_parts_until: partsDate.toISOString(),
-                                        warranty_until: maxDate.toISOString()
-                                    };
-
-                                    ticket.client_signature_url = publicUrl;
-
-                                    // Generate WARRANTY PDF
-                                    await handleGeneratePDF('warranty');
-
-                                    await updateStatus('finalizado', warrantyData);
-                                    alert("Servicio finalizado. Parte de Garantía generado correctamente.");
+                                    // SUCCESS FEEDBACK -> MODAL (No Alert)
+                                    setCompletionType(isWarranty ? 'warranty' : 'standard');
+                                    setShowSignaturePad(false);
+                                    setShowSuccessModal(true);
                                 }
-
-                                setShowSignaturePad(false);
                             } catch (e) {
                                 console.error(e);
                                 alert("Error guardando firma: " + e.message);
@@ -2077,6 +2055,14 @@ const TechTicketDetail = () => {
                     />
                 )
             }
+
+            {/* ROBUST SUCCESS MODAL */}
+            <ServiceCompletionModal
+                isOpen={showSuccessModal}
+                onClose={() => setShowSuccessModal(false)}
+                ticketNumber={ticket?.ticket_number}
+                type={completionType}
+            />
 
         </div >
     );
