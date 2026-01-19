@@ -1253,10 +1253,17 @@ const GlobalAgenda = () => {
                                         {!isOptimizing && proposedMoves.length === 0 ? (
                                             <button
                                                 onClick={() => runOptimizerAnalysis(optimizingDay, optimizationStrategy)}
-                                                className="w-full py-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-black rounded-xl shadow-xl shadow-indigo-200 transition-all flex items-center justify-center gap-2 transform active:scale-95"
+                                                disabled={!optimizingDay || !optimizationStrategy}
+                                                className={`w-full py-4 font-black rounded-xl shadow-xl transition-all flex items-center justify-center gap-2 transform active:scale-95 ${(!optimizingDay || !optimizationStrategy) ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-indigo-200'}`}
                                             >
-                                                <Zap size={18} className="fill-white animate-pulse" />
-                                                <span>ANALIZAR RUTA ({optimizingDay ? optimizingDay.toLocaleDateString() : '...'})</span>
+                                                {!optimizationStrategy ? (
+                                                    <span>2. SELECCIONA ESTRATEGIA ARRIBA 👆</span>
+                                                ) : (
+                                                    <>
+                                                        <Zap size={18} className="fill-white animate-pulse" />
+                                                        <span>ANALIZAR RUTA ({optimizingDay ? optimizingDay.toLocaleDateString() : '...'})</span>
+                                                    </>
+                                                )}
                                             </button>
                                         ) : (
                                             /* Results */
