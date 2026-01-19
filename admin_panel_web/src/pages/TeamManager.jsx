@@ -141,47 +141,53 @@ const TeamManager = () => {
     };
 
     useEffect(() => {
+        setMembers([]); // Clear list to prevent stale render during switch
         fetchMembers();
     }, [activeTab, showDeleted]);
 
     const fetchMembers = async () => {
         setLoading(true);
-        const targetRole = activeTab === 'admins' ? 'admin' : 'tech';
+        try {
+            const targetRole = activeTab === 'admins' ? 'admin' : 'tech';
+            let query = supabase
+                .from('profiles')
+                .select(`
+                    *,
+                    tickets:tickets!technician_id(status),
+                    is_super_admin
+                `)
+                .eq('role', targetRole)
+                .order('created_at', { ascending: false });
 
-        let query = supabase
-            .from('profiles')
-            .select(`
-                *,
-                tickets:tickets!technician_id(status),
-                is_super_admin
-            `)
-            .eq('role', targetRole)
-            .order('created_at', { ascending: false });
+            if (showDeleted) {
+                query = query.not('deleted_at', 'is', null);
+            } else {
+                query = query.is('deleted_at', null);
+            }
 
-        if (showDeleted) {
-            query = query.not('deleted_at', 'is', null);
-        } else {
-            query = query.is('deleted_at', null);
+            const { data, error } = await query;
+
+            if (error) {
+                console.error('Error fetching members:', error);
+                // Don't alert detailed error to user, just log it
+            } else {
+                const processed = (data || []).map(m => {
+                    // SAFEGUARD: Ensure tickets is an array
+                    const tickets = Array.isArray(m.tickets) ? m.tickets : [];
+                    const stats = {
+                        assigned: tickets.filter(t => t && ['solicitado', 'asignado', 'en_camino'].includes(t.status)).length,
+                        in_process: tickets.filter(t => t && ['en_diagnostico', 'esperando_aprobacion', 'en_reparacion'].includes(t.status)).length,
+                        closed: tickets.filter(t => t && ['finalizado', 'pagado'].includes(t.status)).length
+                    };
+                    return { ...m, tickets, stats };
+                });
+                setMembers(processed);
+            }
+        } catch (e) {
+            console.error("CRITICAL: Error processing members:", e);
+        } finally {
+            setLoading(false);
         }
-
-        const { data, error } = await query;
-
-        if (error) {
-            console.error('Error fetching members:', error);
-            alert("DEBUG ERROR: " + error.message); // Visible error for debugging
-        } else {
-            const processed = data.map(m => {
-                const tickets = m.tickets || [];
-                const stats = {
-                    assigned: tickets.filter(t => ['solicitado', 'asignado', 'en_camino'].includes(t.status)).length,
-                    in_process: tickets.filter(t => ['en_diagnostico', 'esperando_aprobacion', 'en_reparacion'].includes(t.status)).length,
-                    closed: tickets.filter(t => ['finalizado', 'pagado'].includes(t.status)).length
-                };
-                return { ...m, stats };
-            });
-            setMembers(processed);
-        }
-        setLoading(false);
     };
 
     const handleRestoreMember = async (member) => {

@@ -27,10 +27,14 @@ const AuthGuard = ({ children }) => {
                     <p className="text-slate-600 mb-6 font-bold">Tu cuenta ({user.email}) no tiene permisos de Administrador.</p>
                     <p className="text-slate-500 mb-6 text-sm">Esta aplicación es exclusiva para gestión administrativa.</p>
                     <button
-                        onClick={() => window.location.reload()} // Simple way to reset/logout via Context or button
-                        className="bg-slate-900 text-white px-6 py-2 rounded-lg"
+                        onClick={async () => {
+                            const { supabase } = await import('../lib/supabase');
+                            await supabase.auth.signOut();
+                            window.location.href = '/login';
+                        }}
+                        className="bg-slate-900 text-white px-6 py-2 rounded-lg hover:bg-slate-800 transition shadow-lg"
                     >
-                        Volver al Login
+                        Cerrar Sesión y Volver al Login
                     </button>
                 </div>
             </div>

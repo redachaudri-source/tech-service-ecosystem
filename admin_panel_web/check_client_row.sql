@@ -1,1 +1,1 @@
-SELECT id, email FROM auth.users WHERE email = 'reda@example.com';
+SELECT id, email FROM auth.users WHERE email = 'admin@techservice.com';
