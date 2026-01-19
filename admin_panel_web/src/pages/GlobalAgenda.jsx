@@ -1248,29 +1248,29 @@ const GlobalAgenda = () => {
                                         </p>
                                     </section>
 
-                                    {/* 3. Action Button / Results */}
+                                    {/* 3. Action Button */}
                                     <section className={`transition-all duration-300 ${!optimizingDay ? 'opacity-50 pointer-events-none grayscale' : 'opacity-100'}`}>
-                                        {!isOptimizing && proposedMoves.length === 0 ? (
-                                            <button
-                                                onClick={() => runOptimizerAnalysis(optimizingDay, optimizationStrategy)}
-                                                disabled={!optimizingDay || !optimizationStrategy}
-                                                className={`w-full py-4 font-black rounded-xl shadow-xl transition-all flex items-center justify-center gap-2 transform active:scale-95 ${(!optimizingDay || !optimizationStrategy) ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-indigo-200'}`}
-                                            >
-                                                {!optimizationStrategy ? (
-                                                    <span>2. SELECCIONA ESTRATEGIA ARRIBA 👆</span>
-                                                ) : (
-                                                    <>
-                                                        <Zap size={18} className="fill-white animate-pulse" />
-                                                        <span>ANALIZAR RUTA ({optimizingDay ? optimizingDay.toLocaleDateString() : '...'})</span>
-                                                    </>
-                                                )}
-                                            </button>
-                                        ) : (
-                                            /* Results */
-                                            <div className="bg-white rounded-2xl p-5 shadow-sm border border-emerald-100 mt-4">
+                                        <button
+                                            onClick={() => runOptimizerAnalysis(optimizingDay, optimizationStrategy)}
+                                            disabled={!optimizingDay || !optimizationStrategy}
+                                            className={`w-full py-4 font-black rounded-xl shadow-xl transition-all flex items-center justify-center gap-2 transform active:scale-95 mb-4 ${(!optimizingDay || !optimizationStrategy) ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-indigo-200'}`}
+                                        >
+                                            {!optimizationStrategy ? (
+                                                <span>2. SELECCIONA ESTRATEGIA ARRIBA 👆</span>
+                                            ) : (
+                                                <>
+                                                    <Zap size={18} className="fill-white animate-pulse" />
+                                                    <span>{proposedMoves.length > 0 ? `RECALCULAR (${optimizationStrategy})` : `ANALIZAR RUTA (${optimizingDay ? optimizingDay.toLocaleDateString() : '...'})`}</span>
+                                                </>
+                                            )}
+                                        </button>
+
+                                        {/* 4. Results Section (Conditional) */}
+                                        {!isOptimizing && proposedMoves.length > 0 && (
+                                            <div className="bg-white rounded-2xl p-5 shadow-sm border border-emerald-100 animate-fade-in-up">
                                                 <div className="flex items-center justify-between mb-4">
                                                     <h4 className="font-bold text-emerald-800 flex items-center gap-2"><CheckSquare size={16} /> ANÁLISIS COMPLETADO</h4>
-                                                    <button onClick={() => { setProposedMoves([]); setOptimizingDay(null); }} className="text-[10px] text-slate-400 hover:text-red-500 font-bold border rounded px-1">RESET</button>
+                                                    <button onClick={() => { setProposedMoves([]); setOptimizingDay(null); setOptimizationStrategy(null); }} className="text-[10px] text-slate-400 hover:text-red-500 font-bold border rounded px-1">RESET TOTAL</button>
                                                 </div>
 
                                                 <div className="flex gap-4 mb-6">
@@ -1285,7 +1285,7 @@ const GlobalAgenda = () => {
                                                     </div>
                                                 </div>
 
-                                                <p className="text-sm text-slate-600 mb-4 text-center">Se han encontrado <strong className="text-emerald-600">{proposedMoves.length} mejoras</strong>.</p>
+                                                <p className="text-sm text-slate-600 mb-4 text-center">Se han encontrado <strong className="text-emerald-600">{proposedMoves.length} mejoras</strong> con {optimizationStrategy}.</p>
                                                 <button
                                                     onClick={() => setOptimizerStep('PROPOSAL')}
                                                     className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-200 transition-all flex items-center justify-center gap-2"
