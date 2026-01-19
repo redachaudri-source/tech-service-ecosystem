@@ -340,8 +340,7 @@ const GlobalAgenda = () => {
         // ⚠️ CONFIRMATION (Mirroring Manual Logic)
         const isConfirmed = window.confirm(
             `🚀 ¿CONFIRMAR OPTIMIZACIÓN?\n\n` +
-            `Se van a reprogramar ${proposedMoves.length} citas para reducir tiempos de viaje.\n` +
-            `Esta acción actualizará la agenda en tiempo real.`
+            `Se van a reprogramar ${proposedMoves.length} citas para reducir tiempos de viaje.`
         );
 
         if (!isConfirmed) return;
@@ -349,7 +348,7 @@ const GlobalAgenda = () => {
         setIsOptimizing(true);
 
         try {
-            // Optimistic Updates
+            // Optimistic Updates (UI First)
             const movesMap = new Map();
             proposedMoves.forEach(m => movesMap.set(m.appt.id, m.newStart));
 
@@ -361,16 +360,39 @@ const GlobalAgenda = () => {
                 return p;
             }));
 
-            // Sequential DB Updates (Safer for Triggers/Locks)
+            // 🛡️ PARKING LOT STRATEGY (2-PHASE COMMIT)
+            // Phase 1: Move to Temporary Safe Zone (Year + 20) to clear collisions
+            // We keep the relative order to avoid collisions in the future too.
+            for (const m of proposedMoves) {
+                const tempDate = new Date(m.appt.start);
+                tempDate.setFullYear(tempDate.getFullYear() + 20); // Into the Future 🚀
+
+                const { error } = await supabase.from('tickets')
+                    .update({
+                        scheduled_at: tempDate.toISOString(),
+                        technician_id: m.appt.technician_id
+                    })
+                    .eq('id', m.appt.id);
+
+                if (error) {
+                    console.error("Error in Phase 1 (Parking):", error);
+                    throw new Error(`Fallo Fase 1 (Despeje): ${error.message}`);
+                }
+            }
+
+            // Phase 2: Move to Final Destination
             for (const m of proposedMoves) {
                 const { error } = await supabase.from('tickets')
                     .update({
                         scheduled_at: m.newStart.toISOString(),
-                        technician_id: m.appt.technician_id //Mirror working logic
+                        technician_id: m.appt.technician_id
                     })
                     .eq('id', m.appt.id);
 
-                if (error) throw error;
+                if (error) {
+                    console.error("Error in Phase 2 (Ranking):", error);
+                    throw new Error(`Fallo Fase 2 (Reorden): ${error.message}`);
+                }
             }
 
             addToast(`Ruta optimizada con éxito (${proposedMoves.length} tickets actualizados)`, 'success');
