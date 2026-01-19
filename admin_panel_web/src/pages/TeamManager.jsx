@@ -526,8 +526,8 @@ const TeamManager = () => {
                     members.map(member => (
                         <div key={member.id} className={`group relative bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border overflow-hidden flex flex-col ${member.is_active ? 'border-slate-100' : 'border-red-200 bg-red-50/10'}`}>
 
-                            {/* TOP STATUS BAR */}
-                            <div className={`h-1.5 w-full ${member.is_super_admin ? 'bg-gradient-to-r from-amber-400 to-orange-500' : member.role === 'tech' ? 'bg-gradient-to-r from-blue-500 to-indigo-600' : 'bg-slate-800'}`}></div>
+                            {/* TOP STATUS BAR (Rounded Top Manually) */}
+                            <div className={`h-1.5 w-full rounded-t-2xl ${member.is_super_admin ? 'bg-gradient-to-r from-amber-400 to-orange-500' : member.role === 'tech' ? 'bg-gradient-to-r from-blue-500 to-indigo-600' : 'bg-slate-800'}`}></div>
 
                             <div className="p-5 flex-1 flex flex-col">
                                 <div className="flex items-start justify-between mb-4">
@@ -562,26 +562,42 @@ const TeamManager = () => {
                                     </div>
 
                                     {/* STATUS SWITCHER (Top Right) */}
-                                    <div>
+                                    {/* STATUS SWITCHER (Top Right) - GOD TIER PILL */}
+                                    <div className="relative z-20">
                                         {member.is_super_admin ? (
-                                            <div title="Super Admin Protegido" className="p-2 bg-amber-50 rounded-lg text-amber-500">
+                                            <div title="Super Admin Protegido" className="p-2 bg-amber-50 rounded-xl text-amber-500 shadow-sm border border-amber-100">
                                                 <Shield size={20} fill="currentColor" />
                                             </div>
                                         ) : member.role === 'tech' ? (
-                                            <div className="flex bg-slate-50 rounded-lg p-1 gap-1 border border-slate-100">
-                                                <button onClick={() => initiateStatusChange(member, 'active')} className={`w-7 h-7 rounded-md flex items-center justify-center transition-all ${(member.status || 'active') === 'active' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-300 hover:text-emerald-500'}`} title="Activo">
-                                                    <div className={`w-2 h-2 rounded-full bg-emerald-500 ${(member.status || 'active') === 'active' ? 'animate-pulse' : ''}`}></div>
+                                            <div className="relative group/status">
+                                                <button className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-extrabold shadow-sm transition-all active:scale-95 ${(member.status || 'active') === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:shadow-emerald-100' :
+                                                        member.status === 'paused' ? 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100 hover:shadow-yellow-100' :
+                                                            'bg-red-50 text-red-700 border-red-200 hover:bg-red-100 hover:shadow-red-100'
+                                                    }`}>
+                                                    <div className={`w-2 h-2 rounded-full ${(member.status || 'active') === 'active' ? 'bg-emerald-500 animate-pulse' :
+                                                            member.status === 'paused' ? 'bg-yellow-500' : 'bg-red-500'
+                                                        }`}></div>
+                                                    <span className="uppercase tracking-widest pl-1">
+                                                        {(member.status || 'active') === 'active' ? 'ACTIVO' :
+                                                            member.status === 'paused' ? 'PAUSADO' : 'BAJA'}
+                                                    </span>
+                                                    <ChevronDown size={14} className="ml-1 opacity-50" />
                                                 </button>
-                                                <button onClick={() => initiateStatusChange(member, 'paused')} className={`w-7 h-7 rounded-md flex items-center justify-center transition-all ${member.status === 'paused' ? 'bg-white text-yellow-600 shadow-sm' : 'text-slate-300 hover:text-yellow-500'}`} title="Pausado">
-                                                    <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-                                                </button>
-                                                <button onClick={() => initiateStatusChange(member, 'suspended')} className={`w-7 h-7 rounded-md flex items-center justify-center transition-all ${member.status === 'suspended' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-300 hover:text-red-500'}`} title="Suspendido">
-                                                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                                                </button>
+
+                                                <select
+                                                    value={member.status || 'active'}
+                                                    onChange={(e) => initiateStatusChange(member, e.target.value)}
+                                                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                                                >
+                                                    <option value="active">🟢 Activo</option>
+                                                    <option value="paused">🟡 Pausado</option>
+                                                    <option value="suspended">🔴 Suspendido / Baja</option>
+                                                </select>
                                             </div>
                                         ) : (
-                                            <button onClick={() => handleToggleStatus(member)} className={`p-2 rounded-lg transition-all ${member.is_active ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-red-50 text-red-500 hover:bg-red-100'}`} title={member.is_active ? "Cuenta Activa" : "Cuenta Bloqueada"}>
-                                                {member.is_active ? <Unlock size={18} /> : <Lock size={18} />}
+                                            <button onClick={() => handleToggleStatus(member)} className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold shadow-sm transition-all active:scale-95 ${member.is_active ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100' : 'bg-red-50 text-red-500 border-red-200 hover:bg-red-100'}`} title={member.is_active ? "Cuenta Activa" : "Cuenta Bloqueada"}>
+                                                {member.is_active ? <Unlock size={14} /> : <Lock size={14} />}
+                                                {member.is_active ? 'ACCESO OK' : 'BLOQUEADO'}
                                             </button>
                                         )}
                                     </div>
