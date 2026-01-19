@@ -178,7 +178,7 @@ const GlobalAgenda = () => {
     const [calledIds, setCalledIds] = useState([]); // To track calls made
 
     // --- AI LOGIC (v3.0 - SANDWICH + STACKING) ---
-    const runOptimizerAnalysis = async (day) => {
+    const runOptimizerAnalysis = async (day, activeStrategy = 'BOOMERANG') => {
         setOptimizingDay(day);
         setIsOptimizing(true);
         setOptimizerStep('ANALYSIS');
@@ -234,8 +234,8 @@ const GlobalAgenda = () => {
         let pool = [...dayEvents];
         const idealSequence = [];
 
-        if (optimizationStrategy === 'BOOMERANG') {
-            console.log('🪃 Estrategia BOOMERANG Activa');
+        if (activeStrategy === 'BOOMERANG') {
+            console.log(`🪃 Estrategia BOOMERANG Activa (Input: ${activeStrategy})`);
 
             // A. Start Anchor (Closest to Home)
             pool.sort((a, b) => Math.abs(getCP(a) - startCP) - Math.abs(getCP(b) - startCP));
@@ -1146,7 +1146,7 @@ const GlobalAgenda = () => {
                                                 return (
                                                     <button
                                                         key={d.toISOString()}
-                                                        onClick={() => runOptimizerAnalysis(d)}
+                                                        onClick={() => runOptimizerAnalysis(d, optimizationStrategy)}
                                                         disabled={isOptimizing}
                                                         className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-200 ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg transform -translate-y-1' : 'bg-white border-slate-200 text-slate-400 hover:border-indigo-300 hover:text-indigo-500'}`}
                                                     >
