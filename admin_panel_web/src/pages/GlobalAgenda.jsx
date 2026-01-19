@@ -228,55 +228,127 @@ const GlobalAgenda = () => {
 
         const getCP = (t) => parseInt(t.client?.postal_code?.replace(/\D/g, '') || '99999');
 
-        // 3. ✨ STRATEGY SELECTION: 'BOOMERANG' vs 'EXPANSIVE' (Sandwich legacy)
-        // Default Logic: BOOMERANG (Start Close -> Jump Far -> Coming Back Home)
+        // 3. 🧠 P.R.O.C. SYSTEM CORE (Postal Route Optimization Core)
+        // Logic: Hierarchical Cost (AA-B-CC)
+        // Phase 1: Province (AA) -> Huge Cost
+        // Phase 2: Sector (B) -> High Cost (100)
+        // Phase 3: District (CC) -> Low Cost (1)
+
+        const getHierarchicalCost = (homeCP, targetCP) => {
+            const sHome = String(homeCP).padStart(5, '0');
+            const sTarget = String(targetCP).padStart(5, '0');
+
+            // Level 1: Province (Digits 1-2)
+            if (sHome.slice(0, 2) !== sTarget.slice(0, 2)) return 2000; // Different Province
+
+            // Level 2: Sector (Digit 3)
+            const sectorHome = sHome[2];
+            const sectorTarget = sTarget[2];
+            if (sectorHome !== sectorTarget) {
+                // Calculate Sector distance (e.g. Sector 6 vs Sector 0)
+                return 100 + (Math.abs(parseInt(sectorHome) - parseInt(sectorTarget)) * 10);
+            }
+
+            // Level 3: District (Digits 4-5) - Local street travel
+            return Math.abs(homeCP - targetCP); // Simple numeric diff for neighborhoods
+        };
+
+        const getSector = (cp) => String(cp).padStart(5, '0')[2];
 
         let pool = [...dayEvents];
         const idealSequence = [];
 
-        if (activeStrategy === 'BOOMERANG') {
-            console.log(`🪃 Estrategia BOOMERANG Activa (Input: ${activeStrategy})`);
+        console.log(`🧠 P.R.O.C. System Activated. Strategy: ${activeStrategy}`);
 
-            // A. Start Anchor (Closest to Home)
-            pool.sort((a, b) => Math.abs(getCP(a) - startCP) - Math.abs(getCP(b) - startCP));
-            const startAnchor = pool.shift();
-            idealSequence.push(startAnchor);
+        if (activeStrategy === 'CENTRIFUGA') {
+            // --- ESTRATEGIA A: CENTRÍFUGA (Star Fast / Expansive) ---
+            // Logic: From Home -> Outwards (Spiral)
+            // Order by Hierarchical Cost from Home (Ascending)
 
-            if (pool.length > 0) {
-                // B. Jump to Furthest (The "Boomerang Throw")
-                pool.sort((a, b) => Math.abs(getCP(b) - startCP) - Math.abs(getCP(a) - startCP)); // Descending Dist
-                const furtestPoint = pool.shift();
-                idealSequence.push(furtestPoint);
+            pool.sort((a, b) => getHierarchicalCost(startCP, getCP(a)) - getHierarchicalCost(startCP, getCP(b)));
+            idealSequence.push(...pool);
 
-                // C. Return Path (From Furthest -> Towards Home)
-                // We want remaining points sorted by distance to Home (Descending) effectively?
-                // Or rather: From 'furtestPoint', find closest neighbor that is also closer to Home?
-                // Simple Heuristic: Sort remaining by distance to Home (Descending). 
-                // So we visit the ones far away (but closer than max) -> towards home.
-                pool.sort((a, b) => Math.abs(getCP(b) - startCP) - Math.abs(getCP(a) - startCP));
-                idealSequence.push(...pool);
+        } else if (activeStrategy === 'SANDWICH') {
+            // --- ESTRATEGIA C: SANDWICH (Mixed) ---
+            // 1. Appetizer: 1 Job in Home Sector (Warmup)
+            // 2. Main Course: Jump to Furthest Sector -> Return (Boomerang)
+            // 3. Dessert: Remaining Home Sector jobs
+
+            // A. Appetizer
+            // Find jobs in same sector as Home
+            const homeSector = getSector(startCP);
+            const sameSectorJobs = pool.filter(j => getSector(getCP(j)) === homeSector);
+            const otherSectorJobs = pool.filter(j => getSector(getCP(j)) !== homeSector);
+
+            // Heuristic: Take the Closest ONE from sameSectorJobs as Appetizer
+            let appetizer = null;
+            if (sameSectorJobs.length > 0) {
+                sameSectorJobs.sort((a, b) => Math.abs(getCP(a) - startCP) - Math.abs(getCP(b) - startCP));
+                appetizer = sameSectorJobs.shift();
+                idealSequence.push(appetizer);
             }
+
+            // B. Main Course + Dessert Pool
+            // Pool now is: remaining sameSectorJobs + all otherSectorJobs
+            let mainPool = [...otherSectorJobs, ...sameSectorJobs];
+
+            // Sort Main Pool by Distance Descending (Furthest First) -> effectively Boomerang
+            // Note: In Sandwich, we want to go Far then come back.
+            // We use the same Logic as Boomerang Real but applied to the remaining pool.
+
+            // Group by Sector
+            const sectors = {};
+            mainPool.forEach(j => {
+                const s = getSector(getCP(j));
+                if (!sectors[s]) sectors[s] = [];
+                sectors[s].push(j);
+            });
+
+            // Sort Sectors by Distance from Home (Descending)
+            const sortedSeclors = Object.keys(sectors).sort((sa, sb) =>
+                Math.abs(parseInt(sa) - parseInt(getSector(startCP))) - Math.abs(parseInt(sb) - parseInt(getSector(startCP)))
+            ).reverse(); // Reverse to get Furthest First
+
+            // Flatten
+            sortedSeclors.forEach(sectorKey => {
+                const jobsInSector = sectors[sectorKey];
+                // Within sector, minimize local travel? Or just nearest neighbor?
+                // Simple: Sort by CP to keep them clustered
+                jobsInSector.sort((a, b) => getCP(a) - getCP(b));
+                idealSequence.push(...jobsInSector);
+            });
 
         } else {
-            // 'EXPANSIVE' (Classic / Nearest Neighbor Pure) - Mancha de aceite
-            // Just find closest neighbor iteratively
-            console.log('💧 Estrategia EXPANSIVA Activa');
+            // --- ESTRATEGIA B: BOOMERANG REAL (Default / End Close) ---
+            // Logic: Jump to Furthest Sector -> Work Backwards -> End at Home
 
-            // Start closest to home
-            pool.sort((a, b) => Math.abs(getCP(a) - startCP) - Math.abs(getCP(b) - startCP));
-            const first = pool.shift();
-            idealSequence.push(first);
+            // 1. Group by Sector
+            const sectors = {};
+            pool.forEach(j => {
+                const s = getSector(getCP(j));
+                if (!sectors[s]) sectors[s] = [];
+                sectors[s].push(j);
+            });
 
-            let ptrCP = getCP(first);
-            while (pool.length > 0) {
-                pool.sort((a, b) => Math.abs(getCP(a) - ptrCP) - Math.abs(getCP(b) - ptrCP));
-                const next = pool.shift();
-                idealSequence.push(next);
-                ptrCP = getCP(next);
-            }
+            // 2. Sort Sectors by Distance from Home (DESCENDING)
+            // We want Furthest Sector first.
+            const homeSectorVal = parseInt(getSector(startCP));
+            const sectorKeys = Object.keys(sectors).sort((a, b) => {
+                const distA = Math.abs(parseInt(a) - homeSectorVal);
+                const distB = Math.abs(parseInt(b) - homeSectorVal);
+                return distA - distB; // Descending (Larger distance first)
+            });
+
+            // 3. Build Sequence
+            sectorKeys.forEach(sectorKey => {
+                const jobs = sectors[sectorKey];
+                // Inside the sector, optimize locally (Simple CP sort for neighborhood clustering)
+                jobs.sort((a, b) => getCP(a) - getCP(b));
+                idealSequence.push(...jobs);
+            });
         }
 
-        // Final Ideal Array (Already built in idealSequence)
+        // Final Ideal Array
         const fullSequence = idealSequence;
 
         // 4. SMART STACKING (Timeline Reconstruction)
@@ -1085,10 +1157,10 @@ const GlobalAgenda = () => {
                             <div className="relative z-10">
                                 <div className="flex items-center gap-2 mb-1 opacity-80">
                                     <Zap className="text-amber-400" size={16} />
-                                    <span className="text-xs font-bold tracking-widest">MRCP SYSTEM v2.0</span>
+                                    <span className="text-xs font-bold tracking-widest">P.R.O.C. SYSTEM v1.0</span>
                                 </div>
                                 <h2 className="text-2xl font-black tracking-tight">Optimizar Rutas</h2>
-                                <p className="text-slate-400 text-xs mt-1">Algoritmo de agrupación por Código Postal.</p>
+                                <p className="text-slate-400 text-xs mt-1">Algoritmo de agrupación por Código Postal Jerárquico.</p>
                             </div>
                             {/* CLOSE BUTTON FIXED */}
                             <button
@@ -1111,29 +1183,38 @@ const GlobalAgenda = () => {
                                     <section className="bg-white p-3 rounded-xl border border-slate-200">
                                         <div className="flex items-center justify-between mb-2">
                                             <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                                                <Navigation size={12} /> ESTRATEGIA
+                                                <Navigation size={12} /> ESTRATEGIA P.R.O.C.
                                             </h3>
-                                            <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono">v2.0</span>
+                                            <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-mono font-bold">CORE v1.0</span>
                                         </div>
 
                                         <div className="flex bg-slate-100 rounded-lg p-1 border border-slate-200">
                                             <button
+                                                onClick={() => setOptimizationStrategy('CENTRIFUGA')}
+                                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-1 rounded-md text-[9px] font-bold transition-all ${optimizationStrategy === 'CENTRIFUGA' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-slate-400 hover:text-slate-600'}`}
+                                                title="Empieza por Coste 0 (Barrio) -> Expande en espiral"
+                                            >
+                                                <span>🌀</span> CENTRÍFUGA
+                                            </button>
+                                            <button
+                                                onClick={() => setOptimizationStrategy('SANDWICH')}
+                                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-1 rounded-md text-[9px] font-bold transition-all ${optimizationStrategy === 'SANDWICH' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-slate-400 hover:text-slate-600'}`}
+                                                title="Entrante Local -> Plato Fuerte Lejos -> Postre Local"
+                                            >
+                                                <span>🥪</span> SANDWICH
+                                            </button>
+                                            <button
                                                 onClick={() => setOptimizationStrategy('BOOMERANG')}
-                                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-md text-[10px] font-bold transition-all ${optimizationStrategy === 'BOOMERANG' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-slate-400 hover:text-slate-600'}`}
+                                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-1 rounded-md text-[9px] font-bold transition-all ${optimizationStrategy === 'BOOMERANG' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-slate-400 hover:text-slate-600'}`}
+                                                title="Salto al mas lejano -> Vuelta a casa"
                                             >
                                                 <span>🪃</span> BOOMERANG
                                             </button>
-                                            <button
-                                                onClick={() => setOptimizationStrategy('EXPANSIVE')}
-                                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-md text-[10px] font-bold transition-all ${optimizationStrategy === 'EXPANSIVE' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-slate-400 hover:text-slate-600'}`}
-                                            >
-                                                <span>💧</span> EXPANSIVO
-                                            </button>
                                         </div>
                                         <p className="text-[10px] text-slate-500 mt-2 px-1 text-center leading-tight">
-                                            {optimizationStrategy === 'BOOMERANG'
-                                                ? "Prioriza: Empezar cerca → Salto Lejano → Volver a Casa."
-                                                : "Prioriza: Distancia mínima entre puntos (Barrido)."}
+                                            {optimizationStrategy === 'CENTRIFUGA' && "Prioridad: Eliminar rápido trabajos cercanos y expandir."}
+                                            {optimizationStrategy === 'SANDWICH' && "Prioridad: Mix equilibrado. Empieza y acaba cerca."}
+                                            {optimizationStrategy === 'BOOMERANG' && "Prioridad: Asegurar retorno. Empieza lejos, acaba en casa."}
                                         </p>
                                     </section>
 
