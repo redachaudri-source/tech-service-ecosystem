@@ -1367,26 +1367,11 @@ const GlobalAgenda = () => {
                             {/* VIEW A: ANALYSIS DASHBOARD */}
                             {optimizerStep === 'ANALYSIS' && (
                                 <div className="space-y-6 animate-fade-in">
-                                    {/* 0. MODE TOGGLE */}
-                                    <div className="flex bg-slate-100 p-1 rounded-xl mb-6 border border-slate-200">
-                                        <button
-                                            onClick={() => setOptimizerMode('DAY')}
-                                            className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-all ${optimizerMode === 'DAY' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                        >
-                                            MODO DÍA
-                                        </button>
-                                        <button
-                                            onClick={() => setOptimizerMode('WEEK')}
-                                            className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-all ${optimizerMode === 'WEEK' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                        >
-                                            MODO SEM (P.R.O.C)
-                                        </button>
-                                    </div>
-
-                                    {/* 1. SELECTION (Conditional) */}
+                                    {/* 0. MODE TOGGLE (DISABLED) */}
+{/* 1. SELECTION (Conditional) */}
                                     <section className="mb-4">
                                         <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1">
-                                            <Calendar size={12} /> {optimizerMode === 'DAY' ? '1. SELECCIONA DÍA' : '1. RANGO DE FECHAS'}
+                                            <Calendar size={12} /> 1. SELECCIONA DÍA
                                         </h3>
 
                                         {optimizerMode === 'WEEK' ? (
@@ -1432,7 +1417,7 @@ const GlobalAgenda = () => {
                                     </section>
 
                                     {/* 2. Strategy Selector */}
-                                    <section className={`bg-white p-3 rounded-xl border border-slate-200 transition-opacity duration-300 ${!optimizingDay && optimizerMode === 'DAY' || (optimizerMode === 'WEEK' && (!weekRange.start || !weekRange.end)) ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+                                    <section className={`bg-white p-3 rounded-xl border border-slate-200 transition-opacity duration-300 ${!optimizingDay ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
                                         <div className="flex items-center justify-between mb-2">
                                             <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
                                                 <Navigation size={12} /> 2. ESTRATEGIA
