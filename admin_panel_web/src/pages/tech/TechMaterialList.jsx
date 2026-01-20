@@ -47,6 +47,7 @@ const TechMaterialList = () => {
             const { error } = await supabase.from('tickets').update({
                 material_ordered: true,
                 material_supplier: supplier,
+                material_ordered_by: user.id,
                 material_status_at: new Date().toISOString()
             }).eq('id', ticketId);
 
@@ -69,6 +70,7 @@ const TechMaterialList = () => {
         try {
             const { error } = await supabase.from('tickets').update({
                 material_received: true,
+                material_received_by: user.id,
                 material_status_at: new Date().toISOString()
             }).eq('id', ticketId);
 

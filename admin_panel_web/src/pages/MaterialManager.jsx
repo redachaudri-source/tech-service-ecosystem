@@ -72,16 +72,38 @@ const MaterialManager = () => {
                 .from('tickets')
                 .update({
                     material_ordered: true,
-                    material_supplier: supplier
+                    material_supplier: supplier,
+                    material_ordered_by: user.id,
+                    material_status_at: new Date().toISOString()
                 })
                 .eq('id', ticket.id);
 
             if (error) throw error;
-            // No need to alert, list updates automatically via realtime or we can force fetch
             fetchTickets();
         } catch (error) {
             console.error(error);
             alert('Error al actualizar: ' + error.message);
+        }
+    };
+
+    const handleForceReception = async (ticket) => {
+        if (!window.confirm("¿Estás seguro de que quieres forzar la recepción? Esto marcará el material como recibido por la oficina.")) return;
+
+        try {
+            const { error } = await supabase
+                .from('tickets')
+                .update({
+                    material_received: true,
+                    material_received_by: user.id,
+                    material_status_at: new Date().toISOString()
+                })
+                .eq('id', ticket.id);
+
+            if (error) throw error;
+            fetchTickets();
+        } catch (error) {
+            console.error(error);
+            alert('Error al forzar recepción: ' + error.message);
         }
     };
 
@@ -271,6 +293,13 @@ const MaterialManager = () => {
                                                             <span className="text-xs font-bold text-orange-400">
                                                                 Esperando al Técnico...
                                                             </span>
+                                                            <button
+                                                                onClick={() => handleForceReception(ticket)}
+                                                                className="ml-2 bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800 px-2 py-1 rounded text-xs transition border border-slate-300 font-bold"
+                                                                title="Forzar Recepción (Oficina)"
+                                                            >
+                                                                Forzar Rx
+                                                            </button>
                                                         </div>
                                                     )}
 
