@@ -791,33 +791,18 @@ const GlobalAgenda = () => {
                 if (dayJobs.length === 0) continue;
                 const targetDateObj = new Date(dateStr);
 
-                // STRICT SEPARATION: P.R.O.C. WEEK only moves dates.
-                // We do NOT call calculateDayMoves (that's for P.R.O.C. DAY).
-                // We simply ensure every job in 'dayJobs' is actually ON 'targetDateObj'.
+                // CASCADE: Week Distributor -> Day Optimizer
+                // Zone Clustering determined the DAY. Now we let P.R.O.C. DAY determine the TIME.
+                const dayMoves = calculateDayMoves(targetDateObj, dayJobs, optimizationStrategy, startCP);
 
-                dayJobs.forEach(job => {
-                    const currentStart = new Date(job.start_time);
-
-                    // Check if date matches
-                    const isSameDate = currentStart.toDateString() === targetDateObj.toDateString();
-
-                    if (!isSameDate) {
-                        // MOVE REQUIRED: Change Date, KEEP Time.
-                        const newStart = new Date(targetDateObj);
-                        newStart.setHours(currentStart.getHours());
-                        newStart.setMinutes(currentStart.getMinutes());
-                        newStart.setSeconds(0);
-
-                        aggregatedMoves.push({
-                            type: 'RESCHEDULE',
-                            appt: job,
-                            newStart: newStart,
-                            travelMin: 0, // No routing calc
-                            reason: 'Zone Redistribution (Week Mode)'
-                        });
-                    }
-                    // Else: Job is already on the correct day for its zone. Leave it alone.
-                });
+                // Add to aggregate list
+                aggregatedMoves.push(...dayMoves.map(m => ({
+                    type: 'RESCHEDULE',
+                    appt: m.appt,
+                    newStart: m.newStart, 
+                    travelMin: 0,
+                    reason: 'Zone + Route Optimization'
+                })));
             }
 
             console.log(`WEEK OPTIMIZER: Generated ${aggregatedMoves.length} moves.`);
