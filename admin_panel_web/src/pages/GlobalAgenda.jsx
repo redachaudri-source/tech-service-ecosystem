@@ -177,7 +177,9 @@ const GlobalAgenda = () => {
     const [proposedMoves, setProposedMoves] = useState([]); // { appt, newStart }
     const [calledIds, setCalledIds] = useState([]); // To track calls made
 
-    // ⚡ HOT RELOAD REMOVED: Manual Trigger Only as requested.
+    // 🆕 P.R.O.C. WEEK STATE
+    const [optimizerMode, setOptimizerMode] = useState('DAY'); // 'DAY' | 'WEEK'
+    const [weekRange, setWeekRange] = useState({ start: '', end: '' }); // ISO Date Strings YYYY-MM-DD
 
     // --- AI LOGIC (v3.0 - SANDWICH + STACKING) ---
     const runOptimizerAnalysis = async (day, activeStrategy = 'BOOMERANG') => {
@@ -637,6 +639,81 @@ const GlobalAgenda = () => {
             console.error("Fatal Error in fetchAgendaData:", error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // 🆕 FETCH RANGE DATA (P.R.O.C. WEEK Helper)
+    const fetchRangeData = async (startStr, endStr) => {
+        if (!startStr || !endStr) return [];
+        console.log(`📡 Fetching Range: ${startStr} to ${endStr}`);
+
+        const { data, error } = await supabase
+            .from('tickets')
+            .select(`*, client:profiles!client_id(*), client_appliances(*)`)
+            .gte('scheduled_at', `${startStr}T00:00:00`)
+            .lt('scheduled_at', `${endStr}T23:59:59`)
+            .order('scheduled_at', { ascending: true });
+
+        if (error) {
+            console.error("Error fetching range data:", error);
+            return [];
+        }
+
+        return (data || [])
+            .filter(a => {
+                const s = a.status?.toLowerCase() || '';
+                return !['cancelado', 'rechazado', 'anulado', 'finalizado'].includes(s) && a.technician_id;
+            })
+            .map(a => {
+                let dbAppliance = Array.isArray(a.client_appliances) ? a.client_appliances[0] : a.client_appliances;
+                const jsonAppliance = a.appliance_info;
+                const bestAppliance = (jsonAppliance?.type || jsonAppliance?.brand) ? jsonAppliance : (dbAppliance || {});
+
+                return {
+                    ...a,
+                    start: new Date(a.scheduled_at),
+                    duration: a.estimated_duration || 60,
+                    profiles: a.client || {},
+                    appliance_info: bestAppliance
+                };
+            });
+    };
+
+    // 🆕 OPTIMIZER WEEK (Orchestrator)
+    const runOptimizerWeek = async () => {
+        if (!weekRange.start || !weekRange.end || !optimizationStrategy) {
+            addToast('Selecciona Rango + Estrategia', 'error');
+            return;
+        }
+
+        if (new Date(weekRange.start) > new Date(weekRange.end)) {
+            addToast('Fecha fin debe ser posterior a inicio.', 'error');
+            return;
+        }
+
+        setIsOptimizing(true);
+        setOptimizerStep('ANALYSIS');
+        setProposedMoves([]);
+
+        try {
+            const pool = await fetchRangeData(weekRange.start, weekRange.end);
+
+            if (pool.length === 0) {
+                addToast('No hay trabajos en el rango.', 'info');
+                setIsOptimizing(false);
+                return;
+            }
+
+            console.log(`WEEK OPTIMIZER: Found ${pool.length} jobs.`);
+            addToast(`🔍 Analizando ${pool.length} servicios en modo SEMANA...`, 'info');
+
+            // PHASE 2: Clustering & Distribution will go here...
+
+        } catch (e) {
+            console.error("Week Optimizer Error:", e);
+            addToast('Error en optimización semanal', 'error');
+        } finally {
+            setIsOptimizing(false);
         }
     };
 
@@ -1190,29 +1267,72 @@ const GlobalAgenda = () => {
                             {/* VIEW A: ANALYSIS DASHBOARD */}
                             {optimizerStep === 'ANALYSIS' && (
                                 <div className="space-y-6 animate-fade-in">
-                                    {/* 1. SELECCIONAR DÍA (Fix Version) */}
-                                    <section>
-                                        <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><Calendar size={14} /> 1. SELECCIONAR DÍA</h3>
-                                        <div className="grid grid-cols-4 gap-2">
-                                            {gridDates.slice(0, 7).map(d => {
-                                                const isSelected = optimizingDay && optimizingDay.toDateString() === d.toDateString();
-                                                return (
-                                                    <button
-                                                        key={d.toISOString()}
-                                                        onClick={() => setOptimizingDay(d)}
-                                                        disabled={isOptimizing}
-                                                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-200 ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg transform -translate-y-1' : 'bg-white border-slate-200 text-slate-400 hover:border-indigo-300 hover:text-indigo-500'}`}
-                                                    >
-                                                        <span className="text-[10px] uppercase font-bold">{d.toLocaleDateString('es-ES', { weekday: 'short' })}</span>
-                                                        <span className="text-lg font-black">{d.getDate()}</span>
-                                                    </button>
-                                                )
-                                            })}
-                                        </div>
+                                    {/* 0. MODE TOGGLE */}
+                                    <div className="flex bg-slate-100 p-1 rounded-xl mb-6 border border-slate-200">
+                                        <button
+                                            onClick={() => setOptimizerMode('DAY')}
+                                            className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-all ${optimizerMode === 'DAY' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                        >
+                                            MODO DÍA
+                                        </button>
+                                        <button
+                                            onClick={() => setOptimizerMode('WEEK')}
+                                            className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-all ${optimizerMode === 'WEEK' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                        >
+                                            MODO SEM (P.R.O.C)
+                                        </button>
+                                    </div>
+
+                                    {/* 1. SELECTION (Conditional) */}
+                                    <section className="mb-4">
+                                        <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1">
+                                            <Calendar size={12} /> {optimizerMode === 'DAY' ? '1. SELECCIONA DÍA' : '1. RANGO DE FECHAS'}
+                                        </h3>
+
+                                        {optimizerMode === 'WEEK' ? (
+                                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-3">
+                                                <div className="flex flex-col gap-1">
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Inicio</label>
+                                                    <input
+                                                        type="date"
+                                                        className="w-full text-xs font-bold p-2 rounded border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                        value={weekRange.start}
+                                                        onChange={(e) => setWeekRange({ ...weekRange, start: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div className="flex flex-col gap-1">
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Fin</label>
+                                                    <input
+                                                        type="date"
+                                                        className="w-full text-xs font-bold p-2 rounded border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                        value={weekRange.end}
+                                                        onChange={(e) => setWeekRange({ ...weekRange, end: e.target.value })}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            /* EXISTING DAY SELECTOR */
+                                            <div className="grid grid-cols-4 gap-2">
+                                                {gridDates.map(d => {
+                                                    const isSelected = optimizingDay && optimizingDay.toDateString() === d.toDateString();
+                                                    return (
+                                                        <button
+                                                            key={d.toISOString()}
+                                                            onClick={() => setOptimizingDay(d)}
+                                                            disabled={isOptimizing}
+                                                            className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-200 ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg transform -translate-y-1' : 'bg-white border-slate-200 text-slate-400 hover:border-indigo-300 hover:text-indigo-500'}`}
+                                                        >
+                                                            <span className="text-[10px] uppercase font-bold">{d.toLocaleDateString('es-ES', { weekday: 'short' })}</span>
+                                                            <span className="text-lg font-black">{d.getDate()}</span>
+                                                        </button>
+                                                    )
+                                                })}
+                                            </div>
+                                        )}
                                     </section>
 
                                     {/* 2. Strategy Selector */}
-                                    <section className={`bg-white p-3 rounded-xl border border-slate-200 transition-opacity duration-300 ${!optimizingDay ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+                                    <section className={`bg-white p-3 rounded-xl border border-slate-200 transition-opacity duration-300 ${!optimizingDay && optimizerMode === 'DAY' || (optimizerMode === 'WEEK' && (!weekRange.start || !weekRange.end)) ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
                                         <div className="flex items-center justify-between mb-2">
                                             <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
                                                 <Navigation size={12} /> 2. ESTRATEGIA
@@ -1250,16 +1370,20 @@ const GlobalAgenda = () => {
                                     {/* 3. Action Button */}
                                     <section className={`transition-all duration-300 ${!optimizingDay ? 'opacity-50 pointer-events-none grayscale' : 'opacity-100'}`}>
                                         <button
-                                            onClick={() => runOptimizerAnalysis(optimizingDay, optimizationStrategy)}
-                                            disabled={!optimizingDay || !optimizationStrategy}
-                                            className={`w-full py-4 font-black rounded-xl shadow-xl transition-all flex items-center justify-center gap-2 transform active:scale-95 mb-4 ${(!optimizingDay || !optimizationStrategy) ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-indigo-200'}`}
+                                            onClick={() => optimizerMode === 'WEEK' ? runOptimizerWeek() : runOptimizerAnalysis(optimizingDay, optimizationStrategy)}
+                                            disabled={optimizerMode === 'WEEK' ? (!weekRange.start || !weekRange.end || !optimizationStrategy) : (!optimizingDay || !optimizationStrategy)}
+                                            className={`w-full py-4 font-black rounded-xl shadow-xl transition-all flex items-center justify-center gap-2 transform active:scale-95 mb-4 ${(optimizerMode === 'WEEK' ? (!weekRange.start || !weekRange.end || !optimizationStrategy) : (!optimizingDay || !optimizationStrategy)) ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-indigo-200'}`}
                                         >
                                             {!optimizationStrategy ? (
                                                 <span>2. SELECCIONA ESTRATEGIA ARRIBA 👆</span>
                                             ) : (
                                                 <>
                                                     <Zap size={18} className="fill-white animate-pulse" />
-                                                    <span>{proposedMoves.length > 0 ? `RECALCULAR (${optimizationStrategy})` : `ANALIZAR RUTA (${optimizingDay ? optimizingDay.toLocaleDateString() : '...'})`}</span>
+                                                    <span>
+                                                        {proposedMoves.length > 0 ? `RECALCULAR (${optimizationStrategy})` :
+                                                            (optimizerMode === 'WEEK' ? 'ANALIZAR SEMANA' : `ANALIZAR RUTA (${optimizingDay ? optimizingDay.toLocaleDateString() : '...'})`)
+                                                        }
+                                                    </span>
                                                 </>
                                             )}
                                         </button>
