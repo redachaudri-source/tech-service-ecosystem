@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { Package, ShoppingCart, CheckCircle, ExternalLink, RefreshCw, Smartphone, ClipboardCheck } from 'lucide-react';
+import { Package, ShoppingCart, CheckCircle, ExternalLink, RefreshCw, Smartphone, ClipboardCheck, Clock } from 'lucide-react';
 
 const TechMaterialList = () => {
     const { user } = useAuth();
