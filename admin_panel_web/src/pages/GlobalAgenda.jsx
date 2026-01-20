@@ -716,6 +716,7 @@ const GlobalAgenda = () => {
             });
 
             // 4. DELEGATION - AGGREGATION LOOP
+            let aggregatedMoves = [];
 
 
             // 2. Identify "Km0" (Tech Home or Office) - STRICT MODE
