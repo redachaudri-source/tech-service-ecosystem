@@ -1368,7 +1368,7 @@ const GlobalAgenda = () => {
                                     </section>
 
                                     {/* 3. Action Button */}
-                                    <section className={`transition-all duration-300 ${!optimizingDay ? 'opacity-50 pointer-events-none grayscale' : 'opacity-100'}`}>
+                                    <section className={`transition-all duration-300 ${(optimizerMode === 'DAY' && !optimizingDay) || (optimizerMode === 'WEEK' && (!weekRange.start || !weekRange.end)) ? 'opacity-50 pointer-events-none grayscale' : 'opacity-100'}`}>
                                         <button
                                             onClick={() => optimizerMode === 'WEEK' ? runOptimizerWeek() : runOptimizerAnalysis(optimizingDay, optimizationStrategy)}
                                             disabled={optimizerMode === 'WEEK' ? (!weekRange.start || !weekRange.end || !optimizationStrategy) : (!optimizingDay || !optimizationStrategy)}
