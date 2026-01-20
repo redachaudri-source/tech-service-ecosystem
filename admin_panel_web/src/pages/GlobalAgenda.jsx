@@ -678,20 +678,62 @@ const GlobalAgenda = () => {
 
             console.log(`WEEK OPTIMIZER: Found ${pool.length} jobs. Start Strategy: ${optimizationStrategy}`);
 
-            // 1. CLUSTERING: Group by Sector (CP first 3 digits)
-            const sectors = {};
-            pool.forEach(job => {
-                const cp = job.client?.zip_code || '00000';
-                const sectorCode = cp.substring(0, 3);
-                if (!sectors[sectorCode]) sectors[sectorCode] = [];
-                sectors[sectorCode].push(job);
-            });
+            // 1. CLUSTERING: Group by Sector (Dynamic Precision)
+            // Goal: Find enough distinct clusters to fill the days.
+            // Start with 3 digits. If not enough clusters, drill down to 4, then 5.
+
+            const targetClusterCount = Math.max(2, Math.ceil((dEnd - dStart) / (1000 * 60 * 60 * 24))); // Roughly days count
+
+            const performClustering = (jobs, precision) => {
+                const clusters = {};
+                jobs.forEach(job => {
+                    const cp = job.client?.zip_code || '00000';
+                    const sectorCode = cp.substring(0, precision);
+                    if (!clusters[sectorCode]) clusters[sectorCode] = [];
+                    clusters[sectorCode].push(job);
+                });
+                return clusters;
+            };
+
+            let currentPrecision = 3;
+            let sectors = performClustering(pool, currentPrecision);
+            let sectorKeys = Object.keys(sectors);
+
+            // AUTO-ZOOM: If we have fewer sectors than days, and precision is low, drill down!
+            // Or if we have one HUGE sector that dominates > 50% of work.
+            console.log(`📡 Initial Clustering (Precision ${currentPrecision}): ${sectorKeys.length} sectors`);
+
+            // Heuristic: If we have very few clusters (e.g. 1 big blob), try to split it.
+            // Only split if we have enough jobs to justify it.
+            if (sectorKeys.length < targetClusterCount && currentPrecision < 5) {
+                console.log('🔍 Not enough sectors for Week Mode. Increasing precision...');
+
+                // Strategy: Keep small sectors as is, but EXPLODE big sectors.
+                // Actually, simplest implies just re-clustering logic globally first.
+                // Let's try Global Increase first.
+                const nextLevelSectors = performClustering(pool, currentPrecision + 1);
+                if (Object.keys(nextLevelSectors).length > sectorKeys.length) {
+                    sectors = nextLevelSectors;
+                    currentPrecision++;
+                    console.log(`🔍 Zoomed to Precision ${currentPrecision}. Now ${Object.keys(sectors).length} sectors.`);
+                }
+
+                // One more level check if still monoblock
+                if (Object.keys(sectors).length === 1 && currentPrecision < 5) {
+                    const deepSectors = performClustering(pool, currentPrecision + 1);
+                    if (Object.keys(deepSectors).length > 1) {
+                        sectors = deepSectors;
+                        currentPrecision++;
+                        console.log(`🔍 Zoomed to Precision ${currentPrecision} (Deep Dive).`);
+                    }
+                }
+            }
 
             // 2. SORTING: Sort Sectors by Density (Highest Count First)
             const sortedSectors = Object.entries(sectors)
                 .sort(([, a], [, b]) => b.length - a.length);
 
-            console.log('📡 Sectors identified:', sortedSectors.map(([k, v]) => `${k} (${v.length})`));
+            console.log('📡 Final Sectors identified:', sortedSectors.map(([k, v]) => `${k} (${v.length})`));
 
             // 3. DISTRIBUTION: Assign 1 Sector -> 1 Day (Simple Greedy V1)
             // Get valid working days in range (skip Sundays if needed, but for now allow all)
@@ -709,70 +751,19 @@ const GlobalAgenda = () => {
 
             // Greedy Assignment: Round Robin or Fill-First?
             // Let's do: Assign Top Sector to Day 1, Second to Day 2... Loop if more sectors than days.
+            // 3. DISTRIBUTION: Assign 1 Sector -> 1 Day (Round Robin)
             sortedSectors.forEach(([sectorCode, jobs], index) => {
+                // Use Modulo to cycle through days
                 const dayIndex = index % workingDays.length;
                 const targetDate = workingDays[dayIndex];
                 dateAssignments[targetDate.toDateString()].push(...jobs);
             });
 
-            // 3.5. REBALANCE (Load Balancing for Single-Sector Weeks)
-            // If we have days with 0 jobs and days with too many, we redistribute.
-            const dateKeys = Object.keys(dateAssignments);
-            const totalJobs = dateKeys.reduce((acc, k) => acc + dateAssignments[k].length, 0);
-            const avgLoad = totalJobs > 0 ? Math.ceil(totalJobs / dateKeys.length) : 0;
+            // 3.5. REBALANCE: (Minimal - Only if day is empty)
+            // The smart clustering above should handle most "Mono-Zone" requirements naturally
+            // by splitting big zones into smaller sub-zones (precision 3->4->5).
+            // So we can remove the complex "Spillover" logic and rely on the clustering.
 
-            console.log(`⚖️ Rebalance Check: Total ${totalJobs}, Avg ${avgLoad}`);
-
-            if (avgLoad > 0) {
-                // Sort Days by Load Descending
-                const sortedDays = dateKeys.sort((a, b) => dateAssignments[b].length - dateAssignments[a].length);
-
-                // Iteratively move from Rich to Poor
-                let richIdx = 0;
-                let poorIdx = sortedDays.length - 1;
-
-                // Safety break counter
-                let iterations = 0;
-
-                while (richIdx < poorIdx && iterations < 20) {
-                    const richDayKey = sortedDays[richIdx];
-                    const poorDayKey = sortedDays[poorIdx];
-
-                    const richLoad = dateAssignments[richDayKey].length;
-                    const poorLoad = dateAssignments[poorDayKey].length;
-
-                    // Threshold: Rich must have > avg + 1 (buffer) AND Poor must be < avg
-                    if (richLoad > avgLoad && poorLoad < avgLoad) {
-                        const numToMove = Math.ceil((richLoad - avgLoad) / 2); // Take half of excess
-                        const actualMove = Math.min(numToMove, richLoad - 1); // Leave at least 1
-
-                        if (actualMove > 0) {
-                            console.log(`🔄 Moving ${actualMove} jobs from ${richDayKey} to ${poorDayKey}`);
-
-                            // Sort jobs in Rich Day by CP to keep chunks together (Geographic Preservation)
-                            // Assuming CP is in client.zip_code
-                            dateAssignments[richDayKey].sort((a, b) => {
-                                const cpA = parseInt(a.client?.zip_code?.replace(/\D/g, '') || '0');
-                                const cpB = parseInt(b.client?.zip_code?.replace(/\D/g, '') || '0');
-                                return cpA - cpB;
-                            });
-
-                            // Move the 'Tail' (or Head?) -> Let's move the Tail.
-                            const movingJobs = dateAssignments[richDayKey].splice(-actualMove);
-                            dateAssignments[poorDayKey].push(...movingJobs);
-                        }
-                    }
-
-                    // Advance pointers
-                    const newRichLoad = dateAssignments[richDayKey].length;
-                    const newPoorLoad = dateAssignments[poorDayKey].length;
-
-                    if (newRichLoad <= avgLoad + 1) richIdx++;
-                    if (newPoorLoad >= avgLoad - 1) poorIdx--;
-
-                    iterations++;
-                }
-            }
 
             // 4. DELEGATION - AGGREGATION LOOP
             let aggregatedMoves = [];
@@ -800,19 +791,33 @@ const GlobalAgenda = () => {
                 if (dayJobs.length === 0) continue;
                 const targetDateObj = new Date(dateStr);
 
-                // Run pure calculation (Sequence + Stacking)
-                const dayMoves = calculateDayMoves(targetDateObj, dayJobs, optimizationStrategy, startCP);
+                // STRICT SEPARATION: P.R.O.C. WEEK only moves dates.
+                // We do NOT call calculateDayMoves (that's for P.R.O.C. DAY).
+                // We simply ensure every job in 'dayJobs' is actually ON 'targetDateObj'.
 
-                // We need to force update date as well (since distributeDays might have changed the date)
-                // calculateDayMoves returns { appt, newStart }, but appt.start might be on another day.
-                // WE must ensure the 'newStart' matches the 'targetDateObj' (which it does, because calculateDayMoves uses targetDate for 9:00 start)
+                dayJobs.forEach(job => {
+                    const currentStart = new Date(job.start_time);
 
-                aggregatedMoves.push(...dayMoves.map(m => ({
-                    type: 'RESCHEDULE',
-                    appt: m.appt,
-                    newStart: m.newStart,
-                    travelMin: 0 // TODO: Add if needed
-                })));
+                    // Check if date matches
+                    const isSameDate = currentStart.toDateString() === targetDateObj.toDateString();
+
+                    if (!isSameDate) {
+                        // MOVE REQUIRED: Change Date, KEEP Time.
+                        const newStart = new Date(targetDateObj);
+                        newStart.setHours(currentStart.getHours());
+                        newStart.setMinutes(currentStart.getMinutes());
+                        newStart.setSeconds(0);
+
+                        aggregatedMoves.push({
+                            type: 'RESCHEDULE',
+                            appt: job,
+                            newStart: newStart,
+                            travelMin: 0, // No routing calc
+                            reason: 'Zone Redistribution (Week Mode)'
+                        });
+                    }
+                    // Else: Job is already on the correct day for its zone. Leave it alone.
+                });
             }
 
             console.log(`WEEK OPTIMIZER: Generated ${aggregatedMoves.length} moves.`);
