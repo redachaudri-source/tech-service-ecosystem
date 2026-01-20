@@ -314,12 +314,8 @@ const GlobalAgenda = () => {
             // Flatten
             sortedSeclors.forEach(sectorKey => {
                 const jobsInSector = sectors[sectorKey];
-                // Within sector, sort by Distance from Home DESCENDING (Work backwards to home)
-                jobsInSector.sort((a, b) => {
-                    const distA = Math.abs(getCP(a) - startCP);
-                    const distB = Math.abs(getCP(b) - startCP);
-                    return distB - distA;
-                });
+                // Within sector, sort by CP DESCENDING (Systematic Sweep: High -> Low)
+                jobsInSector.sort((a, b) => getCP(b) - getCP(a));
                 idealSequence.push(...jobsInSector);
             });
 
@@ -347,12 +343,8 @@ const GlobalAgenda = () => {
             // 3. Build Sequence
             sectorKeys.forEach(sectorKey => {
                 const jobs = sectors[sectorKey];
-                // Inside the sector, sort by Distance from Home DESCENDING (Work backwards)
-                jobs.sort((a, b) => {
-                    const distA = Math.abs(getCP(a) - startCP);
-                    const distB = Math.abs(getCP(b) - startCP);
-                    return distB - distA;
-                });
+                // Inside the sector, sort by CP DESCENDING (Systematic Sweep)
+                jobs.sort((a, b) => getCP(b) - getCP(a));
                 idealSequence.push(...jobs);
             });
         }
