@@ -338,7 +338,7 @@ const GlobalAgenda = () => {
             const sectorKeys = Object.keys(sectors).sort((a, b) => {
                 const distA = Math.abs(parseInt(a) - homeSectorVal);
                 const distB = Math.abs(parseInt(b) - homeSectorVal);
-                return distA - distB; // Descending (Larger distance first)
+                return distB - distA; // Descending (Larger distance first)
             });
 
             // 3. Build Sequence
