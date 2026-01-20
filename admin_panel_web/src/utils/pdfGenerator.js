@@ -36,6 +36,15 @@ export const generateServiceReport = (ticket, logoImg = null, options = {}) => {
         }
     }
 
+    // [New] Pending Material Label
+    if (ticket.status === 'pendiente_material' || ticket.status === 'pending_parts') {
+        doc.setTextColor(234, 88, 12); // Orange-600
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('PENDIENTE DE MATERIALES', pageWidth - 15, 18, { align: 'right' });
+        doc.setTextColor(0); // Reset
+    }
+
     doc.setFontSize(22);
     const title = options.title || (isQuote ? 'PRESUPUESTO' : 'PARTE DE TRABAJO');
     doc.text(title, pageWidth - 15, 25, { align: 'right' });
@@ -150,7 +159,7 @@ export const generateServiceReport = (ticket, logoImg = null, options = {}) => {
     if (deposit > 0) {
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.text(`A cuenta / Señal: -${deposit.toFixed(2)}€`, pageWidth - 50, yPos, { align: 'right' });
+        doc.text(`PAGADO A CUENTA: -${deposit.toFixed(2)}€`, pageWidth - 50, yPos, { align: 'right' });
         yPos += 6;
     }
 
@@ -163,7 +172,7 @@ export const generateServiceReport = (ticket, logoImg = null, options = {}) => {
 
     if (!ticket.is_paid && (deposit > 0 || diagnosisPaid > 0)) {
         doc.setFont('helvetica', 'bold');
-        doc.text(`PENDIENTE: ${remaining.toFixed(2)}€`, pageWidth - 50, yPos, { align: 'right' });
+        doc.text(`PENDIENTE DE PAGO: ${remaining.toFixed(2)}€`, pageWidth - 50, yPos, { align: 'right' });
     }
 
     // Disclaimer for Budget w/ Diagnosis

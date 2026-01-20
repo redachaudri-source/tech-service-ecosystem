@@ -13,6 +13,7 @@ const TechDashboard = () => {
     const navigate = useNavigate();
     const { addToast } = useToast();
     const [tickets, setTickets] = useState([]);
+    const [pendingTickets, setPendingTickets] = useState([]); // Pending Material Bucket
     const [closedTickets, setClosedTickets] = useState([]); // Separete bucket for History Today
     const [loading, setLoading] = useState(true);
     const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
@@ -65,16 +66,20 @@ const TechDashboard = () => {
 
             const open = [];
             const closed = [];
+            const pending = [];
 
             relevantData.forEach(t => {
                 if (['finalizado', 'cancelado', 'rechazado', 'pagado'].includes(t.status)) {
                     closed.push(t);
+                } else if (['pendiente_material', 'pending_parts'].includes(t.status)) {
+                    pending.push(t);
                 } else {
                     open.push(t);
                 }
             });
 
             setTickets(open);
+            setPendingTickets(pending);
             setClosedTickets(closed);
 
             // Fetch Stats (Reviews)
@@ -131,6 +136,7 @@ const TechDashboard = () => {
     };
 
     const displayOpen = filterList(tickets);
+    const displayPending = filterList(pendingTickets);
     const displayClosed = filterList(closedTickets);
 
     const getStatusBadge = (status) => {
@@ -305,33 +311,66 @@ const TechDashboard = () => {
                 )}
             </div>
 
-            {/* HISTORY TODAY (CLOSED) */}
-            {displayClosed.length > 0 && (
-                <div className="space-y-4 pt-6 border-t border-slate-200 mt-6">
-                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1 mb-2">
-                        Completados Hoy ({displayClosed.length})
-                    </h3>
-                    <div className="opacity-60 hover:opacity-100 transition-opacity space-y-3">
-                        {displayClosed.map(ticket => (
-                            <div
-                                key={ticket.id}
-                                className="bg-slate-50 rounded-xl p-4 border border-slate-200 flex justify-between items-center"
-                            >
-                                <div>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-xs font-bold text-slate-500 line-through">{ticket.client?.full_name}</span>
-                                        {getStatusBadge(ticket.status)}
+            {/* PENDING MATERIAL SECTION */}
+            {
+                displayPending.length > 0 && (
+                    <div className="space-y-4 pt-6 border-t border-slate-200 mt-6">
+                        <h3 className="text-xs font-black text-orange-400 uppercase tracking-widest pl-1 mb-2">
+                            Pendiente de Material ({displayPending.length})
+                        </h3>
+                        <div className="space-y-3">
+                            {displayPending.map(ticket => (
+                                <div
+                                    key={ticket.id}
+                                    onClick={() => handleTicketClick(ticket.id)}
+                                    className="bg-orange-50/50 rounded-xl p-4 border border-orange-100 flex justify-between items-center active:scale-[0.98] transition-transform"
+                                >
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-xs font-bold text-slate-700">{ticket.client?.full_name}</span>
+                                            {getStatusBadge(ticket.status)}
+                                        </div>
+                                        <div className="text-xs font-mono text-slate-400">
+                                            {ticket.ticket_number} • {ticket.appliance_info?.brand || 'Electrodoméstico'}
+                                        </div>
                                     </div>
-                                    <div className="text-xs font-mono text-slate-400">
-                                        {ticket.ticket_number} • {new Date(ticket.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </div>
+                                    <Package size={20} className="text-orange-300" />
                                 </div>
-                                <CheckCircle size={20} className="text-green-500/50" />
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
+
+            {/* HISTORY TODAY (CLOSED) */}
+            {
+                displayClosed.length > 0 && (
+                    <div className="space-y-4 pt-6 border-t border-slate-200 mt-6">
+                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1 mb-2">
+                            Completados Hoy ({displayClosed.length})
+                        </h3>
+                        <div className="opacity-60 hover:opacity-100 transition-opacity space-y-3">
+                            {displayClosed.map(ticket => (
+                                <div
+                                    key={ticket.id}
+                                    className="bg-slate-50 rounded-xl p-4 border border-slate-200 flex justify-between items-center"
+                                >
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-xs font-bold text-slate-500 line-through">{ticket.client?.full_name}</span>
+                                            {getStatusBadge(ticket.status)}
+                                        </div>
+                                        <div className="text-xs font-mono text-slate-400">
+                                            {ticket.ticket_number} • {new Date(ticket.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </div>
+                                    </div>
+                                    <CheckCircle size={20} className="text-green-500/50" />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )
+            }
 
             {/* Reviews Modal */}
             <TechReviewsModal
@@ -339,7 +378,7 @@ const TechDashboard = () => {
                 onClose={() => setShowReviewsModal(false)}
                 userId={user?.id}
             />
-        </div>
+        </div >
     );
 };
 

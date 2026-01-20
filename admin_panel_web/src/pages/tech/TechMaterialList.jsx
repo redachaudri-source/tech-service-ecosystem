@@ -22,7 +22,7 @@ const TechMaterialList = () => {
                 `)
                 .eq('technician_id', user.id)
                 .eq('status', 'pendiente_material')
-                .eq('material_ordered', false) // Only show what needs to be bought
+                .eq('material_received', false) // Show pending order OR ordered but not received
                 .order('material_status_at', { ascending: true });
 
             if (error) throw error;
@@ -39,20 +39,43 @@ const TechMaterialList = () => {
     }, [user]);
 
     const handleMarkAsBought = async (ticketId) => {
-        if (!window.confirm("¿Confirmas que has realizado el pedido de este repuesto?")) return;
+        const supplier = window.prompt("Introduce el nombre del proveedor donde has realizado el pedido:");
+        if (supplier === null) return; // Cancelled
+        if (!supplier.trim()) return alert("El nombre del proveedor es obligatorio.");
 
         try {
             const { error } = await supabase.from('tickets').update({
                 material_ordered: true,
-                material_supplier: 'Comprado por Técnico'
+                material_supplier: supplier,
+                material_status_at: new Date().toISOString()
             }).eq('id', ticketId);
 
             if (error) throw error;
 
-            // Optimistic update
-            setTickets(prev => prev.filter(t => t.id !== ticketId));
+            // Update local state to show 'Confirm Reception' button instead of removing
+            setTickets(prev => prev.map(t =>
+                t.id === ticketId
+                    ? { ...t, material_ordered: true, material_supplier: supplier }
+                    : t
+            ));
+        } catch (e) {
+            alert("Error: " + e.message);
+        }
+    };
 
-            // No alert needed for speed, just removal from list
+    const handleMarkAsReceived = async (ticketId) => {
+        if (!window.confirm("¿Confirmas que ya tienes el repuesto contigo?")) return;
+
+        try {
+            const { error } = await supabase.from('tickets').update({
+                material_received: true,
+                material_status_at: new Date().toISOString()
+            }).eq('id', ticketId);
+
+            if (error) throw error;
+
+            // Remove from list as it is now ready for assignment (Admin handles that)
+            setTickets(prev => prev.filter(t => t.id !== ticketId));
         } catch (e) {
             alert("Error: " + e.message);
         }
@@ -107,13 +130,29 @@ const TechMaterialList = () => {
                                 </div>
                             </div>
 
-                            <button
-                                onClick={() => handleMarkAsBought(ticket.id)}
-                                className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold text-sm shadow-lg shadow-slate-200 active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
-                            >
-                                <ShoppingCart size={18} className="text-orange-400" />
-                                Marcar como COMPRADO
-                            </button>
+                            {!ticket.material_ordered ? (
+                                <button
+                                    onClick={() => handleMarkAsBought(ticket.id)}
+                                    className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold text-sm shadow-lg shadow-slate-200 active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+                                >
+                                    <ShoppingCart size={18} className="text-orange-400" />
+                                    Marcar como PEDIDO
+                                </button>
+                            ) : (
+                                <div className="space-y-3">
+                                    <div className="bg-orange-50 text-orange-800 text-xs p-3 rounded-lg border border-orange-100 flex items-center gap-2">
+                                        <Clock size={14} />
+                                        <span>Pedido a <strong>{ticket.material_supplier}</strong>. Esperando llegada.</span>
+                                    </div>
+                                    <button
+                                        onClick={() => handleMarkAsReceived(ticket.id)}
+                                        className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-green-200 active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+                                    >
+                                        <CheckCircle size={18} />
+                                        Confirmar RECEPCIÓN
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>

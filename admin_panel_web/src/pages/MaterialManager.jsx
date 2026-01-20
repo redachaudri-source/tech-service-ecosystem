@@ -90,13 +90,14 @@ const MaterialManager = () => {
         if (tab === 'history') return true;
         // In pending, filter by subTab
         if (subTab === 'to_order') return !t.material_ordered;
-        if (subTab === 'ordered') return t.material_ordered;
+        if (subTab === 'ordered') return t.material_ordered && !t.material_received;
+        if (subTab === 'received') return t.material_received;
         return true;
     });
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
-            {/* Header */}
+            {/* Header and Tabs are already correct */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
@@ -127,10 +128,10 @@ const MaterialManager = () => {
 
             {/* Sub Tabs (Only for Pending) */}
             {tab === 'pending' && (
-                <div className="flex gap-2 border-b border-slate-200 pb-1">
+                <div className="flex gap-2 border-b border-slate-200 pb-1 overflow-x-auto">
                     <button
                         onClick={() => setSubTab('to_order')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm font-bold border-b-2 transition-all ${subTab === 'to_order' ? 'border-red-500 text-red-600 bg-red-50' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm font-bold border-b-2 transition-all whitespace-nowrap ${subTab === 'to_order' ? 'border-red-500 text-red-600 bg-red-50' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                     >
                         <AlertTriangle size={16} />
                         Por Pedir
@@ -140,12 +141,22 @@ const MaterialManager = () => {
                     </button>
                     <button
                         onClick={() => setSubTab('ordered')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm font-bold border-b-2 transition-all ${subTab === 'ordered' ? 'border-orange-500 text-orange-600 bg-orange-50' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm font-bold border-b-2 transition-all whitespace-nowrap ${subTab === 'ordered' ? 'border-orange-500 text-orange-600 bg-orange-50' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                     >
                         <Clock size={16} />
-                        Ya Pedido
+                        En Curso (Esperando)
                         <span className="bg-orange-200 text-orange-800 text-[10px] px-1.5 py-0.5 rounded-full ml-1">
-                            {tickets.filter(t => t.material_ordered).length}
+                            {tickets.filter(t => t.material_ordered && !t.material_received).length}
+                        </span>
+                    </button>
+                    <button
+                        onClick={() => setSubTab('received')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm font-bold border-b-2 transition-all whitespace-nowrap ${subTab === 'received' ? 'border-green-500 text-green-600 bg-green-50' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                    >
+                        <CheckCircle size={16} />
+                        Recibidos (Listo para Asignar)
+                        <span className="bg-green-200 text-green-800 text-[10px] px-1.5 py-0.5 rounded-full ml-1">
+                            {tickets.filter(t => t.material_received).length}
                         </span>
                     </button>
                 </div>
@@ -165,7 +176,8 @@ const MaterialManager = () => {
                         </h3>
                         <p className="text-slate-400 text-sm max-w-sm">
                             {tab === 'pending' && subTab === 'to_order' ? '¡Genial! No tienes materiales pendientes de pedir.' : ''}
-                            {tab === 'pending' && subTab === 'ordered' ? 'No hay pedidos en curso esperando llegada.' : ''}
+                            {tab === 'pending' && subTab === 'ordered' ? 'No hay pedidos esperando llegada.' : ''}
+                            {tab === 'pending' && subTab === 'received' ? 'No hay repuestos recibidos pendientes de asignar.' : ''}
                         </p>
                     </div>
                 ) : (
@@ -209,17 +221,27 @@ const MaterialManager = () => {
                                                     <AlertTriangle size={12} />
                                                     PENDIENTE PEDIR
                                                 </span>
-                                            ) : (
+                                            ) : !ticket.material_received ? (
                                                 <div className="flex flex-col items-start gap-1">
                                                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700 border border-orange-200">
                                                         <Clock size={12} />
-                                                        PEDIDO REALIZADO
+                                                        ESPERANDO TÉCNICO
                                                     </span>
                                                     {ticket.material_supplier && (
                                                         <span className="text-xs text-slate-500 font-medium ml-1">
                                                             Prov: {ticket.material_supplier}
                                                         </span>
                                                     )}
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-col items-start gap-1">
+                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200">
+                                                        <CheckCircle size={12} />
+                                                        RECIBIDO EN TALLER
+                                                    </span>
+                                                    <span className="text-xs text-slate-500 font-medium ml-1">
+                                                        Listo para asignar
+                                                    </span>
                                                 </div>
                                             )}
                                         </td>
@@ -228,15 +250,17 @@ const MaterialManager = () => {
                                                 <span className="text-xs text-slate-400 font-bold">COMPLETADO</span>
                                             ) : (
                                                 <div className="flex justify-end gap-2">
-                                                    {!ticket.material_ordered ? (
+                                                    {!ticket.material_ordered && (
                                                         <button
                                                             onClick={() => handleMarkAsOrdered(ticket)}
                                                             className="bg-slate-900 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-slate-800 transition shadow-sm"
                                                         >
                                                             Marcar Pedido
                                                         </button>
-                                                    ) : (
-                                                        <>
+                                                    )}
+
+                                                    {(ticket.material_ordered && !ticket.material_received) && (
+                                                        <div className="flex items-center gap-2">
                                                             <button
                                                                 onClick={() => handleMarkAsOrdered(ticket)} // Allow verify/edit supplier
                                                                 className="text-slate-400 hover:text-slate-600 p-2"
@@ -244,14 +268,20 @@ const MaterialManager = () => {
                                                             >
                                                                 <FileText size={16} />
                                                             </button>
-                                                            <button
-                                                                onClick={() => handleMaterialReceived(ticket)}
-                                                                className="bg-green-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-green-700 transition shadow-green-200 flex items-center gap-1"
-                                                            >
-                                                                <CheckCircle size={14} />
-                                                                Recibido
-                                                            </button>
-                                                        </>
+                                                            <span className="text-xs font-bold text-orange-400">
+                                                                Esperando al Técnico...
+                                                            </span>
+                                                        </div>
+                                                    )}
+
+                                                    {ticket.material_received && (
+                                                        <button
+                                                            onClick={() => handleMaterialReceived(ticket)}
+                                                            className="bg-green-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-green-700 transition shadow-green-200 flex items-center gap-1"
+                                                        >
+                                                            <CheckCircle size={14} />
+                                                            Asignar Cita
+                                                        </button>
                                                     )}
                                                 </div>
                                             )}
