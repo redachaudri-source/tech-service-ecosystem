@@ -16,7 +16,8 @@ const TechMaterialList = () => {
                 .from('tickets')
                 .select(`
                     id, ticket_number, 
-                    required_parts_description, material_status_at, 
+                    required_parts_description, material_status_at,
+                    deposit_amount, total_price, payment_method,
                     client:profiles!client_id(full_name, address),
                     appliance_info
                 `)
@@ -130,6 +131,35 @@ const TechMaterialList = () => {
                                         <p className="text-sm font-mono text-slate-600">#{ticket.ticket_number}</p>
                                     </div>
                                 </div>
+
+                                {/* Financial Breakdown - Collapsible */}
+                                {(ticket.deposit_amount > 0 || ticket.total_price > 0) && (
+                                    <details className="mt-3 pt-3 border-t border-slate-200">
+                                        <summary className="cursor-pointer text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1 hover:text-slate-600">
+                                            💰 Ver Desglose Financiero
+                                        </summary>
+                                        <div className="mt-2 space-y-1 text-xs bg-white p-2 rounded border border-slate-200">
+                                            {ticket.total_price > 0 && (
+                                                <div className="flex justify-between">
+                                                    <span className="text-slate-500">Total Presupuesto:</span>
+                                                    <span className="font-mono font-bold text-slate-700">{ticket.total_price.toFixed(2)}€</span>
+                                                </div>
+                                            )}
+                                            {ticket.deposit_amount > 0 && (
+                                                <div className="flex justify-between text-green-700 font-bold">
+                                                    <span>✅ Pagado a Cuenta:</span>
+                                                    <span className="font-mono">{ticket.deposit_amount.toFixed(2)}€</span>
+                                                </div>
+                                            )}
+                                            {(ticket.total_price > 0 && ticket.deposit_amount > 0) && (
+                                                <div className="flex justify-between border-t pt-1 text-orange-700 font-bold">
+                                                    <span>⏳ Saldo Pendiente:</span>
+                                                    <span className="font-mono">{(ticket.total_price - ticket.deposit_amount).toFixed(2)}€</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </details>
+                                )}
                             </div>
 
                             {!ticket.material_ordered ? (

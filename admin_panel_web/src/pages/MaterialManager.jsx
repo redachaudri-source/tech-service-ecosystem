@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { Package, Search, Clock, CheckCircle, AlertTriangle, History, ArrowRight, FileText } from 'lucide-react';
+import { Package, Search, Clock, CheckCircle, AlertTriangle, History, ArrowRight, FileText, Download, Loader } from 'lucide-react';
 import SmartAssignmentModal from '../components/SmartAssignmentModal';
+import { generateMaterialDepositPDF } from '../utils/pdfGenerator';
+import { loadImage } from '../utils/pdfGenerator';
 
 const MaterialManager = () => {
     const { user } = useAuth();
@@ -11,6 +13,7 @@ const MaterialManager = () => {
     const [tab, setTab] = useState('pending'); // 'pending' | 'history'
     const [subTab, setSubTab] = useState('to_order'); // 'to_order' | 'ordered' (Only for pending)
     const [selectedTicket, setSelectedTicket] = useState(null); // For assignment
+    const [generatingPDF, setGeneratingPDF] = useState(null); // Track which ticket is generating PDF
 
     const fetchTickets = async () => {
         setLoading(true);
@@ -79,10 +82,64 @@ const MaterialManager = () => {
                 .eq('id', ticket.id);
 
             if (error) throw error;
+
+            // Automatically generate Material Deposit PDF if deposit exists
+            if (ticket.deposit_amount > 0 && !ticket.material_deposit_pdf_url) {
+                await handleGenerateMaterialPDF({ ...ticket, material_supplier: supplier });
+            }
+
             fetchTickets();
         } catch (error) {
             console.error(error);
             alert('Error al actualizar: ' + error.message);
+        }
+    };
+
+    const handleGenerateMaterialPDF = async (ticket) => {
+        setGeneratingPDF(ticket.id);
+        try {
+            // Load logo if available
+            const logoURL = '/android-chrome-512x512.png'; // Adjust to your logo path
+            const logoImg = await loadImage(logoURL).catch(() => null);
+
+            // Generate PDF
+            const pdf = generateMaterialDepositPDF(ticket, logoImg);
+            const pdfBlob = pdf.output('blob');
+            const fileName = `material_deposit_${ticket.ticket_number}_${Date.now()}.pdf`;
+
+            // Upload to Supabase Storage
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('ticket-documents')
+                .upload(`material-deposits/${fileName}`, pdfBlob, {
+                    contentType: 'application/pdf',
+                    cacheControl: '3600',
+                    upsert: false
+                });
+
+            if (uploadError) throw uploadError;
+
+            // Get public URL
+            const { data: urlData } = supabase.storage
+                .from('ticket-documents')
+                .getPublicUrl(`material-deposits/${fileName}`);
+
+            if (!urlData?.publicUrl) throw new Error('Failed to get public URL');
+
+            // Update ticket with PDF URL
+            const { error: updateError } = await supabase
+                .from('tickets')
+                .update({ material_deposit_pdf_url: urlData.publicUrl })
+                .eq('id', ticket.id);
+
+            if (updateError) throw updateError;
+
+            alert('✅ PDF de Anticipo generado y guardado exitosamente!');
+            fetchTickets();
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            alert('Error al generar PDF: ' + error.message);
+        } finally {
+            setGeneratingPDF(null);
         }
     };
 
@@ -222,10 +279,33 @@ const MaterialManager = () => {
                                             <div className="text-xs text-slate-400 mt-1">{ticket.appliance_info?.type} {ticket.appliance_info?.brand}</div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="bg-slate-100 px-3 py-2 rounded-lg text-sm font-medium border border-slate-200 inline-block max-w-xs" title={ticket.required_parts_description}>
-                                                {ticket.required_parts_description || 'Sin descripción'}
-                                            </div>
-                                            {/* Receipt Link */}
+                                            {!ticket.required_parts_description ? (
+                                                <div className="bg-red-50 px-3 py-2 rounded-lg text-sm font-bold border border-red-200 inline-flex items-center gap-2 text-red-700">
+                                                    <AlertTriangle size={14} />
+                                                    Sin descripción - Editar ticket
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-1">
+                                                    <div
+                                                        className="bg-slate-100 px-3 py-2 rounded-lg text-sm font-medium border border-slate-200 inline-block max-w-xs overflow-hidden text-ellipsis whitespace-nowrap"
+                                                        title={ticket.required_parts_description}
+                                                    >
+                                                        {ticket.required_parts_description}
+                                                    </div>
+                                                    {/* Material Deposit PDF Link */}
+                                                    {ticket.material_deposit_pdf_url && (
+                                                        <a
+                                                            href={ticket.material_deposit_pdf_url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="flex items-center gap-1 text-[10px] text-purple-600 font-bold hover:underline"
+                                                        >
+                                                            <FileText size={12} /> Ver Parte Anticipo (PDF)
+                                                        </a>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {/* Existing Receipt Link */}
                                             {ticket.deposit_receipt_url && (
                                                 <a
                                                     href={ticket.deposit_receipt_url}
@@ -283,6 +363,21 @@ const MaterialManager = () => {
 
                                                     {(ticket.material_ordered && !ticket.material_received) && (
                                                         <div className="flex items-center gap-2">
+                                                            {/* Generate PDF Button */}
+                                                            {ticket.deposit_amount > 0 && !ticket.material_deposit_pdf_url && (
+                                                                <button
+                                                                    onClick={() => handleGenerateMaterialPDF(ticket)}
+                                                                    disabled={generatingPDF === ticket.id}
+                                                                    className="bg-purple-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-purple-700 transition shadow-sm flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                    title="Generar PDF de Anticipo"
+                                                                >
+                                                                    {generatingPDF === ticket.id ? (
+                                                                        <><Loader size={14} className="animate-spin" /> Generando...</>
+                                                                    ) : (
+                                                                        <><Download size={14} /> Generar PDF</>
+                                                                    )}
+                                                                </button>
+                                                            )}
                                                             <button
                                                                 onClick={() => handleMarkAsOrdered(ticket)} // Allow verify/edit supplier
                                                                 className="text-slate-400 hover:text-slate-600 p-2"

@@ -5,7 +5,7 @@ import { generateServiceReport, generateDepositReceipt, loadImage } from '../../
 import {
     ChevronLeft, MapPin, Phone, User,
     Navigation, PhoneCall, CheckCircle,
-    Eye, Scan, AlertTriangle, ClipboardCopy, Clock, History, Package, ArrowRightCircle, Copy, FileText, Search, PackagePlus, Calendar, ChevronDown, Camera, Smartphone, Banknote, ShieldCheck, ShieldAlert
+    Eye, Scan, AlertTriangle, ClipboardCopy, Clock, History, Package, ArrowRightCircle, Copy, FileText, Search, PackagePlus, Calendar, ChevronDown, Camera, Smartphone, Banknote, ShieldCheck, ShieldAlert, AlertCircle
 } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 import TechLocationMap from '../../components/TechLocationMap';
@@ -1558,22 +1558,31 @@ const TechTicketDetail = () => {
 
                         <div className="space-y-4 mb-4">
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1">Descripción del Repuesto *</label>
+                                <div className="flex items-center justify-between mb-1">
+                                    <label className="block text-xs font-bold text-slate-500">Descripción del Repuesto *</label>
+                                    <div className="group relative">
+                                        <AlertCircle size={14} className="text-slate-400 cursor-help" />
+                                        <div className="hidden group-hover:block absolute right-0 top-6 w-64 bg-slate-800 text-white text-xs p-3 rounded-lg shadow-xl z-10">
+                                            💡 <strong>Importante:</strong> Este texto aparecerá en "Gestión de Materiales" para que la oficina sepa exactamente qué pedir. Sé específico.
+                                        </div>
+                                    </div>
+                                </div>
                                 <div className="relative">
                                     <input
                                         type="text"
                                         value={ticket.required_parts_description || ''}
                                         onChange={(e) => setTicket({ ...ticket, required_parts_description: e.target.value })}
-                                        placeholder="Ej: Bomba de desagüe Samsung..."
-                                        className="w-full p-3 bg-white border border-orange-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none pr-10"
+                                        placeholder="Ej: Bomba de desagüe Samsung DC97-16350C, Condensador 2.2μF 450V..."
+                                        className="w-full p-3 bg-white border border-orange-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
                                     />
-                                    {parts.length > 0 && !ticket.required_parts_description && (
+                                    {parts.length > 0 && (
                                         <button
-                                            onClick={() => setTicket({ ...ticket, required_parts_description: parts.map(p => p.name).join(', ') })}
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-orange-500 hover:text-orange-700 p-1"
-                                            title="Copiar repuestos añadidos"
+                                            onClick={() => setTicket({ ...ticket, required_parts_description: parts.map(p => `${p.name}${p.qty > 1 ? ` (x${p.qty})` : ''}`).join(', ') })}
+                                            className="mt-2 w-full py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold hover:bg-blue-100 transition flex items-center justify-center gap-2"
+                                            title="Copiar repuestos del presupuesto"
                                         >
-                                            <Copy size={16} />
+                                            <Copy size={14} />
+                                            Auto-completar desde piezas del presupuesto ({parts.length})
                                         </button>
                                     )}
                                 </div>

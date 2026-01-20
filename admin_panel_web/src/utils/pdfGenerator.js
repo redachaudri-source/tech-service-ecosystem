@@ -452,3 +452,6 @@ export const generateDepositReceipt = (ticket, logoImg = null) => {
 
     return doc;
 };
+
+// Export Material Deposit PDF Generator
+export { generateMaterialDepositPDF } from './materialDepositPDF';
