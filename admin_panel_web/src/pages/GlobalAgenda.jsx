@@ -314,9 +314,12 @@ const GlobalAgenda = () => {
             // Flatten
             sortedSeclors.forEach(sectorKey => {
                 const jobsInSector = sectors[sectorKey];
-                // Within sector, minimize local travel? Or just nearest neighbor?
-                // Simple: Sort by CP to keep them clustered
-                jobsInSector.sort((a, b) => getCP(a) - getCP(b));
+                // Within sector, sort by Distance from Home DESCENDING (Work backwards to home)
+                jobsInSector.sort((a, b) => {
+                    const distA = Math.abs(getCP(a) - startCP);
+                    const distB = Math.abs(getCP(b) - startCP);
+                    return distB - distA;
+                });
                 idealSequence.push(...jobsInSector);
             });
 
@@ -344,8 +347,12 @@ const GlobalAgenda = () => {
             // 3. Build Sequence
             sectorKeys.forEach(sectorKey => {
                 const jobs = sectors[sectorKey];
-                // Inside the sector, optimize locally (Simple CP sort for neighborhood clustering)
-                jobs.sort((a, b) => getCP(a) - getCP(b));
+                // Inside the sector, sort by Distance from Home DESCENDING (Work backwards)
+                jobs.sort((a, b) => {
+                    const distA = Math.abs(getCP(a) - startCP);
+                    const distB = Math.abs(getCP(b) - startCP);
+                    return distB - distA;
+                });
                 idealSequence.push(...jobs);
             });
         }
