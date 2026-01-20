@@ -1426,9 +1426,23 @@ const TechTicketDetail = () => {
                                 <span>IVA (21%)</span>
                                 <span>{vat.toFixed(2)}€</span>
                             </div>
-                            <div className={`flex justify-between items-center text-base font-bold pt-2 border-t border-slate-200 ${isOverLimit ? 'text-red-600' : 'text-slate-800'}`}>
-                                <span>TOTAL PRESUPUESTO</span>
-                                <span className="text-lg">{total.toFixed(2)}€</span>
+                            <div className="pt-2 border-t border-slate-200 space-y-2">
+                                <div className={`flex justify-between items-center text-base font-bold ${isOverLimit ? 'text-red-600' : 'text-slate-800'}`}>
+                                    <span>TOTAL PRESUPUESTO</span>
+                                    <span className="text-lg">{total.toFixed(2)}€</span>
+                                </div>
+                                {ticket.deposit_amount > 0 && (
+                                    <div className="flex justify-between items-center text-sm font-bold text-green-600">
+                                        <span>✅ Pagado a Cuenta</span>
+                                        <span>-{ticket.deposit_amount.toFixed(2)}€</span>
+                                    </div>
+                                )}
+                                {(total > 0 || ticket.deposit_amount > 0) && (
+                                    <div className="flex justify-between items-center text-sm font-bold text-orange-600 border-t border-dashed border-slate-200 pt-2">
+                                        <span>⏳ PENDIENTE DE COBRO</span>
+                                        <span className="text-base">{(total - (ticket.deposit_amount || 0)).toFixed(2)}€</span>
+                                    </div>
+                                )}
                             </div>
 
 
