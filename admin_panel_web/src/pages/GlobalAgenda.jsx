@@ -181,22 +181,179 @@ const GlobalAgenda = () => {
     const [optimizerMode, setOptimizerMode] = useState('DAY'); // 'DAY' | 'WEEK'
     const [weekRange, setWeekRange] = useState({ start: '', end: '' }); // ISO Date Strings YYYY-MM-DD
 
+    // Helper: Estimate Travel Time (Heuristic)
+    const getTravelTime = (cpA, cpB) => {
+        if (!cpA || !cpB) return 15; // Default safe buffer
+        const dist = Math.abs(cpA - cpB);
+        // Base 15 mins + 2 mins per CP unit diff (simplified heuristic)
+        // Clamped to max 60 to avoid absurdity
+        return Math.min(60, 15 + (dist * 2));
+    };
+
+    const getCP = (t) => parseInt(t.client?.postal_code?.replace(/\D/g, '') || '99999');
+
+    // 3. 🧠 P.R.O.C. SYSTEM CORE (Postal Route Optimization Core)
+    // Refactored to be a pure helper for both Day and Week modes
+    const calculateDayMoves = (targetDate, jobs, strategy, startCP) => {
+        const getHierarchicalCost = (homeCP, targetCP) => {
+            const sHome = String(homeCP).padStart(5, '0');
+            const sTarget = String(targetCP).padStart(5, '0');
+
+            // Level 1: Province (Digits 1-2)
+            if (sHome.slice(0, 2) !== sTarget.slice(0, 2)) return 2000; // Different Province
+
+            // Level 2: Sector (Digit 3)
+            const sectorHome = sHome[2];
+            const sectorTarget = sTarget[2];
+            if (sectorHome !== sectorTarget) {
+                // Calculate Sector distance (e.g. Sector 6 vs Sector 0)
+                return 100 + (Math.abs(parseInt(sectorHome) - parseInt(sectorTarget)) * 10);
+            }
+
+            // Level 3: District (Digits 4-5) - Local street travel
+            return Math.abs(homeCP - targetCP); // Simple numeric diff for neighborhoods
+        };
+
+        const getSector = (cp) => String(cp).padStart(5, '0')[2];
+        // getCP is already defined above, no need to redefine here.
+
+        let pool = [...jobs];
+        const idealSequence = [];
+
+        if (strategy === 'CENTRIFUGA') {
+            // --- ESTRATEGIA A: CENTRÍFUGA (Star Fast / Expansive) ---
+            pool.sort((a, b) => getHierarchicalCost(startCP, getCP(a)) - getHierarchicalCost(startCP, getCP(b)));
+            idealSequence.push(...pool);
+
+        } else if (strategy === 'SANDWICH') {
+            // --- ESTRATEGIA C: SANDWICH (Mixed) ---
+            const homeSector = getSector(startCP);
+            const sameSectorJobs = pool.filter(j => getSector(getCP(j)) === homeSector);
+            const otherSectorJobs = pool.filter(j => getSector(getCP(j)) !== homeSector);
+
+            // Appetizer
+            let appetizer = null;
+            if (sameSectorJobs.length > 0) {
+                sameSectorJobs.sort((a, b) => Math.abs(getCP(a) - startCP) - Math.abs(getCP(b) - startCP));
+                appetizer = sameSectorJobs.shift();
+                idealSequence.push(appetizer);
+            }
+
+            // Main Course + Dessert
+            let mainPool = [...otherSectorJobs, ...sameSectorJobs];
+            const sectors = {};
+            mainPool.forEach(j => {
+                const s = getSector(getCP(j));
+                if (!sectors[s]) sectors[s] = [];
+                sectors[s].push(j);
+            });
+
+            // Sort Sectors by Distance from Home (Descending)
+            const sortedSectorKeys = Object.keys(sectors).sort((sa, sb) =>
+                Math.abs(parseInt(sa) - parseInt(getSector(startCP))) - Math.abs(parseInt(sb) - parseInt(getSector(startCP)))
+            ).reverse();
+
+            sortedSectorKeys.forEach(sectorKey => {
+                const jobsInSector = sectors[sectorKey];
+                jobsInSector.sort((a, b) => getCP(b) - getCP(a)); // CP Descending
+                idealSequence.push(...jobsInSector);
+            });
+
+        } else {
+            // --- ESTRATEGIA B: BOOMERANG REAL (Default) ---
+            const sectors = {};
+            pool.forEach(j => {
+                const s = getSector(getCP(j));
+                if (!sectors[s]) sectors[s] = [];
+                sectors[s].push(j);
+            });
+
+            const homeSectorVal = parseInt(getSector(startCP));
+            const sectorKeys = Object.keys(sectors).sort((a, b) => {
+                const distA = Math.abs(parseInt(a) - homeSectorVal);
+                const distB = Math.abs(parseInt(b) - homeSectorVal);
+                return distB - distA;
+            });
+
+            sectorKeys.forEach(sectorKey => {
+                const jobs = sectors[sectorKey];
+                jobs.sort((a, b) => getCP(b) - getCP(a)); // CP Descending
+                idealSequence.push(...jobs);
+            });
+        }
+
+        // 4. SMART STACKING (Timeline Reconstruction)
+        const workDayStart = new Date(targetDate);
+        workDayStart.setHours(9, 0, 0, 0);
+
+        let currentTime = new Date(workDayStart);
+        let lastCP = startCP;
+        const moves = [];
+
+        idealSequence.forEach((job, i) => {
+            const displayCP = getCP(job);
+            const travelTime = getTravelTime(lastCP, displayCP);
+
+            // Calculate Start Time: If first job, start at 9:00. Else, prev end + travel.
+            // Wait, currentTime tracks the "Available Pointer".
+            // So Start = currentTime + Travel.
+
+            // Correction: First job travel is also FROM home.
+            // So Start = 9:00 + TravelFromHome.
+
+            // Add Travel Time
+            const travelMs = travelTime * 60000;
+            let proposedStartMs = currentTime.getTime() + travelMs;
+
+            // Round to 5 mins
+            const remainder = proposedStartMs % (5 * 60000);
+            if (remainder !== 0) proposedStartMs += ((5 * 60000) - remainder);
+
+            const newStartDate = new Date(proposedStartMs);
+            const originalStart = new Date(job.start);
+
+            // Diff Check
+            const isDifferent = Math.abs(newStartDate - originalStart) > 60000;
+
+            if (isDifferent) {
+                moves.push({
+                    type: 'RESCHEDULE',
+                    appt: job,
+                    newStart: newStartDate,
+                    travelMin: travelTime
+                });
+            }
+
+            // Advance Timer: Start + Duration
+            currentTime = new Date(proposedStartMs + ((job.duration || 60) * 60000));
+            lastCP = displayCP;
+        });
+
+        return moves;
+    };
+
     // --- AI LOGIC (v3.0 - SANDWICH + STACKING) ---
-    const runOptimizerAnalysis = async (day, activeStrategy = 'BOOMERANG') => {
-        // setOptimizingDay(day); // REMOVED: Loop prevention. State is already set by UI triggers.
+    // Update signature to accept optional customJobPool (Array of objects) for P.R.O.C. WEEK
+    const runOptimizerAnalysis = async (day, activeStrategy = 'BOOMERANG', customJobPool = null) => {
+        // setOptimizingDay(day); // Loop prevention
         setIsOptimizing(true);
         setOptimizerStep('ANALYSIS');
-        setProposedMoves([]);
+        // Only reset moves if running standalone day optimization. In Week mode, we aggregate.
+        if (!customJobPool) setProposedMoves([]);
 
-        // 🚀 Speed Up: No artificial delay
-        // await new Promise(r => setTimeout(r, 800));
-
-        // 1. Get Events for the day & Tech (Local Date Fix)
-        const dayLocalStr = day.toDateString();
-        const dayEvents = appointments.filter(a => a.start.toDateString() === dayLocalStr && selectedTechs.includes(a.technician_id));
+        // 1. Get Events: Use Custom Pool OR Fetch from State
+        let dayEvents = [];
+        if (customJobPool) {
+            dayEvents = customJobPool;
+        } else {
+            const dayLocalStr = day.toDateString();
+            dayEvents = appointments.filter(a => a.start.toDateString() === dayLocalStr && selectedTechs.includes(a.technician_id));
+        }
 
         if (dayEvents.length < 2) {
-            addToast('Mínimo 2 tickets para optimizar.', 'info');
+            if (!customJobPool) addToast('Mínimo 2 tickets para optimizar.', 'info');
+            // Return empty for orchestrator to handle
+            if (customJobPool) return [];
             setIsOptimizing(false);
             return;
         }
@@ -221,214 +378,25 @@ const GlobalAgenda = () => {
 
         console.log('🏁 Algoritmo Sandwich Iniciado. Origen STRICT:', startCP);
 
-        // Helper: Estimate Travel Time (Heuristic)
-        const getTravelTime = (cpA, cpB) => {
-            if (!cpA || !cpB) return 15; // Default safe buffer
-            const dist = Math.abs(cpA - cpB);
-            // Base 15 mins + 2 mins per CP unit diff (simplified heuristic)
-            // Clamped to max 60 to avoid absurdity
-            return Math.min(60, 15 + (dist * 2));
-        };
+        // CALL THE SOLVER
+        const proposals = calculateDayMoves(day, dayEvents, activeStrategy, startCP);
 
-        const getCP = (t) => parseInt(t.client?.postal_code?.replace(/\D/g, '') || '99999');
-
-        // 3. 🧠 P.R.O.C. SYSTEM CORE (Postal Route Optimization Core)
-        // Logic: Hierarchical Cost (AA-B-CC)
-        // Phase 1: Province (AA) -> Huge Cost
-        // Phase 2: Sector (B) -> High Cost (100)
-        // Phase 3: District (CC) -> Low Cost (1)
-
-        const getHierarchicalCost = (homeCP, targetCP) => {
-            const sHome = String(homeCP).padStart(5, '0');
-            const sTarget = String(targetCP).padStart(5, '0');
-
-            // Level 1: Province (Digits 1-2)
-            if (sHome.slice(0, 2) !== sTarget.slice(0, 2)) return 2000; // Different Province
-
-            // Level 2: Sector (Digit 3)
-            const sectorHome = sHome[2];
-            const sectorTarget = sTarget[2];
-            if (sectorHome !== sectorTarget) {
-                // Calculate Sector distance (e.g. Sector 6 vs Sector 0)
-                return 100 + (Math.abs(parseInt(sectorHome) - parseInt(sectorTarget)) * 10);
-            }
-
-            // Level 3: District (Digits 4-5) - Local street travel
-            return Math.abs(homeCP - targetCP); // Simple numeric diff for neighborhoods
-        };
-
-        const getSector = (cp) => String(cp).padStart(5, '0')[2];
-
-        let pool = [...dayEvents];
-        const idealSequence = [];
-
-        console.log(`🧠 P.R.O.C. System Activated. Strategy: ${activeStrategy}`);
-
-        if (activeStrategy === 'CENTRIFUGA') {
-            // --- ESTRATEGIA A: CENTRÍFUGA (Star Fast / Expansive) ---
-            // Logic: From Home -> Outwards (Spiral)
-            // Order by Hierarchical Cost from Home (Ascending)
-
-            pool.sort((a, b) => getHierarchicalCost(startCP, getCP(a)) - getHierarchicalCost(startCP, getCP(b)));
-            idealSequence.push(...pool);
-
-        } else if (activeStrategy === 'SANDWICH') {
-            // --- ESTRATEGIA C: SANDWICH (Mixed) ---
-            // 1. Appetizer: 1 Job in Home Sector (Warmup)
-            // 2. Main Course: Jump to Furthest Sector -> Return (Boomerang)
-            // 3. Dessert: Remaining Home Sector jobs
-
-            // A. Appetizer
-            // Find jobs in same sector as Home
-            const homeSector = getSector(startCP);
-            const sameSectorJobs = pool.filter(j => getSector(getCP(j)) === homeSector);
-            const otherSectorJobs = pool.filter(j => getSector(getCP(j)) !== homeSector);
-
-            // Heuristic: Take the Closest ONE from sameSectorJobs as Appetizer
-            let appetizer = null;
-            if (sameSectorJobs.length > 0) {
-                sameSectorJobs.sort((a, b) => Math.abs(getCP(a) - startCP) - Math.abs(getCP(b) - startCP));
-                appetizer = sameSectorJobs.shift();
-                idealSequence.push(appetizer);
-            }
-
-            // B. Main Course + Dessert Pool
-            // Pool now is: remaining sameSectorJobs + all otherSectorJobs
-            let mainPool = [...otherSectorJobs, ...sameSectorJobs];
-
-            // Sort Main Pool by Distance Descending (Furthest First) -> effectively Boomerang
-            // Note: In Sandwich, we want to go Far then come back.
-            // We use the same Logic as Boomerang Real but applied to the remaining pool.
-
-            // Group by Sector
-            const sectors = {};
-            mainPool.forEach(j => {
-                const s = getSector(getCP(j));
-                if (!sectors[s]) sectors[s] = [];
-                sectors[s].push(j);
-            });
-
-            // Sort Sectors by Distance from Home (Descending)
-            const sortedSeclors = Object.keys(sectors).sort((sa, sb) =>
-                Math.abs(parseInt(sa) - parseInt(getSector(startCP))) - Math.abs(parseInt(sb) - parseInt(getSector(startCP)))
-            ).reverse(); // Reverse to get Furthest First
-
-            // Flatten
-            sortedSeclors.forEach(sectorKey => {
-                const jobsInSector = sectors[sectorKey];
-                // Within sector, sort by CP DESCENDING (Systematic Sweep: High -> Low)
-                jobsInSector.sort((a, b) => getCP(b) - getCP(a));
-                idealSequence.push(...jobsInSector);
-            });
-
+        // Update State (or Return Results)
+        if (customJobPool) {
+            return proposals; // Week Mode: Return for aggregation
         } else {
-            // --- ESTRATEGIA B: BOOMERANG REAL (Default / End Close) ---
-            // Logic: Jump to Furthest Sector -> Work Backwards -> End at Home
-
-            // 1. Group by Sector
-            const sectors = {};
-            pool.forEach(j => {
-                const s = getSector(getCP(j));
-                if (!sectors[s]) sectors[s] = [];
-                sectors[s].push(j);
-            });
-
-            // 2. Sort Sectors by Distance from Home (DESCENDING)
-            // We want Furthest Sector first.
-            const homeSectorVal = parseInt(getSector(startCP));
-            const sectorKeys = Object.keys(sectors).sort((a, b) => {
-                const distA = Math.abs(parseInt(a) - homeSectorVal);
-                const distB = Math.abs(parseInt(b) - homeSectorVal);
-                return distB - distA; // Descending (Larger distance first)
-            });
-
-            // 3. Build Sequence
-            sectorKeys.forEach(sectorKey => {
-                const jobs = sectors[sectorKey];
-                // Inside the sector, sort by CP DESCENDING (Systematic Sweep)
-                jobs.sort((a, b) => getCP(b) - getCP(a));
-                idealSequence.push(...jobs);
-            });
+            console.log('🏁 Single Day Optimization Completed. Moves:', proposals.length);
+            setProposedMoves(proposals); // Day Mode: Update State directly
+            setOptimizerStep('PROPOSAL');
+            setIsOptimizing(false);
         }
-
-        // Final Ideal Array
-        const fullSequence = idealSequence;
-
-        // 4. SMART STACKING (Timeline Reconstruction)
-        // Start Time: 09:00 (or first event's original start if earlier, clamped to Business Hours)
-        // We'll assume strict Business Start at 09:00 for the optimized route.
-        const workDayStart = new Date(day);
-        workDayStart.setHours(9, 0, 0, 0);
-
-        let currentTime = workDayStart.getTime();
-        let currentLocCP = startCP;
-
-        const moves = [];
-
-        for (let i = 0; i < fullSequence.length; i++) {
-            const ticket = fullSequence[i];
-            const displayCP = getCP(ticket);
-
-            // Calculate Travel from Prev
-            const travelMin = getTravelTime(currentLocCP, displayCP);
-
-            // Check Travel Constraints (> 30 min rule)
-            let warning = null;
-            if (travelMin > 30) {
-                warning = `⚠️ Trayecto largo (${travelMin} min)`;
-                // In a real advanced engine, we would 'continue' and try next, 
-                // but 'pool' is already sorted by nearest, so this IS the best option locally.
-                // We flag it as warned.
-            }
-
-            // Calculate New Start (Stacking)
-            // Start = CurrentTime + Travel (approx buffer included in travel)
-            // Actually, usually Tech travels implies arrival time. 
-            // We set 'Start' = Arrival.
-            // But we must respect 'currentTime' is when the PREVIOUS job led to availability.
-            // First job starts at 9:00 (travel from home happening before).
-
-            let proposedStart;
-            if (i === 0) {
-                proposedStart = workDayStart.getTime();
-            } else {
-                proposedStart = currentTime + (travelMin * 60000); // Add travel time buffer explicitly
-            }
-
-            // Round to nearest 5 mins for cleanliness
-            const remainder = proposedStart % (5 * 60000);
-            if (remainder !== 0) proposedStart += ((5 * 60000) - remainder);
-
-            const newStartDate = new Date(proposedStart);
-            const originalStart = new Date(ticket.start);
-
-            // Diff Check (Did it change?)
-            const isDifferent = Math.abs(newStartDate - originalStart) > 60000;
-
-            if (isDifferent || warning) { // Include if warning even if time same (rare)
-                moves.push({
-                    type: 'RESCHEDULE',
-                    appt: ticket,
-                    newStart: newStartDate,
-                    travelMin: travelMin,
-                    warning: warning
-                });
-            }
-
-            // Advance Timer
-            // End Time = Start + Duration
-            currentTime = proposedStart + (ticket.duration * 60000);
-            currentLocCP = displayCP;
-        }
-
-        if (moves.length === 0) {
-            addToast('La ruta ya está optimizada perfectamente (Sandwich + Tiempos).', 'success');
-        }
-
-        setProposedMoves(moves);
-        setIsOptimizing(false);
-        setOptimizerStep('PROPOSAL');
     };
+
+    // Actually, usually Tech travels implies arrival time. 
+    // We set 'Start' = Arrival.
+    // But we must respect 'currentTime' is when the PREVIOUS job led to availability.
+    // First job starts at 9:00 (travel from home happening before).
+
 
     // ⚡ APPLY BATCH OPTIMIZATION
     const applyOptimizationBatch = async () => {
@@ -680,13 +648,17 @@ const GlobalAgenda = () => {
     };
 
     // 🆕 OPTIMIZER WEEK (Orchestrator)
+    // 🆕 OPTIMIZER WEEK (Orchestrator)
     const runOptimizerWeek = async () => {
         if (!weekRange.start || !weekRange.end || !optimizationStrategy) {
             addToast('Selecciona Rango + Estrategia', 'error');
             return;
         }
 
-        if (new Date(weekRange.start) > new Date(weekRange.end)) {
+        const dStart = new Date(weekRange.start);
+        const dEnd = new Date(weekRange.end);
+
+        if (dStart > dEnd) {
             addToast('Fecha fin debe ser posterior a inicio.', 'error');
             return;
         }
@@ -704,10 +676,88 @@ const GlobalAgenda = () => {
                 return;
             }
 
-            console.log(`WEEK OPTIMIZER: Found ${pool.length} jobs.`);
-            addToast(`🔍 Analizando ${pool.length} servicios en modo SEMANA...`, 'info');
+            console.log(`WEEK OPTIMIZER: Found ${pool.length} jobs. Start Strategy: ${optimizationStrategy}`);
 
-            // PHASE 2: Clustering & Distribution will go here...
+            // 1. CLUSTERING: Group by Sector (CP first 3 digits)
+            const sectors = {};
+            pool.forEach(job => {
+                const cp = job.client?.zip_code || '00000';
+                const sectorCode = cp.substring(0, 3);
+                if (!sectors[sectorCode]) sectors[sectorCode] = [];
+                sectors[sectorCode].push(job);
+            });
+
+            // 2. SORTING: Sort Sectors by Density (Highest Count First)
+            const sortedSectors = Object.entries(sectors)
+                .sort(([, a], [, b]) => b.length - a.length);
+
+            console.log('📡 Sectors identified:', sortedSectors.map(([k, v]) => `${k} (${v.length})`));
+
+            // 3. DISTRIBUTION: Assign 1 Sector -> 1 Day (Simple Greedy V1)
+            // Get valid working days in range (skip Sundays if needed, but for now allow all)
+            const workingDays = [];
+            let curr = new Date(dStart);
+            while (curr <= dEnd) {
+                // Optional: Skip Sunday (0) if business rule requires. For now, include all.
+                // if (curr.getDay() !== 0) 
+                workingDays.push(new Date(curr));
+                curr.setDate(curr.getDate() + 1);
+            }
+
+            const dateAssignments = {}; // { 'YYYY-MM-DD': [Job1, Job2] }
+            workingDays.forEach(d => dateAssignments[d.toDateString()] = []);
+
+            // Greedy Assignment: Round Robin or Fill-First?
+            // Let's do: Assign Top Sector to Day 1, Second to Day 2... Loop if more sectors than days.
+            sortedSectors.forEach(([sectorCode, jobs], index) => {
+                const dayIndex = index % workingDays.length;
+                const targetDate = workingDays[dayIndex];
+                dateAssignments[targetDate.toDateString()].push(...jobs);
+            });
+
+            // 4. DELEGATION - AGGREGATION LOOP
+
+
+            // 2. Identify "Km0" (Tech Home or Office) - STRICT MODE
+            const techId = selectedTechs[0];
+            const tech = techs.find(t => t.id === techId);
+
+            // 🔒 GATEKEEPER: Strict CP Check
+            if (!tech?.postal_code) {
+                addToast(`⚠️ Imposible optimizar: El técnico ${tech?.full_name || 'seleccionado'} no tiene Código Postal (Km0) configurado.`, 'error', 5000);
+                setIsOptimizing(false);
+                return;
+            }
+
+            const startCP = parseInt(tech.postal_code.replace(/\D/g, '') || '0');
+            if (startCP === 0) {
+                addToast(`⚠️ Error en CP del técnico: Formato inválido (${tech.postal_code}).`, 'error');
+                setIsOptimizing(false);
+                return;
+            }
+
+            for (const [dateStr, dayJobs] of Object.entries(dateAssignments)) {
+                if (dayJobs.length === 0) continue;
+                const targetDateObj = new Date(dateStr);
+
+                // Run pure calculation (Sequence + Stacking)
+                const dayMoves = calculateDayMoves(targetDateObj, dayJobs, optimizationStrategy, startCP);
+
+                // We need to force update date as well (since distributeDays might have changed the date)
+                // calculateDayMoves returns { appt, newStart }, but appt.start might be on another day.
+                // WE must ensure the 'newStart' matches the 'targetDateObj' (which it does, because calculateDayMoves uses targetDate for 9:00 start)
+
+                aggregatedMoves.push(...dayMoves.map(m => ({
+                    type: 'RESCHEDULE',
+                    appt: m.appt,
+                    newStart: m.newStart,
+                    travelMin: 0 // TODO: Add if needed
+                })));
+            }
+
+            console.log(`WEEK OPTIMIZER: Generated ${aggregatedMoves.length} moves.`);
+            setProposedMoves(aggregatedMoves);
+            setOptimizerStep('PROPOSAL');
 
         } catch (e) {
             console.error("Week Optimizer Error:", e);
