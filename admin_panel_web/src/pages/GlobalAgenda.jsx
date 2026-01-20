@@ -715,6 +715,65 @@ const GlobalAgenda = () => {
                 dateAssignments[targetDate.toDateString()].push(...jobs);
             });
 
+            // 3.5. REBALANCE (Load Balancing for Single-Sector Weeks)
+            // If we have days with 0 jobs and days with too many, we redistribute.
+            const dateKeys = Object.keys(dateAssignments);
+            const totalJobs = dateKeys.reduce((acc, k) => acc + dateAssignments[k].length, 0);
+            const avgLoad = totalJobs > 0 ? Math.ceil(totalJobs / dateKeys.length) : 0;
+
+            console.log(`⚖️ Rebalance Check: Total ${totalJobs}, Avg ${avgLoad}`);
+
+            if (avgLoad > 0) {
+                // Sort Days by Load Descending
+                const sortedDays = dateKeys.sort((a, b) => dateAssignments[b].length - dateAssignments[a].length);
+
+                // Iteratively move from Rich to Poor
+                let richIdx = 0;
+                let poorIdx = sortedDays.length - 1;
+
+                // Safety break counter
+                let iterations = 0;
+
+                while (richIdx < poorIdx && iterations < 20) {
+                    const richDayKey = sortedDays[richIdx];
+                    const poorDayKey = sortedDays[poorIdx];
+
+                    const richLoad = dateAssignments[richDayKey].length;
+                    const poorLoad = dateAssignments[poorDayKey].length;
+
+                    // Threshold: Rich must have > avg + 1 (buffer) AND Poor must be < avg
+                    if (richLoad > avgLoad && poorLoad < avgLoad) {
+                        const numToMove = Math.ceil((richLoad - avgLoad) / 2); // Take half of excess
+                        const actualMove = Math.min(numToMove, richLoad - 1); // Leave at least 1
+
+                        if (actualMove > 0) {
+                            console.log(`🔄 Moving ${actualMove} jobs from ${richDayKey} to ${poorDayKey}`);
+
+                            // Sort jobs in Rich Day by CP to keep chunks together (Geographic Preservation)
+                            // Assuming CP is in client.zip_code
+                            dateAssignments[richDayKey].sort((a, b) => {
+                                const cpA = parseInt(a.client?.zip_code?.replace(/\D/g, '') || '0');
+                                const cpB = parseInt(b.client?.zip_code?.replace(/\D/g, '') || '0');
+                                return cpA - cpB;
+                            });
+
+                            // Move the 'Tail' (or Head?) -> Let's move the Tail.
+                            const movingJobs = dateAssignments[richDayKey].splice(-actualMove);
+                            dateAssignments[poorDayKey].push(...movingJobs);
+                        }
+                    }
+
+                    // Advance pointers
+                    const newRichLoad = dateAssignments[richDayKey].length;
+                    const newPoorLoad = dateAssignments[poorDayKey].length;
+
+                    if (newRichLoad <= avgLoad + 1) richIdx++;
+                    if (newPoorLoad >= avgLoad - 1) poorIdx--;
+
+                    iterations++;
+                }
+            }
+
             // 4. DELEGATION - AGGREGATION LOOP
             let aggregatedMoves = [];
 
