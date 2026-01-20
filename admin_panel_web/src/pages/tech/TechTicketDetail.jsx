@@ -1026,1081 +1026,1080 @@ const TechTicketDetail = () => {
                                 <CheckCircle size={20} />
                                 Revalidar y Enviar al Cliente
                             </button>
+                        )}
+
+                        {/* CANCEL SERVICE BUTTON */}
+                        {!['finalizado', 'cancelado', 'rechazado', 'pagado'].includes(ticket.status) && (
+                            <button
+                                onClick={handleCancelService}
+                                className="w-full py-3 mt-4 bg-red-50 text-red-600 rounded-xl font-bold border border-red-100 hover:bg-red-100 flex items-center justify-center gap-2 active:scale-[0.98] transition-all opacity-80 hover:opacity-100"
+                            >
+                                <span className="text-xl">⛔</span>
+                                Cancelar Servicio
                             </button>
-                )}
+                        )}
+                    </div>
+                )
+            }
 
-            {/* CANCEL SERVICE BUTTON */}
-            {!['finalizado', 'cancelado', 'rechazado', 'pagado'].includes(ticket.status) && (
-                <button
-                    onClick={handleCancelService}
-                    className="w-full py-3 mt-4 bg-red-50 text-red-600 rounded-xl font-bold border border-red-100 hover:bg-red-100 flex items-center justify-center gap-2 active:scale-[0.98] transition-all opacity-80 hover:opacity-100"
-                >
-                    <span className="text-xl">⛔</span>
-                    Cancelar Servicio
-                </button>
-            )}
-        </div>
-    )
-}
+            {/* TIMELINE LOG */}
+            {
+                ticket.status_history && ticket.status_history.length > 0 && (
+                    <div className="mb-6 bg-slate-50 rounded-xl p-4 border border-slate-100">
+                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                            <History size={14} /> Historial de Servicio
+                        </h3>
+                        <div className="space-y-3 relative before:absolute before:left-[7px] before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-200">
+                            {ticket.status_history.map((entry, idx) => (
+                                <div key={idx} className="relative pl-6">
+                                    <div className="absolute left-0 top-1.5 w-4 h-4 rounded-full bg-white border-2 border-blue-400 z-10"></div>
+                                    <p className="text-sm font-bold text-slate-700">{entry.label}</p>
+                                    <p className="text-xs text-slate-400 flex items-center gap-1">
+                                        <Clock size={10} />
+                                        {new Date(entry.timestamp).toLocaleString()}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )
+            }
 
-{/* TIMELINE LOG */ }
-{
-    ticket.status_history && ticket.status_history.length > 0 && (
-        <div className="mb-6 bg-slate-50 rounded-xl p-4 border border-slate-100">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <History size={14} /> Historial de Servicio
-            </h3>
-            <div className="space-y-3 relative before:absolute before:left-[7px] before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-200">
-                {ticket.status_history.map((entry, idx) => (
-                    <div key={idx} className="relative pl-6">
-                        <div className="absolute left-0 top-1.5 w-4 h-4 rounded-full bg-white border-2 border-blue-400 z-10"></div>
-                        <p className="text-sm font-bold text-slate-700">{entry.label}</p>
-                        <p className="text-xs text-slate-400 flex items-center gap-1">
-                            <Clock size={10} />
-                            {new Date(entry.timestamp).toLocaleString()}
+
+
+            {/* Client Card */}
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-4">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <User size={14} /> Cliente
+                </h3>
+
+                <div className="mb-4">
+                    <p className="font-bold text-lg text-slate-800">{ticket.client?.full_name}</p>
+                    <p className="text-slate-500 text-sm">Cliente Particular</p>
+                </div>
+
+                <div className="space-y-3 mb-4">
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => handleCall(ticket.client?.phone)}
+                            className="flex-1 py-2.5 bg-green-50 text-green-700 rounded-lg flex items-center justify-center gap-2 font-medium text-sm border border-green-100 active:scale-95 transition"
+                        >
+                            <PhoneCall size={16} /> {ticket.client?.phone || 'Móvil'}
+                        </button>
+                        {ticket.client?.phone_2 && (
+                            <button
+                                onClick={() => handleCall(ticket.client?.phone_2)}
+                                className="flex-1 py-2.5 bg-emerald-50 text-emerald-700 rounded-lg flex items-center justify-center gap-2 font-medium text-sm border border-emerald-100 active:scale-95 transition"
+                            >
+                                <Phone size={16} /> {ticket.client?.phone_2}
+                            </button>
+                        )}
+                    </div>
+                    <button
+                        onClick={() => handleOpenMap(ticket.client?.address)}
+                        className="w-full py-2.5 bg-blue-50 text-blue-700 rounded-lg flex items-center justify-center gap-2 font-medium text-sm border border-blue-100 active:scale-95 transition"
+                    >
+                        <Navigation size={16} /> Como llegar (Mapa)
+                    </button>
+                </div>
+
+                <div className="space-y-3 pt-3 border-t border-slate-50">
+                    <div className="flex items-start gap-3">
+                        <MapPin size={16} className="text-slate-400 mt-1" />
+                        <span className="text-sm text-slate-600">{ticket.client?.address}</span>
+                    </div>
+                    {ticket.client?.phone && (
+                        <div className="flex items-start gap-3">
+                            <Phone size={16} className="text-slate-400 mt-1" />
+                            <span className="text-sm text-slate-600">{ticket.client?.phone}</span>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Appliance Card */}
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <CheckCircle size={14} /> Aparato
+                </h3>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="bg-slate-50 p-3 rounded-lg">
+                        <p className="text-[10px] text-slate-400 font-bold uppercase">Tipo</p>
+                        <p className="font-medium text-slate-700">
+                            {(ticket.appliance_info?.type === 'General' || (ticket.appliance_info?.type === 'Lavadora' && !ticket.appliance_info?.brand))
+                                ? 'Varios / General'
+                                : (ticket.appliance_info?.type || '-')}
                         </p>
                     </div>
-                ))}
-            </div>
-        </div>
-    )
-}
+                    <div className="bg-slate-50 p-3 rounded-lg">
+                        <p className="text-[10px] text-slate-400 font-bold uppercase">Marca</p>
+                        <p className="font-medium text-slate-700">
+                            {(ticket.appliance_info?.type === 'General' || (ticket.appliance_info?.type === 'Lavadora' && !ticket.appliance_info?.brand))
+                                ? '-'
+                                : (ticket.appliance_info?.brand || '-')}
+                        </p>
+                    </div>
+                </div>
 
-
-
-{/* Client Card */ }
-<div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-4">
-    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-        <User size={14} /> Cliente
-    </h3>
-
-    <div className="mb-4">
-        <p className="font-bold text-lg text-slate-800">{ticket.client?.full_name}</p>
-        <p className="text-slate-500 text-sm">Cliente Particular</p>
-    </div>
-
-    <div className="space-y-3 mb-4">
-        <div className="flex gap-3">
-            <button
-                onClick={() => handleCall(ticket.client?.phone)}
-                className="flex-1 py-2.5 bg-green-50 text-green-700 rounded-lg flex items-center justify-center gap-2 font-medium text-sm border border-green-100 active:scale-95 transition"
-            >
-                <PhoneCall size={16} /> {ticket.client?.phone || 'Móvil'}
-            </button>
-            {ticket.client?.phone_2 && (
-                <button
-                    onClick={() => handleCall(ticket.client?.phone_2)}
-                    className="flex-1 py-2.5 bg-emerald-50 text-emerald-700 rounded-lg flex items-center justify-center gap-2 font-medium text-sm border border-emerald-100 active:scale-95 transition"
+                <div className="bg-slate-50 p-3 rounded-lg mb-4 flex justify-between items-center group relative cursor-pointer"
+                    onClick={() => {
+                        const model = ticket.appliance_info?.model;
+                        if (model) {
+                            navigator.clipboard.writeText(model);
+                            alert('Modelo copiado!');
+                        }
+                    }}
                 >
-                    <Phone size={16} /> {ticket.client?.phone_2}
-                </button>
-            )}
-        </div>
-        <button
-            onClick={() => handleOpenMap(ticket.client?.address)}
-            className="w-full py-2.5 bg-blue-50 text-blue-700 rounded-lg flex items-center justify-center gap-2 font-medium text-sm border border-blue-100 active:scale-95 transition"
-        >
-            <Navigation size={16} /> Como llegar (Mapa)
-        </button>
-    </div>
+                    <div>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase">Modelo</p>
+                        <p className="font-medium text-slate-700 font-mono">{ticket.appliance_info?.model || 'No registrado'}</p>
+                    </div>
+                    <Copy size={16} className="text-slate-300 group-hover:text-blue-500" />
+                </div>
 
-    <div className="space-y-3 pt-3 border-t border-slate-50">
-        <div className="flex items-start gap-3">
-            <MapPin size={16} className="text-slate-400 mt-1" />
-            <span className="text-sm text-slate-600">{ticket.client?.address}</span>
-        </div>
-        {ticket.client?.phone && (
-            <div className="flex items-start gap-3">
-                <Phone size={16} className="text-slate-400 mt-1" />
-                <span className="text-sm text-slate-600">{ticket.client?.phone}</span>
+                {/* LABEL PHOTO BUTTON */}
+                {ticket.appliance_info?.label_image_url && (
+                    <button
+                        onClick={() => setShowLabelModal(true)}
+                        className="w-full py-2 bg-slate-100 text-slate-700 rounded-lg flex items-center justify-center gap-2 font-bold text-sm mb-4 hover:bg-slate-200 transition"
+                    >
+                        <Scan size={16} />
+                        Ver / Escanear Etiqueta
+                    </button>
+                )}
+
+                <div>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Síntoma / Avería</p>
+                    <p className="text-sm text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100">
+                        {ticket.description_failure || ticket.description || 'Sin descripción detallada.'}
+                    </p>
+                </div>
+
+                {/* AI Diagnosis Section */}
+                {displayedDiagnosis && (
+                    <div className="mt-4 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 relative overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className={`p-1.5 rounded-lg ${isLive ? 'bg-indigo-100 text-indigo-600' : 'bg-blue-100 text-blue-600'}`}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" x2="12" y1="19" y2="22" /></svg>
+                            </div>
+                            <span className={`text-xs font-bold uppercase tracking-wider ${isLive ? 'text-indigo-700' : 'text-blue-700'}`}>
+                                {isLive ? 'Sugerencia IA (Live)' : 'Diagnóstico IA'}
+                            </span>
+                        </div>
+                        <p className="text-sm text-slate-700 leading-relaxed italic">
+                            {displayedDiagnosis}
+                        </p>
+                    </div>
+                )}
             </div>
-        )}
-    </div>
-</div>
 
-{/* Appliance Card */ }
-<div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-        <CheckCircle size={14} /> Aparato
-    </h3>
+            {/* Diagnosis & Solution Section */}
+            {
+                (ticket.status === 'en_diagnostico' || ticket.status === 'en_reparacion' || ticket.status === 'finalizado') && (
+                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-4 animate-in fade-in slide-in-from-bottom-4">
+                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                            <Search size={14} /> Diagnóstico Técnico
+                        </h3>
 
-    <div className="grid grid-cols-2 gap-4 mb-4">
-        <div className="bg-slate-50 p-3 rounded-lg">
-            <p className="text-[10px] text-slate-400 font-bold uppercase">Tipo</p>
-            <p className="font-medium text-slate-700">
-                {(ticket.appliance_info?.type === 'General' || (ticket.appliance_info?.type === 'Lavadora' && !ticket.appliance_info?.brand))
-                    ? 'Varios / General'
-                    : (ticket.appliance_info?.type || '-')}
-            </p>
-        </div>
-        <div className="bg-slate-50 p-3 rounded-lg">
-            <p className="text-[10px] text-slate-400 font-bold uppercase">Marca</p>
-            <p className="font-medium text-slate-700">
-                {(ticket.appliance_info?.type === 'General' || (ticket.appliance_info?.type === 'Lavadora' && !ticket.appliance_info?.brand))
-                    ? '-'
-                    : (ticket.appliance_info?.brand || '-')}
-            </p>
-        </div>
-    </div>
-
-    <div className="bg-slate-50 p-3 rounded-lg mb-4 flex justify-between items-center group relative cursor-pointer"
-        onClick={() => {
-            const model = ticket.appliance_info?.model;
-            if (model) {
-                navigator.clipboard.writeText(model);
-                alert('Modelo copiado!');
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-600 mb-1">Diagnóstico de Avería</label>
+                                <textarea
+                                    disabled={!isEditingAllowed}
+                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                    rows={3}
+                                    placeholder="Describa qué falla técnica ha encontrado..."
+                                    value={diagnosis}
+                                    onChange={e => setDiagnosis(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-600 mb-1">Solución Propuesta</label>
+                                <textarea
+                                    disabled={!isEditingAllowed}
+                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                    rows={3}
+                                    placeholder="Describa la reparación a realizar..."
+                                    value={solution}
+                                    onChange={e => setSolution(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )
             }
-        }}
-    >
-        <div>
-            <p className="text-[10px] text-slate-400 font-bold uppercase">Modelo</p>
-            <p className="font-medium text-slate-700 font-mono">{ticket.appliance_info?.model || 'No registrado'}</p>
-        </div>
-        <Copy size={16} className="text-slate-300 group-hover:text-blue-500" />
-    </div>
 
-    {/* LABEL PHOTO BUTTON */}
-    {ticket.appliance_info?.label_image_url && (
-        <button
-            onClick={() => setShowLabelModal(true)}
-            className="w-full py-2 bg-slate-100 text-slate-700 rounded-lg flex items-center justify-center gap-2 font-bold text-sm mb-4 hover:bg-slate-200 transition"
-        >
-            <Scan size={16} />
-            Ver / Escanear Etiqueta
-        </button>
-    )}
+            {/* Budget / Financial Section */}
+            {
+                (ticket.status === 'en_diagnostico' || ticket.status === 'en_reparacion' || ticket.status === 'finalizado') && (
+                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-4 animate-in fade-in slide-in-from-bottom-4">
+                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                            <Copy size={14} /> Presupuesto / Artículos
+                        </h3>
 
-    <div>
-        <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Síntoma / Avería</p>
-        <p className="text-sm text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100">
-            {ticket.description_failure || ticket.description || 'Sin descripción detallada.'}
-        </p>
-    </div>
+                        {/* Labor List */}
+                        <div className="mb-6">
+                            <label className="block text-xs font-bold text-slate-600 mb-2">Mano de Obra / Servicios</label>
+                            {labor.map(item => (
+                                <div key={item.id} className="flex justify-between items-center py-2 border-b border-slate-50">
+                                    <span className="text-sm text-slate-700">{item.name}</span>
+                                    <div className="flex items-center gap-3">
+                                        <span className="font-mono font-bold text-slate-800">{item.price}€</span>
+                                        {isEditingAllowed && (
+                                            <button onClick={() => removeLabor(item.id)} className="text-red-400 hover:text-red-600">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
 
-    {/* AI Diagnosis Section */}
-    {displayedDiagnosis && (
-        <div className="mt-4 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 relative overflow-hidden animate-in fade-in slide-in-from-bottom-2">
-            <div className="flex items-center gap-2 mb-2">
-                <div className={`p-1.5 rounded-lg ${isLive ? 'bg-indigo-100 text-indigo-600' : 'bg-blue-100 text-blue-600'}`}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" x2="12" y1="19" y2="22" /></svg>
-                </div>
-                <span className={`text-xs font-bold uppercase tracking-wider ${isLive ? 'text-indigo-700' : 'text-blue-700'}`}>
-                    {isLive ? 'Sugerencia IA (Live)' : 'Diagnóstico IA'}
-                </span>
-            </div>
-            <p className="text-sm text-slate-700 leading-relaxed italic">
-                {displayedDiagnosis}
-            </p>
-        </div>
-    )}
-</div>
-
-{/* Diagnosis & Solution Section */ }
-{
-    (ticket.status === 'en_diagnostico' || ticket.status === 'en_reparacion' || ticket.status === 'finalizado') && (
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-4 animate-in fade-in slide-in-from-bottom-4">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                <Search size={14} /> Diagnóstico Técnico
-            </h3>
-
-            <div className="space-y-4">
-                <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1">Diagnóstico de Avería</label>
-                    <textarea
-                        disabled={!isEditingAllowed}
-                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        rows={3}
-                        placeholder="Describa qué falla técnica ha encontrado..."
-                        value={diagnosis}
-                        onChange={e => setDiagnosis(e.target.value)}
-                    />
-                </div>
-                <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1">Solución Propuesta</label>
-                    <textarea
-                        disabled={!isEditingAllowed}
-                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        rows={3}
-                        placeholder="Describa la reparación a realizar..."
-                        value={solution}
-                        onChange={e => setSolution(e.target.value)}
-                    />
-                </div>
-            </div>
-        </div>
-    )
-}
-
-{/* Budget / Financial Section */ }
-{
-    (ticket.status === 'en_diagnostico' || ticket.status === 'en_reparacion' || ticket.status === 'finalizado') && (
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-4 animate-in fade-in slide-in-from-bottom-4">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                <Copy size={14} /> Presupuesto / Artículos
-            </h3>
-
-            {/* Labor List */}
-            <div className="mb-6">
-                <label className="block text-xs font-bold text-slate-600 mb-2">Mano de Obra / Servicios</label>
-                {labor.map(item => (
-                    <div key={item.id} className="flex justify-between items-center py-2 border-b border-slate-50">
-                        <span className="text-sm text-slate-700">{item.name}</span>
-                        <div className="flex items-center gap-3">
-                            <span className="font-mono font-bold text-slate-800">{item.price}€</span>
                             {isEditingAllowed && (
-                                <button onClick={() => removeLabor(item.id)} className="text-red-400 hover:text-red-600">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                                <div className="mt-2 flex flex-col sm:flex-row gap-2">
+                                    <select
+                                        className="w-full sm:flex-1 p-3 sm:p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                                        value={selectedLaborId}
+                                        onChange={e => setSelectedLaborId(e.target.value)}
+                                    >
+                                        <option value="">Seleccionar Servicio...</option>
+                                        {catalog.map(c => (
+                                            <option key={c.id} value={c.id}>{c.name} - {c.base_price}€</option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        onClick={addLabor}
+                                        className="w-full sm:w-auto px-6 py-3 sm:py-2 bg-blue-100 text-blue-700 rounded-lg font-bold flex items-center justify-center hover:bg-blue-200 transition"
+                                    >
+                                        + Añadir
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Parts List */}
+                        <div className="mb-6">
+                            <label className="block text-xs font-bold text-slate-600 mb-2">Materiales / Repuestos</label>
+                            {parts.map(item => (
+                                <div key={item.id} className={`flex flex-col py-3 border-b border-slate-50 ${item.request_admin ? 'bg-orange-50/50 -mx-2 px-2 rounded-lg border border-orange-100' : ''}`}>
+                                    <div className="flex justify-between items-center gap-2">
+                                        <div className="flex-1">
+                                            <span className="text-sm text-slate-700 font-medium block">{item.name}</span>
+                                            {item.request_admin && <span className="text-[10px] text-orange-600 font-bold">Solicitado a Oficina</span>}
+                                        </div>
+
+                                        {/* Qty & Price Controls */}
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex items-center bg-slate-50 rounded-lg border border-slate-200">
+                                                <span className="text-[10px] text-slate-400 pl-2 font-bold">x</span>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    disabled={!isEditingAllowed}
+                                                    className="w-10 p-1 bg-transparent text-center text-sm font-bold text-slate-700 focus:outline-none"
+                                                    value={item.qty || 1}
+                                                    onChange={(e) => handlePartStatusChange(item.id, 'qty', parseFloat(e.target.value) || 1)}
+                                                />
+                                            </div>
+                                            <div className="w-16 text-right">
+                                                <span className="font-mono font-bold text-slate-800">{(item.price * (item.qty || 1)).toFixed(2)}€</span>
+                                                <span className="block text-[10px] text-slate-400">{(item.price).toFixed(2)}€/ud</span>
+                                            </div>
+
+                                            {isEditingAllowed && (
+                                                <button onClick={() => removePart(item.id)} className="text-red-400 hover:text-red-600 p-1">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* PART REQUEST CONTROLS */}
+                                    {isEditingAllowed && ticket.status === 'en_diagnostico' && (
+                                        <div className="mt-2 flex items-center justify-between pt-2 border-t border-dashed border-slate-200">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={item.request_admin || false}
+                                                    onChange={(e) => handlePartStatusChange(item.id, 'request_admin', e.target.checked)}
+                                                    className="rounded text-orange-500 focus:ring-orange-500"
+                                                />
+                                                <span className="text-xs font-bold text-slate-500">Solicitar a Oficina</span>
+                                            </label>
+
+                                            {item.request_admin && (
+                                                <div className="flex bg-white rounded-lg border border-slate-200 p-0.5">
+                                                    <button
+                                                        onClick={() => handlePartStatusChange(item.id, 'priority', 'normal')}
+                                                        className={`px-2 py-1 text-[10px] font-bold rounded-md transition ${!item.priority || item.priority === 'normal' ? 'bg-slate-200 text-slate-700' : 'text-slate-400'}`}
+                                                    >
+                                                        Normal
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handlePartStatusChange(item.id, 'priority', 'urgent')}
+                                                        className={`px-2 py-1 text-[10px] font-bold rounded-md transition ${item.priority === 'urgent' ? 'bg-red-500 text-white' : 'text-slate-400'}`}
+                                                    >
+                                                        Urgente
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+
+                            {isEditingAllowed && (
+                                <div className="mt-2 flex flex-col sm:flex-row gap-2">
+                                    <input
+                                        type="text"
+                                        placeholder="Nombre pieza"
+                                        className="w-full sm:flex-[2] p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                                        value={newPart.name}
+                                        onChange={e => setNewPart({ ...newPart, name: e.target.value })}
+                                    />
+                                    <div className="flex gap-2">
+                                        <div className="w-20 sm:w-16">
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                placeholder="Cant."
+                                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-center"
+                                                value={newPart.qty}
+                                                onChange={e => setNewPart({ ...newPart, qty: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="flex-1 sm:w-24 relative">
+                                            <input
+                                                type="number"
+                                                placeholder="€"
+                                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                                                value={newPart.price}
+                                                onChange={e => setNewPart({ ...newPart, price: e.target.value })}
+                                            />
+                                        </div>
+                                        <button
+                                            onClick={addPart}
+                                            className="w-12 sm:w-auto px-3 bg-blue-100 text-blue-700 rounded-lg font-bold flex items-center justify-center"
+                                        >
+                                            +
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Totals Calculation */}
+                        <div className="bg-slate-50 p-4 rounded-xl space-y-2 border border-slate-200">
+                            {/* MORTIFY ALERT */}
+                            {isOverLimit && (
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3 animate-pulse">
+                                    <div className="flex items-start gap-2">
+                                        <AlertTriangle className="text-red-600 shrink-0 mt-0.5" size={18} />
+                                        <div>
+                                            <p className="text-xs font-bold text-red-700 uppercase tracking-wider mb-1">
+                                                ⚠️ Límite Financiero Excedido
+                                            </p>
+                                            <p className="text-sm text-red-800 font-medium leading-snug">
+                                                El límite recomendado es <span className="font-black underline">{financialLimit.remaining_budget.toFixed(0)}€</span>.
+                                                Estás presupuestando <span className="font-black">{total.toFixed(0)}€</span>.
+                                            </p>
+                                            <p className="text-[10px] text-red-600 mt-1 font-bold">
+                                                * Habla con el cliente antes de proceder.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            {/* SAFE LIMIT INFO (If not over, just show info) */}
+                            {!isOverLimit && financialLimit && (
+                                <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-2 mb-2 flex items-center justify-between">
+                                    <span className="text-[10px] font-bold text-emerald-700 uppercase">Límite Seguro Inversión</span>
+                                    <span className="text-xs font-bold text-emerald-700">{financialLimit.remaining_budget.toFixed(0)}€</span>
+                                </div>
+                            )}
+
+                            <div className="flex justify-between text-sm text-slate-500">
+                                <span>Subtotal Neto</span>
+                                <span>{subtotal.toFixed(2)}€</span>
+                            </div>
+                            <div className="flex justify-between text-sm text-slate-500">
+                                <span>IVA (21%)</span>
+                                <span>{vat.toFixed(2)}€</span>
+                            </div>
+                            <div className={`flex justify-between items-center text-base font-bold pt-2 border-t border-slate-200 ${isOverLimit ? 'text-red-600' : 'text-slate-800'}`}>
+                                <span>TOTAL PRESUPUESTO</span>
+                                <span className="text-lg">{total.toFixed(2)}€</span>
+                            </div>
+
+
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* BUDGET DECISION UI - NEW */}
+            {
+                ticket.status === 'en_diagnostico' && (
+                    <div className="mb-6 animate-in fade-in slide-in-from-bottom-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                            <FileText size={14} /> Aceptación de Presupuesto
+                        </h3>
+
+                        <div className="flex gap-3 mb-4">
+                            <button
+                                onClick={() => {
+                                    setSignaturePurpose('budget');
+                                    setShowSignaturePad(true);
+                                }}
+                                className={`flex-1 py-4 rounded-xl font-bold border-2 transition-all flex flex-col items-center gap-1 ${budgetDecision === 'accepted' ? 'bg-green-50 text-green-700 border-green-200 ring-1 ring-green-500' : 'bg-slate-50 text-slate-500 border-slate-100 hover:bg-green-50 hover:text-green-600 hover:border-green-100'}`}
+                            >
+                                <CheckCircle size={24} className={budgetDecision === 'accepted' ? 'fill-green-200' : ''} />
+                                <span>Aceptar</span>
+                            </button>
+                            <button
+                                onClick={() => setBudgetDecision('rejected')}
+                                className={`flex-1 py-4 rounded-xl font-bold border-2 transition-all flex flex-col items-center gap-1 ${budgetDecision === 'rejected' ? 'bg-red-50 text-red-700 border-red-200 ring-1 ring-red-500' : 'bg-slate-50 text-slate-500 border-slate-100 hover:bg-red-50 hover:text-red-600 hover:border-red-100'}`}
+                            >
+                                <AlertTriangle size={24} className={budgetDecision === 'rejected' ? 'fill-red-200' : ''} />
+                                <span>Rechazar</span>
+                            </button>
+                        </div>
+
+                        {/* Rejected Action */}
+                        {budgetDecision === 'rejected' && (
+                            <div className="bg-red-50 p-4 rounded-xl border border-red-100 animate-in zoom-in-95 space-y-4">
+                                <div>
+                                    <h4 className="text-sm font-bold text-red-800 flex items-center gap-2 mb-2">
+                                        <Banknote size={16} />
+                                        Cobrar Diagnóstico (Opcional)
+                                    </h4>
+                                    <div className="bg-white p-3 rounded-lg border border-red-100 space-y-3">
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-400 block mb-1">Importe Diagnóstico</label>
+                                            <div className="relative">
+                                                <input
+                                                    type="number"
+                                                    value={diagnosisPrice}
+                                                    onChange={e => setDiagnosisPrice(e.target.value)}
+                                                    className="w-full pl-8 pr-3 py-2 border rounded-lg text-sm font-bold text-slate-700"
+                                                />
+                                                <span className="absolute left-3 top-2 text-slate-400">€</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => setDiagnosisMethod('CASH')}
+                                                className={`flex-1 py-2 text-xs font-bold rounded-lg border ${diagnosisMethod === 'CASH' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-slate-50 text-slate-500'}`}
+                                            >
+                                                Efectivo
+                                            </button>
+                                            <button
+                                                onClick={() => setDiagnosisMethod('CARD')}
+                                                className={`flex-1 py-2 text-xs font-bold rounded-lg border ${diagnosisMethod === 'CARD' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-500'}`}
+                                            >
+                                                Tarjeta
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <p className="text-xs text-red-700/80">
+                                    Al cobrar, se generará el presupuesto marcando el diagnóstico como PAGADO. Si el cliente acepta antes de 15 días, se le descontará.
+                                </p>
+
+                                <button
+                                    onClick={async () => {
+                                        if (diagnosisPrice > 0) {
+                                            if (!confirm(`¿Confirmas que has cobrado ${diagnosisPrice}€ en ${diagnosisMethod === 'CASH' ? 'EFECTIVO' : 'TARJETA'} por el diagnóstico?`)) return;
+
+                                            // Save Diagnosis Payment
+                                            try {
+                                                setUpdating(true);
+                                                await supabase.from('tickets').update({
+                                                    diagnosis_paid: parseFloat(diagnosisPrice),
+                                                    diagnosis_paid_at: new Date().toISOString()
+                                                    // Note: we don't set is_paid=true for the full ticket, just this field.
+                                                }).eq('id', ticket.id);
+
+                                                // Update local state temporarily for PDF generation (re-fetch will sync)
+                                                ticket.diagnosis_paid = parseFloat(diagnosisPrice);
+                                            } catch (err) {
+                                                console.error(err);
+                                                alert("Error guardando cobro: " + err.message);
+                                                setUpdating(false);
+                                                return;
+                                            }
+                                            setUpdating(false);
+                                        }
+                                        handleGenerateQuote();
+                                    }}
+                                    disabled={updating || generatingPdf}
+                                    className="w-full py-3 bg-red-600 text-white rounded-lg font-bold shadow-md shadow-red-200 hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <FileText size={18} />
+                                    {diagnosisPrice > 0 ? 'Cobrar y Generar Presupuesto' : 'Generar Rechazo (Sin Cobro)'}
                                 </button>
+                            </div>
+                        )}
+                    </div>
+                )
+            }
+
+            {/* MOVED: PENDING MATERIAL WORKFLOW (Placed after Financials) - ONLY IF ACCEPTED */}
+            {
+                ticket.status === 'en_diagnostico' && budgetDecision === 'accepted' && (
+                    <div className="bg-orange-50 rounded-2xl p-5 shadow-sm border border-orange-100 mb-4 animate-in fade-in slide-in-from-bottom-4">
+                        <h3 className="text-xs font-bold text-orange-800 uppercase tracking-wider mb-4 flex items-center gap-2">
+                            <Package size={14} /> Solicitar Repuesto / Material
+                        </h3>
+                        <p className="text-xs text-orange-700 mb-4">
+                            Si necesitas pedir material y el cliente ha pagado a cuenta, usa esta sección para <strong>pausar el servicio</strong> hasta que llegue el repuesto.
+                        </p>
+
+                        <div className="space-y-4 mb-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">Descripción del Repuesto *</label>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        value={ticket.required_parts_description || ''}
+                                        onChange={(e) => setTicket({ ...ticket, required_parts_description: e.target.value })}
+                                        placeholder="Ej: Bomba de desagüe Samsung..."
+                                        className="w-full p-3 bg-white border border-orange-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none pr-10"
+                                    />
+                                    {parts.length > 0 && !ticket.required_parts_description && (
+                                        <button
+                                            onClick={() => setTicket({ ...ticket, required_parts_description: parts.map(p => p.name).join(', ') })}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-orange-500 hover:text-orange-700 p-1"
+                                            title="Copiar repuestos añadidos"
+                                        >
+                                            <Copy size={16} />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Note: Deposit logic is shared with the budget section above, keeping them synced in state 'deposit' */}
+                            <div className="bg-white p-3 rounded-xl border border-orange-200">
+                                <label className="block text-xs font-bold text-slate-500 mb-1">Total Pagado a Cuenta (€) *</label>
+                                <div className="flex gap-2 items-center">
+                                    <input
+                                        type="number"
+                                        value={deposit}
+                                        onChange={(e) => setDeposit(Number(e.target.value))}
+                                        placeholder="0.00"
+                                        className="w-full p-2 font-mono font-bold text-lg text-slate-800 border-none focus:ring-0"
+                                    />
+                                    <span className="text-slate-400 font-bold">€</span>
+                                </div>
+                                <p className="text-[10px] text-slate-400 mt-1">Asegúrate de que este importe coincide con lo cobrado.</p>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={async () => {
+                                // AUTO-FILL: If description is empty but parts exist, auto-fill it before submitting
+                                let finalDesc = ticket.required_parts_description;
+                                if (!finalDesc && parts.length > 0) {
+                                    finalDesc = parts.map(p => p.name).join(', ');
+                                    setTicket(prev => ({ ...prev, required_parts_description: finalDesc }));
+                                }
+
+                                if (!finalDesc || !deposit) {
+                                    alert('Para solicitar material es obligatorio indicar la pieza y el importe pagado a cuenta.');
+                                    return;
+                                }
+                                if (!window.confirm('¿Confirmas que el cliente ha pagado esa cantidad y quieres dejar el servicio en espera de material?')) return;
+
+                                setUpdating(true);
+                                try {
+                                    // 1. Update data cols
+                                    await supabase.from('tickets').update({
+                                        required_parts_description: ticket.required_parts_description,
+                                        deposit_amount: deposit,
+                                        material_status_at: new Date().toISOString()
+                                    }).eq('id', ticket.id);
+
+                                    // 2. Change status
+                                    await updateStatus('pendiente_material');
+                                    alert('Servicio pausado por material correctamente.');
+                                    navigate('/tech/dashboard');
+                                } catch (e) {
+                                    console.error(e);
+                                    alert('Error: ' + e.message);
+                                    setUpdating(false);
+                                }
+                            }}
+                            disabled={updating}
+                            className="w-full py-4 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 shadow-lg shadow-orange-200 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+                        >
+                            <History size={18} />
+                            Confirmar Pago y Pedir Material
+                        </button>
+                    </div>
+                )
+            }
+
+            {/* Payment Check & PDF - Only at End */}
+            {/* HIDDEN IF FINALIZED per user request */}
+            {
+                (ticket.status === 'en_reparacion' && ticket.status !== 'finalizado') && (
+                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-4 animate-in fade-in slide-in-from-bottom-4">
+                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Cobro y Documentación</h3>
+
+                        <div className="flex flex-col gap-3">
+
+                            {/* WARRANTY CONFIGURATION */}
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-2">
+                                <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
+                                    <ShieldCheck size={14} /> Configuración de Garantía
+                                </h4>
+                                <div className="flex gap-4">
+                                    <div className="flex-1">
+                                        <label className="text-[10px] font-bold text-slate-400 block mb-1">Mano de Obra</label>
+                                        <select
+                                            value={warrantyLabor}
+                                            onChange={e => setWarrantyLabor(Number(e.target.value))}
+                                            className="w-full text-sm font-bold p-2 rounded-lg border border-slate-200 bg-white"
+                                        >
+                                            <option value={0}>Sin Garantía</option>
+                                            <option value={3}>3 Meses</option>
+                                            <option value={6}>6 Meses</option>
+                                            <option value={12}>1 Año</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="text-[10px] font-bold text-slate-400 block mb-1">Piezas / Recambios</label>
+                                        <select
+                                            value={warrantyParts}
+                                            onChange={e => setWarrantyParts(Number(e.target.value))}
+                                            className="w-full text-sm font-bold p-2 rounded-lg border border-slate-200 bg-white"
+                                        >
+                                            <option value={0}>Sin Garantía</option>
+                                            <option value={6}>6 Meses</option>
+                                            <option value={12}>1 Año</option>
+                                            <option value={24}>2 Años</option>
+                                            <option value={36}>3 Años</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                                <input
+                                    type="checkbox"
+                                    checked={isPaid}
+                                    onChange={e => setIsPaid(e.target.checked)}
+                                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                                />
+                                <span className={`font-bold ${isPaid ? 'text-green-600' : 'text-slate-600'}`}>
+                                    {isPaid ? 'SERVICIO COBRADO' : 'PENDIENTE DE COBRO'}
+                                </span>
+                            </label>
+
+                            {isPaid && (
+                                <>
+                                    <select
+                                        className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-white"
+                                        value={paymentMethod}
+                                        onChange={e => setPaymentMethod(e.target.value)}
+                                    >
+                                        <option value="cash">Efectivo</option>
+                                        <option value="card">Tarjeta</option>
+                                        {(ticket.client?.user_id || ticket.client?.id || ticket.origin_source?.toLowerCase().includes('app')) && <option value="APP_PAYMENT">Pago por App</option>}
+                                        <option value="bizum">Bizum</option>
+                                        <option value="transfer">Transferencia</option>
+                                    </select>
+
+                                    {/* INLINE APP PAYMENT ACTION */}
+                                    {paymentMethod === 'APP_PAYMENT' && (
+                                        <div className="mt-4 p-4 border rounded-xl bg-blue-50 border-blue-100">
+                                            <div className="text-center mb-4">
+                                                <div className="p-3 bg-white rounded-full inline-block shadow-sm">
+                                                    <Smartphone className="text-blue-600" size={28} />
+                                                </div>
+                                                <h4 className="font-bold text-blue-900 mt-2">Cobro Digital</h4>
+                                                <p className="text-xs text-blue-700">El cliente pagará desde su móvil</p>
+                                            </div>
+
+                                            {ticket.status === 'PENDING_PAYMENT' ? (
+                                                <div className="flex flex-col items-center gap-2 animate-in fade-in">
+                                                    <div className="relative">
+                                                        <div className="absolute inset-0 animate-ping rounded-full bg-blue-400 opacity-25"></div>
+                                                        <span className="relative flex h-3 w-3">
+                                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                                            <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                                                        </span>
+                                                    </div>
+                                                    <span className="font-bold text-blue-600 animate-pulse">Esperando pago...</span>
+                                                    <p className="text-xs text-slate-500 text-center max-w-[200px]">
+                                                        El cliente tiene la pasarela de pago abierta en su App.
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={async () => {
+                                                        try {
+                                                            const { error } = await supabase
+                                                                .from('tickets')
+                                                                .update({
+                                                                    status: 'PENDING_PAYMENT',
+                                                                    payment_method: 'APP_PAYMENT',
+                                                                    final_price: total // Send the calculated total from state
+                                                                })
+                                                                .eq('id', ticket.id);
+
+                                                            if (error) throw error;
+                                                            // Optimistic Update handled by Realtime subscription
+                                                        } catch (err) {
+                                                            alert("Error: " + err.message);
+                                                        }
+                                                    }}
+                                                    className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200"
+                                                >
+                                                    Enviar Solicitud de Cobro
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* PAYMENT PROOF UPLOAD (Manual Methods Only) */}
+                                    {paymentMethod !== 'cash' && paymentMethod !== 'APP_PAYMENT' && (
+                                        <div className="mt-2 animate-in fade-in">
+                                            <label className="block text-xs font-bold text-slate-600 mb-2">
+                                                Justificante de Pago
+                                            </label>
+                                            {!paymentProofUrl ? (
+                                                <div className="relative">
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        capture="environment"
+                                                        onChange={handleFileUpload}
+                                                        disabled={uploadingProof}
+                                                        className="hidden"
+                                                        id="payment-proof-upload"
+                                                    />
+                                                    <label
+                                                        htmlFor="payment-proof-upload"
+                                                        className={`w-full py-4 border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-2 cursor-pointer transition-all ${uploadingProof
+                                                            ? 'bg-slate-50 border-slate-200'
+                                                            : 'bg-blue-50 border-blue-200 hover:bg-blue-100'
+                                                            }`}
+                                                    >
+                                                        {uploadingProof ? (
+                                                            <span className="text-xs font-bold text-slate-500">Subiendo...</span>
+                                                        ) : (
+                                                            <>
+                                                                <Camera className="text-blue-500" size={24} />
+                                                                <span className="text-xs font-bold text-blue-700">Hacer Foto / Subir</span>
+                                                            </>
+                                                        )}
+                                                    </label>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center justify-between p-3 bg-green-50 rounded-xl border border-green-100">
+                                                    <div className="flex items-center gap-2">
+                                                        <CheckCircle size={16} className="text-green-600" />
+                                                        <span className="text-sm font-bold text-green-700">Justificante Guardado</span>
+                                                    </div>
+                                                    <button onClick={() => setPaymentProofUrl('')} className="text-xs text-red-500 font-bold underline">Eliminar</button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </>
+                            )}
+
+                            {/* PDF GENERATION BUTTON */}
+                            <div className="pt-4 mt-2 border-t border-slate-100 flex flex-col gap-3">
+                                {ticket.pdf_url && (
+                                    <a
+                                        href={ticket.pdf_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="w-full py-3 bg-red-50 text-red-700 border border-red-100 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-red-100 transition"
+                                    >
+                                        <FileText size={20} />
+                                        <span>Ver Parte Actual (PDF)</span>
+                                    </a>
+                                )}
+
+                                {ticket.warranty_pdf_url && (
+                                    <a
+                                        href={ticket.warranty_pdf_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="w-full py-3 bg-purple-50 text-purple-700 border border-purple-100 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-purple-100 transition"
+                                    >
+                                        <ShieldCheck size={20} />
+                                        <span>Ver Parte Garantía (PDF)</span>
+                                    </a>
+                                )}
+
+                                {/* REGENERATE WORK REPORT (If missing on finalized - e.g. after App Payment) */}
+                                {ticket.status === 'finalizado' && !ticket.pdf_url && (
+                                    <button
+                                        onClick={() => {
+                                            setSignaturePurpose('closing');
+                                            setShowSignaturePad(true);
+                                        }}
+                                        className="w-full py-3 bg-red-100 text-red-700 border border-red-200 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-red-200 transition"
+                                    >
+                                        <AlertTriangle size={20} />
+                                        <span>Generar Parte de Trabajo (Faltante)</span>
+                                    </button>
+                                )}
+
+                                {/* REGENERATE WARRANTY PDF (If missing on finalized) */}
+                                {ticket.status === 'finalizado' && ticket.is_warranty && !ticket.warranty_pdf_url && (
+                                    <button
+                                        onClick={async () => {
+                                            if (!window.confirm('¿Generar Parte de Garantía faltante?')) return;
+                                            await handleGeneratePDF('warranty');
+                                        }}
+                                        disabled={generatingPdf}
+                                        className="w-full py-3 bg-purple-100 text-purple-700 border border-purple-200 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-purple-200 transition"
+                                    >
+                                        <ShieldAlert size={20} />
+                                        <span>Regenerar Parte Garantía (Faltante)</span>
+                                    </button>
+                                )}
+
+
+                            </div>
+
+                            <button
+                                onClick={() => {
+                                    setSignaturePurpose('closing');
+                                    setShowSignaturePad(true);
+                                }}
+                                disabled={uploadingProof}
+                                className={`w-full py-4 mt-2 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-all ${isPaid ? 'bg-green-600 hover:bg-green-700 shadow-green-200' : 'bg-slate-700 hover:bg-slate-800 shadow-slate-300'
+                                    }`}
+                            >
+                                <CheckCircle size={24} />
+                                {isPaid ? 'Finalizar Reparación y Firmar' : 'Finalizar como PENDIENTE DE COBRO'}
+                            </button>
+
+                            {/* WARRANTY BUTTON */}
+                            <button
+                                onClick={() => {
+                                    setSignaturePurpose('warranty_closing');
+                                    setShowSignaturePad(true);
+                                }}
+                                disabled={uploadingProof}
+                                className="w-full py-4 mt-2 bg-purple-600 text-white rounded-xl font-bold shadow-lg shadow-purple-200 flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-purple-700"
+                            >
+                                <ShieldCheck size={24} />
+                                Finalizar y Generar Parte de Garantía
+                            </button>
+                        </div>
+                    </div>
+                )
+            }
+
+            {
+                isEditingAllowed && (
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-slate-200 flex justify-center z-40">
+                        <button
+                            onClick={saveChanges}
+                            className="w-full max-w-md bg-blue-600 text-white font-bold py-3.5 rounded-xl shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                        >
+                            <CheckCircle size={20} />
+                            Guardar Cambios
+                        </button>
+                    </div>
+                )
+            }
+
+            {/* LABEL OCR MODAL */}
+            {
+                showLabelModal && (
+                    <div className="fixed inset-0 bg-black/90 z-50 flex flex-col animate-in fade-in">
+                        {/* Header */}
+                        <div className="flex justify-between items-center p-4 text-white">
+                            <h3 className="font-bold">Etiqueta del Aparato</h3>
+                            <button onClick={() => setShowLabelModal(false)} className="p-2 bg-white/10 rounded-full">
+                                <span className="sr-only">Cerrar</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+
+                        {/* Image Area */}
+                        <div className="flex-1 overflow-auto flex items-center justify-center bg-black p-4">
+                            <img
+                                src={ticket.appliance_info?.label_image_url}
+                                alt="Etiqueta"
+                                className="max-w-full max-h-[60vh] object-contain rounded-lg"
+                            />
+                        </div>
+
+                        {/* OCR Controls */}
+                        <div className="bg-slate-900 p-6 rounded-t-3xl border-t border-slate-800">
+                            {/* ASWO Credentials Helper */}
+                            <div className="mb-4 bg-slate-800 p-3 rounded-lg flex justify-between items-center border border-slate-700">
+                                <div>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase">Credenciales ASWO</p>
+                                    <div className="flex gap-4 text-sm font-mono text-slate-200">
+                                        <span>C: 57384-004</span>
+                                        <span>P: reda1427</span>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText("57384-004\nreda1427");
+                                        alert("Credenciales copiadas!");
+                                    }}
+                                    className="p-2 bg-slate-700 rounded text-slate-300 hover:text-white"
+                                >
+                                    <ClipboardCopy size={16} />
+                                </button>
+                            </div>
+
+                            {!ocrText ? (
+                                <button
+                                    onClick={handleScanLabel}
+                                    disabled={scanningLabel}
+                                    className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold flex items-center justify-center gap-2"
+                                >
+                                    {scanningLabel ? (
+                                        <>
+                                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            Escaneando Texto...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Scan size={20} />
+                                            Detectar Texto (OCR)
+                                        </>
+                                    )}
+                                </button>
+                            ) : (
+                                <div className="animate-in slide-in-from-bottom-4">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <label className="text-xs font-bold text-slate-400 uppercase">Texto Detectado</label>
+                                        <button onClick={() => setOcrText('')} className="text-xs text-blue-400">Re-escanear</button>
+                                    </div>
+                                    <textarea
+                                        className="w-full h-24 bg-slate-800 rounded-lg border border-slate-700 text-white p-3 text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none mb-3"
+                                        value={ocrText}
+                                        onChange={(e) => setOcrText(e.target.value)}
+                                    ></textarea>
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(ocrText);
+                                            alert("Texto copiado al portapapeles");
+                                            setShowLabelModal(false);
+                                        }}
+                                        className="w-full py-3 bg-white text-slate-900 rounded-xl font-bold flex items-center justify-center gap-2"
+                                    >
+                                        <Copy size={18} />
+                                        Copiar y Salir
+                                    </button>
+                                </div>
                             )}
                         </div>
                     </div>
-                ))}
-
-                {isEditingAllowed && (
-                    <div className="mt-2 flex flex-col sm:flex-row gap-2">
-                        <select
-                            className="w-full sm:flex-1 p-3 sm:p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
-                            value={selectedLaborId}
-                            onChange={e => setSelectedLaborId(e.target.value)}
-                        >
-                            <option value="">Seleccionar Servicio...</option>
-                            {catalog.map(c => (
-                                <option key={c.id} value={c.id}>{c.name} - {c.base_price}€</option>
-                            ))}
-                        </select>
-                        <button
-                            onClick={addLabor}
-                            className="w-full sm:w-auto px-6 py-3 sm:py-2 bg-blue-100 text-blue-700 rounded-lg font-bold flex items-center justify-center hover:bg-blue-200 transition"
-                        >
-                            + Añadir
-                        </button>
+                )
+            }
+            {/* GPS Tracker Component - Only visible during EN CAMINO */}
+            {
+                ticket && user && ticket.status === 'en_camino' && (
+                    <div className="mt-8 mb-4">
+                        <ErrorBoundary>
+                            <TechLocationMap
+                                technicianId={user.id} // DEPLOY_FIX_V3
+                                className="w-full h-64 rounded-xl shadow-lg"
+                            />
+                        </ErrorBoundary>
                     </div>
-                )}
-            </div>
+                )
+            }
 
-            {/* Parts List */}
-            <div className="mb-6">
-                <label className="block text-xs font-bold text-slate-600 mb-2">Materiales / Repuestos</label>
-                {parts.map(item => (
-                    <div key={item.id} className={`flex flex-col py-3 border-b border-slate-50 ${item.request_admin ? 'bg-orange-50/50 -mx-2 px-2 rounded-lg border border-orange-100' : ''}`}>
-                        <div className="flex justify-between items-center gap-2">
-                            <div className="flex-1">
-                                <span className="text-sm text-slate-700 font-medium block">{item.name}</span>
-                                {item.request_admin && <span className="text-[10px] text-orange-600 font-bold">Solicitado a Oficina</span>}
-                            </div>
+            {/* SIGNATURE PAD */}
+            {
+                showSignaturePad && (
+                    <SignaturePad
+                        onSave={async (signatureDataUrl) => {
+                            try {
+                                setUpdating(true);
+                                // 1. Upload Signature
+                                const fileName = `sig_${ticket.ticket_number}_${Date.now()}.png`;
+                                const { error: uploadError } = await supabase.storage
+                                    .from('service-attachments')
+                                    .upload(fileName, await (await fetch(signatureDataUrl)).blob(), { contentType: 'image/png' });
 
-                            {/* Qty & Price Controls */}
-                            <div className="flex items-center gap-2">
-                                <div className="flex items-center bg-slate-50 rounded-lg border border-slate-200">
-                                    <span className="text-[10px] text-slate-400 pl-2 font-bold">x</span>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        disabled={!isEditingAllowed}
-                                        className="w-10 p-1 bg-transparent text-center text-sm font-bold text-slate-700 focus:outline-none"
-                                        value={item.qty || 1}
-                                        onChange={(e) => handlePartStatusChange(item.id, 'qty', parseFloat(e.target.value) || 1)}
-                                    />
-                                </div>
-                                <div className="w-16 text-right">
-                                    <span className="font-mono font-bold text-slate-800">{(item.price * (item.qty || 1)).toFixed(2)}€</span>
-                                    <span className="block text-[10px] text-slate-400">{(item.price).toFixed(2)}€/ud</span>
-                                </div>
+                                if (uploadError) throw uploadError;
 
-                                {isEditingAllowed && (
-                                    <button onClick={() => removePart(item.id)} className="text-red-400 hover:text-red-600 p-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
-                                    </button>
-                                )}
-                            </div>
-                        </div>
+                                const { data } = supabase.storage.from('service-attachments').getPublicUrl(fileName);
+                                const publicUrl = data.publicUrl;
 
-                        {/* PART REQUEST CONTROLS */}
-                        {isEditingAllowed && ticket.status === 'en_diagnostico' && (
-                            <div className="mt-2 flex items-center justify-between pt-2 border-t border-dashed border-slate-200">
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={item.request_admin || false}
-                                        onChange={(e) => handlePartStatusChange(item.id, 'request_admin', e.target.checked)}
-                                        className="rounded text-orange-500 focus:ring-orange-500"
-                                    />
-                                    <span className="text-xs font-bold text-slate-500">Solicitar a Oficina</span>
-                                </label>
+                                // 2. Update Ticket with Signature
+                                await supabase.from('tickets').update({
+                                    client_signature_url: publicUrl,
+                                    signature_timestamp: new Date().toISOString()
+                                }).eq('id', ticket.id);
 
-                                {item.request_admin && (
-                                    <div className="flex bg-white rounded-lg border border-slate-200 p-0.5">
-                                        <button
-                                            onClick={() => handlePartStatusChange(item.id, 'priority', 'normal')}
-                                            className={`px-2 py-1 text-[10px] font-bold rounded-md transition ${!item.priority || item.priority === 'normal' ? 'bg-slate-200 text-slate-700' : 'text-slate-400'}`}
-                                        >
-                                            Normal
-                                        </button>
-                                        <button
-                                            onClick={() => handlePartStatusChange(item.id, 'priority', 'urgent')}
-                                            className={`px-2 py-1 text-[10px] font-bold rounded-md transition ${item.priority === 'urgent' ? 'bg-red-500 text-white' : 'text-slate-400'}`}
-                                        >
-                                            Urgente
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                ))}
+                                // Update local state
+                                setTicket(prev => ({ ...prev, client_signature_url: publicUrl }));
 
-                {isEditingAllowed && (
-                    <div className="mt-2 flex flex-col sm:flex-row gap-2">
-                        <input
-                            type="text"
-                            placeholder="Nombre pieza"
-                            className="w-full sm:flex-[2] p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
-                            value={newPart.name}
-                            onChange={e => setNewPart({ ...newPart, name: e.target.value })}
-                        />
-                        <div className="flex gap-2">
-                            <div className="w-20 sm:w-16">
-                                <input
-                                    type="number"
-                                    min="1"
-                                    placeholder="Cant."
-                                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-center"
-                                    value={newPart.qty}
-                                    onChange={e => setNewPart({ ...newPart, qty: e.target.value })}
-                                />
-                            </div>
-                            <div className="flex-1 sm:w-24 relative">
-                                <input
-                                    type="number"
-                                    placeholder="€"
-                                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
-                                    value={newPart.price}
-                                    onChange={e => setNewPart({ ...newPart, price: e.target.value })}
-                                />
-                            </div>
-                            <button
-                                onClick={addPart}
-                                className="w-12 sm:w-auto px-3 bg-blue-100 text-blue-700 rounded-lg font-bold flex items-center justify-center"
-                            >
-                                +
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </div>
+                                // 3. Branch Logic based on Purpose
+                                if (signaturePurpose === 'budget') {
+                                    setBudgetDecision('accepted');
+                                    alert("Presupuesto aceptado y firmado.");
+                                    setShowSignaturePad(false);
+                                } else if (signaturePurpose === 'closing' || signaturePurpose === 'warranty_closing') {
+                                    const isWarranty = signaturePurpose === 'warranty_closing';
 
-            {/* Totals Calculation */}
-            <div className="bg-slate-50 p-4 rounded-xl space-y-2 border border-slate-200">
-                {/* MORTIFY ALERT */}
-                {isOverLimit && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3 animate-pulse">
-                        <div className="flex items-start gap-2">
-                            <AlertTriangle className="text-red-600 shrink-0 mt-0.5" size={18} />
-                            <div>
-                                <p className="text-xs font-bold text-red-700 uppercase tracking-wider mb-1">
-                                    ⚠️ Límite Financiero Excedido
-                                </p>
-                                <p className="text-sm text-red-800 font-medium leading-snug">
-                                    El límite recomendado es <span className="font-black underline">{financialLimit.remaining_budget.toFixed(0)}€</span>.
-                                    Estás presupuestando <span className="font-black">{total.toFixed(0)}€</span>.
-                                </p>
-                                <p className="text-[10px] text-red-600 mt-1 font-bold">
-                                    * Habla con el cliente antes de proceder.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                )}
-                {/* SAFE LIMIT INFO (If not over, just show info) */}
-                {!isOverLimit && financialLimit && (
-                    <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-2 mb-2 flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-emerald-700 uppercase">Límite Seguro Inversión</span>
-                        <span className="text-xs font-bold text-emerald-700">{financialLimit.remaining_budget.toFixed(0)}€</span>
-                    </div>
-                )}
+                                    // 4. CALCULATE WARRANTY DATES
+                                    const now = new Date();
+                                    const laborDate = new Date(now);
+                                    laborDate.setMonth(laborDate.getMonth() + warrantyLabor);
+                                    const partsDate = new Date(now);
+                                    partsDate.setMonth(partsDate.getMonth() + warrantyParts);
+                                    const maxDate = laborDate > partsDate ? laborDate : partsDate;
 
-                <div className="flex justify-between text-sm text-slate-500">
-                    <span>Subtotal Neto</span>
-                    <span>{subtotal.toFixed(2)}€</span>
-                </div>
-                <div className="flex justify-between text-sm text-slate-500">
-                    <span>IVA (21%)</span>
-                    <span>{vat.toFixed(2)}€</span>
-                </div>
-                <div className={`flex justify-between items-center text-base font-bold pt-2 border-t border-slate-200 ${isOverLimit ? 'text-red-600' : 'text-slate-800'}`}>
-                    <span>TOTAL PRESUPUESTO</span>
-                    <span className="text-lg">{total.toFixed(2)}€</span>
-                </div>
+                                    const warrantyData = {
+                                        warranty_labor_months: warrantyLabor,
+                                        warranty_parts_months: warrantyParts,
+                                        warranty_labor_until: laborDate.toISOString(),
+                                        warranty_parts_until: partsDate.toISOString(),
+                                        warranty_until: maxDate.toISOString()
+                                    };
 
+                                    // Quick fix: Temporarily mutate ticket object for this closure
+                                    ticket.client_signature_url = publicUrl;
 
-            </div>
-        </div>
-    )
-}
+                                    // Generate PDF (Robust await)
+                                    await handleGeneratePDF(isWarranty ? 'warranty' : 'standard');
 
-{/* BUDGET DECISION UI - NEW */ }
-{
-    ticket.status === 'en_diagnostico' && (
-        <div className="mb-6 animate-in fade-in slide-in-from-bottom-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                <FileText size={14} /> Aceptación de Presupuesto
-            </h3>
+                                    // Finalize
+                                    await updateStatus('finalizado', warrantyData);
 
-            <div className="flex gap-3 mb-4">
-                <button
-                    onClick={() => {
-                        setSignaturePurpose('budget');
-                        setShowSignaturePad(true);
-                    }}
-                    className={`flex-1 py-4 rounded-xl font-bold border-2 transition-all flex flex-col items-center gap-1 ${budgetDecision === 'accepted' ? 'bg-green-50 text-green-700 border-green-200 ring-1 ring-green-500' : 'bg-slate-50 text-slate-500 border-slate-100 hover:bg-green-50 hover:text-green-600 hover:border-green-100'}`}
-                >
-                    <CheckCircle size={24} className={budgetDecision === 'accepted' ? 'fill-green-200' : ''} />
-                    <span>Aceptar</span>
-                </button>
-                <button
-                    onClick={() => setBudgetDecision('rejected')}
-                    className={`flex-1 py-4 rounded-xl font-bold border-2 transition-all flex flex-col items-center gap-1 ${budgetDecision === 'rejected' ? 'bg-red-50 text-red-700 border-red-200 ring-1 ring-red-500' : 'bg-slate-50 text-slate-500 border-slate-100 hover:bg-red-50 hover:text-red-600 hover:border-red-100'}`}
-                >
-                    <AlertTriangle size={24} className={budgetDecision === 'rejected' ? 'fill-red-200' : ''} />
-                    <span>Rechazar</span>
-                </button>
-            </div>
-
-            {/* Rejected Action */}
-            {budgetDecision === 'rejected' && (
-                <div className="bg-red-50 p-4 rounded-xl border border-red-100 animate-in zoom-in-95 space-y-4">
-                    <div>
-                        <h4 className="text-sm font-bold text-red-800 flex items-center gap-2 mb-2">
-                            <Banknote size={16} />
-                            Cobrar Diagnóstico (Opcional)
-                        </h4>
-                        <div className="bg-white p-3 rounded-lg border border-red-100 space-y-3">
-                            <div>
-                                <label className="text-xs font-bold text-slate-400 block mb-1">Importe Diagnóstico</label>
-                                <div className="relative">
-                                    <input
-                                        type="number"
-                                        value={diagnosisPrice}
-                                        onChange={e => setDiagnosisPrice(e.target.value)}
-                                        className="w-full pl-8 pr-3 py-2 border rounded-lg text-sm font-bold text-slate-700"
-                                    />
-                                    <span className="absolute left-3 top-2 text-slate-400">€</span>
-                                </div>
-                            </div>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => setDiagnosisMethod('CASH')}
-                                    className={`flex-1 py-2 text-xs font-bold rounded-lg border ${diagnosisMethod === 'CASH' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-slate-50 text-slate-500'}`}
-                                >
-                                    Efectivo
-                                </button>
-                                <button
-                                    onClick={() => setDiagnosisMethod('CARD')}
-                                    className={`flex-1 py-2 text-xs font-bold rounded-lg border ${diagnosisMethod === 'CARD' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-500'}`}
-                                >
-                                    Tarjeta
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <p className="text-xs text-red-700/80">
-                        Al cobrar, se generará el presupuesto marcando el diagnóstico como PAGADO. Si el cliente acepta antes de 15 días, se le descontará.
-                    </p>
-
-                    <button
-                        onClick={async () => {
-                            if (diagnosisPrice > 0) {
-                                if (!confirm(`¿Confirmas que has cobrado ${diagnosisPrice}€ en ${diagnosisMethod === 'CASH' ? 'EFECTIVO' : 'TARJETA'} por el diagnóstico?`)) return;
-
-                                // Save Diagnosis Payment
-                                try {
-                                    setUpdating(true);
-                                    await supabase.from('tickets').update({
-                                        diagnosis_paid: parseFloat(diagnosisPrice),
-                                        diagnosis_paid_at: new Date().toISOString()
-                                        // Note: we don't set is_paid=true for the full ticket, just this field.
-                                    }).eq('id', ticket.id);
-
-                                    // Update local state temporarily for PDF generation (re-fetch will sync)
-                                    ticket.diagnosis_paid = parseFloat(diagnosisPrice);
-                                } catch (err) {
-                                    console.error(err);
-                                    alert("Error guardando cobro: " + err.message);
-                                    setUpdating(false);
-                                    return;
+                                    // SUCCESS FEEDBACK -> MODAL (No Alert)
+                                    setCompletionType(isWarranty ? 'warranty' : 'standard');
+                                    setShowSignaturePad(false);
+                                    setShowSuccessModal(true);
                                 }
+                            } catch (e) {
+                                console.error(e);
+                                alert("Error guardando firma: " + e.message);
+                            } finally {
                                 setUpdating(false);
                             }
-                            handleGenerateQuote();
                         }}
-                        disabled={updating || generatingPdf}
-                        className="w-full py-3 bg-red-600 text-white rounded-lg font-bold shadow-md shadow-red-200 hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
-                    >
-                        <FileText size={18} />
-                        {diagnosisPrice > 0 ? 'Cobrar y Generar Presupuesto' : 'Generar Rechazo (Sin Cobro)'}
-                    </button>
-                </div>
-            )}
-        </div>
-    )
-}
-
-{/* MOVED: PENDING MATERIAL WORKFLOW (Placed after Financials) - ONLY IF ACCEPTED */ }
-{
-    ticket.status === 'en_diagnostico' && budgetDecision === 'accepted' && (
-        <div className="bg-orange-50 rounded-2xl p-5 shadow-sm border border-orange-100 mb-4 animate-in fade-in slide-in-from-bottom-4">
-            <h3 className="text-xs font-bold text-orange-800 uppercase tracking-wider mb-4 flex items-center gap-2">
-                <Package size={14} /> Solicitar Repuesto / Material
-            </h3>
-            <p className="text-xs text-orange-700 mb-4">
-                Si necesitas pedir material y el cliente ha pagado a cuenta, usa esta sección para <strong>pausar el servicio</strong> hasta que llegue el repuesto.
-            </p>
-
-            <div className="space-y-4 mb-4">
-                <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Descripción del Repuesto *</label>
-                    <div className="relative">
-                        <input
-                            type="text"
-                            value={ticket.required_parts_description || ''}
-                            onChange={(e) => setTicket({ ...ticket, required_parts_description: e.target.value })}
-                            placeholder="Ej: Bomba de desagüe Samsung..."
-                            className="w-full p-3 bg-white border border-orange-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none pr-10"
-                        />
-                        {parts.length > 0 && !ticket.required_parts_description && (
-                            <button
-                                onClick={() => setTicket({ ...ticket, required_parts_description: parts.map(p => p.name).join(', ') })}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 text-orange-500 hover:text-orange-700 p-1"
-                                title="Copiar repuestos añadidos"
-                            >
-                                <Copy size={16} />
-                            </button>
-                        )}
-                    </div>
-                </div>
-
-                {/* Note: Deposit logic is shared with the budget section above, keeping them synced in state 'deposit' */}
-                <div className="bg-white p-3 rounded-xl border border-orange-200">
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Total Pagado a Cuenta (€) *</label>
-                    <div className="flex gap-2 items-center">
-                        <input
-                            type="number"
-                            value={deposit}
-                            onChange={(e) => setDeposit(Number(e.target.value))}
-                            placeholder="0.00"
-                            className="w-full p-2 font-mono font-bold text-lg text-slate-800 border-none focus:ring-0"
-                        />
-                        <span className="text-slate-400 font-bold">€</span>
-                    </div>
-                    <p className="text-[10px] text-slate-400 mt-1">Asegúrate de que este importe coincide con lo cobrado.</p>
-                </div>
-            </div>
-
-            <button
-                onClick={async () => {
-                    // AUTO-FILL: If description is empty but parts exist, auto-fill it before submitting
-                    let finalDesc = ticket.required_parts_description;
-                    if (!finalDesc && parts.length > 0) {
-                        finalDesc = parts.map(p => p.name).join(', ');
-                        setTicket(prev => ({ ...prev, required_parts_description: finalDesc }));
-                    }
-
-                    if (!finalDesc || !deposit) {
-                        alert('Para solicitar material es obligatorio indicar la pieza y el importe pagado a cuenta.');
-                        return;
-                    }
-                    if (!window.confirm('¿Confirmas que el cliente ha pagado esa cantidad y quieres dejar el servicio en espera de material?')) return;
-
-                    setUpdating(true);
-                    try {
-                        // 1. Update data cols
-                        await supabase.from('tickets').update({
-                            required_parts_description: ticket.required_parts_description,
-                            deposit_amount: deposit,
-                            material_status_at: new Date().toISOString()
-                        }).eq('id', ticket.id);
-
-                        // 2. Change status
-                        await updateStatus('pendiente_material');
-                        alert('Servicio pausado por material correctamente.');
-                        navigate('/tech/dashboard');
-                    } catch (e) {
-                        console.error(e);
-                        alert('Error: ' + e.message);
-                        setUpdating(false);
-                    }
-                }}
-                disabled={updating}
-                className="w-full py-4 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 shadow-lg shadow-orange-200 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
-            >
-                <History size={18} />
-                Confirmar Pago y Pedir Material
-            </button>
-        </div>
-    )
-}
-
-{/* Payment Check & PDF - Only at End */ }
-{/* HIDDEN IF FINALIZED per user request */ }
-{
-    (ticket.status === 'en_reparacion' && ticket.status !== 'finalizado') && (
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-4 animate-in fade-in slide-in-from-bottom-4">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Cobro y Documentación</h3>
-
-            <div className="flex flex-col gap-3">
-
-                {/* WARRANTY CONFIGURATION */}
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-2">
-                    <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
-                        <ShieldCheck size={14} /> Configuración de Garantía
-                    </h4>
-                    <div className="flex gap-4">
-                        <div className="flex-1">
-                            <label className="text-[10px] font-bold text-slate-400 block mb-1">Mano de Obra</label>
-                            <select
-                                value={warrantyLabor}
-                                onChange={e => setWarrantyLabor(Number(e.target.value))}
-                                className="w-full text-sm font-bold p-2 rounded-lg border border-slate-200 bg-white"
-                            >
-                                <option value={0}>Sin Garantía</option>
-                                <option value={3}>3 Meses</option>
-                                <option value={6}>6 Meses</option>
-                                <option value={12}>1 Año</option>
-                            </select>
-                        </div>
-                        <div className="flex-1">
-                            <label className="text-[10px] font-bold text-slate-400 block mb-1">Piezas / Recambios</label>
-                            <select
-                                value={warrantyParts}
-                                onChange={e => setWarrantyParts(Number(e.target.value))}
-                                className="w-full text-sm font-bold p-2 rounded-lg border border-slate-200 bg-white"
-                            >
-                                <option value={0}>Sin Garantía</option>
-                                <option value={6}>6 Meses</option>
-                                <option value={12}>1 Año</option>
-                                <option value={24}>2 Años</option>
-                                <option value={36}>3 Años</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
-                    <input
-                        type="checkbox"
-                        checked={isPaid}
-                        onChange={e => setIsPaid(e.target.checked)}
-                        className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                        onCancel={() => setShowSignaturePad(false)}
                     />
-                    <span className={`font-bold ${isPaid ? 'text-green-600' : 'text-slate-600'}`}>
-                        {isPaid ? 'SERVICIO COBRADO' : 'PENDIENTE DE COBRO'}
-                    </span>
-                </label>
+                )
+            }
 
-                {isPaid && (
-                    <>
-                        <select
-                            className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-white"
-                            value={paymentMethod}
-                            onChange={e => setPaymentMethod(e.target.value)}
-                        >
-                            <option value="cash">Efectivo</option>
-                            <option value="card">Tarjeta</option>
-                            {(ticket.client?.user_id || ticket.client?.id || ticket.origin_source?.toLowerCase().includes('app')) && <option value="APP_PAYMENT">Pago por App</option>}
-                            <option value="bizum">Bizum</option>
-                            <option value="transfer">Transferencia</option>
-                        </select>
-
-                        {/* INLINE APP PAYMENT ACTION */}
-                        {paymentMethod === 'APP_PAYMENT' && (
-                            <div className="mt-4 p-4 border rounded-xl bg-blue-50 border-blue-100">
-                                <div className="text-center mb-4">
-                                    <div className="p-3 bg-white rounded-full inline-block shadow-sm">
-                                        <Smartphone className="text-blue-600" size={28} />
-                                    </div>
-                                    <h4 className="font-bold text-blue-900 mt-2">Cobro Digital</h4>
-                                    <p className="text-xs text-blue-700">El cliente pagará desde su móvil</p>
-                                </div>
-
-                                {ticket.status === 'PENDING_PAYMENT' ? (
-                                    <div className="flex flex-col items-center gap-2 animate-in fade-in">
-                                        <div className="relative">
-                                            <div className="absolute inset-0 animate-ping rounded-full bg-blue-400 opacity-25"></div>
-                                            <span className="relative flex h-3 w-3">
-                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                                                <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
-                                            </span>
-                                        </div>
-                                        <span className="font-bold text-blue-600 animate-pulse">Esperando pago...</span>
-                                        <p className="text-xs text-slate-500 text-center max-w-[200px]">
-                                            El cliente tiene la pasarela de pago abierta en su App.
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <button
-                                        onClick={async () => {
-                                            try {
-                                                const { error } = await supabase
-                                                    .from('tickets')
-                                                    .update({
-                                                        status: 'PENDING_PAYMENT',
-                                                        payment_method: 'APP_PAYMENT',
-                                                        final_price: total // Send the calculated total from state
-                                                    })
-                                                    .eq('id', ticket.id);
-
-                                                if (error) throw error;
-                                                // Optimistic Update handled by Realtime subscription
-                                            } catch (err) {
-                                                alert("Error: " + err.message);
-                                            }
-                                        }}
-                                        className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200"
-                                    >
-                                        Enviar Solicitud de Cobro
-                                    </button>
-                                )}
-                            </div>
-                        )}
-
-                        {/* PAYMENT PROOF UPLOAD (Manual Methods Only) */}
-                        {paymentMethod !== 'cash' && paymentMethod !== 'APP_PAYMENT' && (
-                            <div className="mt-2 animate-in fade-in">
-                                <label className="block text-xs font-bold text-slate-600 mb-2">
-                                    Justificante de Pago
-                                </label>
-                                {!paymentProofUrl ? (
-                                    <div className="relative">
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            capture="environment"
-                                            onChange={handleFileUpload}
-                                            disabled={uploadingProof}
-                                            className="hidden"
-                                            id="payment-proof-upload"
-                                        />
-                                        <label
-                                            htmlFor="payment-proof-upload"
-                                            className={`w-full py-4 border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-2 cursor-pointer transition-all ${uploadingProof
-                                                ? 'bg-slate-50 border-slate-200'
-                                                : 'bg-blue-50 border-blue-200 hover:bg-blue-100'
-                                                }`}
-                                        >
-                                            {uploadingProof ? (
-                                                <span className="text-xs font-bold text-slate-500">Subiendo...</span>
-                                            ) : (
-                                                <>
-                                                    <Camera className="text-blue-500" size={24} />
-                                                    <span className="text-xs font-bold text-blue-700">Hacer Foto / Subir</span>
-                                                </>
-                                            )}
-                                        </label>
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center justify-between p-3 bg-green-50 rounded-xl border border-green-100">
-                                        <div className="flex items-center gap-2">
-                                            <CheckCircle size={16} className="text-green-600" />
-                                            <span className="text-sm font-bold text-green-700">Justificante Guardado</span>
-                                        </div>
-                                        <button onClick={() => setPaymentProofUrl('')} className="text-xs text-red-500 font-bold underline">Eliminar</button>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </>
-                )}
-
-                {/* PDF GENERATION BUTTON */}
-                <div className="pt-4 mt-2 border-t border-slate-100 flex flex-col gap-3">
-                    {ticket.pdf_url && (
-                        <a
-                            href={ticket.pdf_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-full py-3 bg-red-50 text-red-700 border border-red-100 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-red-100 transition"
-                        >
-                            <FileText size={20} />
-                            <span>Ver Parte Actual (PDF)</span>
-                        </a>
-                    )}
-
-                    {ticket.warranty_pdf_url && (
-                        <a
-                            href={ticket.warranty_pdf_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-full py-3 bg-purple-50 text-purple-700 border border-purple-100 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-purple-100 transition"
-                        >
-                            <ShieldCheck size={20} />
-                            <span>Ver Parte Garantía (PDF)</span>
-                        </a>
-                    )}
-
-                    {/* REGENERATE WORK REPORT (If missing on finalized - e.g. after App Payment) */}
-                    {ticket.status === 'finalizado' && !ticket.pdf_url && (
-                        <button
-                            onClick={() => {
-                                setSignaturePurpose('closing');
-                                setShowSignaturePad(true);
-                            }}
-                            className="w-full py-3 bg-red-100 text-red-700 border border-red-200 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-red-200 transition"
-                        >
-                            <AlertTriangle size={20} />
-                            <span>Generar Parte de Trabajo (Faltante)</span>
-                        </button>
-                    )}
-
-                    {/* REGENERATE WARRANTY PDF (If missing on finalized) */}
-                    {ticket.status === 'finalizado' && ticket.is_warranty && !ticket.warranty_pdf_url && (
-                        <button
-                            onClick={async () => {
-                                if (!window.confirm('¿Generar Parte de Garantía faltante?')) return;
-                                await handleGeneratePDF('warranty');
-                            }}
-                            disabled={generatingPdf}
-                            className="w-full py-3 bg-purple-100 text-purple-700 border border-purple-200 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-purple-200 transition"
-                        >
-                            <ShieldAlert size={20} />
-                            <span>Regenerar Parte Garantía (Faltante)</span>
-                        </button>
-                    )}
-
-
-                </div>
-
-                <button
-                    onClick={() => {
-                        setSignaturePurpose('closing');
-                        setShowSignaturePad(true);
-                    }}
-                    disabled={uploadingProof}
-                    className={`w-full py-4 mt-2 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-all ${isPaid ? 'bg-green-600 hover:bg-green-700 shadow-green-200' : 'bg-slate-700 hover:bg-slate-800 shadow-slate-300'
-                        }`}
-                >
-                    <CheckCircle size={24} />
-                    {isPaid ? 'Finalizar Reparación y Firmar' : 'Finalizar como PENDIENTE DE COBRO'}
-                </button>
-
-                {/* WARRANTY BUTTON */}
-                <button
-                    onClick={() => {
-                        setSignaturePurpose('warranty_closing');
-                        setShowSignaturePad(true);
-                    }}
-                    disabled={uploadingProof}
-                    className="w-full py-4 mt-2 bg-purple-600 text-white rounded-xl font-bold shadow-lg shadow-purple-200 flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-purple-700"
-                >
-                    <ShieldCheck size={24} />
-                    Finalizar y Generar Parte de Garantía
-                </button>
-            </div>
-        </div>
-    )
-}
-
-{
-    isEditingAllowed && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-slate-200 flex justify-center z-40">
-            <button
-                onClick={saveChanges}
-                className="w-full max-w-md bg-blue-600 text-white font-bold py-3.5 rounded-xl shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-            >
-                <CheckCircle size={20} />
-                Guardar Cambios
-            </button>
-        </div>
-    )
-}
-
-{/* LABEL OCR MODAL */ }
-{
-    showLabelModal && (
-        <div className="fixed inset-0 bg-black/90 z-50 flex flex-col animate-in fade-in">
-            {/* Header */}
-            <div className="flex justify-between items-center p-4 text-white">
-                <h3 className="font-bold">Etiqueta del Aparato</h3>
-                <button onClick={() => setShowLabelModal(false)} className="p-2 bg-white/10 rounded-full">
-                    <span className="sr-only">Cerrar</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                </button>
-            </div>
-
-            {/* Image Area */}
-            <div className="flex-1 overflow-auto flex items-center justify-center bg-black p-4">
-                <img
-                    src={ticket.appliance_info?.label_image_url}
-                    alt="Etiqueta"
-                    className="max-w-full max-h-[60vh] object-contain rounded-lg"
-                />
-            </div>
-
-            {/* OCR Controls */}
-            <div className="bg-slate-900 p-6 rounded-t-3xl border-t border-slate-800">
-                {/* ASWO Credentials Helper */}
-                <div className="mb-4 bg-slate-800 p-3 rounded-lg flex justify-between items-center border border-slate-700">
-                    <div>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase">Credenciales ASWO</p>
-                        <div className="flex gap-4 text-sm font-mono text-slate-200">
-                            <span>C: 57384-004</span>
-                            <span>P: reda1427</span>
-                        </div>
-                    </div>
-                    <button
-                        onClick={() => {
-                            navigator.clipboard.writeText("57384-004\nreda1427");
-                            alert("Credenciales copiadas!");
-                        }}
-                        className="p-2 bg-slate-700 rounded text-slate-300 hover:text-white"
-                    >
-                        <ClipboardCopy size={16} />
-                    </button>
-                </div>
-
-                {!ocrText ? (
-                    <button
-                        onClick={handleScanLabel}
-                        disabled={scanningLabel}
-                        className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold flex items-center justify-center gap-2"
-                    >
-                        {scanningLabel ? (
-                            <>
-                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                Escaneando Texto...
-                            </>
-                        ) : (
-                            <>
-                                <Scan size={20} />
-                                Detectar Texto (OCR)
-                            </>
-                        )}
-                    </button>
-                ) : (
-                    <div className="animate-in slide-in-from-bottom-4">
-                        <div className="flex justify-between items-center mb-2">
-                            <label className="text-xs font-bold text-slate-400 uppercase">Texto Detectado</label>
-                            <button onClick={() => setOcrText('')} className="text-xs text-blue-400">Re-escanear</button>
-                        </div>
-                        <textarea
-                            className="w-full h-24 bg-slate-800 rounded-lg border border-slate-700 text-white p-3 text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none mb-3"
-                            value={ocrText}
-                            onChange={(e) => setOcrText(e.target.value)}
-                        ></textarea>
-                        <button
-                            onClick={() => {
-                                navigator.clipboard.writeText(ocrText);
-                                alert("Texto copiado al portapapeles");
-                                setShowLabelModal(false);
-                            }}
-                            className="w-full py-3 bg-white text-slate-900 rounded-xl font-bold flex items-center justify-center gap-2"
-                        >
-                            <Copy size={18} />
-                            Copiar y Salir
-                        </button>
-                    </div>
-                )}
-            </div>
-        </div>
-    )
-}
-{/* GPS Tracker Component - Only visible during EN CAMINO */ }
-{
-    ticket && user && ticket.status === 'en_camino' && (
-        <div className="mt-8 mb-4">
-            <ErrorBoundary>
-                <TechLocationMap
-                    technicianId={user.id} // DEPLOY_FIX_V3
-                    className="w-full h-64 rounded-xl shadow-lg"
-                />
-            </ErrorBoundary>
-        </div>
-    )
-}
-
-{/* SIGNATURE PAD */ }
-{
-    showSignaturePad && (
-        <SignaturePad
-            onSave={async (signatureDataUrl) => {
-                try {
-                    setUpdating(true);
-                    // 1. Upload Signature
-                    const fileName = `sig_${ticket.ticket_number}_${Date.now()}.png`;
-                    const { error: uploadError } = await supabase.storage
-                        .from('service-attachments')
-                        .upload(fileName, await (await fetch(signatureDataUrl)).blob(), { contentType: 'image/png' });
-
-                    if (uploadError) throw uploadError;
-
-                    const { data } = supabase.storage.from('service-attachments').getPublicUrl(fileName);
-                    const publicUrl = data.publicUrl;
-
-                    // 2. Update Ticket with Signature
-                    await supabase.from('tickets').update({
-                        client_signature_url: publicUrl,
-                        signature_timestamp: new Date().toISOString()
-                    }).eq('id', ticket.id);
-
-                    // Update local state
-                    setTicket(prev => ({ ...prev, client_signature_url: publicUrl }));
-
-                    // 3. Branch Logic based on Purpose
-                    if (signaturePurpose === 'budget') {
-                        setBudgetDecision('accepted');
-                        alert("Presupuesto aceptado y firmado.");
-                        setShowSignaturePad(false);
-                    } else if (signaturePurpose === 'closing' || signaturePurpose === 'warranty_closing') {
-                        const isWarranty = signaturePurpose === 'warranty_closing';
-
-                        // 4. CALCULATE WARRANTY DATES
-                        const now = new Date();
-                        const laborDate = new Date(now);
-                        laborDate.setMonth(laborDate.getMonth() + warrantyLabor);
-                        const partsDate = new Date(now);
-                        partsDate.setMonth(partsDate.getMonth() + warrantyParts);
-                        const maxDate = laborDate > partsDate ? laborDate : partsDate;
-
-                        const warrantyData = {
-                            warranty_labor_months: warrantyLabor,
-                            warranty_parts_months: warrantyParts,
-                            warranty_labor_until: laborDate.toISOString(),
-                            warranty_parts_until: partsDate.toISOString(),
-                            warranty_until: maxDate.toISOString()
-                        };
-
-                        // Quick fix: Temporarily mutate ticket object for this closure
-                        ticket.client_signature_url = publicUrl;
-
-                        // Generate PDF (Robust await)
-                        await handleGeneratePDF(isWarranty ? 'warranty' : 'standard');
-
-                        // Finalize
-                        await updateStatus('finalizado', warrantyData);
-
-                        // SUCCESS FEEDBACK -> MODAL (No Alert)
-                        setCompletionType(isWarranty ? 'warranty' : 'standard');
-                        setShowSignaturePad(false);
-                        setShowSuccessModal(true);
-                    }
-                } catch (e) {
-                    console.error(e);
-                    alert("Error guardando firma: " + e.message);
-                } finally {
-                    setUpdating(false);
-                }
-            }}
-            onCancel={() => setShowSignaturePad(false)}
-        />
-    )
-}
-
-{/* ROBUST SUCCESS MODAL */ }
-<ServiceCompletionModal
-    isOpen={showSuccessModal}
-    onClose={() => setShowSuccessModal(false)}
-    ticketNumber={ticket?.ticket_number}
-    type={completionType}
-/>
+            {/* ROBUST SUCCESS MODAL */}
+            <ServiceCompletionModal
+                isOpen={showSuccessModal}
+                onClose={() => setShowSuccessModal(false)}
+                ticketNumber={ticket?.ticket_number}
+                type={completionType}
+            />
 
         </div >
     );
