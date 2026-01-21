@@ -61,6 +61,11 @@ const TechTicketDetail = () => {
         ticket?.status === 'en_camino',
         user?.id
     );
+
+    // Debug: Log when isTracking changes
+    useEffect(() => {
+        console.log('🎯 TechTicketDetail - isTracking changed:', isTracking, 'status:', ticket?.status);
+    }, [isTracking, ticket?.status]);
     const [loading, setLoading] = useState(true);
     const [updating, setUpdating] = useState(false);
     const [settings, setSettings] = useState(null);

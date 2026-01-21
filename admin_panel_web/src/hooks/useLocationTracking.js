@@ -52,6 +52,7 @@ export const useLocationTracking = (isActive, userId) => {
 
                     setIsTracking(true);
                     setError(null);
+                    console.log('✅ GPS Tracking ACTIVE - isTracking:', true);
                     console.log(`📍 Location updated: ${latitude.toFixed(6)}, ${longitude.toFixed(6)} | Heading: ${heading}° | Speed: ${speed} m/s`);
                 } catch (err) {
                     console.error('❌ Error updating location:', err);
