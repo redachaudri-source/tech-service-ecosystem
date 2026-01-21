@@ -18,16 +18,29 @@ const TechLocationMap = ({ technicianId }) => {
 
     // Load Google Maps script
     useEffect(() => {
-        if (window.google) {
+        // Define callback function globally
+        window.initMapCallback = () => {
+            console.log('🗺️ Google Maps Script Loaded callback fired');
+            initMap();
+        };
+
+        if (window.google && window.google.maps) {
+            console.log('🗺️ Google Maps already loaded');
             initMap();
             return;
         }
 
+        // Check if script already exists to avoid duplicates
+        if (document.querySelector('script[src*="maps.googleapis.com"]')) {
+            console.log('🗺️ Script tag already exists, waiting for callback...');
+            return;
+        }
+
         const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}`;
+        // Add callback param and loading=async
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=initMapCallback&loading=async&v=weekly`;
         script.async = true;
         script.defer = true;
-        script.onload = initMap;
         script.onerror = () => {
             console.error('❌ Error loading Google Maps');
             setLoading(false);
@@ -35,9 +48,8 @@ const TechLocationMap = ({ technicianId }) => {
         document.head.appendChild(script);
 
         return () => {
-            if (script.parentNode) {
-                script.parentNode.removeChild(script);
-            }
+            // Cleanup
+            if (window.initMapCallback) delete window.initMapCallback;
         };
     }, []);
 
@@ -109,20 +121,40 @@ const TechLocationMap = ({ technicianId }) => {
     };
 
     const initMap = () => {
-        if (!mapRef.current || !window.google) return;
+        if (!mapRef.current) {
+            console.warn("⚠️ initMap called but mapRef is null, retrying later if needed");
+            return;
+        }
+
+        if (!window.google || !window.google.maps) {
+            console.warn("⚠️ initMap called but window.google is missing");
+            return;
+        }
+
+        console.log("🗺️ Initializing Map Instance...");
 
         const defaultCenter = { lat: 36.7213, lng: -4.4214 }; // Malaga
-        const newMap = new window.google.maps.Map(mapRef.current, {
-            center: defaultCenter,
-            zoom: 15,
-            disableDefaultUI: true,
-            zoomControl: false,
-            mapTypeControl: false,
-            streetViewControl: false,
-            fullscreenControl: false,
-        });
 
-        setMap(newMap);
+        try {
+            const newMap = new window.google.maps.Map(mapRef.current, {
+                center: defaultCenter,
+                zoom: 15,
+                disableDefaultUI: true,
+                zoomControl: false,
+                mapTypeControl: false,
+                streetViewControl: false,
+                fullscreenControl: false,
+                backgroundColor: '#f0f0f0', // Visible background to detect rendering
+            });
+
+            setMap(newMap);
+            console.log("✅ Map Instance Created Successfully");
+
+            // Should stop loading if we have map, even if we don't have tech location yet (optional)
+            // But we keep loading until we have tech location to prevent empty map confusion
+        } catch (err) {
+            console.error("❌ Error initializing Google Map:", err);
+        }
     };
 
     const animateMarkerToPosition = (location) => {
