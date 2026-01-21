@@ -56,29 +56,12 @@ const TechDashboard = () => {
 
             if (error) throw error;
 
-            // Separate Open vs Closed - STRICT: Only show TODAY's tickets
+            // Filter: Only Today's tickets
             const todayStr = filterDate;
 
-            // Separate Open vs Closed
             const relevantData = (data || []).filter(t => {
                 const tDate = t.scheduled_at ? t.scheduled_at.split('T')[0] : '';
-                const isToday = tDate === todayStr;
-
-                // Debug logging
-                if (t.ticket_number === '51') {
-                    console.log('🔍 Ticket #51 Debug:', {
-                        scheduled_at: t.scheduled_at,
-                        tDate,
-                        todayStr,
-                        isToday,
-                        status: t.status,
-                        willShow: isToday
-                    });
-                }
-
-                // STRICT FILTER: Only show tickets scheduled for TODAY
-                // This prevents yesterday's completed tickets from appearing
-                return isToday;
+                return tDate === todayStr;
             });
 
             const open = [];
