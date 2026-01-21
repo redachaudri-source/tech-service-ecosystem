@@ -91,7 +91,7 @@ const ServiceMonitor = () => {
             const { data: ticketData, error } = await supabase
                 .from('tickets')
                 .select('*, profiles:client_id(full_name, address, phone, user_id), creator:created_by(full_name), reviews(rating)')
-                .order('created_at', { ascending: false });
+                .order('updated_at', { ascending: false }); // Sort by updated_at on fetch too
 
             if (error) throw error;
             if (ticketData) setTickets(ticketData);
@@ -103,7 +103,7 @@ const ServiceMonitor = () => {
             const { data: ticketData } = await supabase
                 .from('tickets')
                 .select('*, profiles:client_id(full_name, address, phone, user_id), reviews(rating)')
-                .order('created_at', { ascending: false });
+                .order('updated_at', { ascending: false }); // Sort by updated_at on fallback too
 
             if (ticketData) setTickets(ticketData || []);
         }
@@ -264,8 +264,9 @@ const ServiceMonitor = () => {
 
                                         return matchesSearch && matchesTech && matchesDate && matchesOrigin;
                                     }).sort((a, b) => {
-                                        const dateA = new Date(a.created_at).getTime();
-                                        const dateB = new Date(b.created_at).getTime();
+                                        // Sort by updated_at if available (Last Activity), otherwise created_at
+                                        const dateA = new Date(a.updated_at || a.created_at).getTime();
+                                        const dateB = new Date(b.updated_at || b.created_at).getTime();
                                         return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
                                     }).map(ticket => (
                                         <tr key={ticket.id} className="hover:bg-slate-50 transition-colors">
