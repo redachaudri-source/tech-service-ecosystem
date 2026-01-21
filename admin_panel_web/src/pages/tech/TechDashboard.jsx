@@ -62,7 +62,12 @@ const TechDashboard = () => {
             // Separate Open vs Closed
             const relevantData = (data || []).filter(t => {
                 const tDate = t.scheduled_at ? t.scheduled_at.split('T')[0] : '';
-                return tDate === todayStr || ['en_camino', 'en_diagnostico'].includes(t.status); // Always show active even if date drifted
+                const isToday = tDate === todayStr;
+                const isActive = ['en_camino', 'en_diagnostico', 'en_reparacion'].includes(t.status);
+                const isAssignedForToday = t.status === 'asignado' && isToday;
+
+                // Show: Today's appointments OR currently active tickets
+                return isToday || isActive || isAssignedForToday;
             });
 
             const open = [];
