@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { Package, Search, Clock, CheckCircle, AlertTriangle, History, ArrowRight, FileText, Download, Loader } from 'lucide-react';
 import SmartAssignmentModal from '../components/SmartAssignmentModal';
 
 const MaterialManager = () => {
@@ -84,6 +85,7 @@ const MaterialManager = () => {
             console.error(error);
             alert('Error al actualizar: ' + error.message);
         }
+
     };
     const handleForceReception = async (ticket) => {
         if (!window.confirm("¿Estás seguro de que quieres forzar la recepción? Esto marcará el material como recibido por la oficina.")) return;
