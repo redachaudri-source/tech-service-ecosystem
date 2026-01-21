@@ -25,26 +25,26 @@ export const generateMaterialDepositPDF = (ticket, logoImg = null, signatureImg 
     // --- HEADER ---
     let yPos = 20;
 
-    // 1. Logo (Top Left)
+    // 1. Logo (Top Left) - Larger as requested
     if (logoImg) {
         try {
             const format = logoImg.match(/^data:image\/(.*);base64/)?.[1]?.toUpperCase() || 'PNG';
-            doc.addImage(logoImg, format, margin, 12, 50, 18); // Keep this size
+            doc.addImage(logoImg, format, margin, 10, 65, 22); // Increased size (W:65)
         } catch (e) { }
     }
 
     // 2. Title & Meta (Top Right)
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(18); // Large Title
+    // Align with Logo Top roughly
+    doc.setFontSize(18);
     doc.setTextColor(...colorBlack);
-    doc.text('RECIBO DE ENTREGA A CUENTA', width - margin, 20, { align: 'right' });
+    doc.text('RECIBO DE ENTREGA A CUENTA', width - margin, 18, { align: 'right' });
 
     doc.setFontSize(10);
-    doc.setTextColor(...colorBlack);
+    // Tighter spacing
     const receiptNo = `R-${ticket.ticket_number}-${new Date().getFullYear()}`;
-    // Right aligned
-    doc.text(`Nº Recibo: ${receiptNo}`, width - margin, 28, { align: 'right' });
-    doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, width - margin, 33, { align: 'right' });
+    doc.text(`Nº Recibo: ${receiptNo}`, width - margin, 24, { align: 'right' });
+    doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, width - margin, 29, { align: 'right' });
 
     // --- BODY LAYOUT ---
     yPos = 55;

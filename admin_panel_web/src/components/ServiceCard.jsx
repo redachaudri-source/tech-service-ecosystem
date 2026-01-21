@@ -24,7 +24,7 @@ const ServiceCard = ({ ticket, userLocation, onClick, isNextHeader }) => {
     return (
         <div
             onClick={() => onClick && onClick(ticket)}
-            className={`bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden mb-4 active:scale-[0.98] transition-all relative ${isNextHeader ? 'border-blue-500 ring-2 ring-blue-100' : ''}`}
+            className={`bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden mb-4 active:scale-[0.98] transition-all relative ${isNextHeader ? 'border-2 border-blue-600' : ''}`}
         >
             {/* BLUE HEADER (Only if isNextHeader prop is true) */}
             {isNextHeader && (
