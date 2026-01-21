@@ -1,10 +1,9 @@
 import jsPDF from 'jspdf';
 
 /**
- * Generates User-Requested 'Recibo de Entrega a Cuenta' Format
- * TWEAKED: Better alignments, Bigger Logo, Professional spacing
+ * Generates User-Requested 'Recibo de Entrega a Cuenta' Format - 1:1 CLONE
+ * MATCHES EXACT REFERENCE IMAGE LAYOUT & TYPOGRAPHY
  */
-// TWEAKED: Better alignments, Bigger Logo, Professional spacing, LOWER SIGNATURES & COMPANY SEAL
 export const generateMaterialDepositPDF = (ticket, logoImg = null, signatureImg = null, companySealImg = null) => {
     // Landscape A5: 210mm x 148mm
     const doc = new jsPDF({
@@ -14,113 +13,109 @@ export const generateMaterialDepositPDF = (ticket, logoImg = null, signatureImg 
 
     const width = doc.internal.pageSize.width; // 210
     const height = doc.internal.pageSize.height; // 148
-    const margin = 15; // Increased margin for "air"
+    const margin = 15;
+
+    // --- COLORS ---
+    const colorGrayText = [80, 80, 80];
+    const colorBorder = [229, 231, 235]; // #e5e7eb
+    const colorGreen = [22, 163, 74];   // #16a34a
+    const colorRed = [220, 38, 38];     // #dc2626
+    const colorBlack = [0, 0, 0];
 
     // --- HEADER ---
     let yPos = 20;
 
-    // 1. Logo (Top Left) - BIGGER & ALIGNED
+    // 1. Logo (Top Left)
     if (logoImg) {
         try {
             const format = logoImg.match(/^data:image\/(.*);base64/)?.[1]?.toUpperCase() || 'PNG';
-            // Aspect ratio preservation could be good, but fixed box is safer for layout
-            doc.addImage(logoImg, format, margin, 12, 50, 18); // W:50, H:18
+            doc.addImage(logoImg, format, margin, 12, 50, 18); // Keep this size
         } catch (e) { }
     }
 
     // 2. Title & Meta (Top Right)
-    // Align text baseline better
-    doc.setFont('helvetica', 'normal'); // Clean, not bold? Or bold? Target looks Normal/Light
-    doc.setFontSize(14);
-    doc.setTextColor(20); // Almost black
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(18); // Large Title
+    doc.setTextColor(...colorBlack);
     doc.text('RECIBO DE ENTREGA A CUENTA', width - margin, 20, { align: 'right' });
 
-    doc.setFontSize(9);
-    doc.setTextColor(60); // Dark Gray
+    doc.setFontSize(10);
+    doc.setTextColor(...colorBlack);
     const receiptNo = `R-${ticket.ticket_number}-${new Date().getFullYear()}`;
-    doc.text(`Nº Recibo: ${receiptNo}`, width - margin, 26, { align: 'right' });
-    doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, width - margin, 31, { align: 'right' });
+    // Right aligned
+    doc.text(`Nº Recibo: ${receiptNo}`, width - margin, 28, { align: 'right' });
+    doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, width - margin, 33, { align: 'right' });
 
-    // --- SEPARATOR LINE (Subtle) ---
-    // doc.setDrawColor(240);
-    // doc.line(margin, 38, width - margin, 38);
-
-    // --- BODY ---
+    // --- BODY LAYOUT ---
     yPos = 55;
-    const rightColStart = 125; // X position for the box
 
-    // LEFT COLUMN (Info)
-    doc.setTextColor(0);
+    // Column Widths
+    // Left Content: Margin -> 120 (approx 60% of space)
+    // Right Box: 125 -> Width-Margin (approx 40%)
+    const rightColStart = 125;
+
+    // --- LEFT COLUMN ---
+    doc.setTextColor(...colorBlack);
 
     // "Hemos recibido de..."
+    doc.setFontSize(11); // Standard reading size
+    doc.setFont('helvetica', 'normal');
+    const clientName = ticket.client?.full_name || '____________________';
+    doc.text(`Hemos recibido de D./Dña: ${clientName}`, margin, yPos);
+
+    yPos += 15;
+
+    // "La cantidad de:" (HUGE & BOLD)
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    const deposit = Number(ticket.deposit_amount || 0);
+    doc.text(`La cantidad de: ${deposit.toFixed(2)}€`, margin, yPos);
+
+    yPos += 15;
+
+    // Details Block
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text('Hemos recibido de D./Dña:', margin, yPos);
+    // Line spacing ~5-6mm
 
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text(ticket.client?.full_name || '', margin + 50, yPos);
+    doc.text('En concepto de señal / pago a cuenta para la reparación del aparato:', margin, yPos);
+    yPos += 6;
 
-    yPos += 14;
+    const appInfo = `${ticket.appliance_info?.type || 'Aparato'} - ${ticket.appliance_info?.brand || ''} (${ticket.appliance_info?.model || 'Modelo no especificado'})`;
+    doc.text(appInfo, margin, yPos);
+    yPos += 6;
 
-    // "La cantidad de..."
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text('La cantidad de:', margin, yPos);
-
-    // Amount
-    const deposit = Number(ticket.deposit_amount || 0);
-    doc.setFontSize(16);
-    doc.text(`${deposit.toFixed(2)}€`, margin + 35, yPos);
-
-    yPos += 14;
-
-    // Concept
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    const conceptLine1 = 'En concepto de señal / pago a cuenta para la reparación del aparato:';
-    doc.text(conceptLine1, margin, yPos);
-
-    yPos += 5;
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold'); // Highlight Appliance
-    const appStr = `${ticket.appliance_info?.type || 'Aparato'} - ${ticket.appliance_info?.brand || ''}`;
-    const modelStr = ticket.appliance_info?.model ? `(Mod. ${ticket.appliance_info.model})` : '';
-    doc.text(`${appStr} ${modelStr}`, margin, yPos);
-
-    yPos += 5;
-    doc.setFont('helvetica', 'normal');
     doc.text(`Nº Servicio Referencia: ${ticket.ticket_number}`, margin, yPos);
+    yPos += 6;
 
-    yPos += 5;
     const partsText = (ticket.required_parts_description || ticket.description_failure || '').substring(0, 55);
-    doc.text(`Repuestos: ${partsText}...`, margin, yPos);
+    doc.text(`Repuestos solicitados: ${partsText}`, margin, yPos);
 
 
-    // --- RIGHT COLUMN (Economic Box) ---
-    // Mimic the clean gray border box
-    const boxY = 48;
+    // --- RIGHT COLUMN (ECONOMIC BOX) ---
+    // Box Geometry
+    const boxY = 45; // Start aligned with "Hemos recibido..." approximately
     const boxWidth = width - rightColStart - margin;
-    const boxHeight = 58;
+    const boxHeight = 65;
 
-    doc.setDrawColor(200); // Light Gray Border
-    doc.setLineWidth(0.1);
-    doc.setFillColor(255, 255, 255); // White background
-    // doc.setFillColor(250, 250, 250); // Very light gray optional
+    // Draw Box Border
+    doc.setDrawColor(...colorBorder);
+    doc.setLineWidth(0.3);
+    doc.setFillColor(255, 255, 255); // White bg
     doc.rect(rightColStart, boxY, boxWidth, boxHeight, 'FD');
 
-    let innerY = boxY + 8;
-    const innerMargin = rightColStart + 5;
+    // Box Content
+    let innerY = boxY + 10;
+    const innerLeft = rightColStart + 5;
     const innerRight = rightColStart + boxWidth - 5;
 
-    // Box Header
-    doc.setFontSize(8);
-    doc.setTextColor(100);
-    doc.setFont('helvetica', 'bold');
-    doc.text('RESUMEN ECONÓMICO', innerMargin, innerY);
+    // Title
+    doc.setFontSize(9);
+    doc.setTextColor(...colorGrayText);
+    doc.setFont('helvetica', 'normal'); // Uppercase small
+    doc.text('RESUMEN ECONÓMICO', innerLeft, innerY);
 
-    // innerY += 2;
-    // doc.line(innerMargin, innerY, innerRight, innerY);
+    innerY += 8;
 
     // Calculations
     const labor = Array.isArray(ticket.labor_list) ? ticket.labor_list : JSON.parse(ticket.labor_list || '[]');
@@ -132,69 +127,69 @@ export const generateMaterialDepositPDF = (ticket, logoImg = null, signatureImg 
     const totalCalc = subtotalCalc + vatCalc;
     const remaining = totalCalc - deposit;
 
-    innerY += 10;
-    doc.setTextColor(0);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
+    // Helper for rows
+    const drawRow = (label, amount, color = colorBlack, isBold = false) => {
+        doc.setTextColor(...color);
+        doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+        doc.setFontSize(9);
+        doc.text(label, innerLeft, innerY);
+        doc.text(amount, innerRight, innerY, { align: 'right' });
+        innerY += 7; // Row spacing
+    };
 
-    // Rows
-    doc.text('Subtotal:', innerMargin, innerY);
-    doc.text(`${subtotalCalc.toFixed(2)}€`, innerRight, innerY, { align: 'right' });
+    drawRow('Subtotal:', `${subtotalCalc.toFixed(2)}€`);
+    drawRow('IVA (21%):', `${vatCalc.toFixed(2)}€`);
 
-    innerY += 5;
-    doc.text('IVA (21%):', innerMargin, innerY);
-    doc.text(`${vatCalc.toFixed(2)}€`, innerRight, innerY, { align: 'right' });
+    innerY += 2; // Extra gap
+    drawRow('TOTAL PRESUPUESTO:', `${totalCalc.toFixed(2)}€`, colorBlack, true);
 
-    innerY += 7;
-    doc.setFont('helvetica', 'bold');
-    doc.text('TOTAL:', innerMargin, innerY);
-    doc.text(`${totalCalc.toFixed(2)}€`, innerRight, innerY, { align: 'right' });
-
-    innerY += 7;
-    doc.setTextColor(22, 163, 74); // Green
-    doc.text('PAGADO A CUENTA:', innerMargin, innerY);
-    doc.text(`-${deposit.toFixed(2)}€`, innerRight, innerY, { align: 'right' });
-
-    innerY += 7;
-    doc.setTextColor(220, 38, 38); // Red
-    doc.text('PENDIENTE:', innerMargin, innerY);
-    doc.text(`${remaining.toFixed(2)}€`, innerRight, innerY, { align: 'right' });
+    innerY += 2; // Extra gap
+    drawRow('PAGADO A CUENTA:', `-${deposit.toFixed(2)}€`, colorGreen, true);
+    drawRow('PENDIENTE DE PAGO:', `${remaining.toFixed(2)}€`, colorRed, true);
 
 
     // --- FOOTER SIGNATURES ---
-    // Moved DOWN as requested (was height - 25)
-    const sigY = height - 15;
+    // Lowered as requested previously
+    const sigLineY = height - 20;
+    const sigLineWidth = 60;
 
-    doc.setTextColor(0);
-    doc.setDrawColor(50); // Darker line for signature
+    doc.setDrawColor(0); // Black line
     doc.setLineWidth(0.2);
 
     // Left Line (Empresa)
-    doc.line(margin + 10, sigY, margin + 70, sigY);
-    // Right Line (Cliente)
-    doc.line(rightColStart + 10, sigY, rightColStart + 70, sigY);
+    const leftLineStart = margin + 10;
+    doc.line(leftLineStart, sigLineY, leftLineStart + sigLineWidth, sigLineY);
 
+    // Right Line (Cliente)
+    const rightLineStart = width - margin - sigLineWidth - 10;
+    doc.line(rightLineStart, sigLineY, rightLineStart + sigLineWidth, sigLineY);
+
+    // Text under lines
+    doc.setTextColor(...colorGrayText);
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
 
-    doc.text('Firma y Sello Empresa', margin + 40, sigY + 5, { align: 'center' });
-    doc.text('Firma Cliente', rightColStart + 40, sigY + 5, { align: 'center' });
+    const leftCenter = leftLineStart + (sigLineWidth / 2);
+    const rightCenter = rightLineStart + (sigLineWidth / 2);
 
-    // Company Seal/Signature (New)
+    doc.text('Firma y Sello Empresa', leftCenter, sigLineY + 5, { align: 'center' });
+    doc.text('Firma Cliente', rightCenter, sigLineY + 5, { align: 'center' });
+
+    // SEAL (Above Left Line)
     if (companySealImg) {
         try {
             const format = companySealImg.match(/^data:image\/(.*);base64/)?.[1]?.toUpperCase() || 'PNG';
-            // Place ABOVE the line
-            doc.addImage(companySealImg, format, margin + 25, sigY - 25, 30, 20); // Adjust size/pos
+            // Centered on left line, sitting on top
+            // Box is approx 30x20
+            doc.addImage(companySealImg, format, leftCenter - 15, sigLineY - 22, 30, 20);
         } catch (e) { }
     }
 
-    // Client Signature Image
+    // CLIENT SIG (Above Right Line)
     if (signatureImg) {
         try {
             const format = signatureImg.match(/^data:image\/(.*);base64/)?.[1]?.toUpperCase() || 'PNG';
-            // Adjust placement to sit ON line
-            doc.addImage(signatureImg, format, rightColStart + 15, sigY - 12, 50, 10);
+            doc.addImage(signatureImg, format, rightCenter - 25, sigLineY - 12, 50, 10);
         } catch (e) { }
     }
 
