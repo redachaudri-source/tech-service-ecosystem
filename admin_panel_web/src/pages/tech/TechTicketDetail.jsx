@@ -1843,6 +1843,18 @@ const TechTicketDetail = () => {
                                     </a>
                                 )}
 
+                                {ticket.material_deposit_pdf_url && (
+                                    <a
+                                        href={ticket.material_deposit_pdf_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="w-full py-3 bg-orange-50 text-orange-700 border border-orange-100 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-orange-100 transition"
+                                    >
+                                        <FileText size={20} />
+                                        <span>Ver Recibo de Abono (PDF)</span>
+                                    </a>
+                                )}
+
                                 {/* REGENERATE WORK REPORT (If missing on finalized - e.g. after App Payment) */}
                                 {ticket.status === 'finalizado' && !ticket.pdf_url && (
                                     <button
@@ -2094,7 +2106,7 @@ const TechTicketDetail = () => {
                                     await supabase.from('tickets').update({
                                         deposit_amount: deposit,
                                         required_parts_description: ticket.required_parts_description,
-                                        deposit_receipt_url: receiptUrl,
+                                        material_deposit_pdf_url: receiptUrl,
                                         material_status_at: new Date().toISOString()
                                     }).eq('id', ticket.id);
 
