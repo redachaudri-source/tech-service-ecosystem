@@ -263,6 +263,7 @@ const TechDashboard = () => {
                                     user={user}
                                     onTicketUpdate={fetchTickets}
                                     className="mb-6 ring-2 ring-blue-500 ring-offset-2"
+                                    isNextHeader={true} // Trigger Blue Header Design
                                 />
                             );
                         }
