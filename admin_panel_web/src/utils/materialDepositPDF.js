@@ -1,12 +1,6 @@
 import jsPDF from 'jspdf';
 
 /**
- * Generates a professional Material Deposit PDF with watermark
- * This PDF is given to the customer when they pay a deposit while waiting for parts
- */
-import jsPDF from 'jspdf';
-
-/**
  * Generates a COMPACT Material Deposit PDF (A5 Format)
  * "Recibo de Señal" - Receipt Style
  */
