@@ -79,6 +79,13 @@ const TechDashboard = () => {
                 }
             });
 
+            // Sort closed tickets: most recent first
+            closed.sort((a, b) => {
+                const dateA = new Date(a.updated_at || a.scheduled_at);
+                const dateB = new Date(b.updated_at || b.scheduled_at);
+                return dateB - dateA; // Descending (newest first)
+            });
+
             setTickets(open);
             setPendingTickets(pending);
             setClosedTickets(closed);
