@@ -17,7 +17,14 @@ const TechDashboard = () => {
     const [pendingTickets, setPendingTickets] = useState([]); // Pending Material Bucket
     const [closedTickets, setClosedTickets] = useState([]); // Separete bucket for History Today
     const [loading, setLoading] = useState(true);
-    const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
+    // FIX: use local date string instead of UTC (toISOString) to strictly match today's date
+    const [filterDate, setFilterDate] = useState(() => {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    });
     const [searchQuery, setSearchQuery] = useState('');
     const [stats, setStats] = useState({ rating: 0, reviews: 0 });
     const [currentTime, setCurrentTime] = useState(new Date());
