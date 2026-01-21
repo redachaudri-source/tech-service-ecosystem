@@ -18,6 +18,7 @@ const TechMaterialList = () => {
                     id, ticket_number, 
                     required_parts_description, material_status_at,
                     deposit_amount, total_price, payment_method,
+                    material_ordered, material_supplier,
                     client:profiles!client_id(full_name, address),
                     appliance_info
                 `)
