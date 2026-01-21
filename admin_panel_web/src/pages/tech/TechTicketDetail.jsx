@@ -2071,7 +2071,7 @@ const TechTicketDetail = () => {
                                     };
 
                                     // 1. Generate Receipt PDF
-                                    const doc = generateDepositReceipt(currentData, logoImg);
+                                    const doc = generateDepositReceipt(currentData, logoImg, signatureImg);
                                     const pdfBlob = doc.output('blob');
                                     const pdfName = `recibo_senal_${ticket.ticket_number}_${Date.now()}.pdf`;
 

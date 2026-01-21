@@ -354,7 +354,7 @@ const drawTimeline = (doc, ticket, startY) => {
     doc.restoreGraphicsState();
 };
 
-export const generateDepositReceipt = (ticket, logoImg = null) => {
+export const generateDepositReceipt = (ticket, logoImg = null, signatureImg = null) => {
     const doc = new jsPDF({ format: 'a5', orientation: 'landscape' }); // Receipt style
     const pageWidth = doc.internal.pageSize.width;
 
@@ -449,6 +449,18 @@ export const generateDepositReceipt = (ticket, logoImg = null) => {
     doc.setDrawColor(0);
     doc.line(20, yPos, 80, yPos);
     doc.line(110, yPos, 170, yPos);
+
+    // Draw Signature Image if available (Client side)
+    if (signatureImg) {
+        try {
+            const format = signatureImg.match(/^data:image\/(.*);base64/)?.[1]?.toUpperCase() || 'PNG';
+            // Align with client signature line (110-170), center is ~140
+            doc.addImage(signatureImg, format, 120, yPos - 15, 40, 20);
+        } catch (e) {
+            console.error("Sig err", e);
+        }
+    }
+
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.text('Firma y Sello Empresa', 50, yPos + 5, { align: 'center' });
