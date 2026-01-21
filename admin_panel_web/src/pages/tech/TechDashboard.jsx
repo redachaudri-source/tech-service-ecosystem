@@ -264,6 +264,7 @@ const TechDashboard = () => {
                                     onTicketUpdate={fetchTickets}
                                     className="mb-6 ring-2 ring-blue-500 ring-offset-2"
                                     isNextHeader={true} // Trigger Blue Header Design
+                                    onClick={() => handleTicketClick(ticket.id)}
                                 />
                             );
                         }
