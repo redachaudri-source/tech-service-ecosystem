@@ -2058,7 +2058,8 @@ const TechTicketDetail = () => {
                                 } else if (signaturePurpose === 'material_deposit') {
                                     // NEW: Handle Material Deposit Signature
                                     const logoImg = settings?.logo_url ? await loadImage(settings.logo_url) : null;
-                                    const signatureImg = await loadImage(publicUrl);
+                                    // Use the local signature data directly (Base64) - faster and more reliable than fetching the just-uploaded URL
+                                    const signatureImg = signatureDataUrl;
 
                                     // Ensure we use the latest input values (deposit, description) from local state/inputs
                                     // We need to bake them into a data object for the PDF generator
@@ -2067,7 +2068,7 @@ const TechTicketDetail = () => {
                                         // Ensure these specific fields are exactly what the user just approved
                                         deposit_amount: deposit,
                                         required_parts_description: ticket.required_parts_description,
-                                        client_signature_url: publicUrl // Include the new signature
+                                        client_signature_url: publicUrl // Keep this for DB record
                                     };
 
                                     // 1. Generate Receipt PDF

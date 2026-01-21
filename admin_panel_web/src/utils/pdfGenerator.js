@@ -445,7 +445,7 @@ export const generateDepositReceipt = (ticket, logoImg = null, signatureImg = nu
     doc.setTextColor(0); // Reset color
 
     // --- Signatures ---
-    const yPos = 110;
+    const yPos = 125; // Moved down to avoid overlap with Financial Box
     doc.setDrawColor(0);
     doc.line(20, yPos, 80, yPos);
     doc.line(110, yPos, 170, yPos);
