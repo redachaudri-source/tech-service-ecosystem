@@ -2,7 +2,7 @@ import React from 'react';
 import { MapPin, Phone, Clock, ChevronRight, ShieldAlert, FileText } from 'lucide-react';
 import { calculateDistance, formatDistance, estimateTravelTime } from '../utils/geoUtils';
 
-const ServiceCard = ({ ticket, userLocation, onClick, isNextHeader }) => {
+const ServiceCard = ({ ticket, userLocation, onClick, onStartJourney, isNextHeader }) => {
 
     // Formatting Helpers
     const timeStr = ticket.scheduled_at
@@ -81,13 +81,29 @@ const ServiceCard = ({ ticket, userLocation, onClick, isNextHeader }) => {
             </div>
 
             {/* FOOTER ACTIONS */}
-            <div className="bg-slate-50 p-3 flex justify-between items-center border-t border-slate-100">
-                <button className="text-xs font-bold text-blue-600 flex items-center gap-1 hover:underline">
-                    VER DETALLES <ChevronRight size={14} />
-                </button>
-                <a href={`tel:${ticket.client?.phone}`} onClick={(e) => e.stopPropagation()} className="p-2 bg-white border border-slate-200 rounded-full text-slate-400 hover:text-blue-600 hover:border-blue-200 transition shadow-sm">
-                    <Phone size={18} />
-                </a>
+            <div className="bg-slate-50 p-3 flex justify-between items-center border-t border-slate-100 relative">
+                {isNextHeader && ticket.status !== 'en_camino' && onStartJourney ? (
+                    // GOOGLE MAPS STYLE QUICK ACTION
+                    <div className="w-full flex justify-center">
+                        <button
+                            onClick={(e) => onStartJourney && onStartJourney(e)}
+                            className="bg-slate-900 border-2 border-yellow-400 text-green-400 px-6 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg hover:bg-slate-800 transition-colors uppercase tracking-wider"
+                            style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
+                        >
+                            Iniciar Viaje <ChevronRight size={18} className="bg-green-400 text-slate-900 rounded-full p-0.5" />
+                        </button>
+                    </div>
+                ) : (
+                    // Standard Actions
+                    <>
+                        <button className="text-xs font-bold text-blue-600 flex items-center gap-1 hover:underline">
+                            VER DETALLES <ChevronRight size={14} />
+                        </button>
+                        <a href={`tel:${ticket.client?.phone}`} onClick={(e) => e.stopPropagation()} className="p-2 bg-white border border-slate-200 rounded-full text-slate-400 hover:text-blue-600 hover:border-blue-200 transition shadow-sm">
+                            <Phone size={18} />
+                        </a>
+                    </>
+                )}
             </div>
         </div>
     );

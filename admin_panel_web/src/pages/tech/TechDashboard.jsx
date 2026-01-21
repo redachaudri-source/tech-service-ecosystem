@@ -162,6 +162,26 @@ const TechDashboard = () => {
         navigate(`/tech/ticket/${ticketId}`);
     };
 
+    // Quick Action: Start Journey without navigation
+    const handleStartJourney = async (ticketId, e) => {
+        e.stopPropagation(); // Prevent card click
+        if (user?.profile?.status === 'paused') return;
+
+        try {
+            const { error } = await supabase
+                .from('tickets')
+                .update({ status: 'en_camino' })
+                .eq('id', ticketId);
+
+            if (error) throw error;
+            addToast('¡Viaje iniciado! Estado actualizado.', 'success');
+            fetchTickets(); // Refresh UI instantly
+        } catch (error) {
+            console.error(error);
+            addToast('Error al iniciar viaje', 'error');
+        }
+    };
+
     return (
         <div className="space-y-6 pb-20">
             {/* ... keeping header ... */}
@@ -265,6 +285,7 @@ const TechDashboard = () => {
                                     className="mb-6 ring-2 ring-blue-500 ring-offset-2"
                                     isNextHeader={true} // Trigger Blue Header Design
                                     onClick={() => handleTicketClick(ticket.id)}
+                                    onStartJourney={(e) => handleStartJourney(ticket.id, e)}
                                 />
                             );
                         }
