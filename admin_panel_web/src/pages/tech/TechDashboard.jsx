@@ -66,6 +66,20 @@ const TechDashboard = () => {
                 const isActive = ['en_camino', 'en_diagnostico', 'en_reparacion'].includes(t.status);
                 const isAssignedForToday = t.status === 'asignado' && isToday;
 
+                // Debug logging
+                if (t.ticket_number === '51') {
+                    console.log('🔍 Ticket #51 Debug:', {
+                        scheduled_at: t.scheduled_at,
+                        tDate,
+                        todayStr,
+                        isToday,
+                        status: t.status,
+                        isActive,
+                        isAssignedForToday,
+                        willShow: isToday || isActive || isAssignedForToday
+                    });
+                }
+
                 // Show: Today's appointments OR currently active tickets
                 return isToday || isActive || isAssignedForToday;
             });
