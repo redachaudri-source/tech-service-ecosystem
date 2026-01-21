@@ -13,6 +13,7 @@ import ErrorBoundary from '../../components/ErrorBoundary';
 import SignaturePad from '../../components/SignaturePad';
 import ServiceCompletionModal from '../../components/ServiceCompletionModal'; // NEW ROBUST MODAL
 import { useAuth } from '../../context/AuthContext';
+import { useGeolocation } from '../../hooks/useGeolocation';
 
 
 
@@ -833,6 +834,12 @@ const TechTicketDetail = () => {
                 {ticket.quote_pdf_url && (
                     <a href={ticket.quote_pdf_url} target="_blank" rel="noreferrer" className="p-2 bg-yellow-100 text-yellow-700 rounded-full shadow-lg active:scale-95 ml-2 border border-yellow-200 hover:bg-yellow-200 transition">
                         <FileText size={24} />
+                    </a>
+                )}
+                {/* Material Deposit PDF Link */}
+                {ticket.material_deposit_pdf_url && (
+                    <a href={ticket.material_deposit_pdf_url} target="_blank" rel="noreferrer" className="p-2 bg-orange-100 text-orange-700 rounded-full shadow-lg active:scale-95 ml-2 border border-orange-200 hover:bg-orange-200 transition" title="Ver Recibo de Material">
+                        <Package size={24} />
                     </a>
                 )}
             </div>

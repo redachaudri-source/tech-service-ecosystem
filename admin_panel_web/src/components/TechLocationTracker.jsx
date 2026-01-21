@@ -1,82 +1,44 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { MapPin } from 'lucide-react';
+import { useAuth } from '../context/AuthContext'; // Import useAuth
+import { Wifi } from 'lucide-react'; // Changed icon to represent connectivity
 
-const TechLocationTracker = ({ ticketStatus, technicianId }) => {
-    const [tracking, setTracking] = useState(false);
-    const [error, setError] = useState(null);
+const TechLocationTracker = () => {
+    const { user } = useAuth();
+    const technicianId = user?.id;
+    const [lastPing, setLastPing] = useState(null);
 
     useEffect(() => {
         if (!technicianId) return;
 
-        // 1. High Precision Tracking (Movement) - Only when 'en_camino'
-        let watchId;
-        if (ticketStatus === 'en_camino') {
-            setTracking(true);
-            const options = { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 };
-            let lastUpdate = 0;
-
-            const success = async (pos) => {
-                const now = Date.now();
-                if (now - lastUpdate < 15000) return; // Throttle 15s
-                lastUpdate = now;
-                const { latitude, longitude } = pos.coords;
-
-                try {
-                    await supabase.from('profiles').update({
-                        current_lat: latitude,
-                        current_lng: longitude,
-                        last_location_update: new Date().toISOString()
-                    }).eq('id', technicianId);
-                    setError(null);
-                } catch (err) { console.error(err); }
-            };
-
-            const errorCallback = (err) => { console.warn(err); setError('GPS Error'); };
-            watchId = navigator.geolocation.watchPosition(success, errorCallback, options);
-        } else {
-            setTracking(false);
-            if (watchId) navigator.geolocation.clearWatch(watchId);
-        }
-
-        // 2. Heartbeat (Presence) - Runs ALWAYS every 60s
+        // Heartbeat (Presence) - Runs ALWAYS every 60s
         const heartbeat = setInterval(async () => {
-            // Just update timestamp to show "Online"
             try {
+                const now = new Date().toISOString();
                 await supabase.from('profiles').update({
-                    last_location_update: new Date().toISOString()
+                    last_location_update: now
                 }).eq('id', technicianId);
+                setLastPing(now);
             } catch (e) {
                 console.error("Heartbeat fail", e);
             }
         }, 60000); // 60 seconds
 
         // Initial Ping on Mount
-        supabase.from('profiles').update({ last_location_update: new Date().toISOString() }).eq('id', technicianId).then();
+        const initialPing = new Date().toISOString();
+        supabase.from('profiles').update({ last_location_update: initialPing }).eq('id', technicianId).then(() => setLastPing(initialPing));
 
         return () => {
-            if (watchId) navigator.geolocation.clearWatch(watchId);
             clearInterval(heartbeat);
         };
-    }, [ticketStatus, technicianId]);
+    }, [technicianId]);
 
-    if (!tracking) return null;
-
-    if (error) {
-        return (
-            <div className="fixed bottom-4 right-4 bg-red-100 text-red-700 px-3 py-2 rounded-full text-xs font-bold shadow-lg z-50 flex items-center gap-2">
-                <MapPin size={14} />
-                GPS Error: {error}
-            </div>
-        );
-    }
-
-    return (
-        <div className="fixed bottom-4 right-4 bg-green-100 text-green-700 px-3 py-2 rounded-full text-xs font-bold shadow-lg z-50 flex items-center gap-2 animate-pulse">
-            <MapPin size={14} />
-            Compartiendo Ubicación con Cliente
-        </div>
-    );
+    // Optional: Visual indicator for debug (can be removed or made invisible)
+    // For now, we'll keep it hidden or very subtle unless there's a problem, 
+    // but the original requirement was to show something if tracking. 
+    // Since this is just heartbeat, we don't strictly need a UI, 
+    // but let's return null to keep the UI clean as per modern patterns.
+    return null;
 };
 
 export default TechLocationTracker;

@@ -4,7 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Phone, Calendar, Clock, ChevronRight, Search, Filter, Package, History, Star, ShieldAlert, CheckCircle } from 'lucide-react'; // Added ShieldAlert, CheckCircle
 import TechRouteLine from '../../components/TechRouteLine';
-import TechReviewsModal from '../../components/TechReviewsModal'; // Added import
+import TechReviewsModal from '../../components/TechReviewsModal';
+import ServiceCard from '../../components/ServiceCard';
 
 import { useToast } from '../../components/ToastProvider';
 
@@ -249,65 +250,85 @@ const TechDashboard = () => {
                         <p className="text-slate-500 font-medium">Todo despejado por ahora 🌴</p>
                     </div>
                 ) : (
-                    displayOpen.map((ticket, idx) => (
-                        <div
-                            key={ticket.id}
-                            onClick={() => handleTicketClick(ticket.id)}
-                            className={`relative bg-white rounded-2xl p-0 shadow-sm border border-slate-100 overflow-hidden active:scale-[0.98] transition-transform ${idx === 0 ? 'ring-2 ring-blue-500 shadow-blue-100' : ''} ${user?.profile?.status === 'paused' ? 'opacity-75 grayscale-[0.5]' : ''} ${ticket.is_warranty ? 'border-l-4 border-l-purple-500' : ''}`}
-                        >
-                            {/* Priority Indicator for first item */}
-                            {idx === 0 && <div className="bg-blue-600 text-white text-[10px] font-bold text-center py-1">SIGUIENTE PARADA</div>}
+                    displayOpen.map((ticket, idx) => {
+                        // Use New Service Card for the Top Priority Item if it's in a relevant status
+                        // (Solicitado/Asignado or En Camino)
+                        const useServiceCard = idx === 0 && ['solicitado', 'asignado', 'en_camino'].includes(ticket.status);
 
-                            {/* Paused Overlay Hint if needed, or just let opacity speak */}
+                        if (useServiceCard) {
+                            return (
+                                <ServiceCard
+                                    key={ticket.id}
+                                    ticket={ticket}
+                                    user={user}
+                                    onTicketUpdate={fetchTickets}
+                                    className="mb-6 ring-2 ring-blue-500 ring-offset-2"
+                                />
+                            );
+                        }
 
-                            <div className="p-5">
-                                <div className="flex justify-between items-start mb-3">
-                                    {getStatusBadge(ticket.status)}
-                                    <span className="font-mono text-xl font-black text-slate-800">
-                                        {ticket.scheduled_at
-                                            ? new Date(ticket.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                                            : '--:--'}
-                                    </span>
-                                </div>
+                        // Standard Card
+                        return (
+                            <div
+                                key={ticket.id}
+                                onClick={() => handleTicketClick(ticket.id)}
+                                className={`relative bg-white rounded-2xl p-0 shadow-sm border border-slate-100 overflow-hidden active:scale-[0.98] transition-transform ${idx === 0 ? 'ring-2 ring-blue-500 shadow-blue-100' : ''} ${user?.profile?.status === 'paused' ? 'opacity-75 grayscale-[0.5]' : ''} ${ticket.is_warranty ? 'border-l-4 border-l-purple-500' : ''}`}
+                            >
+                                {/* Priority Indicator for first item (if standard card used) */}
+                                {idx === 0 && <div className="bg-blue-600 text-white text-[10px] font-bold text-center py-1">SIGUIENTE PARADA</div>}
 
-                                <div className="mb-4">
-                                    <h3 className="text-lg font-bold text-slate-900 leading-tight mb-1">
-                                        {ticket.client?.full_name || 'Cliente'}
-                                    </h3>
-                                    <div className="flex items-start gap-2 text-slate-500 text-sm">
-                                        <MapPin size={16} className="mt-0.5 shrink-0 text-blue-400" />
-                                        <span className="line-clamp-2 font-medium">{ticket.client?.address}, {ticket.client?.city}</span>
-                                    </div>
-                                </div>
+                                {/* Paused Overlay Hint if needed, or just let opacity speak */}
 
-                                {/* Avery / Issue Info */}
-                                <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                                    <div className="flex justify-between items-center mb-1">
-                                        <span className="text-[10px] font-bold text-slate-400 uppercase">Avería Reportada</span>
-                                        {/* Ticket # in Corner */}
-                                        <span className={`text-[10px] font-bold px-1.5 rounded flex items-center gap-1 ${ticket.is_warranty ? 'text-purple-600 bg-purple-100' : 'text-yellow-600 bg-yellow-100'}`}>
-                                            {ticket.is_warranty && <ShieldAlert size={10} />}
-                                            #{ticket.ticket_number}
+                                <div className="p-5">
+                                    <div className="flex justify-between items-start mb-3">
+                                        {getStatusBadge(ticket.status)}
+                                        <span className="font-mono text-xl font-black text-slate-800">
+                                            {ticket.scheduled_at
+                                                ? new Date(ticket.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                                : '--:--'}
                                         </span>
                                     </div>
-                                    <p className="text-sm font-medium text-slate-700 line-clamp-2">
-                                        {ticket.description || ticket.issue || 'Sin descripción del problema.'}
-                                    </p>
-                                    <div className="mt-2 text-xs font-bold text-slate-500">
-                                        {ticket.appliance_info?.type} {ticket.appliance_info?.brand}
+
+                                    <div className="mb-4">
+                                        <h3 className="text-lg font-bold text-slate-900 leading-tight mb-1">
+                                            {ticket.client?.full_name || 'Cliente'}
+                                        </h3>
+                                        <div className="flex items-start gap-2 text-slate-500 text-sm">
+                                            <MapPin size={16} className="mt-0.5 shrink-0 text-blue-400" />
+                                            <span className="line-clamp-2 font-medium">{ticket.client?.address}, {ticket.client?.city}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Avery / Issue Info */}
+                                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                                        <div className="flex justify-between items-center mb-1">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase">Avería Reportada</span>
+                                            {/* Ticket # in Corner */}
+                                            <span className={`text-[10px] font-bold px-1.5 rounded flex items-center gap-1 ${ticket.is_warranty ? 'text-purple-600 bg-purple-100' : 'text-yellow-600 bg-yellow-100'}`}>
+                                                {ticket.is_warranty && <ShieldAlert size={10} />}
+                                                #{ticket.ticket_number}
+                                            </span>
+                                        </div>
+                                        <p className="text-sm font-medium text-slate-700 line-clamp-2">
+                                            {ticket.description || ticket.issue || 'Sin descripción del problema.'}
+                                        </p>
+                                        <div className="mt-2 text-xs font-bold text-slate-500">
+                                            {ticket.appliance_info?.type} {ticket.appliance_info?.brand}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Action Strip */}
-                            <div className="bg-slate-50 p-3 flex justify-between items-center border-t border-slate-100">
-                                <span className="text-xs font-bold text-blue-600 flex items-center gap-1">
-                                    VER DETALLES <ChevronRight size={14} />
-                                </span>
-                                <Phone size={18} className="text-slate-400" />
+                                {/* Action Strip */}
+                                <div className="bg-slate-50 p-3 flex justify-between items-center border-t border-slate-100">
+                                    <span className="text-xs font-bold text-blue-600 flex items-center gap-1">
+                                        VER DETALLES <ChevronRight size={14} />
+                                    </span>
+                                    <Phone size={18} className="text-slate-400" />
+                                </div>
                             </div>
-                        </div>
-                    ))
+                        );
+                    })
+
                 )}
             </div>
 
