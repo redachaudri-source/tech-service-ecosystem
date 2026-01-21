@@ -46,9 +46,21 @@ const ServiceCard = ({ ticket, userLocation, onClick, onStartJourney, isNextHead
 
                 {/* MAIN CONTENT: Name + Address */}
                 <div className="mb-4">
-                    <h3 className="text-lg font-bold text-slate-900 leading-tight mb-1">
-                        {ticket.client?.full_name || 'Cliente Desconocido'}
-                    </h3>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                        <h3 className="text-lg font-bold text-slate-900 leading-tight">
+                            {ticket.client?.full_name || 'Cliente Desconocido'}
+                        </h3>
+                        {ticket.client?.phone && (
+                            <a
+                                href={`tel:${ticket.client.phone}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors shrink-0"
+                                title={`Llamar a ${ticket.client.full_name}`}
+                            >
+                                <Phone size={18} strokeWidth={2.5} />
+                            </a>
+                        )}
+                    </div>
                     <div className="flex items-start gap-2 text-slate-500 text-sm">
                         <MapPin size={16} className="mt-0.5 shrink-0 text-blue-400" />
                         <span className="line-clamp-2 font-medium">
