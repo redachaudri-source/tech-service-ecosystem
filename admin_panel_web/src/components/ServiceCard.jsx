@@ -54,10 +54,11 @@ const ServiceCard = ({ ticket, userLocation, onClick, onStartJourney, isNextHead
                             <a
                                 href={`tel:${ticket.client.phone}`}
                                 onClick={(e) => e.stopPropagation()}
-                                className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors shrink-0"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors shrink-0 border border-blue-200"
                                 title={`Llamar a ${ticket.client.full_name}`}
                             >
-                                <Phone size={18} strokeWidth={2.5} />
+                                <Phone size={16} strokeWidth={2.5} />
+                                <span className="font-mono text-sm font-bold">Llamar</span>
                             </a>
                         )}
                     </div>
