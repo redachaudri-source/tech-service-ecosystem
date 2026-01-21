@@ -83,14 +83,18 @@ const ServiceCard = ({ ticket, userLocation, onClick, onStartJourney, isNextHead
             {/* FOOTER ACTIONS */}
             <div className="bg-slate-50 p-3 flex justify-between items-center border-t border-slate-100 relative">
                 {isNextHeader && ticket.status !== 'en_camino' && onStartJourney ? (
-                    // GOOGLE MAPS STYLE QUICK ACTION
-                    <div className="w-full flex justify-center">
-                        <button
-                            onClick={(e) => onStartJourney && onStartJourney(e)}
-                            className="bg-slate-900 border-2 border-yellow-400 text-green-400 px-6 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg hover:bg-slate-800 transition-colors uppercase tracking-wider"
-                            style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
-                        >
-                            Iniciar Viaje <ChevronRight size={18} className="bg-green-400 text-slate-900 rounded-full p-0.5" />
+                    <div className="relative w-full max-w-sm mx-auto group perspective-1000" onClick={(e) => {
+                        e.stopPropagation();
+                        onStartJourney(ticket.id);
+                    }}>
+                        {/* Google Maps Brand Colors Gradient Shadow/Border */}
+                        <div className="absolute -inset-0.5 bg-[linear-gradient(90deg,#EA4335,#FBBC05,#34A853,#4285F4)] rounded-full opacity-60 group-hover:opacity-100 blur-[3px] transition duration-300"></div>
+
+                        <button className="relative w-full flex items-center justify-center gap-3 py-3 bg-white hover:bg-gray-50 text-slate-700 font-bold rounded-full transition-all shadow-sm transform active:scale-[0.98]">
+                            <span className="text-[#1a73e8] font-extrabold tracking-wide uppercase text-sm">Iniciar Viaje</span>
+                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#1a73e8] text-white shadow-md">
+                                <Navigation size={16} strokeWidth={3} className="ml-0.5" />
+                            </div>
                         </button>
                     </div>
                 ) : (
