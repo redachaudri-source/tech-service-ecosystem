@@ -6,6 +6,10 @@ export const loadImage = async (url) => {
     if (!url) return null;
     try {
         const response = await fetch(url);
+        if (!response.ok) {
+            console.warn(`Failed to load image: ${url} (${response.status})`);
+            return null;
+        }
         const blob = await response.blob();
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -14,7 +18,7 @@ export const loadImage = async (url) => {
             reader.readAsDataURL(blob);
         });
     } catch (error) {
-        console.error('Error loading logo:', error);
+        console.error('Error loading image:', error);
         return null;
     }
 };
