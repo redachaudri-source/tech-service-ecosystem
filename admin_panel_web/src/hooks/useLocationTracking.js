@@ -66,8 +66,8 @@ export const useLocationTracking = (isActive, userId) => {
             },
             {
                 enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 5000
+                timeout: 30000, // Increased to 30 seconds
+                maximumAge: 0 // Always get fresh position
             }
         );
     };
