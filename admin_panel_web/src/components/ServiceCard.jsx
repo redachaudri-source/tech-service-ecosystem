@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, Phone, Clock, ChevronRight, ShieldAlert, FileText } from 'lucide-react';
+import { MapPin, Phone, Clock, ChevronRight, ShieldAlert, FileText, Navigation } from 'lucide-react';
 import { calculateDistance, formatDistance, estimateTravelTime } from '../utils/geoUtils';
 
 const ServiceCard = ({ ticket, userLocation, onClick, onStartJourney, isNextHeader }) => {
