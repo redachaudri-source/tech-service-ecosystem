@@ -4,7 +4,8 @@ import jsPDF from 'jspdf';
  * Generates User-Requested 'Recibo de Entrega a Cuenta' Format
  * TWEAKED: Better alignments, Bigger Logo, Professional spacing
  */
-export const generateMaterialDepositPDF = (ticket, logoImg = null, signatureImg = null) => {
+// TWEAKED: Better alignments, Bigger Logo, Professional spacing, LOWER SIGNATURES & COMPANY SEAL
+export const generateMaterialDepositPDF = (ticket, logoImg = null, signatureImg = null, companySealImg = null) => {
     // Landscape A5: 210mm x 148mm
     const doc = new jsPDF({
         format: 'a5',
@@ -14,16 +15,6 @@ export const generateMaterialDepositPDF = (ticket, logoImg = null, signatureImg 
     const width = doc.internal.pageSize.width; // 210
     const height = doc.internal.pageSize.height; // 148
     const margin = 15; // Increased margin for "air"
-
-    // --- WATERMARK (Subtle) ---
-    /* Removed or made extremely subtle to maintain "Clean Corporate" look if user didn't ask for it explicitly in this iteration, 
-       but kept very faint just in case. */
-    doc.saveGraphicsState();
-    doc.setGState(new doc.GState({ opacity: 0.05 }));
-    doc.setTextColor(200);
-    doc.setFontSize(40);
-    // doc.text('BORRADOR', width/2, height/2, { align: 'center', angle: 45 }); // Optional
-    doc.restoreGraphicsState();
 
     // --- HEADER ---
     let yPos = 20;
@@ -171,14 +162,16 @@ export const generateMaterialDepositPDF = (ticket, logoImg = null, signatureImg 
 
 
     // --- FOOTER SIGNATURES ---
-    const sigY = height - 25;
+    // Moved DOWN as requested (was height - 25)
+    const sigY = height - 15;
+
     doc.setTextColor(0);
     doc.setDrawColor(50); // Darker line for signature
     doc.setLineWidth(0.2);
 
-    // Left Line
+    // Left Line (Empresa)
     doc.line(margin + 10, sigY, margin + 70, sigY);
-    // Right Line
+    // Right Line (Cliente)
     doc.line(rightColStart + 10, sigY, rightColStart + 70, sigY);
 
     doc.setFontSize(8);
@@ -187,7 +180,16 @@ export const generateMaterialDepositPDF = (ticket, logoImg = null, signatureImg 
     doc.text('Firma y Sello Empresa', margin + 40, sigY + 5, { align: 'center' });
     doc.text('Firma Cliente', rightColStart + 40, sigY + 5, { align: 'center' });
 
-    // Signature Images
+    // Company Seal/Signature (New)
+    if (companySealImg) {
+        try {
+            const format = companySealImg.match(/^data:image\/(.*);base64/)?.[1]?.toUpperCase() || 'PNG';
+            // Place ABOVE the line
+            doc.addImage(companySealImg, format, margin + 25, sigY - 25, 30, 20); // Adjust size/pos
+        } catch (e) { }
+    }
+
+    // Client Signature Image
     if (signatureImg) {
         try {
             const format = signatureImg.match(/^data:image\/(.*);base64/)?.[1]?.toUpperCase() || 'PNG';

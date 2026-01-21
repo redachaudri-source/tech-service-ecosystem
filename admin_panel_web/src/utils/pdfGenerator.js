@@ -28,6 +28,7 @@ export const generateServiceReport = (ticket, logoImg = null, options = {}) => {
     const pageWidth = doc.internal.pageSize.width;
     const isQuote = options.isQuote || false;
     const signatureImg = options.signatureImg || null;
+    const companySealImg = options.companySealImg || null;
 
     // --- Header ---
     if (logoImg) {
@@ -228,6 +229,17 @@ export const generateServiceReport = (ticket, logoImg = null, options = {}) => {
 
     doc.text('Firma Cliente', 60, yPos + 5, { align: 'center' });
     doc.text('Firma Técnico', 150, yPos + 5, { align: 'center' });
+
+    // Company Seal (Applied to all PDFs)
+    if (companySealImg) {
+        try {
+            const format = companySealImg.match(/^data:image\/(.*);base64/)?.[1]?.toUpperCase() || 'PNG';
+            // Above "Firma Técnico" (approx 150, yPos)
+            doc.addImage(companySealImg, format, 135, yPos - 25, 30, 20);
+        } catch (e) {
+            console.error("Seal err", e);
+        }
+    }
 
 
     // --- TIMELINE VISUAL (PRO COMPACT UI) ---

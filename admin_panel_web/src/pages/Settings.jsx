@@ -20,7 +20,8 @@ const IdentitySection = () => {
         company_phone: '',
         company_email: '',
         company_tax_id: '',
-        company_iban: ''
+        company_iban: '',
+        company_signature_url: null
     });
 
     useEffect(() => { fetchSettings(); }, []);
@@ -36,7 +37,8 @@ const IdentitySection = () => {
                     company_phone: data.company_phone || '',
                     company_email: data.company_email || '',
                     company_tax_id: data.company_tax_id || '',
-                    company_iban: data.company_iban || ''
+                    company_iban: data.company_iban || '',
+                    company_signature_url: data.company_signature_url
                 });
             }
         } catch (err) { console.error(err); } finally { setLoading(false); }
@@ -55,6 +57,20 @@ const IdentitySection = () => {
             if (error) throw error;
             const { data: { publicUrl } } = supabase.storage.from('company-asset').getPublicUrl(fileName);
             setFormData(prev => ({ ...prev, logo_url: publicUrl }));
+        } catch (error) { alert('Error: ' + error.message); } finally { setSaving(false); }
+    };
+
+    const handleSealUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setSaving(true);
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `seal-${Date.now()}.${fileExt}`;
+            const { error } = await supabase.storage.from('company-asset').upload(fileName, file);
+            if (error) throw error;
+            const { data: { publicUrl } } = supabase.storage.from('company-asset').getPublicUrl(fileName);
+            setFormData(prev => ({ ...prev, company_signature_url: publicUrl }));
         } catch (error) { alert('Error: ' + error.message); } finally { setSaving(false); }
     };
 
@@ -98,7 +114,18 @@ const IdentitySection = () => {
                             <input type="file" className="hidden" onChange={handleLogoUpload} />
                         </label>
                     </div>
-                    <span className="text-xs text-slate-400">Recomendado: 500x500 PNG transparent</span>
+                    <span className="text-xs text-slate-400">Logo Corporativo</span>
+                </div>
+
+                <div className="md:col-span-1 space-y-2 text-center">
+                    <div className="aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center relative overflow-hidden group hover:border-blue-400 transition-colors">
+                        {formData.company_signature_url ? <img src={formData.company_signature_url} className="w-full h-full object-contain p-4" /> : <span className="text-xs text-slate-400">Sin Sello</span>}
+                        <label className="absolute inset-0 bg-slate-900/60 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
+                            <Upload size={24} /> <span className="text-xs font-bold mt-1">Subir Sello</span>
+                            <input type="file" className="hidden" onChange={handleSealUpload} />
+                        </label>
+                    </div>
+                    <span className="text-xs text-slate-400">Sello/Firma Empresa (PDF)</span>
                 </div>
 
                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">

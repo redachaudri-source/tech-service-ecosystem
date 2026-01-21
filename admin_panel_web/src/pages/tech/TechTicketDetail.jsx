@@ -405,8 +405,9 @@ const TechTicketDetail = () => {
 
             // 2. Generate PDF using LOCAL state (proven most reliable)
             const logoImg = settings?.logo_url ? await loadImage(settings.logo_url) : null;
+            const sealImg = settings?.company_signature_url ? await loadImage(settings.company_signature_url) : null;
             const currentData = getCurrentTicketData();
-            const doc = generateServiceReport(currentData, logoImg, { isQuote: true });
+            const doc = generateServiceReport(currentData, logoImg, { isQuote: true, companySealImg: sealImg });
             const pdfBlob = doc.output('blob');
             const fileName = `quote_${ticket.ticket_number}_${Date.now()}.pdf`;
 
@@ -490,11 +491,12 @@ const TechTicketDetail = () => {
         try {
             const logoImg = settings?.logo_url ? await loadImage(settings.logo_url) : null;
             const signatureImg = ticket.client_signature_url ? await loadImage(ticket.client_signature_url) : null;
+            const sealImg = settings?.company_signature_url ? await loadImage(settings.company_signature_url) : null;
             const currentData = getCurrentTicketData(); // USE LOCAL STATE
 
             // 1. Generate PDF Blob
             const title = type === 'warranty' ? 'PARTE DE GARANTÍA' : undefined;
-            const doc = generateServiceReport(currentData, logoImg, { signatureImg, title });
+            const doc = generateServiceReport(currentData, logoImg, { signatureImg, title, companySealImg: sealImg });
             const pdfBlob = doc.output('blob');
 
             // 2. Upload to Supabase
@@ -556,12 +558,13 @@ const TechTicketDetail = () => {
         setGeneratingReceipt(true);
         try {
             const logoImg = settings?.logo_url ? await loadImage(settings.logo_url) : null;
+            const sealImg = settings?.company_signature_url ? await loadImage(settings.company_signature_url) : null;
 
             // Use getCurrentTicketData() to ensure we use the LATEST deposit amount from the input field
             const currentData = getCurrentTicketData();
 
             // 1. Generate PDF
-            const doc = generateDepositReceipt(currentData, logoImg);
+            const doc = generateDepositReceipt(currentData, logoImg, null, sealImg);
             const pdfBlob = doc.output('blob');
             const fileName = `recibo_senal_${ticket.ticket_number}_${Date.now()}.pdf`;
 
