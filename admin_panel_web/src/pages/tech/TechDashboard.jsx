@@ -163,8 +163,8 @@ const TechDashboard = () => {
     };
 
     // Quick Action: Start Journey without navigation
-    const handleStartJourney = async (ticketId, e) => {
-        e.stopPropagation(); // Prevent card click
+    const handleStartJourney = async (ticketId) => {
+        // e.stopPropagation() is handled in ServiceCard
         if (user?.profile?.status === 'paused') return;
 
         try {
@@ -285,7 +285,7 @@ const TechDashboard = () => {
                                     className="mb-6 ring-2 ring-blue-500 ring-offset-2"
                                     isNextHeader={true} // Trigger Blue Header Design
                                     onClick={() => handleTicketClick(ticket.id)}
-                                    onStartJourney={(e) => handleStartJourney(ticket.id, e)}
+                                    onStartJourney={handleStartJourney}
                                 />
                             );
                         }
