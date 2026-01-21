@@ -56,15 +56,13 @@ const TechDashboard = () => {
 
             if (error) throw error;
 
-            // 1. Filter Logic: Only Today (or active/past but relevant)
+            // Separate Open vs Closed - STRICT: Only show TODAY's tickets
             const todayStr = filterDate;
 
             // Separate Open vs Closed
             const relevantData = (data || []).filter(t => {
                 const tDate = t.scheduled_at ? t.scheduled_at.split('T')[0] : '';
                 const isToday = tDate === todayStr;
-                const isActive = ['en_camino', 'en_diagnostico', 'en_reparacion'].includes(t.status);
-                const isAssignedForToday = t.status === 'asignado' && isToday;
 
                 // Debug logging
                 if (t.ticket_number === '51') {
@@ -74,14 +72,13 @@ const TechDashboard = () => {
                         todayStr,
                         isToday,
                         status: t.status,
-                        isActive,
-                        isAssignedForToday,
-                        willShow: isToday || isActive || isAssignedForToday
+                        willShow: isToday
                     });
                 }
 
-                // Show: Today's appointments OR currently active tickets
-                return isToday || isActive || isAssignedForToday;
+                // STRICT FILTER: Only show tickets scheduled for TODAY
+                // This prevents yesterday's completed tickets from appearing
+                return isToday;
             });
 
             const open = [];
