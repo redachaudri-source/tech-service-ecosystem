@@ -81,9 +81,14 @@ const TechLocationMap = ({ technicianId }) => {
                 .from('technician_locations')
                 .select('*')
                 .eq('technician_id', technicianId)
-                .single();
+                .maybeSingle(); // Use maybeSingle instead of single to avoid error if no rows
 
-            if (error) throw error;
+            if (error) {
+                console.error('Error fetching tech location:', error);
+                // Keep loading state if error
+                return;
+            }
+
             if (data) {
                 setLastUpdate(data.updated_at);
                 currentPosRef.current = { lat: data.latitude, lng: data.longitude };
@@ -93,10 +98,13 @@ const TechLocationMap = ({ technicianId }) => {
                     map.setCenter({ lat: data.latitude, lng: data.longitude });
                 }
                 setLoading(false);
+            } else {
+                console.log('⏳ Waiting for technician to start GPS tracking...');
+                // Keep loading state - technician hasn't started tracking yet
             }
         } catch (error) {
             console.error('Error fetching tech location:', error);
-            setLoading(false);
+            // Keep loading state on error
         }
     };
 

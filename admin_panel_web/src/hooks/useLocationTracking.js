@@ -12,6 +12,8 @@ export const useLocationTracking = (isActive, userId) => {
     const watchIdRef = useRef(null);
 
     useEffect(() => {
+        console.log('🔍 useLocationTracking - isActive:', isActive, 'userId:', userId);
+
         if (!isActive || !userId) {
             stopTracking();
             return;
