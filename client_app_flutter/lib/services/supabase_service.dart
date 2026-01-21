@@ -46,17 +46,29 @@ class ClientSupabaseService {
   }
 
   // Get Ticket Context for Tracking (Tech location)
-  // We need to listen to the Technician's Profile to get their location updates.
-  Stream<Map<String, dynamic>> getTechnicianLocationStream(String technicianId) {
+  Stream<Map<String, dynamic>?> getTechnicianLocationStream(String technicianId) {
     return _client
-        .from('profiles')
-        .stream(primaryKey: ['id'])
-        .eq('id', technicianId)
-        .map((event) => event.first); // Return the single technician profile
+        .from('technician_locations')
+        .stream(primaryKey: ['technician_id'])
+        .eq('technician_id', technicianId)
+        .map((data) => data.isNotEmpty ? data.first : null);
+  }
+  
+  Future<Map<String, dynamic>?> getTechnicianProfile(String technicianId) async {
+    try {
+      return await _client
+          .from('profiles')
+          .select()
+          .eq('id', technicianId)
+          .single();
+    } catch (e) {
+      debugPrint('Error fetching technician profile: $e');
+      return null;
+    }
   }
   
   Future<Map<String, dynamic>> getTicketDetails(String ticketId) async {
-      return await _client.from('tickets').select().eq('id', ticketId).single();
+      return await _client.from('tickets').select('*, profiles(*)').eq('id', ticketId).single();
   }
 
   // --- Payments & Documents ---

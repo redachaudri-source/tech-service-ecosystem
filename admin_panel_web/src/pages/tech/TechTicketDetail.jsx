@@ -14,6 +14,7 @@ import SignaturePad from '../../components/SignaturePad';
 import ServiceCompletionModal from '../../components/ServiceCompletionModal'; // NEW ROBUST MODAL
 import { useAuth } from '../../context/AuthContext';
 import { useGeolocation } from '../../hooks/useGeolocation';
+import { useLocationTracking } from '../../hooks/useLocationTracking';
 
 
 
@@ -54,6 +55,12 @@ const TechTicketDetail = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [ticket, setTicket] = useState(null);
+
+    // GPS Tracking Hook - auto-starts when status is 'en_camino'
+    const { isTracking, error: gpsError } = useLocationTracking(
+        ticket?.status === 'en_camino',
+        user?.id
+    );
     const [loading, setLoading] = useState(true);
     const [updating, setUpdating] = useState(false);
     const [settings, setSettings] = useState(null);
@@ -862,6 +869,24 @@ const TechTicketDetail = () => {
                     )
                 }
             </div >
+
+            {/* GPS Tracking Indicator */}
+            {ticket.status === 'en_camino' && isTracking && (
+                <div className="mb-6 flex items-center justify-center gap-2 px-4 py-3 bg-green-50 border-2 border-green-200 rounded-xl">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-sm font-bold text-green-700">
+                        📡 Ubicación compartida con el cliente
+                    </span>
+                </div>
+            )}
+            {gpsError && (
+                <div className="mb-6 flex items-center justify-center gap-2 px-4 py-3 bg-red-50 border-2 border-red-200 rounded-xl">
+                    <AlertCircle size={16} className="text-red-600" />
+                    <span className="text-sm font-bold text-red-700">
+                        {gpsError}
+                    </span>
+                </div>
+            )}
 
             {/* BUDGET ORIGIN BANNER */}
             {

@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../services/location_tracking_service.dart';
 
 class TicketDetailScreen extends StatefulWidget {
   final Map<String, dynamic> ticket;
@@ -15,6 +16,7 @@ class TicketDetailScreen extends StatefulWidget {
 
 class _TicketDetailScreenState extends State<TicketDetailScreen> {
   final SupabaseClient _supabase = Supabase.instance.client;
+  final LocationTrackingService _locationService = LocationTrackingService();
   late String _status;
   bool _updating = false;
 
@@ -23,6 +25,17 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     super.initState();
     _status = widget.ticket['status'] ?? 'unknown';
     _checkPermissions();
+    
+    // Start GPS tracking if status is 'en_camino'
+    if (_status == 'en_camino') {
+      _locationService.startTracking();
+    }
+  }
+
+  @override
+  void dispose() {
+    _locationService.dispose();
+    super.dispose();
   }
 
   Future<void> _refreshData() async {
@@ -100,6 +113,14 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
           _status = newStatus;
           _updating = false;
         });
+        
+        // Manage GPS tracking based on status
+        if (newStatus == 'en_camino') {
+          _locationService.startTracking();
+        } else if (_status == 'en_camino' && newStatus != 'en_camino') {
+          _locationService.stopTracking();
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Estado actualizado'), backgroundColor: Colors.green),
         );
@@ -198,6 +219,40 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 12),
+            
+            // GPS Tracking Indicator
+            if (_status == 'en_camino' && _locationService.isTracking)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.green[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green[200]!),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      '📡 Ubicación compartida con el cliente',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             const SizedBox(height: 24),
 
             // Setup Workflow Buttons
