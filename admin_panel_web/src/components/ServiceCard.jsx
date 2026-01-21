@@ -46,7 +46,7 @@ const ServiceCard = ({ ticket, userLocation, onClick, onStartJourney, isNextHead
 
                 {/* MAIN CONTENT: Name + Address */}
                 <div className="mb-4">
-                    <div className="flex items-center justify-between gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1">
                         <h3 className="text-lg font-bold text-slate-900 leading-tight">
                             {ticket.client?.full_name || 'Cliente Desconocido'}
                         </h3>
