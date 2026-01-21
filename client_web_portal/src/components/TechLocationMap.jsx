@@ -1,197 +1,216 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
 import { Navigation } from 'lucide-react';
-import L from 'leaflet';
 
-// --- LEAFLET ICON FIX ---
-import iconUrl from 'leaflet/dist/images/marker-icon.png';
-import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
-import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
+const GOOGLE_MAPS_API_KEY = 'AIzaSyAzaTWQlJ7B2xqHvUrhcNUNuN_pN_QKKKQ';
 
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-    iconRetinaUrl: iconRetinaUrl,
-    iconUrl: iconUrl,
-    shadowUrl: shadowUrl,
-});
+const TechLocationMap = ({ technicianId }) => {
+    const mapRef = useRef(null);
+    const [map, setMap] = useState(null);
+    const [techMarker, setTechMarker] = useState(null);
+    const [lastUpdate, setLastUpdate] = useState(null);
+    const [loading, setLoading] = useState(true);
 
-// --- UBER CAR ICON ---
-const UberCarIcon = new L.DivIcon({
-    className: 'bg-transparent',
-    html: `<div style="
-        background-color: black; 
-        color: white; 
-        width: 36px; 
-        height: 36px; 
-        border-radius: 50%; 
-        display: flex; 
-        align-items: center; 
-        justify-content: center;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
-        border: 2px solid white;
-        transition: transform 0.3s ease;
-    ">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2" />
-            <circle cx="7" cy="17" r="2" />
-            <path d="M9 17h6" />
-            <circle cx="17" cy="17" r="2" />
-        </svg>
-    </div>`,
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
-    popupAnchor: [0, -20]
-});
+    // Animation state
+    const animationRef = useRef(null);
+    const currentPosRef = useRef(null);
+    const targetPosRef = useRef(null);
 
-// --- SMOOTH MARKER COMPONENT (The "Uber Effect") ---
-const SmoothMarker = ({ position, icon, children }) => {
-    const markerRef = useRef(null);
-    const [currentPos, setCurrentPos] = useState(position);
-    const requestRef = useRef();
-    const startTimeRef = useRef(null);
-    const startPosRef = useRef(position);
-    const targetPosRef = useRef(position);
-
-    // Update target when prop changes
+    // Load Google Maps script
     useEffect(() => {
-        if (position && (position[0] !== targetPosRef.current[0] || position[1] !== targetPosRef.current[1])) {
-            startPosRef.current = currentPos;
-            targetPosRef.current = position;
-            startTimeRef.current = null; // Reset animation timer
-
-            // Cancel previous animation
-            if (requestRef.current) cancelAnimationFrame(requestRef.current);
-
-            // Start new animation
-            requestRef.current = requestAnimationFrame(animate);
+        if (window.google) {
+            initMap();
+            return;
         }
-    }, [position]);
 
-    const animate = (time) => {
-        if (!startTimeRef.current) startTimeRef.current = time;
-        const progress = Math.min((time - startTimeRef.current) / 2000, 1); // 2000ms duration
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}`;
+        script.async = true;
+        script.defer = true;
+        script.onload = initMap;
+        script.onerror = () => {
+            console.error('❌ Error loading Google Maps');
+            setLoading(false);
+        };
+        document.head.appendChild(script);
 
-        // Linear interpolation (Lerp)
-        const lat = startPosRef.current[0] + (targetPosRef.current[0] - startPosRef.current[0]) * progress;
-        const lng = startPosRef.current[1] + (targetPosRef.current[1] - startPosRef.current[1]) * progress;
-
-        const newPos = [lat, lng];
-        setCurrentPos(newPos);
-
-        if (progress < 1) {
-            requestRef.current = requestAnimationFrame(animate);
-        }
-    };
-
-    useEffect(() => {
-        return () => cancelAnimationFrame(requestRef.current);
+        return () => {
+            if (script.parentNode) {
+                script.parentNode.removeChild(script);
+            }
+        };
     }, []);
 
-    return (
-        <Marker position={currentPos} icon={icon} ref={markerRef}>
-            {children}
-        </Marker>
-    );
-};
-
-// --- RECENTER MAP COMPONENT ---
-const RecenterAutomatically = ({ pos }) => {
-    const map = useMap();
-    useEffect(() => {
-        if (pos) {
-            map.flyTo(pos, map.getZoom(), {
-                animate: true,
-                duration: 2 // Slower map pan for smoothness
-            });
-        }
-    }, [pos, map]);
-    return null;
-};
-
-// --- MAIN COMPONENT ---
-const TechLocationMap = ({ technicianId }) => {
-    const [position, setPosition] = useState(null);
-    const [lastUpdate, setLastUpdate] = useState(null);
-
+    // Subscribe to technician location updates
     useEffect(() => {
         if (!technicianId) return;
 
-        // Fetch initial
-        const fetchPos = async () => {
-            const { data } = await supabase
-                .from('profiles')
-                .select('current_lat, current_lng, last_location_update')
-                .eq('id', technicianId)
-                .single();
-
-            if (data && data.current_lat && data.current_lng) {
-                setPosition([data.current_lat, data.current_lng]);
-                setLastUpdate(data.last_location_update);
-            }
-        };
-
-        fetchPos();
-
-        // Subscribe Realtime
-        const channel = supabase.channel(`tech-tracking-client-${technicianId}`)
-            .on('postgres_changes',
-                { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${technicianId}` },
+        const channel = supabase
+            .channel(`tech-location-${technicianId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'technician_locations',
+                    filter: `technician_id=eq.${technicianId}`
+                },
                 (payload) => {
-                    const { current_lat, current_lng, last_location_update } = payload.new;
-                    if (current_lat && current_lng) {
-                        // Position updates here -> Triggers SmoothMarker animation
-                        setPosition([current_lat, current_lng]);
-                        setLastUpdate(last_location_update);
+                    console.log('📍 Location update:', payload);
+                    if (payload.new) {
+                        setLastUpdate(payload.new.updated_at);
+                        animateMarkerToPosition(payload.new);
                     }
                 }
             )
             .subscribe();
 
+        // Fetch initial location
+        fetchTechLocation();
+
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [technicianId]);
+    }, [technicianId, map]);
 
-    if (!position) return (
-        <div className="h-48 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400 text-sm animate-pulse">
-            <span className="flex items-center gap-2">
-                <Navigation size={16} className="animate-spin" />
-                Localizando técnico...
-            </span>
-        </div>
-    );
+    const fetchTechLocation = async () => {
+        if (!technicianId) return;
+
+        try {
+            const { data, error } = await supabase
+                .from('technician_locations')
+                .select('*')
+                .eq('technician_id', technicianId)
+                .single();
+
+            if (error) throw error;
+            if (data) {
+                setLastUpdate(data.updated_at);
+                currentPosRef.current = { lat: data.latitude, lng: data.longitude };
+
+                if (map) {
+                    createOrUpdateMarker({ lat: data.latitude, lng: data.longitude }, data.heading || 0);
+                    map.setCenter({ lat: data.latitude, lng: data.longitude });
+                }
+                setLoading(false);
+            }
+        } catch (error) {
+            console.error('Error fetching tech location:', error);
+            setLoading(false);
+        }
+    };
+
+    const initMap = () => {
+        if (!mapRef.current || !window.google) return;
+
+        const defaultCenter = { lat: 36.7213, lng: -4.4214 }; // Malaga
+        const newMap = new window.google.maps.Map(mapRef.current, {
+            center: defaultCenter,
+            zoom: 15,
+            disableDefaultUI: true,
+            zoomControl: false,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: false,
+        });
+
+        setMap(newMap);
+    };
+
+    const animateMarkerToPosition = (location) => {
+        if (!map || !window.google) return;
+
+        const newPos = { lat: location.latitude, lng: location.longitude };
+        targetPosRef.current = newPos;
+
+        if (!currentPosRef.current) {
+            currentPosRef.current = newPos;
+            createOrUpdateMarker(newPos, location.heading || 0);
+            return;
+        }
+
+        // Smooth animation
+        const startPos = { ...currentPosRef.current };
+        const startTime = Date.now();
+        const duration = 1500; // 1.5 seconds
+
+        const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+
+            // Easing function
+            const easeProgress = progress < 0.5
+                ? 2 * progress * progress
+                : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+
+            const lat = startPos.lat + (newPos.lat - startPos.lat) * easeProgress;
+            const lng = startPos.lng + (newPos.lng - startPos.lng) * easeProgress;
+
+            currentPosRef.current = { lat, lng };
+            createOrUpdateMarker({ lat, lng }, location.heading || 0);
+
+            if (progress < 1) {
+                animationRef.current = requestAnimationFrame(animate);
+            }
+        };
+
+        if (animationRef.current) {
+            cancelAnimationFrame(animationRef.current);
+        }
+        animate();
+    };
+
+    const createOrUpdateMarker = (position, heading) => {
+        if (!map || !window.google) return;
+
+        if (techMarker) {
+            techMarker.setPosition(position);
+            techMarker.setIcon({
+                path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                scale: 5,
+                fillColor: '#000000',
+                fillOpacity: 1,
+                strokeColor: '#ffffff',
+                strokeWeight: 2,
+                rotation: heading,
+            });
+        } else {
+            const marker = new window.google.maps.Marker({
+                position,
+                map: map,
+                title: 'Técnico',
+                icon: {
+                    path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                    scale: 5,
+                    fillColor: '#000000',
+                    fillOpacity: 1,
+                    strokeColor: '#ffffff',
+                    strokeWeight: 2,
+                    rotation: heading,
+                },
+            });
+            setTechMarker(marker);
+        }
+
+        // Center map on technician
+        map.panTo(position);
+    };
+
+    if (loading) {
+        return (
+            <div className="h-48 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400 text-sm animate-pulse">
+                <span className="flex items-center gap-2">
+                    <Navigation size={16} className="animate-spin" />
+                    Localizando técnico...
+                </span>
+            </div>
+        );
+    }
 
     return (
         <div className="h-64 w-full rounded-xl overflow-hidden shadow-lg border-2 border-slate-200 relative z-0">
-            <MapContainer
-                center={position}
-                zoom={15}
-                className="h-full w-full"
-                scrollWheelZoom={false}
-                zoomControl={false} // Clean look
-            >
-                <TileLayer
-                    url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" // Cleaner map style suitable for 'Uber' look
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                />
-
-                {/* SMOOTH MARKER */}
-                <SmoothMarker position={position} icon={UberCarIcon}>
-                    <Popup>
-                        <div className="text-center font-bold">
-                            Técnico en movimiento
-                            <br />
-                            <span className="text-xs text-slate-500">
-                                {lastUpdate ? new Date(lastUpdate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Ahora'}
-                            </span>
-                        </div>
-                    </Popup>
-                </SmoothMarker>
-
-                <RecenterAutomatically pos={position} />
-            </MapContainer>
+            {/* Map */}
+            <div ref={mapRef} className="h-full w-full" />
 
             {/* Overlay Banner */}
             <div className="absolute top-2 left-2 right-2 bg-white/95 backdrop-blur-md p-3 rounded-xl shadow-lg z-[1000] flex items-center gap-3 border border-slate-100">
@@ -201,7 +220,9 @@ const TechLocationMap = ({ technicianId }) => {
                 <div>
                     <h4 className="text-sm font-black text-slate-800 tracking-tight">EN CAMINO</h4>
                     <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                        {lastUpdate ? `Actualizado ${new Date(lastUpdate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Conectando GPS...'}
+                        {lastUpdate
+                            ? `Actualizado ${new Date(lastUpdate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                            : 'Conectando GPS...'}
                     </p>
                 </div>
             </div>
