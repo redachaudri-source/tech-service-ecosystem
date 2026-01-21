@@ -45,14 +45,22 @@ const TechMaterialList = () => {
         if (!supplier.trim()) return alert("El nombre del proveedor es obligatorio.");
 
         try {
-            const { error } = await supabase.from('tickets').update({
+            const { data, error } = await supabase.from('tickets').update({
                 material_ordered: true,
                 material_supplier: supplier,
                 material_ordered_by: user.id,
                 material_status_at: new Date().toISOString()
-            }).eq('id', ticketId);
+            })
+                .eq('id', ticketId)
+                .select();
 
             if (error) throw error;
+
+            if (data && data.length === 0) {
+                console.warn("Update succeeded but returned no data. RLS might be blocking it.");
+                alert("Atención: No se pudo guardar en la base de datos. Verifica tus permisos.");
+                return;
+            }
 
             // Update local state to show 'Confirm Reception' button instead of removing
             setTickets(prev => prev.map(t =>
@@ -61,6 +69,7 @@ const TechMaterialList = () => {
                     : t
             ));
         } catch (e) {
+            console.error("Error updating ticket:", e);
             alert("Error: " + e.message);
         }
     };
