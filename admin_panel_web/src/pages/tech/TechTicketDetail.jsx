@@ -1462,8 +1462,7 @@ const TechTicketDetail = () => {
                         <div className="flex gap-3 mb-4">
                             <button
                                 onClick={() => {
-                                    setSignaturePurpose('budget');
-                                    setShowSignaturePad(true);
+                                    setBudgetDecision('accepted');
                                 }}
                                 className={`flex-1 py-4 rounded-xl font-bold border-2 transition-all flex flex-col items-center gap-1 ${budgetDecision === 'accepted' ? 'bg-green-50 text-green-700 border-green-200 ring-1 ring-green-500' : 'bg-slate-50 text-slate-500 border-slate-100 hover:bg-green-50 hover:text-green-600 hover:border-green-100'}`}
                             >
@@ -1632,32 +1631,17 @@ const TechTicketDetail = () => {
                                     alert('Para solicitar material es obligatorio indicar la pieza y el importe pagado a cuenta.');
                                     return;
                                 }
-                                if (!window.confirm('¿Confirmas que el cliente ha pagado esa cantidad y quieres dejar el servicio en espera de material?')) return;
+                                if (!window.confirm('¿Confirmas que el cliente ha pagado esa cantidad y quieres proceder a la firma?')) return;
 
-                                setUpdating(true);
-                                try {
-                                    // 1. Update data cols
-                                    await supabase.from('tickets').update({
-                                        required_parts_description: ticket.required_parts_description,
-                                        deposit_amount: deposit,
-                                        material_status_at: new Date().toISOString()
-                                    }).eq('id', ticket.id);
-
-                                    // 2. Change status
-                                    await updateStatus('pendiente_material');
-                                    alert('Servicio pausado por material correctamente.');
-                                    navigate('/tech/dashboard');
-                                } catch (e) {
-                                    console.error(e);
-                                    alert('Error: ' + e.message);
-                                    setUpdating(false);
-                                }
+                                // Trigger Signature instead of immediate status update
+                                setSignaturePurpose('material_deposit');
+                                setShowSignaturePad(true);
                             }}
                             disabled={updating}
                             className="w-full py-4 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 shadow-lg shadow-orange-200 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
                         >
                             <History size={18} />
-                            Confirmar Pago y Pedir Material
+                            Confirmar Pago, Firmar y Pedir Material
                         </button>
                     </div>
                 )
@@ -2071,6 +2055,55 @@ const TechTicketDetail = () => {
                                     setBudgetDecision('accepted');
                                     alert("Presupuesto aceptado y firmado.");
                                     setShowSignaturePad(false);
+                                } else if (signaturePurpose === 'material_deposit') {
+                                    // NEW: Handle Material Deposit Signature
+                                    const logoImg = settings?.logo_url ? await loadImage(settings.logo_url) : null;
+                                    const signatureImg = await loadImage(publicUrl);
+
+                                    // Ensure we use the latest input values (deposit, description) from local state/inputs
+                                    // We need to bake them into a data object for the PDF generator
+                                    const currentData = {
+                                        ...getCurrentTicketData(),
+                                        // Ensure these specific fields are exactly what the user just approved
+                                        deposit_amount: deposit,
+                                        required_parts_description: ticket.required_parts_description,
+                                        client_signature_url: publicUrl // Include the new signature
+                                    };
+
+                                    // 1. Generate Receipt PDF
+                                    const doc = generateDepositReceipt(currentData, logoImg);
+                                    const pdfBlob = doc.output('blob');
+                                    const pdfName = `recibo_senal_${ticket.ticket_number}_${Date.now()}.pdf`;
+
+                                    // 2. Upload PDF
+                                    const { error: pdfErr } = await supabase.storage
+                                        .from('service-reports')
+                                        .upload(pdfName, pdfBlob, { contentType: 'application/pdf' });
+
+                                    if (pdfErr) throw pdfErr;
+
+                                    const { data: pdfUrlData } = supabase.storage.from('service-reports').getPublicUrl(pdfName);
+                                    const receiptUrl = pdfUrlData.publicUrl;
+
+                                    // 3. Update DB with EVERYTHING (Data + PDF + Status)
+                                    // We use updateStatus helper but we need to pass the extra fields
+                                    // Actually updateStatus calls setTicket so we should use it to handle history
+
+                                    // First update the specific columns manually to be safe before status change
+                                    await supabase.from('tickets').update({
+                                        deposit_amount: deposit,
+                                        required_parts_description: ticket.required_parts_description,
+                                        deposit_receipt_url: receiptUrl,
+                                        material_status_at: new Date().toISOString()
+                                    }).eq('id', ticket.id);
+
+                                    // Then trigger status change (which appends history)
+                                    await updateStatus('pendiente_material');
+
+                                    alert('Pago confirmado, PDF generado y pieza solicitada correctamente.');
+                                    setShowSignaturePad(false);
+                                    navigate('/tech/dashboard');
+
                                 } else if (signaturePurpose === 'closing' || signaturePurpose === 'warranty_closing') {
                                     const isWarranty = signaturePurpose === 'warranty_closing';
 
