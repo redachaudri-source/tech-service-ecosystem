@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Phone, Calendar, Clock, ChevronRight, Search, Filter, Package, History, Star, ShieldAlert, CheckCircle } from 'lucide-react'; // Added ShieldAlert, CheckCircle
+import { MapPin, Phone, Calendar, Clock, ChevronRight, Search, Filter, Package, History, Star, ShieldAlert, CheckCircle, FileText } from 'lucide-react'; // Added ShieldAlert, CheckCircle, FileText
 import TechRouteLine from '../../components/TechRouteLine';
 import TechReviewsModal from '../../components/TechReviewsModal';
 import ServiceCard from '../../components/ServiceCard';
@@ -357,7 +357,20 @@ const TechDashboard = () => {
                                             {ticket.ticket_number} • {ticket.appliance_info?.brand || 'Electrodoméstico'}
                                         </div>
                                     </div>
-                                    <Package size={20} className="text-orange-300" />
+                                    <div className="flex items-center gap-3">
+                                        {ticket.material_deposit_pdf_url && (
+                                            <a
+                                                href={ticket.material_deposit_pdf_url}
+                                                target="_blank"
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="p-2 bg-orange-100 text-orange-600 rounded-lg hover:bg-orange-200 transition"
+                                                title="Ver PDF del Depósito"
+                                            >
+                                                <FileText size={18} />
+                                            </a>
+                                        )}
+                                        <Package size={20} className="text-orange-300" />
+                                    </div>
                                 </div>
                             ))}
                         </div>
