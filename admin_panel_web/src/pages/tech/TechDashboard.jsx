@@ -421,7 +421,21 @@ const TechDashboard = () => {
                                             {ticket.ticket_number} • {new Date(ticket.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </div>
                                     </div>
-                                    <CheckCircle size={20} className="text-green-500/50" />
+                                    <div className="flex items-center gap-3">
+                                        {ticket.pdf_url && (
+                                            <a
+                                                href={ticket.pdf_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                                                title="Ver Parte de Trabajo PDF"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <FileText size={18} />
+                                            </a>
+                                        )}
+                                        <CheckCircle size={20} className="text-green-500/50" />
+                                    </div>
                                 </div>
                             ))}
                         </div>
