@@ -7,7 +7,8 @@ const GOOGLE_MAPS_API_KEY = 'AIzaSyAzaTWQlJ7B2xqHvUrhcNUNuN_pN_QKKKQ';
 const TechLocationMap = ({ technicianId }) => {
     const mapRef = useRef(null);
     const [map, setMap] = useState(null);
-    const [techMarker, setTechMarker] = useState(null);
+    const markerRef = useRef(null); // Use ref for marker singleton
+    const [techMarker, setTechMarker] = useState(null); // Keep state for other potential uses, but rely on ref
     const [lastUpdate, setLastUpdate] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -139,12 +140,13 @@ const TechLocationMap = ({ technicianId }) => {
             const newMap = new window.google.maps.Map(mapRef.current, {
                 center: defaultCenter,
                 zoom: 15,
-                disableDefaultUI: true,
-                zoomControl: false,
+                disableDefaultUI: false, // Enable UI controls
+                zoomControl: true,       // Explicitly enable zoom
                 mapTypeControl: false,
                 streetViewControl: false,
-                fullscreenControl: false,
-                backgroundColor: '#f0f0f0', // Visible background to detect rendering
+                fullscreenControl: true,
+                backgroundColor: '#f0f0f0',
+                gestureHandling: 'greedy', // Better mobile touch handling
             });
 
             setMap(newMap);
@@ -169,19 +171,17 @@ const TechLocationMap = ({ technicianId }) => {
             return;
         }
 
-        // Smooth animation
+        // Uber-like Smooth Animation
         const startPos = { ...currentPosRef.current };
         const startTime = Date.now();
-        const duration = 1500; // 1.5 seconds
+        const duration = 2000; // 2 seconds glides
 
         const animate = () => {
             const elapsed = Date.now() - startTime;
             const progress = Math.min(elapsed / duration, 1);
 
-            // Easing function
-            const easeProgress = progress < 0.5
-                ? 2 * progress * progress
-                : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+            // Ease-out cubic for car-like deceleration
+            const easeProgress = 1 - Math.pow(1 - progress, 3);
 
             const lat = startPos.lat + (newPos.lat - startPos.lat) * easeProgress;
             const lng = startPos.lng + (newPos.lng - startPos.lng) * easeProgress;
@@ -203,15 +203,22 @@ const TechLocationMap = ({ technicianId }) => {
     const createOrUpdateMarker = (position, heading) => {
         if (!map || !window.google) return;
 
-        if (techMarker) {
-            techMarker.setPosition(position);
-            techMarker.setIcon({
-                path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-                scale: 5,
-                fillColor: '#000000',
-                fillOpacity: 1,
-                strokeColor: '#ffffff',
-                strokeWeight: 2,
+        // Custom Car Icon (Uber-style black car)
+        const carIcon = {
+            path: "M17.402,0H5.643C2.526,0,0,3.467,0,6.584v34.804c0,3.116,2.526,5.644,5.643,5.644h11.759c3.116,0,5.644-2.527,5.644-5.644 V6.584C23.044,3.467,20.518,0,17.402,0z M22.057,14.188v11.665l-2.729,0.351v-4.806L22.057,14.188z M20.625,10.773 c-1.016,3.9-2.219,8.51-2.219,8.51H4.638l-2.222-8.51C2.417,10.773,11.3,7.755,20.625,10.773z M19.148,1.443v3.327 c0,0.88-0.714,1.593-1.592,1.593H5.485c-0.878,0-1.591-0.713-1.591-1.593V1.443C3.894,1.443,12.609,0,19.148,1.443z",
+            fillColor: "#000000",
+            fillOpacity: 1,
+            scale: 0.7,
+            strokeColor: "#ffffff",
+            strokeWeight: 1,
+            anchor: new window.google.maps.Point(11.5, 23.5), // Center of the car path
+            rotation: heading,
+        };
+
+        if (markerRef.current) {
+            markerRef.current.setPosition(position);
+            markerRef.current.setIcon({
+                ...carIcon,
                 rotation: heading,
             });
         } else {
@@ -220,20 +227,19 @@ const TechLocationMap = ({ technicianId }) => {
                 map: map,
                 title: 'Técnico',
                 icon: {
-                    path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-                    scale: 5,
-                    fillColor: '#000000',
-                    fillOpacity: 1,
-                    strokeColor: '#ffffff',
-                    strokeWeight: 2,
+                    ...carIcon,
                     rotation: heading,
                 },
+                zIndex: 999
             });
+            markerRef.current = marker;
             setTechMarker(marker);
         }
 
-        // Center map on technician
-        map.panTo(position);
+        // Smooth Pan: Only pan if tech moves significantly out of center bounds to avoid jitter
+        if (map && !map.getBounds()?.contains(position)) {
+            map.panTo(position);
+        }
     };
 
     if (loading) {
