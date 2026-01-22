@@ -1,8 +1,9 @@
 import React from 'react';
 import { MapPin, Phone, Clock, ChevronRight, ShieldAlert, FileText, Navigation } from 'lucide-react';
 import { calculateDistance, formatDistance, estimateTravelTime } from '../utils/geoUtils';
+import TechRouteProgress from './TechRouteProgress';
 
-const ServiceCard = ({ ticket, userLocation, onClick, onStartJourney, isNextHeader }) => {
+const ServiceCard = ({ ticket, user, userLocation, onClick, onStartJourney, isNextHeader }) => {
 
     // Formatting Helpers
     const timeStr = ticket.scheduled_at
@@ -93,8 +94,11 @@ const ServiceCard = ({ ticket, userLocation, onClick, onStartJourney, isNextHead
             </div>
 
             {/* FOOTER ACTIONS */}
-            <div className="bg-slate-50 p-3 flex justify-between items-center border-t border-slate-100 relative">
-                {isNextHeader && ticket.status !== 'en_camino' && onStartJourney ? (
+            <div className="bg-slate-50 p-3 flex justify-between items-center border-t border-slate-100 relative min-h-[60px]">
+                {ticket.status === 'en_camino' ? (
+                    /* ROUTE PROGRESS BAR (Replaces Start Button/Details) */
+                    <TechRouteProgress ticket={ticket} user={user} />
+                ) : isNextHeader && onStartJourney ? (
                     <div className="relative w-full max-w-xs mx-auto group perspective-1000" onClick={(e) => {
                         e.stopPropagation();
                         onStartJourney(ticket.id);
