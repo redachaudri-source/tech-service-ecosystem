@@ -7,8 +7,10 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 // Configure Mapbox token
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || 'pk.eyJ1IjoiZml4YXJyIiwiYSI6ImNta3BvdmxiczBlcWQzZnM2cWNobzBodXkifQ.MsyB8tBiEqmq4mflpcttRQ';
-mapboxgl.accessToken = MAPBOX_TOKEN;
+const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
+mapboxgl.accessToken = mapboxToken;
+
+console.log('🗺️ Mapbox Token Status:', mapboxToken ? '✅ Loaded' : '❌ Missing');
 
 /**
  * FleetMapbox - Mapbox-based Fleet Tracking
