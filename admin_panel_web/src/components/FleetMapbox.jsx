@@ -5,12 +5,12 @@ import { supabase } from '../lib/supabase';
 import { User, Signal, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { MAPBOX_TOKEN } from '../config/mapbox';
 
 // Configure Mapbox token
-const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
-mapboxgl.accessToken = mapboxToken;
+mapboxgl.accessToken = MAPBOX_TOKEN;
 
-console.log('🗺️ Mapbox Token Status:', mapboxToken ? '✅ Loaded' : '❌ Missing');
+console.log('🗺️ Mapbox Config Loaded');
 
 /**
  * FleetMapbox - Mapbox-based Fleet Tracking

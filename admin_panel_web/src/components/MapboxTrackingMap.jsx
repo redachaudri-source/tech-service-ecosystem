@@ -5,12 +5,12 @@ import { Navigation } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { VehicleAnimationEngine } from '../utils/VehicleAnimationEngine';
 import { GPSDataFilter } from '../utils/GPSDataFilter';
+import { MAPBOX_TOKEN } from '../config/mapbox';
 
 // Configure Mapbox token
-const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
-mapboxgl.accessToken = mapboxToken;
+mapboxgl.accessToken = MAPBOX_TOKEN;
 
-console.log('🗺️ Mapbox Token Status:', mapboxToken ? '✅ Loaded' : '❌ Missing');
+console.log('🗺️ Mapbox Config Loaded');
 
 /**
  * MapboxTrackingMap - Admin Panel Tier-1 GPS Tracking Component
