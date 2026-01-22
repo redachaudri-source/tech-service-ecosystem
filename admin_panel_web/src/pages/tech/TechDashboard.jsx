@@ -48,7 +48,7 @@ const TechDashboard = () => {
                 .subscribe();
             return () => { supabase.removeChannel(channel); };
         }
-    }, [user, filterDate]);
+    }, [user?.id, filterDate]);
 
     const fetchTickets = async (background = false) => {
         if (!background) setLoading(true);
