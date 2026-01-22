@@ -2062,18 +2062,19 @@ const TechTicketDetail = () => {
                 )
             }
             {/* GPS Tracker Component - Only visible during EN CAMINO */}
-            {
+            {/* GPS Tracker Component - REMOVED per user request (logic handled by hook) */}
+            {/*
                 ticket && user && ticket.status === 'en_camino' && (
                     <div className="mt-8 mb-4">
                         <ErrorBoundary>
                             <TechLocationMap
-                                technicianId={user.id} // DEPLOY_FIX_V3
+                                technicianId={user.id}
                                 className="w-full h-64 rounded-xl shadow-lg"
                             />
                         </ErrorBoundary>
                     </div>
                 )
-            }
+            */}
 
             {/* SIGNATURE PAD */}
             {
