@@ -10,6 +10,7 @@ import IncomingRequests from './pages/IncomingRequests';
 import GlobalAgenda from './pages/GlobalAgenda';
 // NEUTRALIZED: Google Maps dependency - migrate to Mapbox if needed
 // import FleetMap from './components/FleetMap';
+import FleetMapbox from './components/FleetMapbox'; // Mapbox replacement for FleetMap
 import Login from './pages/Login';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './components/ToastProvider';
@@ -55,8 +56,7 @@ function App() {
                                 <Route path="agenda" element={<GlobalAgenda />} />
                                 <Route path="clients" element={<ClientManager />} />
                                 <Route path="team" element={<TeamManager />} />
-                                {/* NEUTRALIZED: FleetMap uses Google Maps - dependency removed */}
-                                {/* <Route path="tracking" element={<div className="h-full"><FleetMap /></div>} /> */}
+                                <Route path="tracking" element={<div className="h-full"><FleetMapbox /></div>} />
                                 {/* <Route path="inventory" element={<InventoryManager />} /> Replaced by Analytics */}
                                 <Route path="analytics" element={<Analytics />} />
                                 <Route path="appliance-types" element={<ApplianceTypes />} />
