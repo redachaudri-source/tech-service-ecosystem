@@ -55,7 +55,8 @@ function App() {
                                 <Route path="agenda" element={<GlobalAgenda />} />
                                 <Route path="clients" element={<ClientManager />} />
                                 <Route path="team" element={<TeamManager />} />
-                                <Route path="tracking" element={<div className="h-full"><FleetMap /></div>} />
+                                {/* NEUTRALIZED: FleetMap uses Google Maps - dependency removed */}
+                                {/* <Route path="tracking" element={<div className="h-full"><FleetMap /></div>} /> */}
                                 {/* <Route path="inventory" element={<InventoryManager />} /> Replaced by Analytics */}
                                 <Route path="analytics" element={<Analytics />} />
                                 <Route path="appliance-types" element={<ApplianceTypes />} />
