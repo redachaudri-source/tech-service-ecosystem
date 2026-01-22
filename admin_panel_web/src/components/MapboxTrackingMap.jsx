@@ -8,27 +8,25 @@ import { supabase } from '../lib/supabase';
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
 /**
- * TechLocationMap - Client-Facing Tier-1 GPS Tracking Component
+ * MapboxTrackingMap - Tier-1 GPS Tracking Component
  * 
- * Phase 1: Infrastructure Base (Mapbox GL)
+ * Phase 1: Infrastructure Base
  * - Clean Mapbox GL rendering with navigation-day-v1 style
  * - Proper initialization and cleanup
  * - Error handling and loading states
- * - Real-time GPS tracking via Supabase
  * 
  * Future Phases:
  * - Phase 2: Interpolation engine (60 FPS smooth movement)
- * - Phase 3: Enhanced real-time GPS integration
+ * - Phase 3: Real-time GPS integration
  * - Phase 4: Camera controls (Lock/Free modes)
  */
-const TechLocationMap = ({ technicianId }) => {
+const MapboxTrackingMap = ({ technicianId }) => {
     const mapContainerRef = useRef(null);
     const mapRef = useRef(null);
     const [mapLoaded, setMapLoaded] = useState(false);
     const [mapError, setMapError] = useState(null);
     const [position, setPosition] = useState(null);
     const [lastUpdate, setLastUpdate] = useState(null);
-    const [loading, setLoading] = useState(true);
 
     // Initialize Mapbox map
     useEffect(() => {
@@ -40,7 +38,7 @@ const TechLocationMap = ({ technicianId }) => {
                 container: mapContainerRef.current,
                 style: 'mapbox://styles/mapbox/navigation-day-v1', // Clean navigation style
                 center: [-4.4214, 36.7213], // Default: Málaga, Spain
-                zoom: 15,
+                zoom: 13,
                 attributionControl: false, // Clean UI
                 logoPosition: 'bottom-right'
             });
@@ -55,7 +53,7 @@ const TechLocationMap = ({ technicianId }) => {
             // Map loaded event
             map.on('load', () => {
                 setMapLoaded(true);
-                console.log('✅ Mapbox GL loaded successfully (Client Portal)');
+                console.log('✅ Mapbox GL loaded successfully');
             });
 
             // Error handling
@@ -77,7 +75,7 @@ const TechLocationMap = ({ technicianId }) => {
         }
     }, []);
 
-    // Fetch technician position from profiles table (current GPS implementation)
+    // Fetch technician position (Phase 1: Basic positioning, Phase 2 will add interpolation)
     useEffect(() => {
         if (!technicianId || !mapLoaded) return;
 
@@ -95,7 +93,6 @@ const TechLocationMap = ({ technicianId }) => {
                     const newPosition = [data.current_lng, data.current_lat]; // Mapbox uses [lng, lat]
                     setPosition(newPosition);
                     setLastUpdate(data.last_location_update);
-                    setLoading(false);
 
                     // Center map on technician (Phase 1: Simple centering, Phase 4 will add smart camera)
                     if (mapRef.current) {
@@ -106,8 +103,6 @@ const TechLocationMap = ({ technicianId }) => {
                             essential: true
                         });
                     }
-                } else {
-                    console.log('⏳ Waiting for technician to start GPS tracking...');
                 }
             } catch (error) {
                 console.error('❌ Error fetching position:', error);
@@ -116,9 +111,9 @@ const TechLocationMap = ({ technicianId }) => {
 
         fetchPosition();
 
-        // Subscribe to real-time updates from profiles table
+        // Subscribe to real-time updates (Phase 3 will connect to interpolation engine)
         const channel = supabase
-            .channel(`tech-location-client-${technicianId}`)
+            .channel(`tech-tracking-mapbox-${technicianId}`)
             .on(
                 'postgres_changes',
                 {
@@ -128,13 +123,11 @@ const TechLocationMap = ({ technicianId }) => {
                     filter: `id=eq.${technicianId}`
                 },
                 (payload) => {
-                    console.log('📍 Location update (Client Portal):', payload);
                     const { current_lat, current_lng, last_location_update } = payload.new;
                     if (current_lat && current_lng) {
                         const newPosition = [current_lng, current_lat];
                         setPosition(newPosition);
                         setLastUpdate(last_location_update);
-                        setLoading(false);
 
                         // Phase 1: Simple update (Phase 2 will replace with smooth interpolation)
                         if (mapRef.current) {
@@ -155,7 +148,7 @@ const TechLocationMap = ({ technicianId }) => {
     }, [technicianId, mapLoaded]);
 
     // Loading state
-    if (loading || !position) {
+    if (!position && !mapError) {
         return (
             <div className="h-48 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400 text-sm animate-pulse">
                 <span className="flex items-center gap-2">
@@ -178,21 +171,22 @@ const TechLocationMap = ({ technicianId }) => {
     }
 
     return (
-        <div className="h-64 w-full rounded-xl overflow-hidden shadow-lg border-2 border-slate-200 relative z-0">
+        <div className="h-64 w-full rounded-xl overflow-hidden shadow-lg border-2 border-slate-200 relative">
             {/* Mapbox Container */}
             <div ref={mapContainerRef} className="h-full w-full" />
 
             {/* Status Overlay Banner */}
-            <div className="absolute top-2 left-2 right-2 bg-white/95 backdrop-blur-md p-3 rounded-xl shadow-lg z-[1000] flex items-center gap-3 border border-slate-100">
-                <div className="bg-black text-white p-2 rounded-full shadow-lg shadow-black/20">
-                    <Navigation size={18} />
+            <div className="absolute top-2 left-2 right-2 bg-white/90 backdrop-blur-sm p-2 rounded-lg shadow-md z-10 flex items-center gap-2 border border-slate-200">
+                <div className="bg-green-100 text-green-600 p-1.5 rounded-full animate-pulse">
+                    <Navigation size={16} />
                 </div>
                 <div>
-                    <h4 className="text-sm font-black text-slate-800 tracking-tight">EN CAMINO</h4>
-                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                    <h4 className="text-xs font-bold text-slate-800">Técnico en camino</h4>
+                    <p className="text-[10px] text-slate-500">
                         {lastUpdate
-                            ? `Actualizado ${new Date(lastUpdate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                            : 'Conectando GPS...'}
+                            ? `Actualizado: ${new Date(lastUpdate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                            : 'Ubicación en tiempo real'
+                        }
                     </p>
                 </div>
             </div>
@@ -200,4 +194,4 @@ const TechLocationMap = ({ technicianId }) => {
     );
 };
 
-export default TechLocationMap;
+export default MapboxTrackingMap;
