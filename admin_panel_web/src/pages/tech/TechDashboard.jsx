@@ -43,15 +43,15 @@ const TechDashboard = () => {
             // ... realtime setup ... (keeping existing subscription conceptually)
             const channel = supabase.channel('tech_dashboard_updates')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets', filter: `technician_id=eq.${user.id}` }, () => {
-                    fetchTickets();
+                    fetchTickets(true); // Silent update on realtime changes
                 })
                 .subscribe();
             return () => { supabase.removeChannel(channel); };
         }
     }, [user, filterDate]);
 
-    const fetchTickets = async () => {
-        setLoading(true);
+    const fetchTickets = async (background = false) => {
+        if (!background) setLoading(true);
         try {
             const { data, error } = await supabase
                 .from('tickets')
@@ -110,7 +110,7 @@ const TechDashboard = () => {
         } catch (error) {
             console.error('Error fetching tickets:', error);
         } finally {
-            setLoading(false);
+            if (!background) setLoading(false);
         }
     };
 
@@ -188,7 +188,7 @@ const TechDashboard = () => {
 
             if (error) throw error;
             addToast('¡Viaje iniciado! Estado actualizado.', 'success');
-            fetchTickets(); // Refresh UI instantly
+            fetchTickets(true); // Refresh UI instantly (silent)
         } catch (error) {
             console.error(error);
             addToast('Error al iniciar viaje', 'error');
