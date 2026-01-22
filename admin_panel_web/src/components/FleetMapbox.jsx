@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase } from '../lib/supabase';
-import { User, Signal, Clock, Search, Map as MapIcon, Layers, ChevronLeft, ChevronRight, Zap, Sun, Moon } from 'lucide-react';
+import { User, Signal, Clock, Search, Map as MapIcon, Layers, ChevronLeft, ChevronRight, Zap } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { MAPBOX_TOKEN } from '../config/mapbox';
@@ -11,13 +11,13 @@ import { MAPBOX_TOKEN } from '../config/mapbox';
 mapboxgl.accessToken = MAPBOX_TOKEN;
 
 /**
- * FleetMapbox - PRO LEVEL UI/UX
+ * FleetMapbox - PRO LEVEL UI/UX (Manual Control Version)
  * 
  * Features:
- * - Immersive Full-Screen Map
- * - Floating Glassmorphic Sidebar
- * - Dynamic Day/Night Cycle (Auto Switch)
- * - Interactive 3D Markers
+ * - Immersive Full-Screen Map (Dark Mode by Default)
+ * - Manual Satellite Toggle
+ * - Explicit Task Counters
+ * - Glassmorphic Sidebar
  */
 const FleetMapbox = () => {
     const mapContainerRef = useRef(null);
@@ -27,29 +27,16 @@ const FleetMapbox = () => {
     const [selectedTech, setSelectedTech] = useState(null);
     const [activeTechsCount, setActiveTechsCount] = useState(0);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    const [isDayTime, setIsDayTime] = useState(true);
+    const [mapLoaded, setMapLoaded] = useState(false);
+    const [viewMode, setViewMode] = useState('3d'); // '3d' (Dark) or 'satellite'
 
-    // checkDayNight helper
-    const checkIsDay = () => {
-        const hour = new Date().getHours();
-        // Day is between 07:00 and 19:00
-        return hour >= 7 && hour < 19;
-    };
-
-    // Initialize Map
+    // Initialize Mapbox map
     useEffect(() => {
         if (!mapContainerRef.current) return;
 
-        const isDay = checkIsDay();
-        setIsDayTime(isDay);
-
-        const style = isDay
-            ? 'mapbox://styles/mapbox/navigation-day-v1'
-            : 'mapbox://styles/mapbox/dark-v11';
-
         const map = new mapboxgl.Map({
             container: mapContainerRef.current,
-            style: style,
+            style: 'mapbox://styles/mapbox/dark-v11', // Default Premium Dark
             center: [-4.4214, 36.7213], // Málaga
             zoom: 12.5,
             pitch: 45,
@@ -62,8 +49,9 @@ const FleetMapbox = () => {
         map.addControl(new mapboxgl.NavigationControl({ showCompass: true, showZoom: true, visualizePitch: true }), 'top-right');
 
         map.on('load', () => {
-            console.log(`✅ Fleet Map loaded (${isDay ? 'Day' : 'Night'} Mode)`);
-            if (!isDay) add3DBuildings(map);
+            console.log('✅ PRO Fleet Map loaded (Manual Mode)');
+            setMapLoaded(true);
+            add3DBuildings(map);
         });
 
         mapRef.current = map;
@@ -74,10 +62,12 @@ const FleetMapbox = () => {
         };
     }, []);
 
-    // 3D Buildings for Night Mode
     const add3DBuildings = (map) => {
         const layers = map.getStyle().layers;
-        const labelLayerId = layers.find(l => l.type === 'symbol' && l.layout['text-field']).id;
+        const labelLayerId = layers.find(l => l.type === 'symbol' && l.layout['text-field'])?.id;
+        if (!labelLayerId) return;
+
+        if (map.getLayer('3d-buildings')) return;
 
         map.addLayer({
             'id': '3d-buildings',
@@ -95,7 +85,20 @@ const FleetMapbox = () => {
         }, labelLayerId);
     };
 
-    // Fetch Data (Same logic)
+    const toggleMapStyle = () => {
+        if (!mapRef.current) return;
+        const isCurrentlyDark = viewMode === '3d';
+        const newStyle = isCurrentlyDark ? 'mapbox://styles/mapbox/satellite-streets-v12' : 'mapbox://styles/mapbox/dark-v11';
+
+        mapRef.current.setStyle(newStyle);
+        setViewMode(isCurrentlyDark ? 'satellite' : '3d');
+
+        mapRef.current.once('style.load', () => {
+            if (!isCurrentlyDark) add3DBuildings(mapRef.current);
+        });
+    };
+
+    // Fetch Data
     useEffect(() => {
         fetchFleetData();
         const sub = supabase.channel('fleet-pro').on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchFleetData).subscribe();
@@ -128,17 +131,33 @@ const FleetMapbox = () => {
         if (!mapRef.current) return;
         list.forEach(tech => {
             if (markersRef.current[tech.id]) {
-                markersRef.current[tech.id].setLngLat([tech.longitude, tech.latitude]);
+                const marker = markersRef.current[tech.id];
+                marker.setLngLat([tech.longitude, tech.latitude]);
+                const el = marker.getElement();
+                const pulse = el.querySelector('.pulse-ring');
+                if (pulse) pulse.style.display = tech.isActive ? 'block' : 'none';
+
+                // Update Badge in marker
+                const badge = el.querySelector('.tech-badge');
+                if (badge) {
+                    badge.innerText = tech.workload;
+                    badge.style.display = tech.workload > 0 ? 'block' : 'none';
+                }
+
             } else {
                 const el = document.createElement('div');
                 el.className = 'tech-marker-pro';
                 el.innerHTML = `
                     <div class="relative group cursor-pointer transition-transform duration-300 hover:scale-110">
-                        <div class="absolute -inset-4 rounded-full blur-md ${tech.isActive ? 'bg-blue-500/30 animate-pulse' : 'hidden'}"></div>
-                        <div class="relative w-10 h-10 rounded-full border-2 border-white shadow-xl flex items-center justify-center overflow-hidden bg-slate-800">
+                        <div class="pulse-ring absolute -inset-4 rounded-full blur-md bg-blue-500/30 animate-pulse" style="display: ${tech.isActive ? 'block' : 'none'}"></div>
+                        <div class="relative w-10 h-10 rounded-full border-2 border-white/20 shadow-2xl flex items-center justify-center overflow-hidden bg-slate-800">
                              ${tech.avatar_url ? `<img src="${tech.avatar_url}" class="w-full h-full object-cover" />` : `<span class="text-white font-bold text-xs">${tech.full_name[0]}</span>`}
                         </div>
-                        <div class="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${tech.isActive ? 'bg-emerald-500' : 'bg-slate-400'}"></div>
+                        <div class="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-slate-900 ${tech.isActive ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-slate-500'}"></div>
+                        
+                        <div class="tech-badge absolute -top-1 -right-1 bg-blue-600 text-white text-[9px] font-bold px-1.5 rounded-full border border-slate-900 shadow-sm" style="display: ${tech.workload > 0 ? 'block' : 'none'}">
+                            ${tech.workload}
+                        </div>
                     </div>
                 `;
                 const marker = new mapboxgl.Marker({ element: el }).setLngLat([tech.longitude, tech.latitude]).addTo(mapRef.current);
@@ -153,62 +172,84 @@ const FleetMapbox = () => {
         mapRef.current?.flyTo({ center: [tech.longitude, tech.latitude], zoom: 16, pitch: 60, duration: 2000 });
     };
 
-    // Styling CONSTANTS based on Theme
-    const sidebarBg = isDayTime ? 'bg-white/80 border-slate-200 text-slate-800' : 'bg-slate-900/80 border-white/10 text-white';
-    const itemHover = isDayTime ? 'hover:bg-blue-50' : 'hover:bg-white/10';
-    const itemActive = isDayTime ? 'bg-blue-50 border-blue-200' : 'bg-blue-600/20 border-blue-500/50';
-
     return (
-        <div className="relative w-full h-[calc(100vh-80px)] overflow-hidden">
+        <div className="relative w-full h-[calc(100vh-80px)] overflow-hidden bg-slate-950">
             <div ref={mapContainerRef} className="absolute inset-0 z-0" />
 
+            {/* Gradient Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-transparent to-slate-950/20 pointer-events-none z-10" />
+
             {/* Sidebar */}
-            <div className={`absolute left-4 top-4 bottom-4 w-80 backdrop-blur-xl border rounded-2xl shadow-2xl z-20 flex flex-col transition-all duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-[110%]'} ${sidebarBg}`}>
+            <div className={`absolute left-4 top-4 bottom-4 w-80 bg-slate-900/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl z-20 flex flex-col transition-all duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-[110%]'}`}>
 
                 {/* Header */}
-                <div className={`p-5 border-b flex justify-between items-center ${isDayTime ? 'border-slate-100' : 'border-white/5'}`}>
+                <div className="p-5 border-b border-white/5 flex justify-between items-center bg-white/5">
                     <div>
-                        <h2 className="font-bold text-lg flex items-center gap-2">
+                        <h2 className="text-white font-bold text-lg flex items-center gap-2">
                             <MapIcon className="text-blue-500" size={20} /> Fuerza de Campo
                         </h2>
-                        <div className="flex items-center gap-2 mt-1 text-[10px]">
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 font-bold border border-emerald-500/20 flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> {activeTechsCount} ONLINE
+                        <div className="flex items-center gap-2 mt-1">
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold border border-emerald-500/30 flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> {activeTechsCount} ONLINE
                             </span>
-                            <span className="opacity-60">{isDayTime ? <Sun size={10} className="inline mr-1" /> : <Moon size={10} className="inline mr-1" />} {isDayTime ? 'MODO DÍA' : 'MODO NOCHE'}</span>
+                            <span className="text-slate-500 text-[10px]">{techs.length} TOTAL</span>
                         </div>
                     </div>
-                    <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1 opacity-50 hover:opacity-100"><ChevronLeft /></button>
+
+                    <button onClick={toggleMapStyle} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors border border-white/5" title={viewMode === '3d' ? 'Cambiar a Satélite' : 'Cambiar a Modo Oscuro'}>
+                        <Layers size={18} />
+                    </button>
                 </div>
 
                 {/* List */}
                 <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
                     {techs.map(tech => (
                         <div key={tech.id} onClick={() => handleTechClick(tech)}
-                            className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center gap-3 group relative overflow-hidden ${selectedTech?.id === tech.id ? itemActive : `border-transparent ${itemHover}`}`}>
+                            className={`p-3 rounded-xl border transition-all cursor-pointer relative overflow-hidden group ${selectedTech?.id === tech.id ? 'bg-blue-600/20 border-blue-500/50 shadow-[0_0_20px_rgba(37,99,235,0.2)]' : 'bg-white/5 border-transparent hover:bg-white/10'}`}>
 
+                            {/* Workload Bar */}
                             <div className={`absolute left-0 top-0 bottom-0 w-1 transition-all ${tech.workload > 3 ? 'bg-amber-500' : 'bg-blue-500'}`} style={{ height: `${Math.min(tech.workload * 20, 100)}%` }} />
 
-                            <div className="relative w-10 h-10 rounded-full bg-slate-200 overflow-hidden shadow-sm">
-                                {tech.avatar_url ? <img src={tech.avatar_url} className="w-full h-full object-cover" /> : <span className="flex items-center justify-center h-full font-bold text-slate-500">{tech.full_name[0]}</span>}
-                            </div>
+                            <div className="flex items-center gap-3 pl-2">
+                                <div className="relative w-10 h-10 rounded-full border-2 border-white/10 overflow-hidden shadow-sm bg-slate-800">
+                                    {tech.avatar_url ? <img src={tech.avatar_url} className="w-full h-full object-cover" /> : <span className="flex items-center justify-center h-full font-bold text-slate-400">{tech.full_name[0]}</span>}
+                                    <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-slate-900 ${tech.isActive ? 'bg-emerald-500 shadow-[0_0_5px_#10b981]' : 'bg-slate-500'}`}></div>
+                                </div>
 
-                            <div className="flex-1">
-                                <h4 className="font-bold text-sm truncate">{tech.full_name}</h4>
-                                <div className="flex items-center gap-2 text-[10px] opacity-60 mt-0.5">
-                                    {tech.isActive ? <span className="text-emerald-500 font-bold flex gap-1"><Signal size={10} /> 4G</span> : <span className="flex gap-1"><Clock size={10} /> {tech.lastUpdate ? formatDistanceToNow(tech.lastUpdate, { addSuffix: true, locale: es }) : 'N/A'}</span>}
-                                    {tech.workload > 0 && <span className="ml-auto flex gap-1 bg-blue-500/10 text-blue-500 px-1.5 py-0.5 rounded"><Zap size={10} /> {tech.workload}</span>}
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex justify-between items-center mb-0.5">
+                                        <h4 className={`text-sm font-bold truncate ${selectedTech?.id === tech.id ? 'text-blue-400' : 'text-slate-200 group-hover:text-white'}`}>{tech.full_name}</h4>
+
+                                        {/* Task Counter Badge */}
+                                        <div className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md ${tech.workload > 0 ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'bg-slate-800 text-slate-500'}`}>
+                                            <Zap size={10} className={tech.workload > 0 ? 'text-blue-400' : 'text-slate-600'} /> {tech.workload}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                                        {tech.isActive
+                                            ? <span className="text-emerald-400 flex gap-1 items-center font-medium"><Signal size={10} /> Conectado</span>
+                                            : <span className="flex gap-1 items-center opacity-60"><Clock size={10} /> {tech.lastUpdate ? formatDistanceToNow(tech.lastUpdate, { addSuffix: true, locale: es }) : 'Sin señal'}</span>}
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     ))}
                 </div>
+
+                {/* Search Footer */}
+                <div className="p-4 border-t border-white/5 bg-white/5 backdrop-blur-lg">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
+                        <input type="text" placeholder="Buscar técnico..." className="w-full bg-slate-950/50 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50 transition-colors" />
+                    </div>
+                </div>
             </div>
 
-            {/* Toggle (Collapsed) */}
-            {!isSidebarOpen && (
-                <button onClick={() => setIsSidebarOpen(true)} className="absolute top-6 left-0 bg-white shadow-xl p-2 rounded-r-xl z-20 hover:pl-4 transition-all"><ChevronRight className="text-slate-700" /></button>
-            )}
+            {/* Collapse Button */}
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className={`absolute top-6 z-20 bg-slate-900/90 text-white p-2 rounded-r-xl shadow-xl transition-all duration-300 border-y border-r border-white/10 hover:bg-blue-600 ${isSidebarOpen ? 'left-80' : 'left-0'}`}>
+                {isSidebarOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
+            </button>
         </div>
     );
 };
