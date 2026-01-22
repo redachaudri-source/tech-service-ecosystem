@@ -12,12 +12,12 @@ mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 /**
  * TechLocationMap - Client-Facing Tier-1 GPS Tracking Component
  * 
- * Phase 3: Smart GPS Filtering (COMPLETE)
- * - Micro-movement filtering (<5m threshold)
- * - Noise spike detection and rejection
- * - Exponential smoothing for GPS jitter
- * - Zero-latency filtering (immediate pass-through for valid data)
- * - Seamless integration with 60 FPS animation engine
+ * Phase 4: Smart Camera Controls & UX (COMPLETE)
+ * - Lock-on mode: Camera follows vehicle automatically
+ * - Free Roam mode: User can explore map freely
+ * - Auto-unlock on user interaction (drag/touch)
+ * - Minimalist recenter button (FAB)
+ * - Smooth transitions between modes
  */
 const TechLocationMap = ({ technicianId }) => {
     const mapContainerRef = useRef(null);
@@ -25,6 +25,11 @@ const TechLocationMap = ({ technicianId }) => {
     const markerRef = useRef(null);
     const animationEngineRef = useRef(null);
     const gpsFilterRef = useRef(null); // Phase 3: GPS Filter
+
+    // Phase 4: Camera Control State
+    const [isLocked, setIsLocked] = useState(true); // Lock-on by default
+    const [showRecenterButton, setShowRecenterButton] = useState(false);
+
     const [mapLoaded, setMapLoaded] = useState(false);
     const [mapError, setMapError] = useState(null);
     const [lastUpdate, setLastUpdate] = useState(null);
@@ -63,6 +68,18 @@ const TechLocationMap = ({ technicianId }) => {
                 console.error('❌ Mapbox error:', e);
                 setMapError('Error loading map');
             });
+
+            // PHASE 4: Camera Control Event Listeners
+            // Unlock camera when user interacts with map
+            const unlockCamera = () => {
+                setIsLocked(false);
+                setShowRecenterButton(true);
+                console.log('🔓 Camera unlocked (Free Roam mode)');
+            };
+
+            map.on('dragstart', unlockCamera);
+            map.on('touchstart', unlockCamera);
+            map.on('wheel', unlockCamera); // Also unlock on zoom via scroll
 
             mapRef.current = map;
 
@@ -141,11 +158,12 @@ const TechLocationMap = ({ technicianId }) => {
                     }
                 }
 
-                // Smooth camera follow (only if marker moves significantly out of view)
-                if (mapRef.current) {
+                // PHASE 4: Smart Camera Follow (respects Lock-on/Free Roam modes)
+                if (mapRef.current && isLocked) {
                     const bounds = mapRef.current.getBounds();
                     const lngLat = new mapboxgl.LngLat(position.lng, position.lat);
 
+                    // Only follow if vehicle moves out of view AND camera is locked
                     if (!bounds.contains(lngLat)) {
                         mapRef.current.easeTo({
                             center: [position.lng, position.lat],
@@ -320,6 +338,51 @@ const TechLocationMap = ({ technicianId }) => {
                     </p>
                 </div>
             </div>
+
+            {/* PHASE 4: Recenter Button (FAB) - Only visible in Free Roam mode */}
+            {showRecenterButton && !isLocked && (
+                <button
+                    onClick={() => {
+                        if (mapRef.current && animationEngineRef.current) {
+                            const currentState = animationEngineRef.current.getState();
+                            if (currentState.position) {
+                                // Smooth flyTo vehicle position
+                                mapRef.current.flyTo({
+                                    center: [currentState.position.lng, currentState.position.lat],
+                                    zoom: 16,
+                                    duration: 1500,
+                                    essential: true
+                                });
+
+                                // Re-lock camera
+                                setIsLocked(true);
+                                setShowRecenterButton(false);
+                                console.log('🔒 Camera locked (Lock-on mode restored)');
+                            }
+                        }
+                    }}
+                    className="absolute bottom-4 right-4 bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-700 p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 z-[1000] border border-slate-200"
+                    aria-label="Recentrar en vehículo"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="22" y1="12" x2="18" y2="12" />
+                        <line x1="6" y1="12" x2="2" y2="12" />
+                        <line x1="12" y1="6" x2="12" y2="2" />
+                        <line x1="12" y1="22" x2="12" y2="18" />
+                    </svg>
+                </button>
+            )}
         </div>
     );
 };
