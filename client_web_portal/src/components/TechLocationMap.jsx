@@ -4,6 +4,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { Navigation } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { VehicleAnimationEngine } from '../utils/VehicleAnimationEngine';
+import { GPSDataFilter } from '../utils/GPSDataFilter';
 
 // Configure Mapbox token
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
@@ -11,18 +12,19 @@ mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 /**
  * TechLocationMap - Client-Facing Tier-1 GPS Tracking Component
  * 
- * Phase 2: 60 FPS Interpolation Engine (COMPLETE)
- * - Haversine interpolation for curved paths
- * - Smooth bearing rotation (no sudden jumps)
- * - RequestAnimationFrame loop for videogame-like 60 FPS
- * - Custom vehicle marker with rotation
- * - Edge case handling (stopped vehicle, GPS jumps)
+ * Phase 3: Smart GPS Filtering (COMPLETE)
+ * - Micro-movement filtering (<5m threshold)
+ * - Noise spike detection and rejection
+ * - Exponential smoothing for GPS jitter
+ * - Zero-latency filtering (immediate pass-through for valid data)
+ * - Seamless integration with 60 FPS animation engine
  */
 const TechLocationMap = ({ technicianId }) => {
     const mapContainerRef = useRef(null);
     const mapRef = useRef(null);
     const markerRef = useRef(null);
     const animationEngineRef = useRef(null);
+    const gpsFilterRef = useRef(null); // Phase 3: GPS Filter
     const [mapLoaded, setMapLoaded] = useState(false);
     const [mapError, setMapError] = useState(null);
     const [lastUpdate, setLastUpdate] = useState(null);
@@ -156,6 +158,16 @@ const TechLocationMap = ({ technicianId }) => {
 
         animationEngineRef.current = animationEngine;
 
+        // Initialize GPS Data Filter (Phase 3)
+        const gpsFilter = new GPSDataFilter({
+            minMovementThreshold: 5, // Ignore movements <5m
+            maxJumpThreshold: 500,   // Detect erratic jumps >500m
+            smoothingFactor: 0.3     // Smooth GPS jitter
+        });
+
+        gpsFilterRef.current = gpsFilter;
+        console.log('🛡️ GPS Filter initialized (Phase 3)');
+
         // Fetch initial position
         const fetchPosition = async () => {
             try {
@@ -215,11 +227,21 @@ const TechLocationMap = ({ technicianId }) => {
                     filter: `id=eq.${technicianId}`
                 },
                 (payload) => {
-                    console.log('📍 GPS Update → Starting 60 FPS interpolation');
                     const { current_lat, current_lng, last_location_update } = payload.new;
 
                     if (current_lat && current_lng) {
-                        const newPosition = { lat: current_lat, lng: current_lng };
+                        const rawPosition = { lat: current_lat, lng: current_lng };
+
+                        // PHASE 3: Filter GPS data before animation
+                        const filteredPosition = gpsFilter.filter(rawPosition);
+
+                        // If filter rejects the position (micro-movement or noise), skip animation
+                        if (!filteredPosition) {
+                            console.log('⏭️ GPS update skipped (filtered out)');
+                            return;
+                        }
+
+                        console.log('📍 GPS Update → Filtered & Starting 60 FPS interpolation');
                         setLastUpdate(last_location_update);
                         setLoading(false);
 
@@ -229,14 +251,14 @@ const TechLocationMap = ({ technicianId }) => {
                                 element: createVehicleMarker(),
                                 anchor: 'center'
                             })
-                                .setLngLat([newPosition.lng, newPosition.lat])
+                                .setLngLat([filteredPosition.lng, filteredPosition.lat])
                                 .addTo(mapRef.current);
 
                             markerRef.current = marker;
                         }
 
-                        // Animate to new position (60 FPS magic happens here!)
-                        animationEngine.animateTo(newPosition);
+                        // Animate to filtered position (60 FPS magic happens here!)
+                        animationEngine.animateTo(filteredPosition);
                     }
                 }
             )
