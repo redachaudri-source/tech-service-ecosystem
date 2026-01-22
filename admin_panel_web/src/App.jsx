@@ -8,7 +8,8 @@ import ClientManager from './pages/ClientManager';
 import TeamManager from './pages/TeamManager';
 import IncomingRequests from './pages/IncomingRequests';
 import GlobalAgenda from './pages/GlobalAgenda';
-import FleetMap from './components/FleetMap';
+// NEUTRALIZED: Google Maps dependency - migrate to Mapbox if needed
+// import FleetMap from './components/FleetMap';
 import Login from './pages/Login';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './components/ToastProvider';
