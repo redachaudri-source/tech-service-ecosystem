@@ -7,7 +7,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 // Configure Mapbox token
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || 'pk.eyJ1IjoiZml4YXJyIiwiYSI6ImNta3BvdmxiczBlcWQzZnM2cWNobzBodXkifQ.MsyB8tBiEqmq4mflpcttRQ';
+mapboxgl.accessToken = MAPBOX_TOKEN;
 
 /**
  * FleetMapbox - Mapbox-based Fleet Tracking
@@ -194,8 +195,8 @@ const FleetMapbox = () => {
                                 key={tech.technician_id}
                                 onClick={() => handleTechClick(tech)}
                                 className={`p-3 rounded-lg border transition-all cursor-pointer flex items-center justify-between group ${selectedTech?.technician_id === tech.technician_id
-                                        ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-300'
-                                        : 'bg-white border-slate-100 hover:border-blue-200'
+                                    ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-300'
+                                    : 'bg-white border-slate-100 hover:border-blue-200'
                                     }`}
                             >
                                 <div className="flex items-center gap-3">
@@ -227,8 +228,8 @@ const FleetMapbox = () => {
                                 </div>
                                 <div className="text-right">
                                     <div className={`text-xs font-black px-2 py-1 rounded-lg text-center min-w-[30px] ${tech.workload > 4 ? 'bg-red-100 text-red-600' :
-                                            tech.workload > 0 ? 'bg-blue-100 text-blue-600' :
-                                                'bg-slate-100 text-slate-400'
+                                        tech.workload > 0 ? 'bg-blue-100 text-blue-600' :
+                                            'bg-slate-100 text-slate-400'
                                         }`}>
                                         {tech.workload}
                                     </div>

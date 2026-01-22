@@ -7,7 +7,8 @@ import { VehicleAnimationEngine } from '../utils/VehicleAnimationEngine';
 import { GPSDataFilter } from '../utils/GPSDataFilter';
 
 // Configure Mapbox token
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || 'pk.eyJ1IjoiZml4YXJyIiwiYSI6ImNta3BvdmxiczBlcWQzZnM2cWNobzBodXkifQ.MsyB8tBiEqmq4mflpcttRQ';
+mapboxgl.accessToken = MAPBOX_TOKEN;
 
 /**
  * MapboxTrackingMap - Admin Panel Tier-1 GPS Tracking Component
