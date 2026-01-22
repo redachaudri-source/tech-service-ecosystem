@@ -14,7 +14,12 @@ export default defineConfig({
     },
   },
   build: {
-    target: 'es2015',
+    target: 'es2020', // Support BigInt for Mapbox GL
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      target: 'es2020'
+    }
   },
 })
 
