@@ -37,11 +37,11 @@ const ServiceCard = ({ ticket, user, userLocation, onClick, onStartJourney, isNe
     return (
         <div
             onClick={() => onClick && onClick(ticket)}
-            className={`bg-white rounded-xl overflow-hidden mb-4 active:scale-[0.98] transition-all relative ${isNextHeader ? 'border-2 border-blue-600 shadow-md shadow-blue-50 p-1' : 'border border-slate-100 shadow-sm'}`}
+            className={`bg-white rounded-xl overflow-hidden mb-4 active:scale-[0.98] transition-all relative ${isNextHeader ? 'border-2 border-blue-600 shadow-md shadow-blue-50 p-[2px]' : 'border border-slate-100 shadow-sm'}`}
         >
             {/* BLUE HEADER (Only if isNextHeader prop is true) */}
             {isNextHeader && (
-                <div className="bg-blue-600 text-white text-[10px] font-bold text-center py-1.5 uppercase tracking-widest rounded-t-lg">
+                <div className="bg-blue-600 text-white text-[10px] font-bold text-center py-1.5 uppercase tracking-widest rounded-t-[10px]">
                     SIGUIENTE PARADA
                 </div>
             )}
