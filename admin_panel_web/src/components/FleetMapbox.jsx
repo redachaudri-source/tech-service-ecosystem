@@ -16,7 +16,7 @@ mapboxgl.accessToken = MAPBOX_TOKEN;
  * Features:
  * - Immersive Full-Screen Map (Dark Mode by Default)
  * - Manual Satellite Toggle
- * - Explicit Task Counters
+ * - Explicit Task Counters (Corrected Logic)
  * - Glassmorphic Sidebar
  */
 const FleetMapbox = () => {
@@ -107,18 +107,46 @@ const FleetMapbox = () => {
     }, []);
 
     const fetchFleetData = async () => {
+        // Calculate Today's Range (00:00:00 - 23:59:59 Local Time)
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const todayEnd = new Date();
+        todayEnd.setHours(23, 59, 59, 999);
+
         const [profilesRes, ticketsRes] = await Promise.all([
             supabase.from('profiles').select('id, full_name, avatar_url, current_lat, current_lng, last_location_update').eq('role', 'tech').eq('is_active', true),
-            supabase.from('tickets').select('technician_id').gte('scheduled_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString()).neq('status', 'cancelado')
+            supabase.from('tickets')
+                .select('technician_id, status')
+                .gte('scheduled_at', todayStart.toISOString())
+                .lte('scheduled_at', todayEnd.toISOString())
+                .neq('status', 'cancelado')
+                .neq('status', 'completado') // Don't count finished work
         ]);
 
         const merged = (profilesRes.data || []).map(t => {
-            const workload = (ticketsRes.data || []).filter(tk => tk.technician_id === t.id).length;
+            // Strict match: Tech ID match + Not Cancelled + Not Completed
+            const activeTickets = (ticketsRes.data || []).filter(tk =>
+                tk.technician_id === t.id &&
+                tk.status !== 'completado' &&
+                tk.status !== 'cancelado'
+            );
+
+            const workload = activeTickets.length;
+
             let isActive = false;
             if (t.last_location_update) {
                 isActive = ((new Date() - new Date(t.last_location_update)) / 1000 / 60) < 5;
             }
-            return { ...t, technician_id: t.id, profiles: t, latitude: t.current_lat || 36.7212, longitude: t.current_lng || -4.4217, workload, isActive, lastUpdate: t.last_location_update ? new Date(t.last_location_update) : null };
+            return {
+                ...t,
+                technician_id: t.id,
+                profiles: t,
+                latitude: t.current_lat || 36.7212,
+                longitude: t.current_lng || -4.4217,
+                workload,
+                isActive,
+                lastUpdate: t.last_location_update ? new Date(t.last_location_update) : null
+            };
         });
 
         merged.sort((a, b) => b.isActive - a.isActive);
@@ -220,9 +248,9 @@ const FleetMapbox = () => {
                                     <div className="flex justify-between items-center mb-0.5">
                                         <h4 className={`text-sm font-bold truncate ${selectedTech?.id === tech.id ? 'text-blue-400' : 'text-slate-200 group-hover:text-white'}`}>{tech.full_name}</h4>
 
-                                        {/* Task Counter Badge */}
+                                        {/* Task Counter Badge - FIXED */}
                                         <div className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md ${tech.workload > 0 ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'bg-slate-800 text-slate-500'}`}>
-                                            <Zap size={10} className={tech.workload > 0 ? 'text-blue-400' : 'text-slate-600'} /> {tech.workload}
+                                            <Zap size={10} className={tech.workload > 0 ? 'text-blue-400' : 'text-slate-600'} /> {tech.workload} {tech.workload === 1 ? 'Tarea' : 'Tareas'}
                                         </div>
                                     </div>
 
