@@ -22,6 +22,18 @@ const ServiceCard = ({ ticket, user, userLocation, onClick, onStartJourney, isNe
         return map[status] || status.toUpperCase();
     };
 
+    // Status Badge Styles (Legacy High-Contrast)
+    const getStatusStyles = (status) => {
+        const map = {
+            'solicitado': 'bg-slate-100 text-slate-600',
+            'asignado': 'bg-blue-100 text-blue-700',
+            'en_camino': 'bg-blue-600 text-white shadow-sm shadow-blue-200', // Legacy Active Style
+            'en_diagnostico': 'bg-indigo-100 text-indigo-700',
+            'finalizado': 'bg-green-100 text-green-700'
+        };
+        return map[status] || 'bg-slate-100 text-slate-500';
+    };
+
     return (
         <div
             onClick={() => onClick && onClick(ticket)}
@@ -29,15 +41,15 @@ const ServiceCard = ({ ticket, user, userLocation, onClick, onStartJourney, isNe
         >
             {/* BLUE HEADER (Only if isNextHeader prop is true) */}
             {isNextHeader && (
-                <div className="bg-blue-600 text-white text-[10px] font-bold text-center py-1.5 uppercase tracking-widest">
+                <div className="bg-blue-600 text-white text-[10px] font-bold text-center py-1.5 uppercase tracking-widest border-b border-blue-700">
                     SIGUIENTE PARADA
                 </div>
             )}
 
             <div className="p-4">
                 {/* HEADLINE: Badge + Time */}
-                <div className="flex justify-between items-start mb-2">
-                    <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase">
+                <div className="flex justify-between items-center mb-3">
+                    <span className={`px-2.5 py-1 rounded-md text-[10px] font-black tracking-wider uppercase ${getStatusStyles(ticket.status)}`}>
                         {getStatusLabel(ticket.status)}
                     </span>
                     <span className="font-mono text-xl font-black text-slate-800 leading-none">
