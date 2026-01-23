@@ -320,8 +320,8 @@ const FleetMapbox = () => {
                 {/* Ambient Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-white/20 via-transparent to-transparent pointer-events-none z-10"></div>
 
-                {/* Map Controls */}
-                <div className="absolute top-6 right-6 flex flex-col gap-3 z-20">
+                {/* Map Controls - Top Right */}
+                <div className="absolute top-6 right-6 flex items-start gap-3 z-20">
                     {/* Settings Panel Toggle */}
                     <button
                         onClick={() => setIsMapSettingsOpen(!isMapSettingsOpen)}
@@ -333,7 +333,7 @@ const FleetMapbox = () => {
 
                     {/* Collapsible Settings Panel */}
                     <div className={`
-                        overflow-hidden transition-all duration-300 ease-out origin-top
+                        overflow-hidden transition-all duration-300 ease-out origin-right
                         ${isMapSettingsOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}
                     `}>
                         <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl shadow-slate-900/10 border border-white/50 p-4 space-y-3 min-w-[200px]">
@@ -344,8 +344,8 @@ const FleetMapbox = () => {
                                     <button
                                         onClick={() => { setMapStyle('light'); mapRef.current?.setStyle('mapbox://styles/mapbox/light-v11'); }}
                                         className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${mapStyle === 'light'
-                                                ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
-                                                : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                                            ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
+                                            : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
                                             }`}
                                     >
                                         ☀️ Claro
@@ -353,8 +353,8 @@ const FleetMapbox = () => {
                                     <button
                                         onClick={() => { setMapStyle('satellite'); mapRef.current?.setStyle('mapbox://styles/mapbox/satellite-streets-v12'); }}
                                         className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${mapStyle === 'satellite'
-                                                ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
-                                                : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                                            ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
+                                            : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
                                             }`}
                                     >
                                         🛰️ Satélite
@@ -362,8 +362,8 @@ const FleetMapbox = () => {
                                     <button
                                         onClick={() => { setMapStyle('dark'); mapRef.current?.setStyle('mapbox://styles/mapbox/dark-v11'); }}
                                         className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${mapStyle === 'dark'
-                                                ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
-                                                : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                                            ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
+                                            : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
                                             }`}
                                     >
                                         🌙 Oscuro
@@ -371,8 +371,8 @@ const FleetMapbox = () => {
                                     <button
                                         onClick={toggle3DView}
                                         className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${mapStyle === '3d'
-                                                ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
-                                                : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                                            ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
+                                            : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
                                             }`}
                                     >
                                         🏙️ 3D
@@ -389,8 +389,8 @@ const FleetMapbox = () => {
                                 <button
                                     onClick={toggleTraffic}
                                     className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${showTraffic
-                                            ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md'
-                                            : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                                        ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md'
+                                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
                                         }`}
                                 >
                                     <span className="flex items-center gap-2">
