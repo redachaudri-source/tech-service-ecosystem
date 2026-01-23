@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard, Users, Map, Package, LogOut, UserCheck, Settings as SettingsIcon,
     Globe, Calendar, Tag, FileText, Menu as MenuIcon, X, Briefcase, TrendingUp,
-    ChevronDown, ChevronRight, HelpCircle, Scale, Bell
+    ChevronDown, ChevronRight, HelpCircle, Scale, Bell, Truck
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -37,7 +37,7 @@ const Layout = () => {
         { icon: Map, label: 'Flota', path: '/tracking' },
         { icon: Users, label: 'Clientes', path: '/clients' },
         { icon: Calendar, label: 'Agenda Global', path: '/agenda' },
-        { icon: Users, label: 'Servicios', path: '/services', isHero: true },
+        { icon: Truck, label: 'Servicios', path: '/services', isHero: true },
         { icon: Package, label: 'Gestión de Repuestos', path: '/materials' },
         { icon: FileText, label: 'Presupuestos', path: '/budgets' },
         { icon: UserCheck, label: 'Equipo Técnico', path: '/team' },
@@ -161,7 +161,7 @@ const Layout = () => {
                         : 'text-slate-400 hover:text-[#d4a017] hover:bg-slate-800/70'}
                     ${isSub ? 'ml-3 pl-3 border-l border-slate-800 hover:border-slate-700 rounded-none rounded-r-md text-[11px] py-2' : 'text-[12px] py-2.5'}
                     ${isHero
-                        ? 'font-black text-[14px] bg-gradient-to-r from-indigo-600/20 to-purple-600/20 border-l-4 border-l-indigo-500 text-indigo-200 hover:from-indigo-600/30 hover:to-purple-600/30 hover:text-[#d4a017] hover:border-l-[#d4a017] hover:shadow-lg hover:shadow-indigo-500/20 my-2 py-3.5 hover:scale-[1.02]'
+                        ? 'font-black text-[14px] bg-gradient-to-r from-orange-500/20 to-amber-500/20 border-l-4 border-l-orange-500 text-orange-200 hover:from-orange-500/30 hover:to-amber-500/30 hover:text-[#d4a017] hover:border-l-[#d4a017] hover:shadow-lg hover:shadow-orange-500/20 my-2 py-3.5 hover:scale-[1.02]'
                         : 'hover:scale-[1.01]'}
                 `}
                 style={!isActive && !isSub ? {
@@ -172,16 +172,16 @@ const Layout = () => {
                     <Icon
                         size={isSub ? 13 : (isHero ? 18 : 15)}
                         className={`transition-all duration-300 ${isActive
-                                ? 'text-blue-400'
-                                : isHero
-                                    ? 'text-indigo-400 group-hover:text-[#d4a017] group-hover:drop-shadow-[0_0_8px_rgba(212,160,23,0.6)]'
-                                    : 'text-slate-500 group-hover:text-[#d4a017] group-hover:drop-shadow-[0_0_6px_rgba(212,160,23,0.5)]'
+                            ? 'text-blue-400'
+                            : isHero
+                                ? 'text-orange-400 group-hover:text-[#d4a017] group-hover:drop-shadow-[0_0_8px_rgba(212,160,23,0.6)]'
+                                : 'text-slate-500 group-hover:text-[#d4a017] group-hover:drop-shadow-[0_0_6px_rgba(212,160,23,0.5)]'
                             }`}
                     />
                     <span
                         className={`tracking-wide transition-all duration-300 ${isHero
-                                ? 'uppercase tracking-widest font-black group-hover:drop-shadow-[0_0_10px_rgba(212,160,23,0.7)]'
-                                : 'font-medium group-hover:drop-shadow-[0_0_8px_rgba(212,160,23,0.6)]'
+                            ? 'uppercase tracking-widest font-black group-hover:drop-shadow-[0_0_10px_rgba(212,160,23,0.7)]'
+                            : 'font-medium group-hover:drop-shadow-[0_0_8px_rgba(212,160,23,0.6)]'
                             }`}
                     >
                         {item.label}
