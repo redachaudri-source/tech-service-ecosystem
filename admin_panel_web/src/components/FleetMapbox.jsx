@@ -141,10 +141,35 @@ const FleetMapbox = () => {
                     if (error) console.warn(`⚠️ Error fetching profile ${id}:`, error.message);
 
                     if (data) {
+                        let lat = data.current_lat;
+                        let lng = data.current_lng;
+                        let wasGeocoded = false;
+
+                        // AUTOMATIC GEOCODING (Fallback if no GPS but Address exists)
+                        if ((!lat || !lng) && data.address && data.address.length > 5) {
+                            try {
+                                const geoUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(data.address)}.json?access_token=${mapboxgl.accessToken}&limit=1&country=es`;
+                                // Note: We fetch sequentially inside Promise.all which is fine for small batches.
+                                // For production, we might want to throttle or cache this.
+                                const geoRes = await fetch(geoUrl);
+                                const geoJson = await geoRes.json();
+                                if (geoJson.features && geoJson.features.length > 0) {
+                                    const [gLng, gLat] = geoJson.features[0].center;
+                                    lat = gLat;
+                                    lng = gLng;
+                                    wasGeocoded = true;
+                                    console.log(`📍 Geocoded: "${data.address}" -> [${lat}, ${lng}]`);
+                                }
+                            } catch (err) {
+                                console.error("Geocoding failed:", err);
+                            }
+                        }
+
                         return {
                             ...data,
-                            latitude: data.current_lat,
-                            longitude: data.current_lng
+                            latitude: lat,
+                            longitude: lng,
+                            isGeocoded: wasGeocoded
                         };
                     }
                     return null;
