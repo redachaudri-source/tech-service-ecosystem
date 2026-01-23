@@ -322,15 +322,6 @@ const FleetMapbox = () => {
 
                 {/* Map Controls - Top Right */}
                 <div className="absolute top-6 right-6 flex items-start gap-3 z-20">
-                    {/* Settings Panel Toggle */}
-                    <button
-                        onClick={() => setIsMapSettingsOpen(!isMapSettingsOpen)}
-                        className="group w-12 h-12 flex items-center justify-center bg-white/90 backdrop-blur-xl text-slate-700 rounded-2xl shadow-lg shadow-slate-900/10 border border-white/50 hover:shadow-xl hover:bg-gradient-to-br hover:from-blue-500 hover:to-purple-600 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95"
-                        title="Configuración del Mapa"
-                    >
-                        <Layers size={20} className={`transition-transform duration-300 ${isMapSettingsOpen ? 'rotate-180' : ''}`} />
-                    </button>
-
                     {/* Collapsible Settings Panel */}
                     <div className={`
                         overflow-hidden transition-all duration-300 ease-out origin-right
@@ -402,10 +393,22 @@ const FleetMapbox = () => {
                         </div>
                     </div>
 
-                    {/* Refresh Button */}
-                    <button onClick={() => fetchFleetData()} className="group w-12 h-12 flex items-center justify-center bg-white/90 backdrop-blur-xl text-blue-600 rounded-2xl shadow-lg shadow-blue-500/10 border border-white/50 hover:shadow-xl hover:shadow-blue-500/20 transition-all duration-300 hover:scale-105 active:scale-95">
-                        <Signal size={20} className="group-hover:animate-pulse" />
-                    </button>
+                    {/* Control Buttons */}
+                    <div className="flex gap-2">
+                        {/* Refresh Button */}
+                        <button onClick={() => fetchFleetData()} className="group w-12 h-12 flex items-center justify-center bg-white/90 backdrop-blur-xl text-blue-600 rounded-2xl shadow-lg shadow-blue-500/10 border border-white/50 hover:shadow-xl hover:shadow-blue-500/20 transition-all duration-300 hover:scale-105 active:scale-95">
+                            <Signal size={20} className="group-hover:animate-pulse" />
+                        </button>
+
+                        {/* Settings Panel Toggle */}
+                        <button
+                            onClick={() => setIsMapSettingsOpen(!isMapSettingsOpen)}
+                            className="group w-12 h-12 flex items-center justify-center bg-white/90 backdrop-blur-xl text-slate-700 rounded-2xl shadow-lg shadow-slate-900/10 border border-white/50 hover:shadow-xl hover:bg-gradient-to-br hover:from-blue-500 hover:to-purple-600 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95"
+                            title="Configuración del Mapa"
+                        >
+                            <Layers size={20} className={`transition-transform duration-300 ${isMapSettingsOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                    </div>
                 </div>
             </div>
 
