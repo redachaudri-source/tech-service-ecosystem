@@ -75,8 +75,8 @@ const FleetMapbox = () => {
         const month = String(now.getMonth() + 1).padStart(2, '0');
         const day = String(now.getDate()).padStart(2, '0');
 
-        const startDate = `${year}-${month}-${day}T00:00:00`;
-        const endDate = `${year}-${month}-${day}T23:59:59`;
+        const startDate = `${year}-${month}-${day}T00:00:00.000Z`;
+        const endDate = `${year}-${month}-${day}T23:59:59.999Z`;
 
         console.log('🔍 Fetching tickets for range:', { startDate, endDate });
 
