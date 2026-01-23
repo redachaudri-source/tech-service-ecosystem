@@ -107,6 +107,48 @@ const FleetMapbox = () => {
         }
     };
 
+    const toggle3DView = () => {
+        if (!mapRef.current) return;
+        const currentPitch = mapRef.current.getPitch();
+
+        if (currentPitch === 0) {
+            // Enable 3D
+            mapRef.current.easeTo({ pitch: 60, duration: 1000 });
+            setMapStyle('3d');
+
+            // Add 3D buildings if not already added
+            setTimeout(() => {
+                if (!mapRef.current.getLayer('3d-buildings')) {
+                    const layers = mapRef.current.getStyle().layers;
+                    const labelLayerId = layers.find(l => l.type === 'symbol' && l.layout['text-field'])?.id;
+
+                    if (labelLayerId) {
+                        mapRef.current.addLayer({
+                            'id': '3d-buildings',
+                            'source': 'composite',
+                            'source-layer': 'building',
+                            'filter': ['==', 'extrude', 'true'],
+                            'type': 'fill-extrusion',
+                            'minzoom': 14,
+                            'paint': {
+                                'fill-extrusion-color': '#aaa',
+                                'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 15, 0, 15.05, ['get', 'height']],
+                                'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 15, 0, 15.05, ['get', 'min_height']],
+                                'fill-extrusion-opacity': 0.6
+                            }
+                        }, labelLayerId);
+                    }
+                }
+            }, 1000);
+        } else {
+            // Disable 3D
+            mapRef.current.easeTo({ pitch: 0, duration: 1000 });
+            if (mapRef.current.getLayer('3d-buildings')) {
+                mapRef.current.removeLayer('3d-buildings');
+            }
+        }
+    };
+
     const updateMarkers = (list) => {
         if (!mapRef.current) return;
 
@@ -243,8 +285,8 @@ const FleetMapbox = () => {
                         <button
                             onClick={() => { setMapStyle('light'); mapRef.current?.setStyle('mapbox://styles/mapbox/light-v11'); }}
                             className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${mapStyle === 'light'
-                                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
-                                    : 'text-slate-600 hover:bg-slate-100'
+                                ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
+                                : 'text-slate-600 hover:bg-slate-100'
                                 }`}
                             title="Mapa Claro"
                         >
@@ -253,8 +295,8 @@ const FleetMapbox = () => {
                         <button
                             onClick={() => { setMapStyle('satellite'); mapRef.current?.setStyle('mapbox://styles/mapbox/satellite-streets-v12'); }}
                             className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${mapStyle === 'satellite'
-                                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
-                                    : 'text-slate-600 hover:bg-slate-100'
+                                ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
+                                : 'text-slate-600 hover:bg-slate-100'
                                 }`}
                             title="Vista Satélite"
                         >
@@ -263,12 +305,22 @@ const FleetMapbox = () => {
                         <button
                             onClick={() => { setMapStyle('dark'); mapRef.current?.setStyle('mapbox://styles/mapbox/dark-v11'); }}
                             className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${mapStyle === 'dark'
-                                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
-                                    : 'text-slate-600 hover:bg-slate-100'
+                                ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
+                                : 'text-slate-600 hover:bg-slate-100'
                                 }`}
                             title="Mapa Oscuro"
                         >
                             🌙
+                        </button>
+                        <button
+                            onClick={toggle3DView}
+                            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${mapStyle === '3d'
+                                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
+                                    : 'text-slate-600 hover:bg-slate-100'
+                                }`}
+                            title="Vista 3D"
+                        >
+                            🏙️
                         </button>
                     </div>
 
