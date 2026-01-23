@@ -155,17 +155,37 @@ const Layout = () => {
         return (
             <Link
                 to={item.path}
-                className={`group relative flex items-center justify-between px-3 py-2.5 rounded-md transition-all duration-200 border border-transparent
+                className={`group relative flex items-center justify-between px-3 rounded-md transition-all duration-300 border border-transparent
                     ${isActive
                         ? 'bg-blue-600/10 border-blue-600/20 text-blue-400'
-                        : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}
-                    ${isSub ? 'ml-3 pl-3 border-l border-slate-800 hover:border-slate-700 rounded-none rounded-r-md text-[11px]' : 'text-[12px]'}
-                    ${isHero ? 'font-bold text-[13px] bg-indigo-500/10 border-indigo-500/20 text-indigo-300 hover:bg-indigo-500/20 hover:text-indigo-200 my-1' : ''}
+                        : 'text-slate-400 hover:text-[#d4a017] hover:bg-slate-800/70'}
+                    ${isSub ? 'ml-3 pl-3 border-l border-slate-800 hover:border-slate-700 rounded-none rounded-r-md text-[11px] py-2' : 'text-[12px] py-2.5'}
+                    ${isHero
+                        ? 'font-black text-[14px] bg-gradient-to-r from-indigo-600/20 to-purple-600/20 border-l-4 border-l-indigo-500 text-indigo-200 hover:from-indigo-600/30 hover:to-purple-600/30 hover:text-[#d4a017] hover:border-l-[#d4a017] hover:shadow-lg hover:shadow-indigo-500/20 my-2 py-3.5 hover:scale-[1.02]'
+                        : 'hover:scale-[1.01]'}
                 `}
+                style={!isActive && !isSub ? {
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                } : {}}
             >
                 <div className="flex items-center gap-2.5">
-                    <Icon size={isSub ? 13 : (isHero ? 16 : 15)} className={`${isActive ? 'text-blue-400' : (isHero ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300')}`} />
-                    <span className={`tracking-wide ${isHero ? 'uppercase tracking-wider' : 'font-medium'}`}>{item.label}</span>
+                    <Icon
+                        size={isSub ? 13 : (isHero ? 18 : 15)}
+                        className={`transition-all duration-300 ${isActive
+                                ? 'text-blue-400'
+                                : isHero
+                                    ? 'text-indigo-400 group-hover:text-[#d4a017] group-hover:drop-shadow-[0_0_8px_rgba(212,160,23,0.6)]'
+                                    : 'text-slate-500 group-hover:text-[#d4a017] group-hover:drop-shadow-[0_0_6px_rgba(212,160,23,0.5)]'
+                            }`}
+                    />
+                    <span
+                        className={`tracking-wide transition-all duration-300 ${isHero
+                                ? 'uppercase tracking-widest font-black group-hover:drop-shadow-[0_0_10px_rgba(212,160,23,0.7)]'
+                                : 'font-medium group-hover:drop-shadow-[0_0_8px_rgba(212,160,23,0.6)]'
+                            }`}
+                    >
+                        {item.label}
+                    </span>
                 </div>
 
                 {hasBadge && (
