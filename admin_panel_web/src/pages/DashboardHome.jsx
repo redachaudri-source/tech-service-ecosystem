@@ -23,37 +23,112 @@ const DEFAULT_SHORTCUTS = ['new_service', 'agenda_today', 'stock'];
 
 // --- COMPONENTS ---
 
-// 1. Compact Stat Card
-const CompactStatCard = ({ title, value, icon: Icon, colorClass, trend }) => (
-    <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
-        <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">{title}</p>
-            <div className="flex items-baseline gap-2">
-                <h3 className="text-xl font-black text-slate-800">{value}</h3>
-                {trend && <span className="text-[10px] text-green-500 font-bold">{trend}</span>}
+// 1. Compact Stat Card with Premium Animations
+const CompactStatCard = ({ title, value, icon: Icon, colorClass, trend, trendDirection = 'up' }) => {
+    const TrendIcon = trendDirection === 'up' ? ArrowRight : ArrowRight;
+    const trendColor = trendDirection === 'up' ? 'text-green-500' : 'text-red-500';
+
+    return (
+        <div className={`
+            group relative bg-gradient-to-br from-white to-slate-50/50 p-4 rounded-xl 
+            border border-slate-100 shadow-sm 
+            hover:shadow-lg hover:shadow-${colorClass.replace('bg-', '')}/10
+            hover:-translate-y-1 hover:scale-[1.02]
+            transition-all duration-300 cursor-pointer overflow-hidden
+        `}>
+            {/* Ambient Glow */}
+            <div className={`absolute inset-0 ${colorClass} opacity-0 group-hover:opacity-5 transition-opacity duration-300 rounded-xl`}></div>
+
+            <div className="relative z-10 flex items-center justify-between">
+                <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">{title}</p>
+                    <div className="flex items-baseline gap-2">
+                        <h3 className="text-xl font-black text-slate-800 tabular-nums">{value}</h3>
+                        {trend && (
+                            <span className={`text-[10px] font-bold flex items-center gap-0.5 ${trendColor}`}>
+                                <TrendIcon size={10} className={trendDirection === 'up' ? 'rotate-[-45deg]' : 'rotate-45'} />
+                                {trend}
+                            </span>
+                        )}
+                    </div>
+                </div>
+                <div className={`
+                    p-2.5 rounded-lg ${colorClass} bg-opacity-10 
+                    group-hover:bg-opacity-20 group-hover:scale-110 group-hover:rotate-12
+                    transition-all duration-300
+                `}>
+                    <Icon size={18} className={`${colorClass.replace('bg-', 'text-')} transition-transform duration-300`} />
+                </div>
             </div>
         </div>
-        <div className={`p-2 rounded-lg ${colorClass} bg-opacity-10`}>
-            <Icon size={18} className={colorClass.replace('bg-', 'text-')} />
-        </div>
-    </div>
-);
+    );
+};
 
-// 2. Shortcut Button
-const ShortcutButton = ({ shortcut, onClick }) => {
+// 2. Shortcut Button with 3D Effects
+const ShortcutButton = ({ shortcut, onClick, badge }) => {
     const Icon = shortcut.icon;
     return (
         <button
             onClick={onClick}
-            className="flex flex-col items-center justify-center gap-2 p-4 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 hover:scale-[1.02] transition-all group h-24"
+            className="relative flex flex-col items-center justify-center gap-2 p-4 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-blue-300 hover:-translate-y-2 hover:scale-[1.05] transition-all duration-300 group h-24 active:scale-95 overflow-hidden"
         >
-            <div className={`p-2 rounded-full ${shortcut.color} text-white shadow-lg shadow-blue-900/10 group-hover:shadow-blue-900/20`}>
-                <Icon size={18} />
+            {/* Ripple Effect Background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-purple-500/0 group-hover:from-blue-500/5 group-hover:to-purple-500/5 transition-all duration-300"></div>
+
+            {/* Badge */}
+            {badge > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-5 w-5 z-10">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-5 w-5 bg-red-500 items-center justify-center text-[9px] font-bold text-white shadow-lg">
+                        {badge > 9 ? '9+' : badge}
+                    </span>
+                </span>
+            )}
+
+            <div className={`relative p-2 rounded-full ${shortcut.color} text-white shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300`}>
+                <Icon size={18} className="group-hover:rotate-12 transition-transform duration-300" />
             </div>
-            <span className="text-[11px] font-bold text-slate-600 group-hover:text-slate-800">{shortcut.label}</span>
+            <span className="relative text-[11px] font-bold text-slate-600 group-hover:text-slate-800 transition-colors">{shortcut.label}</span>
         </button>
     );
 };
+
+// 3. Activity Timeline Component
+const ActivityTimeline = ({ activities, navigate }) => (
+    <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+        <h2 className="text-xs font-bold text-slate-700 uppercase mb-4 flex items-center gap-2">
+            <Clock size={14} className="text-blue-500" />
+            Actividad Reciente
+        </h2>
+        <div className="space-y-3">
+            {activities.length > 0 ? activities.map((activity, idx) => (
+                <div
+                    key={activity.ticket_id}
+                    onClick={() => navigate('/services')}
+                    className="group flex gap-3 items-start p-2.5 hover:bg-blue-50 rounded-lg transition-all cursor-pointer border border-transparent hover:border-blue-200 animate-in slide-in-from-right duration-300"
+                    style={{ animationDelay: `${idx * 50}ms` }}
+                >
+                    <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${activity.status === 'finalizado' ? 'bg-green-500' :
+                        activity.status === 'en_proceso' ? 'bg-blue-500' :
+                            activity.status === 'pendiente' ? 'bg-amber-500' :
+                                'bg-slate-400'
+                        } group-hover:scale-150 transition-transform`} />
+                    <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-700 truncate">{activity.title || `Ticket #${activity.ticket_id.slice(0, 8)}`}</p>
+                        <p className="text-[10px] text-slate-500">
+                            {activity.client_name || 'Cliente'} • {new Date(activity.created_at).toLocaleDateString('es-ES', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                    </div>
+                    <ArrowRight size={14} className="text-slate-400 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
+                </div>
+            )) : (
+                <div className="text-center py-6 text-slate-400 text-xs">
+                    No hay actividad reciente
+                </div>
+            )}
+        </div>
+    </div>
+);
 
 // 3. Selection Modal
 const ShortcutSelectionModal = ({ isOpen, onClose, selectedIds, onToggle }) => {
@@ -102,9 +177,20 @@ const ShortcutSelectionModal = ({ isOpen, onClose, selectedIds, onToggle }) => {
 // --- MAIN PAGE ---
 const DashboardHome = () => {
     const navigate = useNavigate();
-    const [stats, setStats] = useState({ todayServices: 0, monthlyIncome: 0, topTech: 'N/A', activeServices: 0, techsActive: 0 }); // Added techsActive
+    const [stats, setStats] = useState({
+        todayServices: 0,
+        monthlyIncome: 0,
+        topTech: 'N/A',
+        activeServices: 0,
+        techsActive: 0,
+        avgRating: 0,
+        totalReviews: 0,
+        yesterdayServices: 0,
+        yesterdayIncome: 0
+    });
     const [chartData, setChartData] = useState([]);
     const [alerts, setAlerts] = useState([]);
+    const [recentActivity, setRecentActivity] = useState([]);
 
     // --- USE NEW HOOK ---
     const { count: webRequests, loading: loadingNotifications } = useTicketNotifications();
@@ -191,9 +277,11 @@ const DashboardHome = () => {
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+        const startOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).toISOString();
+        const endOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
 
-        // 1. Parallel Fetching
-        const [today, income, active, week, techsCount] = await Promise.all([
+        // 1. Parallel Fetching (Enhanced)
+        const [today, income, active, week, techsCount, reviews, recentTickets, yesterday, yesterdayIncome] = await Promise.all([
             // Today Count
             supabase.from('tickets').select('*', { count: 'exact', head: true }).gte('created_at', startOfDay),
             // Monthly Income (paid/final only)
@@ -203,10 +291,24 @@ const DashboardHome = () => {
             // Week Data (last 7 days logic simplified)
             supabase.from('tickets').select('created_at').gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
             // Real Tech Count (Role 'tech' is_active true)
-            supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'tech').eq('is_active', true)
+            supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'tech').eq('is_active', true),
+            // Reviews (this month)
+            supabase.from('reviews').select('rating').gte('created_at', startOfMonth),
+            // Recent Activity (last 5 tickets)
+            supabase.from('tickets').select('ticket_id, title, status, created_at, profiles:client_id(full_name)').order('created_at', { ascending: false }).limit(5),
+            // Yesterday Count
+            supabase.from('tickets').select('*', { count: 'exact', head: true }).gte('created_at', startOfYesterday).lt('created_at', endOfYesterday),
+            // Yesterday Income
+            supabase.from('tickets').select('total_price').gte('created_at', startOfYesterday).lt('created_at', endOfYesterday).in('status', ['pagado', 'finalizado'])
         ]);
 
         const totalIncome = income.data?.reduce((acc, curr) => acc + (Number(curr.total_price) || 0), 0) || 0;
+        const yesterdayTotalIncome = yesterdayIncome.data?.reduce((acc, curr) => acc + (Number(curr.total_price) || 0), 0) || 0;
+
+        // Calculate average rating
+        const avgRating = reviews.data?.length > 0
+            ? reviews.data.reduce((acc, r) => acc + (r.rating || 0), 0) / reviews.data.length
+            : 0;
 
         // Chart Process
         const days = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
@@ -226,9 +328,19 @@ const DashboardHome = () => {
             monthlyIncome: totalIncome,
             topTech: 'N/A',
             activeServices: active.count || 0,
-            techsActive: techsCount.count || 0 // Corrected
+            techsActive: techsCount.count || 0,
+            avgRating: avgRating,
+            totalReviews: reviews.data?.length || 0,
+            yesterdayServices: yesterday.count || 0,
+            yesterdayIncome: yesterdayTotalIncome
         });
         setChartData(Object.keys(daysMap).reverse().map(k => ({ name: k, services: daysMap[k] })));
+
+        // Set recent activity with client names
+        setRecentActivity(recentTickets.data?.map(t => ({
+            ...t,
+            client_name: t.profiles?.full_name || 'Cliente'
+        })) || []);
     };
 
     return (
@@ -270,12 +382,44 @@ const DashboardHome = () => {
                 </div>
             )}
 
-            {/* Compact KPIs */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                <CompactStatCard title="Servicios Hoy" value={stats.todayServices} icon={Calendar} colorClass="bg-blue-500" trend="+2" />
-                <CompactStatCard title="En Curso" value={stats.activeServices} icon={Clock} colorClass="bg-amber-500" />
-                <CompactStatCard title="Ingresos Mes" value={`${(stats.monthlyIncome / 1000).toFixed(1)}k€`} icon={DollarSign} colorClass="bg-emerald-500" trend="+12%" />
-                <CompactStatCard title="Tecnicos Activos" value={stats.techsActive} icon={Users} colorClass="bg-purple-500" /> {/* Corrected */}
+            {/* Compact KPIs with Comparisons */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">
+                <CompactStatCard
+                    title="Servicios Hoy"
+                    value={stats.todayServices}
+                    icon={Calendar}
+                    colorClass="bg-blue-500"
+                    trend={stats.yesterdayServices > 0 ? `${((stats.todayServices - stats.yesterdayServices) / stats.yesterdayServices * 100).toFixed(0)}%` : '+100%'}
+                    trendDirection={stats.todayServices >= stats.yesterdayServices ? 'up' : 'down'}
+                />
+                <CompactStatCard
+                    title="En Curso"
+                    value={stats.activeServices}
+                    icon={Clock}
+                    colorClass="bg-amber-500"
+                />
+                <CompactStatCard
+                    title="Ingresos Mes"
+                    value={`${(stats.monthlyIncome / 1000).toFixed(1)}k€`}
+                    icon={DollarSign}
+                    colorClass="bg-emerald-500"
+                    trend={stats.yesterdayIncome > 0 ? `${((stats.monthlyIncome - stats.yesterdayIncome) / stats.yesterdayIncome * 100).toFixed(0)}%` : null}
+                    trendDirection="up"
+                />
+                <CompactStatCard
+                    title="Satisfacción"
+                    value={`${(stats.avgRating * 20).toFixed(0)}%`}
+                    icon={Star}
+                    colorClass="bg-purple-500"
+                    trend={`${stats.totalReviews} reviews`}
+                    trendDirection="up"
+                />
+                <CompactStatCard
+                    title="Técnicos Activos"
+                    value={stats.techsActive}
+                    icon={Users}
+                    colorClass="bg-pink-500"
+                />
             </div>
 
             {/* Dynamic Shortcuts Section */}
@@ -300,6 +444,7 @@ const DashboardHome = () => {
                             <ShortcutButton
                                 key={id}
                                 shortcut={sc}
+                                badge={sc.id === 'new_service' ? webRequests : 0}
                                 onClick={() => {
                                     if (sc.id === 'new_service') {
                                         navigate('/services', { state: { openCreate: true } });
@@ -320,42 +465,79 @@ const DashboardHome = () => {
                 </div>
             </div>
 
-            {/* Secondary Content Grid (Charts) */}
+            {/* Secondary Content Grid (Charts + Activity) */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                {/* Weekly Chart */}
+                {/* Weekly Chart with Gradient */}
                 <div className="lg:col-span-2 bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-                    <h2 className="text-xs font-bold text-slate-700 uppercase mb-4">Rendimiento Semanal</h2>
+                    <h2 className="text-xs font-bold text-slate-700 uppercase mb-4 flex items-center gap-2">
+                        <TrendingUp size={14} className="text-blue-500" />
+                        Rendimiento Semanal
+                    </h2>
                     <div className="h-[250px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={chartData}>
+                                <defs>
+                                    <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#3b82f6" stopOpacity={1} />
+                                        <stop offset="100%" stopColor="#60a5fa" stopOpacity={0.8} />
+                                    </linearGradient>
+                                </defs>
                                 <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} stroke="#94a3b8" />
                                 <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} stroke="#94a3b8" />
-                                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', fontSize: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                                <Bar dataKey="services" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40} />
+                                <Tooltip
+                                    contentStyle={{
+                                        borderRadius: '12px',
+                                        border: 'none',
+                                        fontSize: '12px',
+                                        boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                                        padding: '8px 12px'
+                                    }}
+                                />
+                                <Bar
+                                    dataKey="services"
+                                    fill="url(#colorGradient)"
+                                    radius={[8, 8, 0, 0]}
+                                    barSize={40}
+                                    animationDuration={1000}
+                                    animationBegin={0}
+                                />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
 
-                {/* Notifications / Mini Feed */}
-                <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col">
-                    <h2 className="text-xs font-bold text-slate-700 uppercase mb-4">Avisos Recientes</h2>
-                    <div className="flex-1 space-y-3 overflow-y-auto max-h-[250px] pr-2">
-                        {alerts.length > 0 ? alerts.map((alert, idx) => (
-                            <div key={idx} className="flex gap-3 items-start p-2 hover:bg-slate-50 rounded transition-colors border-b border-slate-200 last:border-0">
-                                <div className={`mt-1 w-2 h-2 rounded-full ${alert.color} shrink-0`} />
-                                <div>
-                                    <p className="text-xs font-bold text-slate-700">{alert.title}</p>
-                                    <p className="text-[10px] text-slate-500 leading-tight">{alert.desc}</p>
-                                </div>
+                {/* Activity Timeline */}
+                <ActivityTimeline activities={recentActivity} navigate={navigate} />
+            </div>
+
+            {/* Alerts Section (Full Width) */}
+            <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <h2 className="text-xs font-bold text-slate-700 uppercase mb-4 flex items-center gap-2">
+                    <AlertTriangle size={14} className="text-amber-500" />
+                    Avisos Recientes
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {alerts.length > 0 ? alerts.map((alert, idx) => (
+                        <div
+                            key={idx}
+                            className="flex gap-3 items-start p-3 hover:bg-slate-50 rounded-lg transition-all border border-slate-100 hover:border-slate-200 hover:shadow-sm cursor-pointer animate-in slide-in-from-bottom duration-300"
+                            style={{ animationDelay: `${idx * 100}ms` }}
+                        >
+                            <div className="mt-0.5">
+                                {alert.type === 'stock' && <Package size={16} className="text-red-500" />}
+                                {alert.type === 'delay' && <Clock size={16} className="text-amber-500" />}
                             </div>
-                        )) : (
-                            <div className="text-center py-8 text-slate-400 text-xs">
-                                Todo en orden. No hay alertas.
+                            <div className="flex-1">
+                                <p className="text-xs font-bold text-slate-700">{alert.title}</p>
+                                <p className="text-[10px] text-slate-500 leading-tight mt-0.5">{alert.desc}</p>
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )) : (
+                        <div className="col-span-full text-center py-8 text-slate-400 text-xs">
+                            ✓ Todo en orden. No hay alertas.
+                        </div>
+                    )}
                 </div>
             </div>
 
