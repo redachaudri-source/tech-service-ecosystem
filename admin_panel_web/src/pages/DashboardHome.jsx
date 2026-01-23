@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import {
     Users, DollarSign, Wrench, AlertTriangle, Star, Plus, X,
-    Calendar, Package, FileText, CheckCircle, Clock, Zap, BellRing, ArrowRight
+    Calendar, Package, FileText, CheckCircle, Clock, Zap, BellRing, ArrowRight, TrendingUp
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useTicketNotifications } from '../hooks/useTicketNotifications'; // NEW HOOK
