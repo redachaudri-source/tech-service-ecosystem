@@ -115,9 +115,11 @@ const FleetMapbox = () => {
             const validTicketsRaw = ticketsRaw || [];
 
             // Step B: Extract Client IDs (Strict Validation)
+            // Trim and lowercase to avoid UUID format errors
             const clientIds = [...new Set(validTicketsRaw
                 .map(t => t.client_id)
                 .filter(id => id && typeof id === 'string' && id.length > 10)
+                .map(id => id.trim().toLowerCase())
             )];
 
             console.log("🧨 CLIENT IDS QUE ESTAMOS ENVIANDO A SUPABASE:", JSON.stringify(clientIds)); // VER ESTO EN CONSOLA
