@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase } from '../lib/supabase';
-import { User, Signal, Clock, Search, Map as MapIcon, Layers, ChevronLeft, ChevronRight, Zap, Navigation, Home, Store, Calendar, ArrowRight, BarChart3, Radio } from 'lucide-react';
+import { User, Signal, Clock, Search, Map as MapIcon, Layers, ChevronLeft, ChevronRight, Zap, Navigation, Home, Store, Calendar, ArrowRight, Truck, GripVertical } from 'lucide-react';
 import { formatDistanceToNow, format, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { MAPBOX_TOKEN } from '../config/mapbox';
@@ -11,14 +11,14 @@ import { MAPBOX_TOKEN } from '../config/mapbox';
 mapboxgl.accessToken = MAPBOX_TOKEN;
 
 /**
- * FleetMapbox - GOD TIER EDITION "Midnight Commander"
+ * FleetMapbox - UBER STYLE EDITION
  * 
- * Aesthetic: Cyberpunk / High-End Military Ops
+ * Aesthetic: Clean, Minimalist, White/Gray, Shadow-rich
  * Features:
- * - HUD-style Analytics
- * - High Contrast Dark Mode (Slate 950/900)
- * - Cinematic Markers & Route Lines
- * - Contextual Timeline Flight Plan
+ * - Light Map Navigation Style
+ * - Floating White Cards
+ * - Soft Animations
+ * - 100% Spanish
  */
 const FleetMapbox = () => {
     const mapContainerRef = useRef(null);
@@ -32,7 +32,9 @@ const FleetMapbox = () => {
     const [techItinerary, setTechItinerary] = useState([]);
     const [activeTechsCount, setActiveTechsCount] = useState(0);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    const [viewMode, setViewMode] = useState('3d');
+
+    // View Mode (Default to 2D for cleaner "App" feel)
+    const [viewMode, setViewMode] = useState('2d');
 
     // -- MAP INITIALIZATION --
     useEffect(() => {
@@ -40,40 +42,27 @@ const FleetMapbox = () => {
 
         const map = new mapboxgl.Map({
             container: mapContainerRef.current,
-            style: 'mapbox://styles/mapbox/dark-v11', // Deep Dark Base
+            style: 'mapbox://styles/mapbox/navigation-day-v1', // Clean Uber style
             center: [-4.4214, 36.7213], // Málaga
-            zoom: 11.5,
-            pitch: 55, // Aggressive pitch for 3D feel
-            bearing: -15,
-            projection: 'globe',
-            antialias: true
+            zoom: 12,
+            pitch: 0, // Flat by default for clarity
+            bearing: 0,
+            projection: 'mercator', // Standard flat map
+            attributionControl: false
         });
 
-        // Atmospheric styling
-        map.on('style.load', () => {
-            map.setFog({
-                'range': [0.5, 10],
-                'color': '#0f172a',
-                'horizon-blend': 0.1,
-                'high-color': '#020617',
-                'space-color': '#020617',
-                'star-intensity': 0.5
-            });
-            add3DBuildings(map);
-        });
-
-        // Minimal controls
+        // minimal UX
         map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'bottom-right');
 
         mapRef.current = map;
         return () => map.remove();
     }, []);
 
-    // -- DATA CORE (Strict Logic Preserved) --
+    // -- DATA FETCHING (Preserved Logic) --
     useEffect(() => {
         fetchFleetData();
-        const sub = supabase.channel('fleet-god-tier').on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchFleetData).subscribe();
-        const interval = setInterval(fetchFleetData, 30000);
+        const sub = supabase.channel('fleet-uber').on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchFleetData).subscribe();
+        const interval = setInterval(fetchFleetData, 60000);
         return () => { supabase.removeChannel(sub); clearInterval(interval); };
     }, []);
 
@@ -97,6 +86,7 @@ const FleetMapbox = () => {
             const workload = myTickets.filter(tk => tk.status !== 'completado').length;
 
             let isActive = false;
+            // 20 min active window
             if (t.last_location_update) {
                 const diff = (new Date() - new Date(t.last_location_update)) / 1000 / 60;
                 isActive = diff < 20;
@@ -130,28 +120,28 @@ const FleetMapbox = () => {
 
         list.forEach(tech => {
             let marker = markersRef.current[tech.id];
-            // HTML for Marker
+
+            // Minimalist Tech Marker (Black Car/Puck style)
             const html = `
-                <div class="relative group cursor-pointer hover:z-50 transition-all duration-300">
-                    <!-- Radar Ping -->
-                    <div class="absolute -inset-8 rounded-full border border-blue-500/30 opacity-0 group-hover:opacity-100 scale-0 group-hover:scale-100 transition-all duration-500"></div>
-                    <div class="absolute -inset-4 rounded-full bg-blue-500/20 blur-md ${tech.isActive ? 'animate-pulse' : 'hidden'}"></div>
+                <div class="relative group cursor-pointer hover:z-50 transition-transform duration-300">
+                    <div class="absolute -inset-3 bg-black/5 rounded-full blur-sm"></div>
                     
-                    <!-- Core Avatar -->
-                    <div class="relative w-14 h-14 rounded-full border-[3px] ${tech.isActive ? 'border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)]' : 'border-slate-500'} bg-slate-900 overflow-hidden flex items-center justify-center transition-transform hover:scale-110">
-                         ${tech.avatar_url
+                    <div class="relative w-12 h-12 bg-white rounded-full p-1 shadow-lg border border-gray-200 transition-transform hover:scale-110 flex items-center justify-center">
+                         <div class="w-full h-full rounded-full overflow-hidden bg-gray-100">
+                             ${tech.avatar_url
                     ? `<img src="${tech.avatar_url}" class="w-full h-full object-cover" />`
-                    : `<span class="text-white font-bold text-lg">${tech.full_name[0]}</span>`
+                    : `<span class="flex items-center justify-center h-full text-gray-800 font-bold">${tech.full_name[0]}</span>`
                 }
+                         </div>
                     </div>
 
-                    <!-- Status Dot -->
-                    <div class="absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-slate-900 ${tech.isActive ? 'bg-emerald-400 shadow-[0_0_8px_#34d399]' : 'bg-slate-500'}"></div>
+                    <!-- Online Dot -->
+                    <div class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-white ${tech.isActive ? 'bg-green-500' : 'bg-gray-300'}"></div>
                     
-                    <!-- Floating Data Badge (Tasks) -->
+                    <!-- Floating Pill Badge (Tasks) -->
                     ${tech.workload > 0 ? `
-                        <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-sm shadow-lg border border-white/10 uppercase tracking-wider flex items-center gap-1">
-                            ${tech.workload} Tareas
+                        <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg whitespace-nowrap">
+                            ${tech.workload}
                         </div>
                     ` : ''}
                 </div>
@@ -175,7 +165,8 @@ const FleetMapbox = () => {
         setIsSidebarOpen(true);
         const sorted = [...tech.allTickets].sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
         setTechItinerary(sorted);
-        mapRef.current.flyTo({ center: [tech.longitude, tech.latitude], zoom: 14.5, pitch: 60, duration: 1800 });
+
+        mapRef.current.flyTo({ center: [tech.longitude, tech.latitude], zoom: 14, pitch: 0, duration: 1500 });
         drawRoutesAndStops(tech, sorted);
     };
 
@@ -189,7 +180,7 @@ const FleetMapbox = () => {
         routeMarkersRef.current.forEach(m => m.remove());
         routeMarkersRef.current = [];
 
-        // Draw Destinations
+        // Draw Destinations (Clean black pins)
         tickets.forEach(t => {
             if (!t.clients?.latitude) return;
             const isNext = t.status === 'en_camino' || t.status === 'en_proceso';
@@ -198,24 +189,21 @@ const FleetMapbox = () => {
             const el = document.createElement('div');
             el.innerHTML = `
                 <div class="relative group hover:z-50">
-                    <div class="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur text-white px-3 py-1.5 rounded border border-white/10 text-xs font-bold opacity-0 group-hover:opacity-100 transition-all pointer-events-none whitespace-nowrap z-50 shadow-xl">
+                    <!-- Tooltip -->
+                    <div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-white text-gray-800 px-3 py-1 rounded-lg text-xs font-bold shadow-xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none whitespace-nowrap z-50 border border-gray-100">
                         ${t.clients.full_name}
-                        <div class="text-[10px] text-slate-400 font-normal mt-0.5">${t.appliance_type}</div>
                     </div>
                     
-                    <div class="w-10 h-10 flex items-center justify-center rounded-full border-2 ${isNext ? 'bg-blue-600 border-white shadow-[0_0_15px_rgba(37,99,235,0.6)] scale-110' : isDone ? 'bg-slate-900 border-emerald-500 opacity-60' : 'bg-slate-800 border-slate-500'} transition-transform shadow-lg">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                            <polyline points="9 22 9 12 15 12 15 22"></polyline>
-                        </svg>
-                    </div>
+                    <div class="w-4 h-4 rounded-full border-2 border-white shadow-md transition-transform hover:scale-125
+                        ${isNext ? 'bg-black w-5 h-5' : isDone ? 'bg-green-500' : 'bg-gray-400'}
+                    "></div>
                 </div>
             `;
             const marker = new mapboxgl.Marker({ element: el }).setLngLat([t.clients.longitude, t.clients.latitude]).addTo(mapRef.current);
             routeMarkersRef.current.push(marker);
         });
 
-        // Smart Route
+        // Route Line (Black/Gray)
         const activeJob = tickets.find(t => t.status === 'en_camino') || tickets.find(t => t.status === 'asignado');
         if (activeJob?.clients?.latitude && tech.longitude) {
             try {
@@ -224,219 +212,166 @@ const FleetMapbox = () => {
                 const route = json.routes?.[0]?.geometry?.coordinates;
                 if (route) {
                     mapRef.current.addSource('route-source', { 'type': 'geojson', 'data': { 'type': 'Feature', 'geometry': { 'type': 'LineString', 'coordinates': route } } });
-                    // Neon Path
-                    mapRef.current.addLayer({ 'id': 'route-line', 'type': 'line', 'source': 'route-source', 'layout': { 'line-join': 'round', 'line-cap': 'round' }, 'paint': { 'line-color': '#3b82f6', 'line-width': 4, 'line-opacity': 0.9, 'line-blur': 1 } });
-                    // Arrows
-                    mapRef.current.addLayer({ 'id': 'route-arrows', 'type': 'symbol', 'source': 'route-source', 'layout': { 'symbol-placement': 'line', 'text-field': '▶', 'text-size': 12, 'symbol-spacing': 30, 'text-keep-upright': false }, 'paint': { 'text-color': '#eff6ff', 'text-halo-color': '#3b82f6', 'text-halo-width': 1 } });
+                    mapRef.current.addLayer({ 'id': 'route-line', 'type': 'line', 'source': 'route-source', 'layout': { 'line-join': 'round', 'line-cap': 'round' }, 'paint': { 'line-color': '#111827', 'line-width': 4, 'line-opacity': 0.8 } });
                 }
             } catch (e) { console.error(e); }
         }
     };
 
-    const add3DBuildings = (map) => {
-        if (map.getLayer('3d-buildings')) return;
-        map.addLayer({
-            'id': '3d-buildings', 'source': 'composite', 'source-layer': 'building', 'filter': ['==', 'extrude', 'true'], 'type': 'fill-extrusion', 'minzoom': 14,
-            'paint': { 'fill-extrusion-color': '#111827', 'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 15, 0, 15.05, ['get', 'height']], 'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 15, 0, 15.05, ['get', 'min_height']], 'fill-extrusion-opacity': 0.9 }
-        });
-    };
-
     return (
-        <div className="relative w-full h-[calc(100vh-80px)] overflow-hidden bg-[#020617] text-white flex">
+        <div className="relative w-full h-[calc(100vh-80px)] overflow-hidden bg-gray-50 text-gray-800 font-sans flex text-sm">
 
             {/* --- MAP --- */}
             <div className="flex-1 relative">
                 <div ref={mapContainerRef} className="absolute inset-0 z-0" />
 
-                {/* HUD Overlay Effects */}
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(2,6,23,0.4)_100%)] pointer-events-none z-10"></div>
-
-                {/* Controls */}
+                {/* Minimal Controls */}
                 <div className="absolute top-6 right-6 flex flex-col gap-2 z-20">
-                    <button onClick={() => fetchFleetData()} className="w-10 h-10 flex items-center justify-center bg-slate-900 border border-slate-700 text-blue-400 rounded-lg shadow-xl hover:bg-slate-800 transition-all hover:scale-105 active:scale-95"><Signal size={20} /></button>
-                    <button onClick={() => { if (!mapRef.current) return; const is3d = viewMode === '3d'; mapRef.current.setStyle(is3d ? 'mapbox://styles/mapbox/satellite-streets-v12' : 'mapbox://styles/mapbox/dark-v11'); setViewMode(is3d ? 'sat' : '3d'); }} className="w-10 h-10 flex items-center justify-center bg-slate-900 border border-slate-700 text-slate-300 rounded-lg shadow-xl hover:bg-slate-800 transition-all hover:scale-105 active:scale-95"><Layers size={20} /></button>
+                    <button onClick={() => fetchFleetData()} className="w-10 h-10 flex items-center justify-center bg-white text-gray-600 rounded-full shadow-lg border border-gray-100 hover:bg-gray-50 transition-all active:scale-95"><Signal size={18} /></button>
                 </div>
             </div>
 
-            {/* --- GOD TIER SIDEBAR --- */}
+            {/* --- SIDEBAR (UBER STYLE) --- */}
             <div className={`
-                absolute top-0 bottom-0 left-0 z-30 transition-transform duration-500 cubic-bezier(0.22, 1, 0.36, 1)
-                ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-                w-[420px] bg-[#020617]/95 backdrop-blur-2xl border-r border-slate-800 shadow-[20px_0_50px_rgba(0,0,0,0.5)] flex flex-col
+                absolute top-4 left-4 bottom-4 z-30 transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)]
+                ${isSidebarOpen ? 'translate-x-0' : '-translate-x-[120%]'}
+                w-[380px] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-100
             `}>
-                {/* Sidebar Header */}
-                <div className="p-6 border-b border-slate-800 bg-[#0f172a]/50">
-                    <div className="flex justify-between items-center mb-6">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-blue-600 rounded-lg shadow-lg shadow-blue-600/20">
-                                <Navigation size={20} className="text-white" />
-                            </div>
-                            <div>
-                                <h1 className="text-xl font-black tracking-tight text-white uppercase font-mono">Mission Control</h1>
-                                <div className="text-[10px] text-slate-400 font-mono tracking-widest uppercase">Live Fleet Tracking System</div>
-                            </div>
-                        </div>
-                        <button onClick={() => setIsSidebarOpen(false)} className="p-2 text-slate-500 hover:text-white transition-colors"><ChevronLeft /></button>
+                {/* Header */}
+                <div className="p-5 border-b border-gray-100 bg-white sticky top-0 z-10">
+                    <div className="flex justify-between items-center mb-4">
+                        <h1 className="text-xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+                            Fuerza de Campo
+                        </h1>
+                        <button onClick={() => setIsSidebarOpen(false)} className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"><ChevronLeft size={20} /></button>
                     </div>
 
                     {selectedTech ? (
-                        /* SELECTED TECH HUD */
-                        <div className="animate-in fade-in zoom-in-95 duration-300">
-                            <div className="bg-gradient-to-r from-slate-800 to-slate-900 p-5 rounded-2xl border border-slate-700/50 shadow-xl relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
-
-                                <div className="flex items-start justify-between relative z-10">
-                                    <div className="flex items-center gap-4">
-                                        <div className="relative">
-                                            <div className="w-16 h-16 rounded-2xl border-2 border-slate-600 overflow-hidden shadow-lg">
-                                                <img src={selectedTech.avatar_url} className="w-full h-full object-cover" />
-                                            </div>
-                                            <div className={`absolute -bottom-2 -right-2 w-5 h-5 rounded-full border-4 border-slate-800 ${selectedTech.isActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`}></div>
-                                        </div>
-                                        <div>
-                                            <h2 className="text-2xl font-bold text-white leading-tight">{selectedTech.full_name}</h2>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <span className={`text-xs font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${selectedTech.isActive ? 'bg-emerald-950 text-emerald-400 border border-emerald-900' : 'bg-slate-800 text-slate-400'}`}>
-                                                    {selectedTech.isActive ? 'ONLINE' : 'OFFLINE'}
-                                                </span>
-                                                <span className="text-xs text-slate-500 font-mono">ID: #{selectedTech.id.substring(0, 6)}</span>
-                                            </div>
-                                        </div>
+                        /* PROFILE CARD (CLEAN) */
+                        <div className="animate-in fade-in slide-in-from-left-2 duration-300">
+                            <div className="flex items-center gap-4">
+                                <div className="relative">
+                                    <div className="w-14 h-14 rounded-full border border-gray-100 overflow-hidden bg-gray-50">
+                                        <img src={selectedTech.avatar_url} className="w-full h-full object-cover" />
+                                    </div>
+                                    <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-white ${selectedTech.isActive ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-gray-900 leading-tight">{selectedTech.full_name}</h2>
+                                    <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                                        <Truck size={12} />
+                                        {selectedTech.isActive ? <span className="text-green-600 font-medium">En ruta</span> : <span>Desconectado</span>}
                                     </div>
                                 </div>
-                                <button onClick={() => setSelectedTech(null)} className="mt-4 w-full py-2 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-bold uppercase tracking-wider rounded-lg border border-slate-700 transition-all">
-                                    ← Volver al Radar
-                                </button>
                             </div>
+                            <button onClick={() => setSelectedTech(null)} className="mt-4 w-full py-2.5 text-xs text-gray-500 font-medium hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors border border-transparent hover:border-gray-200">
+                                ← Ver todos los técnicos
+                            </button>
                         </div>
                     ) : (
-                        /* DASHBOARD STATS HUD */
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="bg-slate-900/50 border border-blue-900/30 p-4 rounded-xl relative overflow-hidden group hover:border-blue-500/50 transition-all">
-                                <div className="absolute right-2 top-2 text-blue-500/20 group-hover:text-blue-500/40 transition-colors"><Radio size={40} /></div>
-                                <div className="text-3xl font-black text-white mb-1 font-mono">{activeTechsCount}</div>
-                                <div className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Active Units</div>
-                                <div className="h-1 w-full bg-slate-800 mt-3 rounded-full overflow-hidden">
-                                    <div className="h-full bg-blue-500 w-1/2"></div>
-                                </div>
+                        /* STATS ROW */
+                        <div className="flex gap-3">
+                            <div className="flex-1 bg-gray-50/80 p-3 rounded-xl border border-gray-100">
+                                <div className="text-2xl font-bold text-gray-900 mb-0.5">{activeTechsCount}</div>
+                                <div className="text-[10px] font-bold text-green-600 uppercase tracking-wide">Activos</div>
                             </div>
-                            <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-xl relative overflow-hidden group hover:border-slate-600 transition-all">
-                                <div className="absolute right-2 top-2 text-slate-700 group-hover:text-slate-600"><BarChart3 size={40} /></div>
-                                <div className="text-3xl font-black text-slate-400 mb-1 font-mono">{techs.length}</div>
-                                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Fleet</div>
+                            <div className="flex-1 bg-gray-50/80 p-3 rounded-xl border border-gray-100">
+                                <div className="text-2xl font-bold text-gray-400 mb-0.5">{techs.length}</div>
+                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Total</div>
                             </div>
                         </div>
                     )}
                 </div>
 
-                {/* Sidebar Body */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-[#020617]">
+                {/* List Container */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar bg-white p-2">
                     {selectedTech ? (
-                        /* FLIGHT PLAN (TIMELINE) */
-                        <div>
-                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 bg-slate-500 rounded-full"></span> Flight Plan (Itinerary)
-                            </h3>
+                        /* TIMELINE (CLEAN LINE) */
+                        <div className="px-3 pt-2">
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-6 pl-2">Itinerario de Hoy</h3>
 
-                            <div className="relative pl-4 border-l-2 border-slate-800 space-y-8">
+                            <div className="relative pl-5 border-l-2 border-dashed border-gray-100 space-y-8 pb-8">
                                 {techItinerary.map((t, idx) => {
                                     const isDone = t.status === 'completado';
                                     const isActive = t.status === 'en_camino' || t.status === 'en_proceso';
 
                                     return (
-                                        <div key={t.id} className="relative pl-8 group">
-                                            {/* Connector & Dot */}
-                                            <div className="absolute -left-[2px] top-6 w-4 border-t-2 border-slate-800"></div>
+                                        <div key={t.id} className="relative pl-6">
+                                            {/* Dot */}
                                             <div className={`
-                                                absolute -left-[9px] top-4 w-4 h-4 rounded-full border-2 
-                                                ${isDone ? 'bg-emerald-950 border-emerald-500' : isActive ? 'bg-blue-950 border-blue-500 shadow-[0_0_10px_#3b82f6] scale-110' : 'bg-slate-900 border-slate-600'}
-                                                transition-all duration-300 z-10
+                                                absolute -left-[9px] top-4 w-4 h-4 rounded-full border-2 border-white shadow-sm z-10
+                                                ${isDone ? 'bg-green-500' : isActive ? 'bg-black scale-110' : 'bg-gray-300'}
                                             `}></div>
 
-                                            {/* Card */}
                                             <div className={`
-                                                p-4 rounded-xl border transition-all duration-300 relative overflow-hidden
-                                                ${isActive ? 'bg-blue-900/10 border-blue-500/50' : 'bg-slate-900 border-slate-800 hover:border-slate-600'}
+                                                p-4 rounded-xl border transition-all duration-200
+                                                ${isActive ? 'bg-black text-white shadow-lg scale-[1.02] border-black' : 'bg-white border-gray-100 hover:border-gray-300'}
                                             `}>
-                                                {isActive && <div className="absolute top-0 right-0 p-1.5 bg-blue-600 text-white shadow-lg"><Navigation size={12} /></div>}
-
-                                                <div className="flex justify-between items-start mb-2 opacity-80">
-                                                    <span className="font-mono text-lg font-bold text-white">{format(new Date(t.scheduled_at), 'HH:mm')}</span>
-                                                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${isDone ? 'text-emerald-400 bg-emerald-950' : isActive ? 'text-blue-400 bg-blue-950' : 'text-slate-400 bg-slate-800'}`}>
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <span className={`text-lg font-bold ${isActive ? 'text-white' : 'text-gray-900'}`}>{format(new Date(t.scheduled_at), 'HH:mm')}</span>
+                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${isDone ? 'bg-green-100 text-green-700' : isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>
                                                         {t.status.replace('_', ' ')}
                                                     </span>
                                                 </div>
 
-                                                <div className="text-sm font-bold text-white mb-1 truncate">{t.clients?.full_name}</div>
-                                                <div className="text-xs text-slate-400 flex items-center gap-1 mb-3">
-                                                    <Home size={10} /> {t.clients?.address}
-                                                </div>
-
-                                                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-black/40 rounded-lg border border-white/5 text-xs text-slate-300 font-medium w-full">
-                                                    <Store size={12} className="text-amber-500" />
-                                                    {t.appliance_type}
+                                                <div className={`font-medium text-sm mb-1 ${isActive ? 'text-gray-100' : 'text-gray-700'}`}>{t.clients?.full_name}</div>
+                                                <div className={`text-xs flex items-center gap-1.5 ${isActive ? 'text-gray-400' : 'text-gray-400'}`}>
+                                                    <Home size={12} /> {t.clients?.address}
                                                 </div>
                                             </div>
                                         </div>
                                     )
                                 })}
-                                {techItinerary.length === 0 && <div className="pl-8 text-slate-600 font-mono text-sm">NO MISSION DATA FOR TODAY</div>}
+                                {techItinerary.length === 0 && <div className="pl-6 text-gray-400 text-xs italic">Sin itinerario hoy.</div>}
                             </div>
                         </div>
                     ) : (
-                        /* ROSTER LIST */
-                        <div className="space-y-3">
+                        /* ROSTER LIST (CLEAN) */
+                        <div className="space-y-2">
                             {techs.map(tech => (
                                 <div key={tech.id} onClick={() => handleTechSelect(tech)}
-                                    className="group relative p-4 bg-slate-900/50 border border-slate-800 hover:border-blue-500/50 hover:bg-slate-800/80 rounded-xl cursor-pointer transition-all duration-300 overflow-hidden"
+                                    className="group p-3 rounded-xl hover:bg-gray-50 border border-transparent hover:border-gray-100 cursor-pointer transition-all flex items-center gap-4"
                                 >
-                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-
-                                    <div className="flex items-center gap-4 relative z-10">
-                                        <div className="relative">
-                                            <div className="w-12 h-12 rounded-full bg-slate-950 border border-slate-700 overflow-hidden group-hover:border-blue-400 transition-colors">
-                                                {tech.avatar_url ? <img src={tech.avatar_url} className="w-full h-full object-cover" /> : <span className="flex items-center justify-center h-full text-slate-500 font-bold">{tech.full_name[0]}</span>}
-                                            </div>
-                                            {tech.isActive && <div className="absolute -top-1 -right-1 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-sky-500"></span></div>}
+                                    <div className="relative">
+                                        <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
+                                            {tech.avatar_url ? <img src={tech.avatar_url} className="w-full h-full object-cover" /> : <span className="flex items-center justify-center h-full text-gray-500 font-bold">{tech.full_name[0]}</span>}
                                         </div>
+                                        {tech.isActive && <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>}
+                                    </div>
 
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex justify-between items-center mb-1">
-                                                <h4 className="text-sm font-bold text-white truncate group-hover:text-blue-400 transition-colors">{tech.full_name}</h4>
-                                                {tech.workload > 0 && <span className="text-[10px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded-sm shadow-lg shadow-blue-900/50">{tech.workload} Tareas</span>}
-                                            </div>
-                                            <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono uppercase tracking-wider">
-                                                {tech.isActive ? <span className="text-emerald-500 flex items-center gap-1">● Signal Active</span> : <span>Last Signal: {formatDistanceToNow(tech.lastUpdate || new Date(), { addSuffix: true })}</span>}
-                                            </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex justify-between items-center">
+                                            <h4 className="font-bold text-gray-900 truncate">{tech.full_name}</h4>
+                                            {tech.workload > 0 && <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{tech.workload}</span>}
                                         </div>
-
-                                        <div className="text-slate-600 group-hover:text-white transition-colors opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 duration-300">
-                                            <ArrowRight size={18} />
+                                        <div className="text-xs text-gray-400 mt-0.5">
+                                            {tech.isActive ? 'Conectado' : `Visto hace ${formatDistanceToNow(tech.lastUpdate || new Date(), { locale: es })}`}
                                         </div>
                                     </div>
+                                    <ChevronRight size={16} className="text-gray-300 group-hover:text-gray-600 transition-colors" />
                                 </div>
                             ))}
                         </div>
                     )}
                 </div>
 
-                {/* Footer */}
-                <div className="p-4 border-t border-slate-800 bg-[#0f172a]">
-                    <div className="relative group">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" size={16} />
-                        <input type="text" placeholder="SEARCH UNIT..." className="w-full bg-[#020617] border border-slate-700 rounded-lg pl-10 pr-4 py-3 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/50 placeholder-slate-700 font-mono transition-all" />
+                {/* Footer Input */}
+                <div className="p-4 border-t border-gray-100 bg-gray-50/50">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                        <input type="text" placeholder="Buscar..." className="w-full bg-white border border-gray-200 rounded-lg pl-10 pr-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black/5 transition-all shadow-sm" />
                     </div>
                 </div>
             </div>
 
-            {/* Toggle Tab */}
+            {/* Floating Toggle */}
             {!isSidebarOpen && (
-                <button onClick={() => setIsSidebarOpen(true)} className="absolute top-1/2 left-0 -translate-y-1/2 z-40 bg-blue-600 text-white p-3 rounded-r-xl shadow-[0_0_20px_rgba(37,99,235,0.5)] hover:pl-5 transition-all">
-                    <ChevronRight size={24} />
+                <button onClick={() => setIsSidebarOpen(true)} className="absolute top-6 left-6 z-40 bg-white text-gray-900 p-3 rounded-full shadow-xl hover:scale-105 transition-all">
+                    <GripVertical size={20} />
                 </button>
             )}
 
-            <style>{`.custom-scrollbar::-webkit-scrollbar { width: 4px; } .custom-scrollbar::-webkit-scrollbar-track { bg: #020617; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; } .mapboxgl-ctrl-group { background: #0f172a !important; border: 1px solid #334155; } .mapboxgl-ctrl-icon { filter: invert(1); }`}</style>
+            <style>{`.custom-scrollbar::-webkit-scrollbar { width: 4px; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 4px; } .mapboxgl-ctrl-group { border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: none; }`}</style>
         </div>
     );
 };
