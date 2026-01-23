@@ -340,9 +340,11 @@ const FleetMapbox = () => {
         if (!showStops || !selectedTech || !mapRef.current || stops.length === 0) return;
 
         stops.forEach(stop => {
-            // Validate coordinates
-            if (!stop.clients?.latitude || !stop.clients?.longitude) {
-                console.warn('Stop missing coordinates:', stop.id);
+            // Validate coordinates - Support both new 'client' and old 'clients' structure
+            const clientData = stop.client || stop.clients || {};
+
+            if (!clientData.latitude || !clientData.longitude) {
+                console.warn('Stop missing coordinates:', stop.id, clientData);
                 return;
             }
 
@@ -351,7 +353,7 @@ const FleetMapbox = () => {
             // Create popup content
             const popupContent = `
                 <div class="p-3 min-w-[200px]">
-                    <h3 class="font-bold text-sm text-slate-800 mb-1">${stop.clients.full_name || 'Cliente'}</h3>
+                    <h3 class="font-bold text-sm text-slate-800 mb-1">${clientData.full_name || 'Cliente'}</h3>
                     <p class="text-xs text-slate-600 mb-2">${stop.title || 'Sin título'}</p>
                     <div class="flex items-center gap-2 text-xs text-slate-500">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -377,7 +379,7 @@ const FleetMapbox = () => {
             }).setHTML(popupContent);
 
             const marker = new mapboxgl.Marker({ element: el })
-                .setLngLat([stop.clients.longitude, stop.clients.latitude])
+                .setLngLat([clientData.longitude, clientData.latitude])
                 .setPopup(popup)
                 .addTo(mapRef.current);
 
