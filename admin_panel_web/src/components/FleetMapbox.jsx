@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase } from '../lib/supabase';
-import { Signal, Clock, Search, MapIcon, Layers, ChevronLeft, ChevronRight, Navigation, Home, Store, Zap, TrendingUp, Activity } from 'lucide-react';
+import { Signal, Clock, Search, MapIcon, Layers, ChevronLeft, ChevronRight, Navigation, Home, Store, Zap, TrendingUp, Activity, Calendar } from 'lucide-react';
 import { formatDistanceToNow, format, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { MAPBOX_TOKEN } from '../config/mapbox';
@@ -347,8 +347,8 @@ const FleetMapbox = () => {
                                                             {format(new Date(t.scheduled_at), 'HH:mm')}
                                                         </span>
                                                         <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase tracking-wider ${isDone ? 'bg-emerald-500/20 text-emerald-700' :
-                                                                isActive ? 'bg-white/20 text-white' :
-                                                                    'bg-slate-100 text-slate-500'
+                                                            isActive ? 'bg-white/20 text-white' :
+                                                                'bg-slate-100 text-slate-500'
                                                             }`}>
                                                             {t.status.replace('_', ' ')}
                                                         </span>
@@ -363,8 +363,8 @@ const FleetMapbox = () => {
                                                     </div>
 
                                                     <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium ${isActive ? 'bg-white/20 text-white' :
-                                                            isDone ? 'bg-emerald-100 text-emerald-700' :
-                                                                'bg-slate-50 text-slate-700'
+                                                        isDone ? 'bg-emerald-100 text-emerald-700' :
+                                                            'bg-slate-50 text-slate-700'
                                                         }`}>
                                                         <Store size={14} />
                                                         {t.appliance_type}
