@@ -120,6 +120,8 @@ const FleetMapbox = () => {
                 .filter(id => id && typeof id === 'string' && id.length > 10)
             )];
 
+            console.log("🧨 CLIENT IDS QUE ESTAMOS ENVIANDO A SUPABASE:", JSON.stringify(clientIds)); // VER ESTO EN CONSOLA
+
             console.log(`📦 Tickets RAW recuperados: ${validTicketsRaw.length}, Clientes únicos: ${clientIds.length}`);
 
             // Step C: Fetch Client Profiles manually
