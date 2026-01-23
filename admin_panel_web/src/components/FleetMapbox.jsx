@@ -109,14 +109,16 @@ const FleetMapbox = () => {
 
             if (ticketsError) {
                 console.error("❌ CRITICAL ERROR fetching tickets raw:", ticketsError);
-                return;
+                // Continue with empty array instead of returning to avoid crash
             }
+
+            const validTicketsRaw = ticketsRaw || [];
 
             // Step B: Extract Client IDs
             // Filter out null/undefined IDs
-            const clientIds = [...new Set((ticketsRaw || []).map(t => t.client_id).filter(Boolean))];
+            const clientIds = [...new Set(validTicketsRaw.map(t => t.client_id).filter(Boolean))];
 
-            console.log(`📦 Tickets RAW recuperados: ${ticketsRaw?.length || 0}, Clientes únicos: ${clientIds.length}`);
+            console.log(`📦 Tickets RAW recuperados: ${validTicketsRaw.length}, Clientes únicos: ${clientIds.length}`);
 
             // Step C: Fetch Client Profiles manually
             let clientsMap = {};
