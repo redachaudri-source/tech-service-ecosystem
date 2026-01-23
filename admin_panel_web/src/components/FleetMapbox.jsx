@@ -369,6 +369,18 @@ const FleetMapbox = () => {
                     <button onClick={() => fetchFleetData()} className="group w-12 h-12 flex items-center justify-center bg-white/90 backdrop-blur-xl text-blue-600 rounded-2xl shadow-lg shadow-blue-500/10 border border-white/50 hover:shadow-xl hover:shadow-blue-500/20 transition-all duration-300 hover:scale-105 active:scale-95">
                         <Signal size={20} className="group-hover:animate-pulse" />
                     </button>
+
+                    {/* Traffic Toggle */}
+                    <button
+                        onClick={toggleTraffic}
+                        className={`group w-12 h-12 flex items-center justify-center backdrop-blur-xl rounded-2xl shadow-lg border transition-all duration-300 hover:scale-105 active:scale-95 ${showTraffic
+                                ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-orange-500/30 border-white/50'
+                                : 'bg-white/90 text-slate-600 shadow-slate-900/10 border-white/50 hover:shadow-xl'
+                            }`}
+                        title={showTraffic ? 'Ocultar Tráfico' : 'Mostrar Tráfico'}
+                    >
+                        🚦
+                    </button>
                 </div>
             </div>
 
