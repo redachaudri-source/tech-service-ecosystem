@@ -321,93 +321,91 @@ const FleetMapbox = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-white/20 via-transparent to-transparent pointer-events-none z-10"></div>
 
                 {/* Map Controls - Top Right */}
-                <div className="absolute top-6 right-6 flex items-start gap-3 z-20">
-                    {/* Collapsible Settings Panel */}
-                    <div className={`
-                        overflow-hidden transition-all duration-300 ease-out origin-right
-                        ${isMapSettingsOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}
-                    `}>
-                        <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl shadow-slate-900/10 border border-white/50 p-4 space-y-3 min-w-[200px]">
-                            {/* Section: Estilo de Mapa */}
-                            <div>
-                                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Estilo de Mapa</h3>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <button
-                                        onClick={() => { setMapStyle('light'); mapRef.current?.setStyle('mapbox://styles/mapbox/light-v11'); }}
-                                        className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${mapStyle === 'light'
-                                            ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
-                                            : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-                                            }`}
-                                    >
-                                        ☀️ Claro
-                                    </button>
-                                    <button
-                                        onClick={() => { setMapStyle('satellite'); mapRef.current?.setStyle('mapbox://styles/mapbox/satellite-streets-v12'); }}
-                                        className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${mapStyle === 'satellite'
-                                            ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
-                                            : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-                                            }`}
-                                    >
-                                        🛰️ Satélite
-                                    </button>
-                                    <button
-                                        onClick={() => { setMapStyle('dark'); mapRef.current?.setStyle('mapbox://styles/mapbox/dark-v11'); }}
-                                        className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${mapStyle === 'dark'
-                                            ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
-                                            : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-                                            }`}
-                                    >
-                                        🌙 Oscuro
-                                    </button>
-                                    <button
-                                        onClick={toggle3DView}
-                                        className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${mapStyle === '3d'
-                                            ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
-                                            : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-                                            }`}
-                                    >
-                                        🏙️ 3D
-                                    </button>
-                                </div>
-                            </div>
+                <div className="absolute top-6 right-6 flex flex-col gap-3 z-20">
+                    {/* Refresh Button */}
+                    <button onClick={() => fetchFleetData()} className="group w-12 h-12 flex items-center justify-center bg-white/90 backdrop-blur-xl text-blue-600 rounded-2xl shadow-lg shadow-blue-500/10 border border-white/50 hover:shadow-xl hover:shadow-blue-500/20 transition-all duration-300 hover:scale-105 active:scale-95">
+                        <Signal size={20} className="group-hover:animate-pulse" />
+                    </button>
 
-                            {/* Divider */}
-                            <div className="h-px bg-slate-200"></div>
+                    {/* Settings Panel Toggle */}
+                    <button
+                        onClick={() => setIsMapSettingsOpen(!isMapSettingsOpen)}
+                        className="group w-12 h-12 flex items-center justify-center bg-white/90 backdrop-blur-xl text-slate-700 rounded-2xl shadow-lg shadow-slate-900/10 border border-white/50 hover:shadow-xl hover:bg-gradient-to-br hover:from-blue-500 hover:to-purple-600 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95"
+                        title="Configuración del Mapa"
+                    >
+                        <Layers size={20} className={`transition-transform duration-300 ${isMapSettingsOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                </div>
 
-                            {/* Section: Capas */}
-                            <div>
-                                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Capas</h3>
+                {/* Collapsible Settings Panel - Expands Left */}
+                <div className={`
+                    absolute top-6 right-20 z-20
+                    overflow-hidden transition-all duration-300 ease-out origin-right
+                    ${isMapSettingsOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}
+                `}>
+                    <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl shadow-slate-900/10 border border-white/50 p-4 space-y-3 min-w-[200px]">
+                        {/* Section: Estilo de Mapa */}
+                        <div>
+                            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Estilo de Mapa</h3>
+                            <div className="grid grid-cols-2 gap-2">
                                 <button
-                                    onClick={toggleTraffic}
-                                    className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${showTraffic
-                                        ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md'
+                                    onClick={() => { setMapStyle('light'); mapRef.current?.setStyle('mapbox://styles/mapbox/light-v11'); }}
+                                    className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${mapStyle === 'light'
+                                        ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
                                         : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
                                         }`}
                                 >
-                                    <span className="flex items-center gap-2">
-                                        🚦 Tráfico
-                                    </span>
-                                    <span className="text-[10px] opacity-70">{showTraffic ? 'ON' : 'OFF'}</span>
+                                    ☀️ Claro
+                                </button>
+                                <button
+                                    onClick={() => { setMapStyle('satellite'); mapRef.current?.setStyle('mapbox://styles/mapbox/satellite-streets-v12'); }}
+                                    className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${mapStyle === 'satellite'
+                                        ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
+                                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                                        }`}
+                                >
+                                    🛰️ Satélite
+                                </button>
+                                <button
+                                    onClick={() => { setMapStyle('dark'); mapRef.current?.setStyle('mapbox://styles/mapbox/dark-v11'); }}
+                                    className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${mapStyle === 'dark'
+                                        ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
+                                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                                        }`}
+                                >
+                                    🌙 Oscuro
+                                </button>
+                                <button
+                                    onClick={toggle3DView}
+                                    className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${mapStyle === '3d'
+                                        ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
+                                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                                        }`}
+                                >
+                                    🏙️ 3D
                                 </button>
                             </div>
                         </div>
-                    </div>
 
-                    {/* Control Buttons */}
-                    <div className="flex gap-2">
-                        {/* Refresh Button */}
-                        <button onClick={() => fetchFleetData()} className="group w-12 h-12 flex items-center justify-center bg-white/90 backdrop-blur-xl text-blue-600 rounded-2xl shadow-lg shadow-blue-500/10 border border-white/50 hover:shadow-xl hover:shadow-blue-500/20 transition-all duration-300 hover:scale-105 active:scale-95">
-                            <Signal size={20} className="group-hover:animate-pulse" />
-                        </button>
+                        {/* Divider */}
+                        <div className="h-px bg-slate-200"></div>
 
-                        {/* Settings Panel Toggle */}
-                        <button
-                            onClick={() => setIsMapSettingsOpen(!isMapSettingsOpen)}
-                            className="group w-12 h-12 flex items-center justify-center bg-white/90 backdrop-blur-xl text-slate-700 rounded-2xl shadow-lg shadow-slate-900/10 border border-white/50 hover:shadow-xl hover:bg-gradient-to-br hover:from-blue-500 hover:to-purple-600 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95"
-                            title="Configuración del Mapa"
-                        >
-                            <Layers size={20} className={`transition-transform duration-300 ${isMapSettingsOpen ? 'rotate-180' : ''}`} />
-                        </button>
+                        {/* Section: Capas */}
+                        <div>
+                            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Capas</h3>
+                            <button
+                                onClick={toggleTraffic}
+                                className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${showTraffic
+                                    ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md'
+                                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                                    }`}
+                            >
+                                <span className="flex items-center gap-2">
+                                    🚦 Tráfico
+                                </span>
+                                <span className="text-[10px] opacity-70">{showTraffic ? 'ON' : 'OFF'}</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
