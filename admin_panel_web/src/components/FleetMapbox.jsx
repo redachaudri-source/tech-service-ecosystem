@@ -134,12 +134,20 @@ const FleetMapbox = () => {
                 const results = await Promise.all(clientIds.map(async (id) => {
                     const { data, error } = await supabase
                         .from('profiles')
-                        .select('id, full_name, address, latitude, longitude')
+                        .select('id, full_name, address, current_lat, current_lng')
                         .eq('id', id)
                         .maybeSingle(); // Use maybeSingle to avoid errors
 
                     if (error) console.warn(`⚠️ Error fetching profile ${id}:`, error.message);
-                    return data;
+
+                    if (data) {
+                        return {
+                            ...data,
+                            latitude: data.current_lat,
+                            longitude: data.current_lng
+                        };
+                    }
+                    return null;
                 }));
 
                 const validProfiles = results.filter(Boolean);
