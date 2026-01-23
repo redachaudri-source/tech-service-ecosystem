@@ -70,15 +70,20 @@ const FleetMapbox = () => {
     const fetchFleetData = async () => {
         const now = new Date();
 
-        // FIX: Use local date strings to avoid UTC timezone issues
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
+        // FIX: Broaden search range to yesterday/tomorrow to handle Timezones (UTC vs Local)
+        // This ensures we catch tickets regardless of the offset
+        const start = new Date(now);
+        start.setDate(now.getDate() - 1);
+        start.setHours(0, 0, 0, 0);
 
-        const startDate = `${year}-${month}-${day}T00:00:00.000Z`;
-        const endDate = `${year}-${month}-${day}T23:59:59.999Z`;
+        const end = new Date(now);
+        end.setDate(now.getDate() + 1);
+        end.setHours(23, 59, 59, 999);
 
-        console.log('🔍 Fetching tickets for range:', { startDate, endDate });
+        const startDate = start.toISOString();
+        const endDate = end.toISOString();
+
+        console.log('🔍 Fetching tickets for wide range (-1/+1 day):', { startDate, endDate });
 
         const [profilesRes, ticketsRes] = await Promise.all([
             supabase.from('profiles').select('id, full_name, avatar_url, current_lat, current_lng, last_location_update').eq('role', 'tech').eq('is_active', true),
