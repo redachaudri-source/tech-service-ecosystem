@@ -69,28 +69,44 @@ const FleetMapbox = () => {
 
     const fetchFleetData = async () => {
         const now = new Date();
-        const start = startOfDay(now).toISOString();
-        const end = endOfDay(now).toISOString();
+
+        // FIX: Use local date strings to avoid UTC timezone issues
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+
+        const startDate = `${year}-${month}-${day}T00:00:00`;
+        const endDate = `${year}-${month}-${day}T23:59:59`;
+
+        console.log('🔍 Fetching tickets for range:', { startDate, endDate });
 
         const [profilesRes, ticketsRes] = await Promise.all([
             supabase.from('profiles').select('id, full_name, avatar_url, current_lat, current_lng, last_location_update').eq('role', 'tech').eq('is_active', true),
             supabase.from('tickets')
                 .select(`id, technician_id, status, scheduled_at, title, appliance_type, clients ( full_name, address, latitude, longitude )`)
-                .gte('scheduled_at', start).lte('scheduled_at', end)
-                .neq('status', 'cancelado')
+                .gte('scheduled_at', startDate)
+                .lte('scheduled_at', endDate)
+                // BROADENED: Only exclude cancelled, accept all other statuses
+                .not('status', 'in', '(cancelado,rechazado,anulado)')
         ]);
 
         const allTickets = ticketsRes.data || [];
+        console.log('📦 Tickets encontrados:', allTickets.length, allTickets);
 
         const merged = (profilesRes.data || []).map(t => {
             const myTickets = allTickets.filter(tk => tk.technician_id === t.id);
-            const workload = myTickets.filter(tk => tk.status !== 'completado').length;
+            const workload = myTickets.filter(tk => {
+                const s = (tk.status || '').toLowerCase();
+                return !['completado', 'finalizado', 'pagado'].includes(s);
+            }).length;
 
             let isActive = false;
             if (t.last_location_update) {
                 const diff = (new Date() - new Date(t.last_location_update)) / 1000 / 60;
                 isActive = diff < 20;
             }
+
+            console.log(`👤 Tech ${t.full_name}: ${myTickets.length} tickets`, myTickets.map(tk => tk.status));
 
             return {
                 ...t, technician_id: t.id, workload, allTickets: myTickets, isActive,
@@ -110,6 +126,7 @@ const FleetMapbox = () => {
                 const sorted = [...updated.allTickets].sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
                 setTechItinerary(sorted);
                 setTechStops(updated.allTickets); // Update stops
+                console.log('✅ Updated stops for tech:', updated.full_name, updated.allTickets.length);
             }
         }
     };
@@ -430,8 +447,8 @@ const FleetMapbox = () => {
                     <button
                         onClick={() => setShowStops(!showStops)}
                         className={`group w-12 h-12 flex items-center justify-center backdrop-blur-xl rounded-2xl shadow-lg border border-white/50 transition-all duration-300 hover:scale-105 active:scale-95 ${showStops
-                                ? 'bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-emerald-500/20 hover:shadow-emerald-500/30'
-                                : 'bg-white/90 text-slate-700 shadow-slate-900/10 hover:shadow-xl'
+                            ? 'bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-emerald-500/20 hover:shadow-emerald-500/30'
+                            : 'bg-white/90 text-slate-700 shadow-slate-900/10 hover:shadow-xl'
                             }`}
                         title={showStops ? "Ocultar Paradas" : "Mostrar Paradas"}
                     >
