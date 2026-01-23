@@ -27,6 +27,7 @@ const FleetMapbox = () => {
     const [activeTechsCount, setActiveTechsCount] = useState(0);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [mapStyle, setMapStyle] = useState('light');
+    const [showTraffic, setShowTraffic] = useState(false);
 
     // MAP INIT
     useEffect(() => {
@@ -146,6 +147,46 @@ const FleetMapbox = () => {
             if (mapRef.current.getLayer('3d-buildings')) {
                 mapRef.current.removeLayer('3d-buildings');
             }
+        }
+    };
+
+    const toggleTraffic = () => {
+        if (!mapRef.current) return;
+
+        if (showTraffic) {
+            // Remove traffic layer
+            if (mapRef.current.getLayer('traffic')) {
+                mapRef.current.removeLayer('traffic');
+            }
+            if (mapRef.current.getSource('traffic')) {
+                mapRef.current.removeSource('traffic');
+            }
+            setShowTraffic(false);
+        } else {
+            // Add traffic layer
+            mapRef.current.addSource('traffic', {
+                type: 'vector',
+                url: 'mapbox://mapbox.mapbox-traffic-v1'
+            });
+
+            mapRef.current.addLayer({
+                'id': 'traffic',
+                'type': 'line',
+                'source': 'traffic',
+                'source-layer': 'traffic',
+                'paint': {
+                    'line-width': 3,
+                    'line-color': [
+                        'case',
+                        ['==', ['get', 'congestion'], 'low'], '#10b981',
+                        ['==', ['get', 'congestion'], 'moderate'], '#f59e0b',
+                        ['==', ['get', 'congestion'], 'heavy'], '#ef4444',
+                        ['==', ['get', 'congestion'], 'severe'], '#991b1b',
+                        '#6b7280'
+                    ]
+                }
+            });
+            setShowTraffic(true);
         }
     };
 
@@ -315,8 +356,8 @@ const FleetMapbox = () => {
                         <button
                             onClick={toggle3DView}
                             className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${mapStyle === '3d'
-                                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
-                                    : 'text-slate-600 hover:bg-slate-100'
+                                ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
+                                : 'text-slate-600 hover:bg-slate-100'
                                 }`}
                             title="Vista 3D"
                         >
