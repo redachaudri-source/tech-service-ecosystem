@@ -97,29 +97,46 @@ const FleetMapbox = () => {
             }
 
             // 2. Fetch Tickets separately with robust error handling
-            // FIX: Use explicit relationship syntax matching GlobalAgenda.jsx
-            const { data: tickets, error: ticketsError } = await supabase
+            // 2. EMERGENCY STRATEGY: Manual Join (No Supabase Relationship)
+            // Step A: Fetch Tickets RAW (only IDs)
+            // Note: client_id might be stored in a different column if the relationship is failing
+            // We fetch the raw ticket first
+            const { data: ticketsRaw, error: ticketsError } = await supabase
                 .from('tickets')
-                .select(`
-                    id, 
-                    technician_id, 
-                    status, 
-                    scheduled_at, 
-                    title, 
-                    appliance_type,
-                    client:profiles!client_id ( full_name, address, latitude, longitude )
-                `)
+                .select(`id, technician_id, status, scheduled_at, title, appliance_type, client_id`) // Assuming client_id exists
                 .gte('scheduled_at', startDate)
                 .lte('scheduled_at', endDate);
 
             if (ticketsError) {
-                console.error("❌ CRITICAL ERROR fetching tickets (400?):", ticketsError);
-                // Fallback: Try fetching without date filter to see if format is the issue
-                const { data: backupTickets } = await supabase.from('tickets').select('id, status').limit(5);
-                console.log("⚠️ Backup fetch result:", backupTickets);
+                console.error("❌ CRITICAL ERROR fetching tickets raw:", ticketsError);
+                return;
             }
 
-            const allTickets = tickets || [];
+            // Step B: Extract Client IDs
+            // Filter out null/undefined IDs
+            const clientIds = [...new Set((ticketsRaw || []).map(t => t.client_id).filter(Boolean))];
+
+            console.log(`📦 Tickets RAW recuperados: ${ticketsRaw?.length || 0}, Clientes únicos: ${clientIds.length}`);
+
+            // Step C: Fetch Client Profiles manually
+            let clientsMap = {};
+            if (clientIds.length > 0) {
+                const { data: clientsData, error: clientsError } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, address, latitude, longitude')
+                    .in('id', clientIds);
+
+                if (clientsData) {
+                    clientsMap = clientsData.reduce((acc, c) => ({ ...acc, [c.id]: c }), {});
+                }
+            }
+
+            // Step D: Merge Manually
+            const allTickets = (ticketsRaw || []).map(t => ({
+                ...t,
+                client: clientsMap[t.client_id] || { full_name: 'Cliente desconocido' } // Manual Join
+            }));
+
 
             // Filter valid tickets
             const validTickets = allTickets.filter(t => {
@@ -127,7 +144,7 @@ const FleetMapbox = () => {
                 return !['cancelado', 'rechazado', 'anulado'].includes(s);
             });
 
-            console.log(`📦 Tickets validos recuperados: ${validTickets.length}`);
+            console.log(`📦 Tickets merged manually: ${validTickets.length}`);
 
             // Merge Data
             const merged = (profiles || []).map(t => {
