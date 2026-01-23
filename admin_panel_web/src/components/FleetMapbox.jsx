@@ -86,12 +86,15 @@ const FleetMapbox = () => {
                 .select(`id, technician_id, status, scheduled_at, title, appliance_type, clients ( full_name, address, latitude, longitude )`)
                 .gte('scheduled_at', startDate)
                 .lte('scheduled_at', endDate)
-                // BROADENED: Only exclude cancelled, accept all other statuses
-                .not('status', 'in', '(cancelado,rechazado,anulado)')
+            // SIMPLIFIED: Fetch all, filter in frontend
         ]);
 
-        const allTickets = ticketsRes.data || [];
-        console.log('📦 Tickets encontrados:', allTickets.length, allTickets);
+        // Filter out cancelled statuses in frontend
+        const allTickets = (ticketsRes.data || []).filter(ticket => {
+            const status = (ticket.status || '').toLowerCase();
+            return !['cancelado', 'rechazado', 'anulado'].includes(status);
+        });
+        console.log('📦 Tickets encontrados (after filter):', allTickets.length, allTickets);
 
         const merged = (profilesRes.data || []).map(t => {
             const myTickets = allTickets.filter(tk => tk.technician_id === t.id);
