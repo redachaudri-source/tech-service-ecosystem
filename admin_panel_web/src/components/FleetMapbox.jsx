@@ -97,7 +97,7 @@ const FleetMapbox = () => {
             }
 
             // 2. Fetch Tickets separately with robust error handling
-            // Removed complex selects to avoid syntax errors, fetching * for now
+            // FIX: Use explicit relationship syntax matching GlobalAgenda.jsx
             const { data: tickets, error: ticketsError } = await supabase
                 .from('tickets')
                 .select(`
@@ -107,7 +107,7 @@ const FleetMapbox = () => {
                     scheduled_at, 
                     title, 
                     appliance_type,
-                    clients ( full_name, address, latitude, longitude )
+                    client:profiles!client_id ( full_name, address, latitude, longitude )
                 `)
                 .gte('scheduled_at', startDate)
                 .lte('scheduled_at', endDate);
