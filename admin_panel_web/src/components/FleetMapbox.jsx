@@ -402,7 +402,7 @@ const FleetMapbox = () => {
             }).setHTML(popupContent);
 
             const marker = new mapboxgl.Marker({ element: el })
-                .setLngLat([clientData.longitude, clientData.latitude])
+                .setLngLat([Number(clientData.longitude), Number(clientData.latitude)])
                 .setPopup(popup)
                 .addTo(mapRef.current);
 
