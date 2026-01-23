@@ -68,74 +68,106 @@ const FleetMapbox = () => {
     }, []);
 
     const fetchFleetData = async () => {
-        const now = new Date();
+        try {
+            const now = new Date();
+            // Wide range: Yesterday to Tomorrow (-1 / +1 day)
+            const start = new Date(now);
+            start.setDate(now.getDate() - 1);
+            start.setHours(0, 0, 0, 0);
 
-        // FIX: Broaden search range to yesterday/tomorrow to handle Timezones (UTC vs Local)
-        // This ensures we catch tickets regardless of the offset
-        const start = new Date(now);
-        start.setDate(now.getDate() - 1);
-        start.setHours(0, 0, 0, 0);
+            const end = new Date(now);
+            end.setDate(now.getDate() + 1);
+            end.setHours(23, 59, 59, 999);
 
-        const end = new Date(now);
-        end.setDate(now.getDate() + 1);
-        end.setHours(23, 59, 59, 999);
+            const startDate = start.toISOString();
+            const endDate = end.toISOString();
 
-        const startDate = start.toISOString();
-        const endDate = end.toISOString();
+            console.log('🔍 Fetching with defensive strategy:', { startDate, endDate });
 
-        console.log('🔍 Fetching tickets for wide range (-1/+1 day):', { startDate, endDate });
+            // 1. Fetch Profiles first (Safe)
+            const { data: profiles, error: profilesError } = await supabase
+                .from('profiles')
+                .select('id, full_name, avatar_url, current_lat, current_lng, last_location_update')
+                .eq('role', 'tech')
+                .eq('is_active', true);
 
-        const [profilesRes, ticketsRes] = await Promise.all([
-            supabase.from('profiles').select('id, full_name, avatar_url, current_lat, current_lng, last_location_update').eq('role', 'tech').eq('is_active', true),
-            supabase.from('tickets')
-                .select(`id, technician_id, status, scheduled_at, title, appliance_type, clients ( full_name, address, latitude, longitude )`)
+            if (profilesError) {
+                console.error("❌ Error fetching profiles:", profilesError);
+                return;
+            }
+
+            // 2. Fetch Tickets separately with robust error handling
+            // Removed complex selects to avoid syntax errors, fetching * for now
+            const { data: tickets, error: ticketsError } = await supabase
+                .from('tickets')
+                .select(`
+                    id, 
+                    technician_id, 
+                    status, 
+                    scheduled_at, 
+                    title, 
+                    appliance_type,
+                    clients ( full_name, address, latitude, longitude )
+                `)
                 .gte('scheduled_at', startDate)
-                .lte('scheduled_at', endDate)
-            // SIMPLIFIED: Fetch all, filter in frontend
-        ]);
+                .lte('scheduled_at', endDate);
 
-        // Filter out cancelled statuses in frontend
-        const allTickets = (ticketsRes.data || []).filter(ticket => {
-            const status = (ticket.status || '').toLowerCase();
-            return !['cancelado', 'rechazado', 'anulado'].includes(status);
-        });
-        console.log('📦 Tickets encontrados (after filter):', allTickets.length, allTickets);
-
-        const merged = (profilesRes.data || []).map(t => {
-            const myTickets = allTickets.filter(tk => tk.technician_id === t.id);
-            const workload = myTickets.filter(tk => {
-                const s = (tk.status || '').toLowerCase();
-                return !['completado', 'finalizado', 'pagado'].includes(s);
-            }).length;
-
-            let isActive = false;
-            if (t.last_location_update) {
-                const diff = (new Date() - new Date(t.last_location_update)) / 1000 / 60;
-                isActive = diff < 20;
+            if (ticketsError) {
+                console.error("❌ CRITICAL ERROR fetching tickets (400?):", ticketsError);
+                // Fallback: Try fetching without date filter to see if format is the issue
+                const { data: backupTickets } = await supabase.from('tickets').select('id, status').limit(5);
+                console.log("⚠️ Backup fetch result:", backupTickets);
             }
 
-            console.log(`👤 Tech ${t.full_name}: ${myTickets.length} tickets`, myTickets.map(tk => tk.status));
+            const allTickets = tickets || [];
 
-            return {
-                ...t, technician_id: t.id, workload, allTickets: myTickets, isActive,
-                lastUpdate: t.last_location_update ? new Date(t.last_location_update) : null,
-                latitude: t.current_lat || 36.7212, longitude: t.current_lng || -4.4217,
-            };
-        });
+            // Filter valid tickets
+            const validTickets = allTickets.filter(t => {
+                const s = (t.status || '').toLowerCase();
+                return !['cancelado', 'rechazado', 'anulado'].includes(s);
+            });
 
-        merged.sort((a, b) => b.isActive - a.isActive);
-        setTechs(merged);
-        setActiveTechsCount(merged.filter(m => m.isActive).length);
-        updateMarkers(merged);
+            console.log(`📦 Tickets validos recuperados: ${validTickets.length}`);
 
-        if (selectedTech) {
-            const updated = merged.find(t => t.id === selectedTech.id);
-            if (updated) {
-                const sorted = [...updated.allTickets].sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
-                setTechItinerary(sorted);
-                setTechStops(updated.allTickets); // Update stops
-                console.log('✅ Updated stops for tech:', updated.full_name, updated.allTickets.length);
+            // Merge Data
+            const merged = (profiles || []).map(t => {
+                const myTickets = validTickets.filter(tk => tk.technician_id === t.id);
+                // Workload logic
+                const workload = myTickets.filter(tk => {
+                    const s = (tk.status || '').toLowerCase();
+                    return !['completado', 'finalizado'].includes(s);
+                }).length;
+
+                let isActive = false;
+                if (t.last_location_update) {
+                    const diff = (new Date() - new Date(t.last_location_update)) / 1000 / 60;
+                    isActive = diff < 20;
+                }
+
+                return {
+                    ...t, technician_id: t.id, workload, allTickets: myTickets, isActive,
+                    lastUpdate: t.last_location_update ? new Date(t.last_location_update) : null,
+                    latitude: t.current_lat || 36.7212, longitude: t.current_lng || -4.4217,
+                };
+            });
+
+            merged.sort((a, b) => b.isActive - a.isActive);
+            setTechs(merged);
+            setActiveTechsCount(merged.filter(m => m.isActive).length);
+            updateMarkers(merged);
+
+            if (selectedTech) {
+                const updated = merged.find(t => t.id === selectedTech.id);
+                if (updated) {
+                    const sorted = [...updated.allTickets].sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
+                    setTechItinerary(sorted);
+                    setTechStops(updated.allTickets); // Update stops
+                    console.log('✅ Stops updated for:', updated.full_name);
+                }
             }
+
+        } catch (e) {
+            console.error("🔥 EXCEPTION in fetchFleetData:", e);
         }
     };
 
