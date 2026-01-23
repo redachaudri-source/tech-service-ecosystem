@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import ReactDOMServer from 'react-dom/server';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase } from '../lib/supabase';
@@ -6,6 +7,7 @@ import { Signal, Clock, Search, MapIcon, Layers, ChevronLeft, ChevronRight, Navi
 import { formatDistanceToNow, format, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { MAPBOX_TOKEN } from '../config/mapbox';
+import StopMarker from './map/StopMarker';
 
 mapboxgl.accessToken = MAPBOX_TOKEN;
 
@@ -20,15 +22,18 @@ const FleetMapbox = () => {
     const mapRef = useRef(null);
     const markersRef = useRef({});
     const routeMarkersRef = useRef([]);
+    const stopMarkersRef = useRef([]); // NEW: Stop markers
 
     const [techs, setTechs] = useState([]);
     const [selectedTech, setSelectedTech] = useState(null);
     const [techItinerary, setTechItinerary] = useState([]);
+    const [techStops, setTechStops] = useState([]); // NEW: Stops for selected tech
     const [activeTechsCount, setActiveTechsCount] = useState(0);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [mapStyle, setMapStyle] = useState('light');
     const [showTraffic, setShowTraffic] = useState(false);
     const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
+    const [showStops, setShowStops] = useState(true); // NEW: Toggle stops visibility
 
     // MAP INIT
     useEffect(() => {
@@ -104,10 +109,21 @@ const FleetMapbox = () => {
             if (updated) {
                 const sorted = [...updated.allTickets].sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
                 setTechItinerary(sorted);
-                drawRoutesAndStops(updated, sorted);
+                setTechStops(updated.allTickets); // Update stops
             }
         }
     };
+
+    // AUTO-RENDER STOPS when tech/stops/showStops changes
+    useEffect(() => {
+        if (selectedTech && techStops.length > 0) {
+            renderStopMarkers(techStops);
+        } else {
+            // Clear stops if no tech selected
+            stopMarkersRef.current.forEach(marker => marker.remove());
+            stopMarkersRef.current = [];
+        }
+    }, [selectedTech, techStops, showStops]);
 
     const toggle3DView = () => {
         if (!mapRef.current) return;
@@ -240,6 +256,80 @@ const FleetMapbox = () => {
         });
     };
 
+    // CREATE STOP ICON (House Marker)
+    const createStopIcon = (stop) => {
+        const isActive = stop.status === 'en_proceso';
+        const status = stop.status || 'pendiente';
+
+        // Render React component to HTML string
+        const svgHtml = ReactDOMServer.renderToString(
+            <StopMarker status={status} isActive={isActive} />
+        );
+
+        const el = document.createElement('div');
+        el.innerHTML = svgHtml;
+        el.style.cursor = 'pointer';
+        el.className = 'stop-marker-container';
+
+        return el;
+    };
+
+    // RENDER STOP MARKERS
+    const renderStopMarkers = (stops) => {
+        // Clear previous stop markers
+        stopMarkersRef.current.forEach(marker => marker.remove());
+        stopMarkersRef.current = [];
+
+        if (!showStops || !selectedTech || !mapRef.current || stops.length === 0) return;
+
+        stops.forEach(stop => {
+            // Validate coordinates
+            if (!stop.clients?.latitude || !stop.clients?.longitude) {
+                console.warn('Stop missing coordinates:', stop.id);
+                return;
+            }
+
+            const el = createStopIcon(stop);
+
+            // Create popup content
+            const popupContent = `
+                <div class="p-3 min-w-[200px]">
+                    <h3 class="font-bold text-sm text-slate-800 mb-1">${stop.clients.full_name || 'Cliente'}</h3>
+                    <p class="text-xs text-slate-600 mb-2">${stop.title || 'Sin título'}</p>
+                    <div class="flex items-center gap-2 text-xs text-slate-500">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>${new Date(stop.scheduled_at).toLocaleTimeString('es-ES', {
+                hour: '2-digit',
+                minute: '2-digit'
+            })}</span>
+                    </div>
+                    ${stop.appliance_type ? `
+                        <div class="mt-2 text-xs text-slate-500">
+                            <span class="font-medium">Tipo:</span> ${stop.appliance_type}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+
+            const popup = new mapboxgl.Popup({
+                offset: 25,
+                closeButton: false,
+                className: 'stop-popup'
+            }).setHTML(popupContent);
+
+            const marker = new mapboxgl.Marker({ element: el })
+                .setLngLat([stop.clients.longitude, stop.clients.latitude])
+                .setPopup(popup)
+                .addTo(mapRef.current);
+
+            stopMarkersRef.current.push(marker);
+        });
+
+        console.log(`✅ Rendered ${stopMarkersRef.current.length} stop markers`);
+    };
+
     const handleTechSelect = (tech) => {
         setSelectedTech(tech);
         setIsSidebarOpen(true);
@@ -334,6 +424,18 @@ const FleetMapbox = () => {
                         title="Configuración del Mapa"
                     >
                         <Layers size={20} className={`transition-transform duration-300 ${isMapSettingsOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {/* Stop Markers Toggle */}
+                    <button
+                        onClick={() => setShowStops(!showStops)}
+                        className={`group w-12 h-12 flex items-center justify-center backdrop-blur-xl rounded-2xl shadow-lg border border-white/50 transition-all duration-300 hover:scale-105 active:scale-95 ${showStops
+                                ? 'bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-emerald-500/20 hover:shadow-emerald-500/30'
+                                : 'bg-white/90 text-slate-700 shadow-slate-900/10 hover:shadow-xl'
+                            }`}
+                        title={showStops ? "Ocultar Paradas" : "Mostrar Paradas"}
+                    >
+                        <Home size={20} className={showStops ? 'animate-pulse' : ''} />
                     </button>
                 </div>
 
