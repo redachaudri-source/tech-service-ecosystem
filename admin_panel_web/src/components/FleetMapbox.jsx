@@ -132,10 +132,14 @@ const FleetMapbox = () => {
             }
 
             // Step D: Merge Manually
-            const allTickets = (ticketsRaw || []).map(t => ({
+            const allTickets = validTicketsRaw.map(t => ({
                 ...t,
-                client: clientsMap[t.client_id] || { full_name: 'Cliente desconocido' } // Manual Join
+                client: t.client_id ? (clientsMap[t.client_id] || {}) : {},
             }));
+
+            if (allTickets.length > 0) {
+                console.log('🔍 DEBUG MERGE:', allTickets[0]);
+            }
 
 
             // Filter valid tickets
