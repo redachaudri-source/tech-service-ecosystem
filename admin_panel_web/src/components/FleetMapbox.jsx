@@ -103,7 +103,7 @@ const FleetMapbox = () => {
             // We fetch the raw ticket first
             const { data: ticketsRaw, error: ticketsError } = await supabase
                 .from('tickets')
-                .select(`id, technician_id, status, scheduled_at, title, appliance_type, client_id`) // Assuming client_id exists
+                .select('*') // Wildcard is safer
                 .gte('scheduled_at', startDate)
                 .lte('scheduled_at', endDate);
 
