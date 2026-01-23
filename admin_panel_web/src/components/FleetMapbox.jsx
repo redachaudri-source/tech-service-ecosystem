@@ -114,9 +114,11 @@ const FleetMapbox = () => {
 
             const validTicketsRaw = ticketsRaw || [];
 
-            // Step B: Extract Client IDs
-            // Filter out null/undefined IDs
-            const clientIds = [...new Set(validTicketsRaw.map(t => t.client_id).filter(Boolean))];
+            // Step B: Extract Client IDs (Strict Validation)
+            const clientIds = [...new Set(validTicketsRaw
+                .map(t => t.client_id)
+                .filter(id => id && typeof id === 'string' && id.length > 10)
+            )];
 
             console.log(`📦 Tickets RAW recuperados: ${validTicketsRaw.length}, Clientes únicos: ${clientIds.length}`);
 
