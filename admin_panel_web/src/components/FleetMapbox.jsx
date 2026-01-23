@@ -116,27 +116,35 @@ const FleetMapbox = () => {
 
             // Step B: Extract Client IDs (Strict Validation)
             // Trim and lowercase to avoid UUID format errors
+            // Step B: Extract Client IDs (Strict Validation)
+            // Aggressive cleanup: Remove anything that is NOT a hex char or hyphen
             const clientIds = [...new Set(validTicketsRaw
                 .map(t => t.client_id)
                 .filter(id => id && typeof id === 'string' && id.length > 10)
-                .map(id => id.trim().toLowerCase())
+                .map(id => id.replace(/[^a-f0-9-]/gi, '').toLowerCase())
             )];
 
-            console.log("🧨 CLIENT IDS QUE ESTAMOS ENVIANDO A SUPABASE:", JSON.stringify(clientIds)); // VER ESTO EN CONSOLA
+            console.log("🧨 CLIENT IDS CLEANED:", JSON.stringify(clientIds));
 
-            console.log(`📦 Tickets RAW recuperados: ${validTicketsRaw.length}, Clientes únicos: ${clientIds.length}`);
-
-            // Step C: Fetch Client Profiles manually
+            // Step C: Fetch Client Profiles manually (ROBUST PARALLEL FETCH)
+            // Instead of .in() which crashes on one bad ID, we fetch individually
             let clientsMap = {};
             if (clientIds.length > 0) {
-                const { data: clientsData, error: clientsError } = await supabase
-                    .from('profiles')
-                    .select('id, full_name, address, latitude, longitude')
-                    .in('id', clientIds);
+                // Fetch independently to isolate errors
+                const results = await Promise.all(clientIds.map(async (id) => {
+                    const { data, error } = await supabase
+                        .from('profiles')
+                        .select('id, full_name, address, latitude, longitude')
+                        .eq('id', id)
+                        .maybeSingle(); // Use maybeSingle to avoid errors
 
-                if (clientsData) {
-                    clientsMap = clientsData.reduce((acc, c) => ({ ...acc, [c.id]: c }), {});
-                }
+                    if (error) console.warn(`⚠️ Error fetching profile ${id}:`, error.message);
+                    return data;
+                }));
+
+                const validProfiles = results.filter(Boolean);
+                clientsMap = validProfiles.reduce((acc, c) => ({ ...acc, [c.id]: c }), {});
+                console.log(`✅ PERFILES OK: ${validProfiles.length} de ${clientIds.length}`);
             }
 
             // Step D: Merge Manually
