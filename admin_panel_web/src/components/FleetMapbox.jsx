@@ -26,6 +26,7 @@ const FleetMapbox = () => {
     const [techItinerary, setTechItinerary] = useState([]);
     const [activeTechsCount, setActiveTechsCount] = useState(0);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [mapStyle, setMapStyle] = useState('light');
 
     // MAP INIT
     useEffect(() => {
@@ -39,6 +40,11 @@ const FleetMapbox = () => {
             pitch: 0,
             bearing: 0,
             attributionControl: false
+        });
+
+        // Listen for style changes
+        map.on('style.load', () => {
+            console.log('Map style loaded:', mapStyle);
         });
 
         map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'bottom-right');
@@ -232,6 +238,41 @@ const FleetMapbox = () => {
 
                 {/* Controls */}
                 <div className="absolute top-6 right-6 flex flex-col gap-3 z-20">
+                    {/* Map Style Selector */}
+                    <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-lg shadow-slate-900/10 border border-white/50 p-1.5 flex gap-1">
+                        <button
+                            onClick={() => { setMapStyle('light'); mapRef.current?.setStyle('mapbox://styles/mapbox/light-v11'); }}
+                            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${mapStyle === 'light'
+                                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
+                                    : 'text-slate-600 hover:bg-slate-100'
+                                }`}
+                            title="Mapa Claro"
+                        >
+                            ☀️
+                        </button>
+                        <button
+                            onClick={() => { setMapStyle('satellite'); mapRef.current?.setStyle('mapbox://styles/mapbox/satellite-streets-v12'); }}
+                            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${mapStyle === 'satellite'
+                                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
+                                    : 'text-slate-600 hover:bg-slate-100'
+                                }`}
+                            title="Vista Satélite"
+                        >
+                            🛰️
+                        </button>
+                        <button
+                            onClick={() => { setMapStyle('dark'); mapRef.current?.setStyle('mapbox://styles/mapbox/dark-v11'); }}
+                            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${mapStyle === 'dark'
+                                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
+                                    : 'text-slate-600 hover:bg-slate-100'
+                                }`}
+                            title="Mapa Oscuro"
+                        >
+                            🌙
+                        </button>
+                    </div>
+
+                    {/* Refresh Button */}
                     <button onClick={() => fetchFleetData()} className="group w-12 h-12 flex items-center justify-center bg-white/90 backdrop-blur-xl text-blue-600 rounded-2xl shadow-lg shadow-blue-500/10 border border-white/50 hover:shadow-xl hover:shadow-blue-500/20 transition-all duration-300 hover:scale-105 active:scale-95">
                         <Signal size={20} className="group-hover:animate-pulse" />
                     </button>
@@ -290,21 +331,21 @@ const FleetMapbox = () => {
                                 </button>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="relative overflow-hidden bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
-                                    <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-400/20 rounded-full blur-2xl"></div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="relative overflow-hidden bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/20">
+                                    <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-400/20 rounded-full blur-xl"></div>
                                     <div className="relative">
-                                        <Activity size={20} className="text-emerald-300 mb-2" />
-                                        <div className="text-3xl font-black mb-1">{activeTechsCount}</div>
-                                        <div className="text-xs font-bold text-blue-100 uppercase tracking-wider">Activos</div>
+                                        <Activity size={16} className="text-emerald-300 mb-1" />
+                                        <div className="text-2xl font-black mb-0.5">{activeTechsCount}</div>
+                                        <div className="text-[10px] font-bold text-blue-100 uppercase tracking-wider">Activos</div>
                                     </div>
                                 </div>
-                                <div className="relative overflow-hidden bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
-                                    <div className="absolute top-0 right-0 w-20 h-20 bg-purple-400/20 rounded-full blur-2xl"></div>
+                                <div className="relative overflow-hidden bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/20">
+                                    <div className="absolute top-0 right-0 w-16 h-16 bg-purple-400/20 rounded-full blur-xl"></div>
                                     <div className="relative">
-                                        <TrendingUp size={20} className="text-purple-300 mb-2" />
-                                        <div className="text-3xl font-black text-white/90 mb-1">{techs.length}</div>
-                                        <div className="text-xs font-bold text-blue-100/80 uppercase tracking-wider">Total</div>
+                                        <TrendingUp size={16} className="text-purple-300 mb-1" />
+                                        <div className="text-2xl font-black text-white/90 mb-0.5">{techs.length}</div>
+                                        <div className="text-[10px] font-bold text-blue-100/80 uppercase tracking-wider">Total</div>
                                     </div>
                                 </div>
                             </div>
