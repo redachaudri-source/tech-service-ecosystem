@@ -35,6 +35,7 @@ const FleetMapbox = () => {
     const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
     const [showStops, setShowStops] = useState(false); // DEFAULT FALSE (Req by user)
     const [showRoute, setShowRoute] = useState(false); // NEW: Route Toggle
+    const [manualRouteInput, setManualRouteInput] = useState(''); // NEW: Manual Route Testing
 
     const [schedule, setSchedule] = useState(null); // PRIVACY: Store working hours
 
@@ -648,32 +649,80 @@ const FleetMapbox = () => {
                 }
             });
 
-            // Ajustar cámara para mostrar toda la ruta
-            const allCoords = [
-                [tech.longitude, tech.latitude],
-                ...stopsToUse.map(t => {
-                    const clientData = t.client || t.clients;
-                    return [clientData.longitude, clientData.latitude];
-                })
-            ];
-
-            const bounds = allCoords.reduce((bounds, coord) => {
-                return bounds.extend(coord);
-            }, new mapboxgl.LngLatBounds(allCoords[0], allCoords[0]));
-
-            // ⚠️ FIX: No hacer fitBounds automático en cada actualización
-            // Esto causaba sensación de "congelado" al bloquear la interacción del usuario
-            /* 
-            mapRef.current.fitBounds(bounds, {
-                padding: { top: 100, bottom: 100, left: 500, right: 100 },
-                duration: 1500
-            });
-            */
-
             console.log("✅ Ruta dibujada exitosamente");
 
         } catch (error) {
             console.error("❌ Error al obtener/dibujar ruta:", error);
+        }
+    };
+
+    // MANUAL ROUTE TESTER
+    const handleManualRouteTest = async () => {
+        if (!manualRouteInput.trim()) return;
+
+        console.log("🗺️ Testing Manual Route:", manualRouteInput);
+        const addresses = manualRouteInput.split(/[\n;]/).map(s => s.trim()).filter(Boolean);
+
+        if (addresses.length < 2) {
+            alert("Introduce al menos 2 direcciones (Origen y Destino)");
+            return;
+        }
+
+        try {
+            // Geocode all addresses
+            const coords = await Promise.all(addresses.map(async (addr) => {
+                const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(addr)}.json?access_token=${mapboxgl.accessToken}&limit=1&country=es`;
+                const res = await fetch(url);
+                const data = await res.json();
+                if (data.features && data.features.length > 0) {
+                    return {
+                        addr,
+                        lng: data.features[0].center[0],
+                        lat: data.features[0].center[1]
+                    };
+                }
+                return null;
+            }));
+
+            const validCoords = coords.filter(Boolean);
+            if (validCoords.length < 2) {
+                alert("No se pudieron geocodificar suficientes direcciones.");
+                return;
+            }
+
+            // Construct Fake Tech (First Address)
+            const fakeTech = {
+                id: 'manual-test',
+                full_name: 'Test Manual',
+                latitude: validCoords[0].lat,
+                longitude: validCoords[0].lng
+            };
+
+            // Construct Fake Stops (Rest of Addresses)
+            const fakeStops = validCoords.slice(1).map((c, i) => ({
+                id: `stop-${i}`,
+                client: {
+                    latitude: c.lat,
+                    longitude: c.lng,
+                    address: c.addr
+                },
+                scheduled_at: new Date(Date.now() + i * 3600000).toISOString() // Fake times +1h
+            }));
+
+            // Force Draw
+            // First clear old
+            clearRoute();
+
+            // Draw
+            console.log("🎨 Drawing Manual Route:", validCoords);
+            await drawRoutesAndStops(fakeTech, fakeStops);
+
+            // Move Camera to Start
+            mapRef.current.flyTo({ center: [fakeTech.longitude, fakeTech.latitude], zoom: 12 });
+
+        } catch (e) {
+            console.error("Manual Route Error:", e);
+            alert("Error al trazar ruta manual");
         }
     };
 
@@ -796,6 +845,25 @@ const FleetMapbox = () => {
                                 </span>
                                 <span className="text-[10px] opacity-70">{showRoute ? 'ON' : 'OFF'}</span>
                             </button>
+
+                            {/* Manual Route Tester (DEV/DEBUG) */}
+                            {showRoute && (
+                                <div className="mt-2 p-2 bg-slate-50 rounded-xl border border-slate-200">
+                                    <p className="text-[10px] text-slate-500 mb-1 font-medium">Modo Manual (Pruebas)</p>
+                                    <textarea
+                                        value={manualRouteInput}
+                                        onChange={(e) => setManualRouteInput(e.target.value)}
+                                        placeholder="Dirección 1; Dirección 2 (Min. 2)"
+                                        className="w-full text-xs p-2 rounded-lg border border-slate-200 mb-2 h-16 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    />
+                                    <button
+                                        onClick={handleManualRouteTest}
+                                        className="w-full py-1.5 bg-blue-100 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-200 transition-colors"
+                                    >
+                                        Trazar Ruta Manual
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
