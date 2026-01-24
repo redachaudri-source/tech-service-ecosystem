@@ -34,7 +34,7 @@ const FleetMapbox = () => {
     const [showTraffic, setShowTraffic] = useState(false);
     const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
     const [showStops, setShowStops] = useState(false); // DEFAULT FALSE (Req by user)
-    const [showRoute, setShowRoute] = useState(false); // Route Toggle (Auto-Draw)
+    const [showRoute, setShowRoute] = useState(true); // Route Toggle (Auto-Draw) - DEFAULT TRUE
 
     const [schedule, setSchedule] = useState(null); // PRIVACY: Store working hours
     const [isShopOpen, setIsShopOpen] = useState(true); // PRIVACY: Global shop status (persists across fetch cycles)
@@ -609,6 +609,7 @@ const FleetMapbox = () => {
         setIsSidebarOpen(true);
         const sorted = [...tech.allTickets].sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
         setTechItinerary(sorted);
+        setTechStops(tech.allTickets); // FIX: Populate techStops to trigger route drawing
         mapRef.current.flyTo({ center: [tech.longitude, tech.latitude], zoom: 14, duration: 1500 });
         // Route drawing handled by effect now
     };
