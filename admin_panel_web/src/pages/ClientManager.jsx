@@ -527,7 +527,11 @@ const ClientManager = () => {
                                             </div>
                                             <div className="flex items-center gap-1.5 text-slate-500 text-xs">
                                                 <MapPin size={12} className="text-slate-400" />
-                                                <span className="truncate max-w-[200px]" title={client.address}>{client.address} {client.city ? `(${client.city})` : ''}</span>
+                                                <span className="truncate max-w-[200px]" title={`${client.address} ${client.floor || ''} ${client.apartment || ''}`}>
+                                                    {client.address}
+                                                    {(client.floor || client.apartment) && <span className="text-slate-400 ml-1">· {client.floor} {client.apartment}</span>}
+                                                    {client.city ? ` (${client.city})` : ''}
+                                                </span>
                                             </div>
                                         </div>
                                     </td>
@@ -691,6 +695,28 @@ const ClientManager = () => {
                                             </div>
                                         </div>
                                     )}
+                                </div>
+
+                                {/* --- ADDRESS DETAILS (Floor / Door) --- */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 uppercase">Planta / Piso</label>
+                                        <input
+                                            value={floor}
+                                            onChange={e => setFloor(e.target.value)}
+                                            placeholder="Ej: 2º, Bajo..."
+                                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:bg-white focus:border-blue-400 outline-none transition-colors"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 uppercase">Puerta / Oficina</label>
+                                        <input
+                                            value={apartment}
+                                            onChange={e => setApartment(e.target.value)}
+                                            placeholder="Ej: A, Izq..."
+                                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:bg-white focus:border-blue-400 outline-none transition-colors"
+                                        />
+                                    </div>
                                 </div>
 
                                 {/* MAP TOGGLE BUTTON */}
