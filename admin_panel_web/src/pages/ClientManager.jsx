@@ -750,7 +750,7 @@ const ClientManager = () => {
                                             {/* Close Map Button */}
                                             <button
                                                 onClick={() => setShowMap(false)}
-                                                className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-lg text-slate-500 hover:text-red-500 hover:bg-red-50 transition-colors z-20"
+                                                className="absolute bottom-3 right-3 p-2 bg-white rounded-full shadow-lg text-slate-500 hover:text-red-500 hover:bg-red-50 transition-colors z-50"
                                             >
                                                 <X size={16} />
                                             </button>
