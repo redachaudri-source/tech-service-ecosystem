@@ -1,10 +1,29 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext'; // Import useAuth
-import { Plus, User, MapPin, Trash2, Edit2, X, Phone, Mail, History, Filter, Search as SearchIcon, Lock, Unlock, Package, Zap, Waves, Wind, Refrigerator, Flame, Thermometer, Tv, Smartphone, Disc, TrendingUp, AlertTriangle, CheckCircle, Clock, Star, ShieldAlert, Building2, Laptop, Navigation } from 'lucide-react';
+import { Plus, User, MapPin, Trash2, Edit2, X, Phone, Mail, History, Filter, Search as SearchIcon, Lock, Unlock, Package, Zap, Waves, Wind, Refrigerator, Flame, Thermometer, Tv, Smartphone, Disc, TrendingUp, AlertTriangle, CheckCircle, Clock, Star, ShieldAlert, Building2, Laptop, Navigation, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { MAPBOX_TOKEN } from '../config/mapbox';
+import usePlacesAutocomplete, { getGeocode, getLatLng } from "use-places-autocomplete";
+import Map, { Marker, NavigationControl } from 'react-map-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+
+// GOOGLE MAPS LOADER HELPER
+const loadGoogleMapsScript = (callback) => {
+    const existingScript = document.getElementById('googleMapsScript');
+    if (existingScript) {
+        callback();
+        return;
+    }
+    const script = document.createElement('script');
+    script.id = 'googleMapsScript';
+    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyARtxO5dn63c3TKh5elT06jl42ai_ItEcA&libraries=places&language=es`;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => callback();
+    document.body.appendChild(script);
+};
 
 const ClientManager = () => {
     const { user } = useAuth(); // Get current user
@@ -67,89 +86,78 @@ const ClientManager = () => {
         fetchClients();
     }, []);
 
-    // HIGH-PRECISION MANUAL GEOCODING with Relevance Validation
-    const handleGeolocate = async () => {
-        // Validation
-        if (!address || address.length < 5) {
-            alert('Por favor, introduce una dirección válida');
-            return;
-        }
-        if (!city) {
-            alert('Por favor, selecciona una ciudad');
-            return;
-        }
+    // HYBRID SYSTEM STATE
+    const [isGoogleReady, setIsGoogleReady] = useState(false);
+    const [viewState, setViewState] = useState({
+        longitude: -4.4214,
+        latitude: 36.7213,
+        zoom: 13
+    });
 
-        setIsGeocoding(true);
-        setIsLookingUpCP(true);
+    // Load Google Maps Script
+    useEffect(() => {
+        loadGoogleMapsScript(() => setIsGoogleReady(true));
+    }, []);
+
+    // GOOGLE PLACES HOOK
+    const {
+        ready,
+        value,
+        setValue,
+        suggestions: { status, data },
+        clearSuggestions,
+    } = usePlacesAutocomplete({
+        requestOptions: {
+            componentRestrictions: { country: "es" }
+        },
+        debounce: 300,
+        cache: 24 * 60 * 60,
+    });
+
+    // SYNC: Google Search -> Map & Form
+    const handleGoogleSelect = async (address) => {
+        setValue(address, false);
+        clearSuggestions();
+        setAddress(address);
 
         try {
-            // Build PRECISE query with full address components
-            const query = `${address}, ${city}, España`;
-            const encodedQuery = encodeURIComponent(query);
+            const results = await getGeocode({ address });
+            const { lat, lng } = await getLatLng(results[0]);
 
-            // MAPBOX HIGH-PRECISION API CALL
-            // types=address forces exact postal address matching (not POIs or generic locations)
-            // country=es ensures Spain-only results
-            // limit=3 to allow validation of top results
-            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${MAPBOX_TOKEN}&country=es&types=address&limit=3&language=es`;
+            // 1. Update Map View (Fly to location)
+            setViewState(prev => ({
+                ...prev,
+                latitude: lat,
+                longitude: lng,
+                zoom: 16,
+                transitionDuration: 1000
+            }));
 
-            console.log('🌍 Calling Mapbox (High-Precision):', query);
+            // 2. Update Form Coordinates
+            setLatitude(lat.toFixed(6));
+            setLongitude(lng.toFixed(6));
 
-            const response = await fetch(url);
-            const data = await response.json();
+            // 3. Extract Postal Code & City
+            const addressComponents = results[0].address_components;
+            const postalCodeObj = addressComponents.find(c => c.types.includes('postal_code'));
+            const cityObj = addressComponents.find(c => c.types.includes('locality')) || addressComponents.find(c => c.types.includes('administrative_area_level_2'));
 
-            if (data.features && data.features.length > 0) {
-                // CRITICAL: Filter for HIGH RELEVANCE results only
-                // Relevance 1.0 = exact match, < 0.8 = fuzzy/generic match
-                const preciseResults = data.features.filter(f => f.relevance >= 0.8);
+            if (postalCodeObj) setPostalCode(postalCodeObj.long_name);
+            if (cityObj) setCity(cityObj.long_name);
 
-                if (preciseResults.length === 0) {
-                    console.warn('⚠️ Low relevance results:', data.features.map(f => ({
-                        name: f.place_name,
-                        relevance: f.relevance
-                    })));
-                    alert('⚠️ Dirección no encontrada con precisión.\n\nPor favor verifica:\n- Número de calle correcto\n- Nombre de calle completo\n- Ciudad correcta');
-                    return;
-                }
+            console.log("📍 Precise Location (Google):", { lat, lng, address });
 
-                // Take the MOST RELEVANT result
-                const result = preciseResults[0];
-
-                // Extract coordinates from GEOMETRY (more precise than center)
-                const [lng, lat] = result.geometry.coordinates;
-                setLatitude(lat.toFixed(6));
-                setLongitude(lng.toFixed(6));
-
-                // Extract Postal Code from context array
-                const postcodeObj = result.context?.find(c => c.id.startsWith('postcode'));
-                if (postcodeObj) {
-                    setPostalCode(postcodeObj.text);
-                } else {
-                    console.warn('⚠️ No postal code in context');
-                }
-
-                console.log('✅ High-Precision Geocoding:', {
-                    address: result.place_name,
-                    lat,
-                    lng,
-                    postcode: postcodeObj?.text || 'N/A',
-                    relevance: result.relevance,
-                    accuracy: result.properties?.accuracy || 'N/A'
-                });
-
-                // Show confirmation with normalized address
-                alert(`✅ Dirección localizada con precisión:\n\n${result.place_name}\n\nRelevancia: ${(result.relevance * 100).toFixed(0)}%`);
-            } else {
-                console.warn('⚠️ No results found');
-                alert('⚠️ No se encontraron resultados.\n\nVerifica que la dirección sea correcta.');
-            }
         } catch (error) {
-            console.error('❌ Geocoding error:', error);
-            alert('❌ Error al conectar con el servicio de geolocalización');
-        } finally {
-            setIsGeocoding(false);
-            setIsLookingUpCP(false);
+            console.error("❌ Google Geocoding Error: ", error);
         }
+    };
+
+    // SYNC: Drag Marker -> Form
+    const onMarkerDragEnd = (event) => {
+        const { lng, lat } = event.lngLat;
+        setLatitude(lat.toFixed(6));
+        setLongitude(lng.toFixed(6));
+        console.log("📌 Pin Dropped:", { lat, lng });
     };
 
     const fetchClients = async () => {
@@ -584,68 +592,82 @@ const ClientManager = () => {
                                     <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-2 border rounded-lg text-sm" />
                                 </div>
                             </div>
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase">Dirección</label>
-                                <input required value={address} onChange={e => setAddress(e.target.value)} className="w-full p-2 border rounded-lg text-sm" />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Ciudad</label>
-                                    <select value={city} onChange={e => setCity(e.target.value)} className="w-full p-2 border rounded-lg text-sm">
-                                        {cities.map(c => <option key={c} value={c}>{c}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase">C.P. {isLookingUpCP && '...'}</label>
-                                    <input value={postalCode} onChange={e => setPostalCode(e.target.value)} className="w-full p-2 border rounded-lg text-sm" />
-                                </div>
-                            </div>
-
-                            {/* MANUAL GEOCODING BUTTON */}
-                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-200">
-                                <button
-                                    type="button"
-                                    onClick={handleGeolocate}
-                                    disabled={isGeocoding || !address || !city}
-                                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all duration-200"
-                                >
-                                    {isGeocoding ? (
-                                        <>
-                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                            Buscando satélite...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <MapPin size={18} />
-                                            📍 Localizar Dirección Exacta
-                                        </>
-                                    )}
-                                </button>
-                                <p className="text-[10px] text-center text-slate-500 mt-2">
-                                    {!address || !city ? '⚠️ Introduce dirección y ciudad primero' : 'Obtiene coordenadas GPS y C.P. automáticamente'}
-                                </p>
-                            </div>
-
-                            {/* GPS Data (Read Only) */}
-                            <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <label className="text-[10px] font-bold text-blue-600 uppercase tracking-widest flex items-center gap-2">
-                                        <Navigation size={12} /> Localización GPS {isGeocoding && <span className="animate-pulse">...</span>}
+                            {/* HYBRID GEOCODING & MAP */}
+                            <div className="space-y-4">
+                                {/* GOOGLE PLACES SEARCH */}
+                                <div className="relative">
+                                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">
+                                        <div className="flex items-center gap-1">
+                                            <Search size={12} /> Buscar Dirección (Google)
+                                        </div>
                                     </label>
-                                    {latitude && (
-                                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                                            Auto-geolocalizado
-                                        </span>
+                                    <input
+                                        value={value}
+                                        onChange={(e) => {
+                                            setValue(e.target.value);
+                                            setAddress(e.target.value);
+                                        }}
+                                        disabled={!isGoogleReady || !ready}
+                                        placeholder="🔍 Escribe dirección exacta..."
+                                        className="w-full p-3 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
+                                    {/* Google Suggestions Dropdown */}
+                                    {status === "OK" && (
+                                        <div className="absolute z-50 w-full bg-white border border-slate-200 mt-1 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                                            {data.map(({ place_id, description }) => (
+                                                <div
+                                                    key={place_id}
+                                                    onClick={() => handleGoogleSelect(description)}
+                                                    className="p-3 hover:bg-blue-50 cursor-pointer text-sm border-b border-slate-50 last:border-0"
+                                                >
+                                                    📍 {description}
+                                                </div>
+                                            ))}
+                                        </div>
                                     )}
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
+
+                                {/* MAPBOX VISUAL MAP */}
+                                <div className="h-[300px] w-full rounded-xl overflow-hidden border border-slate-200 shadow-inner relative">
+                                    <Map
+                                        {...viewState}
+                                        onMove={evt => setViewState(evt.viewState)}
+                                        style={{ width: '100%', height: '100%' }}
+                                        mapStyle="mapbox://styles/mapbox/streets-v12"
+                                        mapboxAccessToken={MAPBOX_TOKEN}
+                                    >
+                                        <Marker
+                                            longitude={parseFloat(longitude || viewState.longitude)}
+                                            latitude={parseFloat(latitude || viewState.latitude)}
+                                            draggable
+                                            onDragEnd={onMarkerDragEnd}
+                                        >
+                                            <div className="text-4xl drop-shadow-lg cursor-grab active:cursor-grabbing hover:scale-110 transition-transform -translate-y-1/2">📍</div>
+                                        </Marker>
+                                        <NavigationControl position="top-right" />
+                                    </Map>
+                                    <div className="absolute bottom-2 right-2 bg-white/90 px-2 py-1 rounded text-[10px] text-slate-500 shadow-sm z-10 glass">
+                                        Mueve el Pin para ajustar
+                                    </div>
+                                </div>
+
+                                {/* LAT/LNG & CITY/CP Container */}
+                                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
                                     <div>
-                                        <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Latitud</label>
-                                        <input readOnly value={latitude} className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-mono text-slate-500 cursor-not-allowed" placeholder="Calculando..." />
+                                        <label className="text-xs font-bold text-slate-500 uppercase">Ciudad (Auto)</label>
+                                        <input value={city} onChange={e => setCity(e.target.value)} className="w-full p-2 border rounded-lg text-sm bg-white" />
                                     </div>
                                     <div>
-                                        <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Longitud</label>
-                                        <input readOnly value={longitude} className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-mono text-slate-500 cursor-not-allowed" placeholder="Calculando..." />
+                                        <label className="text-xs font-bold text-slate-500 uppercase">C.P. (Auto)</label>
+                                        <input value={postalCode} onChange={e => setPostalCode(e.target.value)} className="w-full p-2 border rounded-lg text-sm bg-white" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase">Latitud</label>
+                                        <input value={latitude} readOnly className="w-full bg-transparent font-mono text-xs font-bold text-slate-600 outline-none cursor-not-allowed" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase">Longitud</label>
+                                        <input value={longitude} readOnly className="w-full bg-transparent font-mono text-xs font-bold text-slate-600 outline-none cursor-not-allowed" />
                                     </div>
                                 </div>
                             </div>
