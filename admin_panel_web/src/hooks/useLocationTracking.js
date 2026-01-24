@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
  * Custom hook for GPS location tracking
  * Automatically starts/stops based on isActive prop
  * Sends location updates to Supabase technician_locations table
+ * PRIVACY: Fail-Closed logic enforced (Updated: 18:35)
  */
 export const useLocationTracking = (isActive, userId) => {
     const [isTracking, setIsTracking] = useState(false);
