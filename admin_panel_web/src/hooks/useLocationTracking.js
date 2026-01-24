@@ -105,22 +105,23 @@ export const useLocationTracking = (isActive, userId) => {
                         setError(null);
                         console.log('✅ GPS Tracking ACTIVE - isTracking:', true);
                         console.log(`📍 Location updated: ${latitude.toFixed(6)}, ${longitude.toFixed(6)} | Heading: ${heading}° | Speed: ${speed} m/s`);
-                    } catch (err) {
-                        console.error('❌ Error updating location:', err);
-                        // Don't show technical errors to user if it's just a hiccup, but show privacy pause clearly
-                        if (err.message !== 'Privacy') setError('Error al compartir ubicación');
-                    }
-                },
-                (err) => {
-                    console.error('❌ Geolocation error:', err);
-                    setError(`Error GPS: ${err.message}`);
-                    setIsTracking(false);
-                },
-                {
-                    enableHighAccuracy: true,
-                    timeout: 30000, // Increased to 30 seconds
-                    maximumAge: 0 // Always get fresh position
+                    } // End if(schedule)
+                } catch (err) {
+                    console.error('❌ Error updating location:', err);
+                    // Don't show technical errors to user if it's just a hiccup, but show privacy pause clearly
+                    if (err.message !== 'Privacy') setError('Error al compartir ubicación');
                 }
+            },
+            (err) => {
+                console.error('❌ Geolocation error:', err);
+                setError(`Error GPS: ${err.message}`);
+                setIsTracking(false);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 30000, // Increased to 30 seconds
+                maximumAge: 0 // Always get fresh position
+            }
         );
     };
 
