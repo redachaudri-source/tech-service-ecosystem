@@ -86,8 +86,8 @@ const ClientManager = () => {
         fetchClients();
     }, []);
 
-    // HYBRID SYSTEM STATE
     const [isGoogleReady, setIsGoogleReady] = useState(false);
+    const [showMap, setShowMap] = useState(false); // New State for Map Toggle
     const [viewState, setViewState] = useState({
         longitude: -4.4214,
         latitude: 36.7213,
@@ -592,83 +592,159 @@ const ClientManager = () => {
                                     <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-2 border rounded-lg text-sm" />
                                 </div>
                             </div>
-                            {/* HYBRID GEOCODING & MAP */}
-                            <div className="space-y-4">
-                                {/* GOOGLE PLACES SEARCH */}
-                                <div className="relative">
-                                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">
-                                        <div className="flex items-center gap-1">
-                                            <Search size={12} /> Buscar Dirección (Google)
-                                        </div>
+                            {/* --- LOCATION PRO SECTION --- */}
+                            <div className="space-y-4 bg-slate-50/50 p-5 rounded-2xl border border-slate-100">
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                                        <Navigation size={12} className="text-blue-500" />
+                                        Dirección Exacta (Google)
                                     </label>
+                                    {latitude && (
+                                        <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 border border-emerald-100 rounded-full">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                                            <span className="text-[9px] font-bold text-emerald-700 uppercase">GPS Activo</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* SEARCH & MAP TOGGLE */}
+                                <div className="relative group">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <Search size={16} className="text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                                    </div>
                                     <input
                                         value={value}
                                         onChange={(e) => {
                                             setValue(e.target.value);
                                             setAddress(e.target.value);
                                         }}
-                                        disabled={!isGoogleReady || !ready}
-                                        placeholder="🔍 Escribe dirección exacta..."
-                                        className="w-full p-3 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                        disabled={!ready}
+                                        placeholder="🔍 Ej: Carretera de Olias 46, Málaga..."
+                                        className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 shadow-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none disabled:bg-slate-50 disabled:text-slate-400"
                                     />
+
                                     {/* Google Suggestions Dropdown */}
                                     {status === "OK" && (
-                                        <div className="absolute z-50 w-full bg-white border border-slate-200 mt-1 rounded-lg shadow-xl max-h-48 overflow-y-auto">
-                                            {data.map(({ place_id, description }) => (
+                                        <div className="absolute z-50 w-full bg-white border border-slate-100 mt-2 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                            {data.map(({ place_id, description, structured_formatting }) => (
                                                 <div
                                                     key={place_id}
                                                     onClick={() => handleGoogleSelect(description)}
-                                                    className="p-3 hover:bg-blue-50 cursor-pointer text-sm border-b border-slate-50 last:border-0"
+                                                    className="px-4 py-3 hover:bg-blue-50/50 cursor-pointer border-b border-slate-50 last:border-0 transition-colors group/item"
                                                 >
-                                                    📍 {description}
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover/item:bg-blue-100 group-hover/item:text-blue-600 transition-colors">
+                                                            <MapPin size={14} />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-semibold text-slate-700 group-hover/item:text-blue-700">
+                                                                {structured_formatting?.main_text || description}
+                                                            </p>
+                                                            <p className="text-[10px] text-slate-400">
+                                                                {structured_formatting?.secondary_text || ''}
+                                                            </p>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             ))}
+                                            <div className="bg-slate-50 px-3 py-1.5 flex justify-end">
+                                                <img src="https://developers.google.com/static/maps/documentation/images/powered_by_google_on_white.png" alt="Powered by Google" className="h-3 opacity-50" />
+                                            </div>
                                         </div>
                                     )}
                                 </div>
 
-                                {/* MAPBOX VISUAL MAP */}
-                                <div className="h-[300px] w-full rounded-xl overflow-hidden border border-slate-200 shadow-inner relative">
-                                    <Map
-                                        {...viewState}
-                                        onMove={evt => setViewState(evt.viewState)}
-                                        style={{ width: '100%', height: '100%' }}
-                                        mapStyle="mapbox://styles/mapbox/streets-v12"
-                                        mapboxAccessToken={MAPBOX_TOKEN}
+                                {/* MAP TOGGLE BUTTON */}
+                                {!showMap ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowMap(true)}
+                                        className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-700 hover:to-slate-800 text-white rounded-xl font-bold text-xs shadow-lg shadow-slate-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
                                     >
-                                        <Marker
-                                            longitude={parseFloat(longitude || viewState.longitude)}
-                                            latitude={parseFloat(latitude || viewState.latitude)}
-                                            draggable
-                                            onDragEnd={onMarkerDragEnd}
-                                        >
-                                            <div className="text-4xl drop-shadow-lg cursor-grab active:cursor-grabbing hover:scale-110 transition-transform -translate-y-1/2">📍</div>
-                                        </Marker>
-                                        <NavigationControl position="top-right" />
-                                    </Map>
-                                    <div className="absolute bottom-2 right-2 bg-white/90 px-2 py-1 rounded text-[10px] text-slate-500 shadow-sm z-10 glass">
-                                        Mueve el Pin para ajustar
+                                        <MapPin size={14} />
+                                        Abrir Mapa para Ajuste Preciso
+                                    </button>
+                                ) : (
+                                    <div className="relative rounded-2xl overflow-hidden border-2 border-slate-200/60 shadow-xl bg-white animate-in slide-in-from-top-4 duration-300">
+                                        <div className="h-[320px] w-full relative">
+                                            <Map
+                                                {...viewState}
+                                                onMove={evt => setViewState(evt.viewState)}
+                                                style={{ width: '100%', height: '100%' }}
+                                                mapStyle="mapbox://styles/mapbox/streets-v12"
+                                                mapboxAccessToken={MAPBOX_TOKEN}
+                                                cursor="grab"
+                                            >
+                                                <Marker
+                                                    longitude={parseFloat(longitude || viewState.longitude)}
+                                                    latitude={parseFloat(latitude || viewState.latitude)}
+                                                    draggable
+                                                    onDragEnd={onMarkerDragEnd}
+                                                    anchor="bottom"
+                                                >
+                                                    <div className="relative group/pin cursor-grab active:cursor-grabbing">
+                                                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-4 bg-black/20 rounded-full blur-[2px] transition-all group-active/pin:scale-75"></div>
+                                                        <MapPin size={42} className="text-red-600 drop-shadow-xl filter transition-transform group-hover/pin:scale-110 group-active/pin:-translate-y-2 fill-red-600" />
+                                                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded shadow-lg whitespace-nowrap opacity-0 group-hover/pin:opacity-100 transition-opacity pointer-events-none">
+                                                            ¡Arrástrame!
+                                                        </div>
+                                                    </div>
+                                                </Marker>
+                                                <NavigationControl position="top-right" showCompass={false} />
+                                            </Map>
+
+                                            {/* INSTRUCTION OVERLAY (Floating Glass Card) */}
+                                            <div className="absolute top-3 left-3 right-12 bg-white/90 backdrop-blur-md p-3 rounded-xl border border-white/50 shadow-lg z-10">
+                                                <div className="flex gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0 text-blue-600">
+                                                        <MapPin size={16} />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-[11px] font-extrabold text-slate-800 uppercase tracking-wide">Ajuste de Precisión</h4>
+                                                        <p className="text-[10px] text-slate-600 leading-snug mt-0.5">
+                                                            Arrastra el <strong>pin rojo</strong> hasta la puerta exacta. Google te acerca, <strong>tú confirmas la ubicación exacta.</strong>
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Close Map Button */}
+                                            <button
+                                                onClick={() => setShowMap(false)}
+                                                className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-lg text-slate-500 hover:text-red-500 hover:bg-red-50 transition-colors z-20"
+                                            >
+                                                <X size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* DATA FEEDBACK (Read Only) */}
+                                <div className="grid grid-cols-2 gap-3 opacity-60 hover:opacity-100 transition-opacity">
+                                    <div className="p-2 bg-slate-100 rounded-lg border border-slate-200">
+                                        <div className="text-[9px] uppercase font-bold text-slate-400 mb-0.5 ml-1">Latitud</div>
+                                        <div className="font-mono text-[10px] font-bold text-slate-600 pl-1">
+                                            {latitude || '---'}
+                                        </div>
+                                    </div>
+                                    <div className="p-2 bg-slate-100 rounded-lg border border-slate-200">
+                                        <div className="text-[9px] uppercase font-bold text-slate-400 mb-0.5 ml-1">Longitud</div>
+                                        <div className="font-mono text-[10px] font-bold text-slate-600 pl-1">
+                                            {longitude || '---'}
+                                        </div>
                                     </div>
                                 </div>
+                            </div>
 
-                                {/* LAT/LNG & CITY/CP Container */}
-                                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                                    <div>
-                                        <label className="text-xs font-bold text-slate-500 uppercase">Ciudad (Auto)</label>
-                                        <input value={city} onChange={e => setCity(e.target.value)} className="w-full p-2 border rounded-lg text-sm bg-white" />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-slate-500 uppercase">C.P. (Auto)</label>
-                                        <input value={postalCode} onChange={e => setPostalCode(e.target.value)} className="w-full p-2 border rounded-lg text-sm bg-white" />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase">Latitud</label>
-                                        <input value={latitude} readOnly className="w-full bg-transparent font-mono text-xs font-bold text-slate-600 outline-none cursor-not-allowed" />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase">Longitud</label>
-                                        <input value={longitude} readOnly className="w-full bg-transparent font-mono text-xs font-bold text-slate-600 outline-none cursor-not-allowed" />
-                                    </div>
+                            {/* Standard City/CP Fields (Hidden/Auto but editable if needed) */}
+                            <div className="grid grid-cols-2 gap-4 pt-2">
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">Ciudad (Auto)</label>
+                                    <input value={city} onChange={e => setCity(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:bg-white focus:border-blue-400 outline-none transition-colors" />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">C.P. (Auto)</label>
+                                    <input value={postalCode} onChange={e => setPostalCode(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:bg-white focus:border-blue-400 outline-none transition-colors" />
                                 </div>
                             </div>
 
