@@ -35,6 +35,8 @@ const FleetMapbox = () => {
     const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
     const [showStops, setShowStops] = useState(true); // NEW: Toggle stops visibility
 
+    const [schedule, setSchedule] = useState(null); // PRIVACY: Store working hours
+
     // MAP INIT
     useEffect(() => {
         if (!mapContainerRef.current) return;
@@ -59,15 +61,53 @@ const FleetMapbox = () => {
         return () => map.remove();
     }, []);
 
-    // DATA FETCHING
+    // DATA FETCHING (Combined Fleet + Schedule + Loop)
     useEffect(() => {
+        // 1. Load Schedule ONCE on mount
+        const loadSchedule = async () => {
+            const { data } = await supabase.from('business_config').select('value').eq('key', 'working_hours').single();
+            if (data?.value) {
+                setSchedule(data.value);
+                console.log("📅 Privacy Schedule Loaded:", data.value);
+            }
+        };
+        loadSchedule();
+
         fetchFleetData();
         const sub = supabase.channel('fleet-premium').on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchFleetData).subscribe();
-        const interval = setInterval(fetchFleetData, 60000);
+        const interval = setInterval(fetchFleetData, 60000); // 1 min refresh
         return () => { supabase.removeChannel(sub); clearInterval(interval); };
     }, []);
 
-    const fetchFleetData = async () => {
+    // 🛡️ PRIVACY HELPER
+    const isWorkingNow = (scheduleConfig) => {
+        if (!scheduleConfig) return false; // Default blocked if no schedule yet
+        const now = new Date();
+        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const currentDay = days[now.getDay()];
+        const dayConfig = scheduleConfig[currentDay];
+
+        if (!dayConfig) return false; // Closed today (null)
+
+        const nowMins = now.getHours() * 60 + now.getMinutes();
+        const [startH, startM] = dayConfig.start.split(':').map(Number);
+        const [endH, endM] = dayConfig.end.split(':').map(Number);
+        const startMins = startH * 60 + startM;
+        const endMins = endH * 60 + endM;
+
+        return nowMins >= startMins && nowMins < endMins;
+    };
+
+
+
+    // Ref-based schedule access for the Interval
+    const scheduleRef = useRef(null);
+    useEffect(() => { scheduleRef.current = schedule; }, [schedule]);
+
+    // Replacing the original fetchFleetData with the implementation that accepts schedule
+    const fetchFleetData = () => fetchFleetDataImpl(scheduleRef.current);
+
+    const fetchFleetDataImpl = async (currentSchedule) => {
         try {
             const now = new Date();
             // STRICT: Only Today (00:00:00 to 23:59:59)
@@ -80,7 +120,18 @@ const FleetMapbox = () => {
             const startDate = start.toISOString();
             const endDate = end.toISOString();
 
-            console.log('🔍 Fetching with defensive strategy:', { startDate, endDate });
+            // 🛡️ PRIVACY CHECK LIST
+            // 1. Is the shop open right now?
+            const shopOpen = isWorkingNow(currentSchedule);
+            if (!shopOpen && currentSchedule) { // If schedule loaded AND closed
+                console.log("🛡️ PRIVACY GUARD: Shop Closed. Hiding fleet.");
+                setTechs([]);
+                setActiveTechsCount(0);
+                updateMarkers([]);
+                return; // 🛑 STOP EVERYTHING
+            }
+
+            // ... (Rest of fetch logic, profiles, tickets, etc.)
 
             // 1. Fetch Profiles first (Safe)
             const { data: profiles, error: profilesError } = await supabase
@@ -97,8 +148,6 @@ const FleetMapbox = () => {
             // 2. Fetch Tickets separately with robust error handling
             // 2. EMERGENCY STRATEGY: Manual Join (No Supabase Relationship)
             // Step A: Fetch Tickets RAW (only IDs)
-            // Note: client_id might be stored in a different column if the relationship is failing
-            // We fetch the raw ticket first
             const { data: ticketsRaw, error: ticketsError } = await supabase
                 .from('tickets')
                 .select('*') // Wildcard is safer
@@ -107,13 +156,10 @@ const FleetMapbox = () => {
 
             if (ticketsError) {
                 console.error("❌ CRITICAL ERROR fetching tickets raw:", ticketsError);
-                // Continue with empty array instead of returning to avoid crash
             }
 
             const validTicketsRaw = ticketsRaw || [];
 
-            // Step B: Extract Client IDs (Strict Validation)
-            // Trim and lowercase to avoid UUID format errors
             // Step B: Extract Client IDs (Strict Validation)
             // Aggressive cleanup: Remove anything that is NOT a hex char or hyphen
             const clientIds = [...new Set(validTicketsRaw
@@ -122,10 +168,7 @@ const FleetMapbox = () => {
                 .map(id => id.replace(/[^a-f0-9-]/gi, '').toLowerCase())
             )];
 
-            console.log("🧨 CLIENT IDS CLEANED:", JSON.stringify(clientIds));
-
             // Step C: Fetch Client Profiles manually (ROBUST PARALLEL FETCH)
-            // Instead of .in() which crashes on one bad ID, we fetch individually
             let clientsMap = {};
             if (clientIds.length > 0) {
                 // Fetch independently to isolate errors
@@ -135,8 +178,6 @@ const FleetMapbox = () => {
                         .select('id, full_name, address, current_lat, current_lng, latitude, longitude')
                         .eq('id', id)
                         .maybeSingle();
-
-                    if (error) console.warn(`⚠️ Error fetching profile ${id}:`, error.message);
 
                     if (data) {
                         // Priority: Explicit Latitude/Longitude (from address) > Current Location (Real-time)
@@ -148,8 +189,6 @@ const FleetMapbox = () => {
                         if ((!lat || !lng) && data.address && data.address.length > 5) {
                             try {
                                 const geoUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(data.address)}.json?access_token=${mapboxgl.accessToken}&limit=1&country=es`;
-                                // Note: We fetch sequentially inside Promise.all which is fine for small batches.
-                                // For production, we might want to throttle or cache this.
                                 const geoRes = await fetch(geoUrl);
                                 const geoJson = await geoRes.json();
                                 if (geoJson.features && geoJson.features.length > 0) {
@@ -157,7 +196,6 @@ const FleetMapbox = () => {
                                     lat = gLat;
                                     lng = gLng;
                                     wasGeocoded = true;
-                                    console.log(`📍 Geocoded: "${data.address}" -> [${lat}, ${lng}]`);
                                 }
                             } catch (err) {
                                 console.error("Geocoding failed:", err);
@@ -176,7 +214,6 @@ const FleetMapbox = () => {
 
                 const validProfiles = results.filter(Boolean);
                 clientsMap = validProfiles.reduce((acc, c) => ({ ...acc, [c.id]: c }), {});
-                console.log(`✅ PERFILES OK: ${validProfiles.length} de ${clientIds.length}`);
             }
 
             // Step D: Merge Manually
@@ -185,18 +222,12 @@ const FleetMapbox = () => {
                 client: t.client_id ? (clientsMap[t.client_id] || {}) : {},
             }));
 
-            if (allTickets.length > 0) {
-                console.log('🔍 DEBUG MERGE:', allTickets[0]);
-            }
-
 
             // Filter valid tickets
             const validTickets = allTickets.filter(t => {
                 const s = (t.status || '').toLowerCase();
                 return !['cancelado', 'rechazado', 'anulado'].includes(s);
             });
-
-            console.log(`📦 Tickets merged manually: ${validTickets.length}`);
 
             // Merge Data
             const merged = (profiles || []).map(t => {
@@ -214,6 +245,7 @@ const FleetMapbox = () => {
                     isActive = diff < 5;
                 }
 
+                // Force location from profile if available, else default
                 return {
                     ...t, technician_id: t.id, workload, allTickets: myTickets, isActive,
                     lastUpdate: t.last_location_update ? new Date(t.last_location_update) : null,
@@ -226,13 +258,16 @@ const FleetMapbox = () => {
             setActiveTechsCount(merged.filter(m => m.isActive).length);
             updateMarkers(merged);
 
+            // Update selected tech if exists
             if (selectedTech) {
                 const updated = merged.find(t => t.id === selectedTech.id);
                 if (updated) {
                     const sorted = [...updated.allTickets].sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
                     setTechItinerary(sorted);
-                    setTechStops(updated.allTickets); // Update stops
-                    console.log('✅ Stops updated for:', updated.full_name);
+                    setTechStops(updated.allTickets);
+                    // Refresh Route if view is static? 
+                    // No, existing effect handles stops. We might need to trigger route redraw here too?
+                    // Let's rely on handleTechSelect or the effect below
                 }
             }
 
@@ -241,16 +276,31 @@ const FleetMapbox = () => {
         }
     };
 
-    // AUTO-RENDER STOPS when tech/stops/showStops changes
+    // AUTO-RENDER STOPS & ROUTES when tech/stops/showStops changes
     useEffect(() => {
         if (selectedTech && techStops.length > 0) {
-            renderStopMarkers(techStops);
+            renderStopMarkers(techStops); // Markers always redraw based on showStops inside function
+
+            if (showStops) {
+                drawRoutesAndStops(selectedTech, techItinerary); // Draw Route only if toggle is ON
+            } else {
+                clearRoute(); // Clear route if toggle is OFF
+            }
         } else {
             // Clear stops if no tech selected
             stopMarkersRef.current.forEach(marker => marker.remove());
             stopMarkersRef.current = [];
+            clearRoute();
         }
-    }, [selectedTech, techStops, showStops]);
+    }, [selectedTech, techStops, showStops, techItinerary]); // Added techItinerary dep
+
+    const clearRoute = () => {
+        if (!mapRef.current) return;
+        if (mapRef.current.getLayer('route-line')) mapRef.current.removeLayer('route-line');
+        if (mapRef.current.getSource('route-source')) mapRef.current.removeSource('route-source');
+        routeMarkersRef.current.forEach(m => m.remove());
+        routeMarkersRef.current = [];
+    };
 
     const toggle3DView = () => {
         if (!mapRef.current) return;
@@ -336,6 +386,15 @@ const FleetMapbox = () => {
 
     const updateMarkers = (list) => {
         if (!mapRef.current) return;
+
+        // Hide markers that are not in the new list (Privacy Handling)
+        const newIds = new Set(list.map(t => t.id));
+        Object.keys(markersRef.current).forEach(id => {
+            if (!newIds.has(id)) {
+                markersRef.current[id].remove();
+                delete markersRef.current[id];
+            }
+        });
 
         list.forEach(tech => {
             let marker = markersRef.current[tech.id];
@@ -438,6 +497,10 @@ const FleetMapbox = () => {
                         <div class="mt-2 text-xs text-slate-500">
                             <span class="font-medium">Tipo:</span> ${stop.appliance_type}
                         </div>
+                        <div class="mt-1 flex items-center gap-1">
+                             <div class="w-2 h-2 rounded-full ${stop.status === 'completado' ? 'bg-green-500' : 'bg-gray-300'}"></div>
+                             <span class="text-[10px] uppercase font-bold text-slate-400">${stop.status}</span>
+                        </div>
                     ` : ''}
                 </div>
             `;
@@ -465,67 +528,63 @@ const FleetMapbox = () => {
         const sorted = [...tech.allTickets].sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
         setTechItinerary(sorted);
         mapRef.current.flyTo({ center: [tech.longitude, tech.latitude], zoom: 14, duration: 1500 });
-        drawRoutesAndStops(tech, sorted);
+        // Route drawing handled by effect now
     };
 
     const drawRoutesAndStops = async (tech, tickets) => {
-        if (!mapRef.current) return;
+        if (!mapRef.current || !showStops) return; // Guard: Respect Toggle
 
+        // Clear existing route first
         if (mapRef.current.getLayer('route-line')) mapRef.current.removeLayer('route-line');
         if (mapRef.current.getSource('route-source')) mapRef.current.removeSource('route-source');
-        routeMarkersRef.current.forEach(m => m.remove());
-        routeMarkersRef.current = [];
 
-        tickets.forEach(t => {
-            if (!t.clients?.latitude) return;
-            const isNext = t.status === 'en_camino' || t.status === 'en_proceso';
-            const isDone = t.status === 'completado';
+        // Stops logic is handled by renderStopMarkers, this function just draws the LINES
+        // We will filter only valid stops to connect
+        const stopsToVisit = tickets.filter(t => t.client?.longitude && t.status !== 'cancelado');
 
-            const el = document.createElement('div');
-            el.innerHTML = `
-                <div class="relative group hover:z-50">
-                    <div class="absolute -top-14 left-1/2 -translate-x-1/2 bg-gradient-to-r from-slate-900 to-slate-800 text-white px-3 py-2 rounded-xl text-xs font-medium opacity-0 group-hover:opacity-100 transition-all pointer-events-none whitespace-nowrap shadow-xl border border-white/10 backdrop-blur-sm">
-                        <div class="font-bold">${t.clients.full_name}</div>
-                        <div class="text-slate-300 text-[10px] mt-0.5">${t.appliance_type} • ${format(new Date(t.scheduled_at), 'HH:mm')}</div>
-                    </div>
-                    
-                    <div class="w-10 h-10 flex items-center justify-center rounded-xl shadow-lg transition-all hover:scale-110 ${isNext ? 'bg-gradient-to-br from-blue-500 to-purple-600 shadow-blue-500/50 scale-110' :
-                    isDone ? 'bg-gradient-to-br from-emerald-400 to-green-500 shadow-emerald-500/30 opacity-70' :
-                        'bg-white border-2 border-gray-200'
-                }">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${isNext || isDone ? 'white' : '#6b7280'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                            <polyline points="9 22 9 12 15 12 15 22"></polyline>
-                        </svg>
-                    </div>
-                </div>
-            `;
-            const marker = new mapboxgl.Marker({ element: el }).setLngLat([t.clients.longitude, t.clients.latitude]).addTo(mapRef.current);
-            routeMarkersRef.current.push(marker);
-        });
+        if (stopsToVisit.length === 0) return;
 
-        const activeJob = tickets.find(t => t.status === 'en_camino') || tickets.find(t => t.status === 'asignado');
-        if (activeJob?.clients?.latitude && tech.longitude) {
-            try {
-                const query = await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${tech.longitude},${tech.latitude};${activeJob.clients.longitude},${activeJob.clients.latitude}?steps=true&geometries=geojson&access_token=${mapboxgl.accessToken}`);
-                const json = await query.json();
-                const route = json.routes?.[0]?.geometry?.coordinates;
-                if (route) {
-                    mapRef.current.addSource('route-source', { 'type': 'geojson', 'data': { 'type': 'Feature', 'geometry': { 'type': 'LineString', 'coordinates': route } } });
-                    mapRef.current.addLayer({
-                        'id': 'route-line',
-                        'type': 'line',
-                        'source': 'route-source',
-                        'layout': { 'line-join': 'round', 'line-cap': 'round' },
-                        'paint': {
-                            'line-color': ['interpolate', ['linear'], ['line-progress'], 0, '#3b82f6', 1, '#8b5cf6'],
-                            'line-width': 5,
-                            'line-opacity': 0.8,
-                            'line-gradient': ['interpolate', ['linear'], ['line-progress'], 0, '#3b82f6', 1, '#8b5cf6']
-                        }
-                    });
-                }
-            } catch (e) { console.error(e); }
+        // Build Coordinate String: TechPos;Stop1;Stop2...
+        // Limit: Mapbox Directions API allows max 25 coordinates.
+        const coordinates = [
+            `${tech.longitude},${tech.latitude}`, // Start: Tech
+            ...stopsToVisit.map(t => `${t.client.longitude},${t.client.latitude}`) // Stops
+        ].join(';');
+
+        try {
+            console.log("🗺️ Fetching optimized route for:", tech.full_name);
+            const query = await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?steps=true&geometries=geojson&access_token=${mapboxgl.accessToken}`);
+            const json = await query.json();
+
+            if (json.routes && json.routes.length > 0) {
+                const routeGeoJSON = json.routes[0].geometry;
+
+                mapRef.current.addSource('route-source', {
+                    'type': 'geojson',
+                    'data': {
+                        'type': 'Feature',
+                        'geometry': routeGeoJSON
+                    }
+                });
+
+                mapRef.current.addLayer({
+                    'id': 'route-line',
+                    'type': 'line',
+                    'source': 'route-source',
+                    'layout': {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    'paint': {
+                        'line-color': '#3b82f6', // User requested blue
+                        'line-width': 5,
+                        'line-opacity': 0.8
+                    }
+                });
+                console.log("✅ Route drawn successfully");
+            }
+        } catch (e) {
+            console.error("❌ Route fetch error:", e);
         }
     };
 
