@@ -33,7 +33,8 @@ const FleetMapbox = () => {
     const [mapStyle, setMapStyle] = useState('light');
     const [showTraffic, setShowTraffic] = useState(false);
     const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
-    const [showStops, setShowStops] = useState(true); // NEW: Toggle stops visibility
+    const [showStops, setShowStops] = useState(false); // DEFAULT FALSE (Req by user)
+    const [showRoute, setShowRoute] = useState(false); // NEW: Route Toggle
 
     const [schedule, setSchedule] = useState(null); // PRIVACY: Store working hours
 
@@ -279,20 +280,29 @@ const FleetMapbox = () => {
     // AUTO-RENDER STOPS & ROUTES when tech/stops/showStops changes
     useEffect(() => {
         if (selectedTech && techStops.length > 0) {
-            renderStopMarkers(techStops); // Markers always redraw based on showStops inside function
 
+            // Stops Logic (Only if showStops ON)
             if (showStops) {
-                drawRoutesAndStops(selectedTech, techItinerary); // Draw Route only if toggle is ON
+                renderStopMarkers(techStops);
             } else {
-                clearRoute(); // Clear route if toggle is OFF
+                stopMarkersRef.current.forEach(marker => marker.remove());
+                stopMarkersRef.current = [];
             }
+
+            // Route Logic (Only if showRoute ON)
+            if (showRoute) {
+                drawRoutesAndStops(selectedTech, techItinerary);
+            } else {
+                clearRoute();
+            }
+
         } else {
             // Clear stops if no tech selected
             stopMarkersRef.current.forEach(marker => marker.remove());
             stopMarkersRef.current = [];
             clearRoute();
         }
-    }, [selectedTech, techStops, showStops, techItinerary]); // Added techItinerary dep
+    }, [selectedTech, techStops, showStops, showRoute, techItinerary]);
 
     const clearRoute = () => {
         if (!mapRef.current) return;
@@ -532,8 +542,8 @@ const FleetMapbox = () => {
     };
 
     const drawRoutesAndStops = async (tech, tickets) => {
-        if (!mapRef.current || !showStops) {
-            console.log("⚠️ Mapa no listo o stops desactivados");
+        if (!mapRef.current || !showRoute) { // Guard: Check showRoute!
+            console.log("⚠️ Mapa no listo o ruta desactivada");
             return;
         }
 
@@ -688,17 +698,13 @@ const FleetMapbox = () => {
                         <Layers size={20} className={`transition-transform duration-300 ${isMapSettingsOpen ? 'rotate-180' : ''}`} />
                     </button>
 
-                    {/* Stop Markers Toggle */}
+                    {/* Stop Markers Toggle (HIDDEN per user request) */}
+                    {/* 
                     <button
                         onClick={() => setShowStops(!showStops)}
-                        className={`group w-12 h-12 flex items-center justify-center backdrop-blur-xl rounded-2xl shadow-lg border border-white/50 transition-all duration-300 hover:scale-105 active:scale-95 ${showStops
-                            ? 'bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-emerald-500/20 hover:shadow-emerald-500/30'
-                            : 'bg-white/90 text-slate-700 shadow-slate-900/10 hover:shadow-xl'
-                            }`}
-                        title={showStops ? "Ocultar Paradas" : "Mostrar Paradas"}
-                    >
-                        <Home size={20} className={showStops ? 'animate-pulse' : ''} />
-                    </button>
+                        ...
+                    </button> 
+                    */}
                 </div>
 
                 {/* Collapsible Settings Panel - Expands Left */}
@@ -757,9 +763,11 @@ const FleetMapbox = () => {
                         {/* Section: Capas */}
                         <div>
                             <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Capas</h3>
+
+                            {/* Toggle Traffic */}
                             <button
                                 onClick={toggleTraffic}
-                                className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${showTraffic
+                                className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between mb-2 ${showTraffic
                                     ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md'
                                     : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
                                     }`}
@@ -768,6 +776,20 @@ const FleetMapbox = () => {
                                     🚦 Tráfico
                                 </span>
                                 <span className="text-[10px] opacity-70">{showTraffic ? 'ON' : 'OFF'}</span>
+                            </button>
+
+                            {/* Toggle Route (New Feature) */}
+                            <button
+                                onClick={() => setShowRoute(!showRoute)}
+                                className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${showRoute
+                                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/20'
+                                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                                    }`}
+                            >
+                                <span className="flex items-center gap-2">
+                                    🗺️ Ruta del Día
+                                </span>
+                                <span className="text-[10px] opacity-70">{showRoute ? 'ON' : 'OFF'}</span>
                             </button>
                         </div>
                     </div>
