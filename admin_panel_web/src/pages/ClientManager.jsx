@@ -73,10 +73,14 @@ const ClientManager = () => {
         setIsGeocoding(true);
         setIsLookingUpCP(true);
         try {
+            // Helper to normalize strings for comparison (remove accents)
+            const normalize = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+            const normalizedCit = normalize(cit);
+
             // Biasing search towards Malaga city center if that's the city selected
             // This is crucial for long roads or common names
             let proximity = '';
-            if (cit === 'Málaga') proximity = '&proximity=-4.4213,36.7213';
+            if (normalizedCit === 'malaga') proximity = '&proximity=-4.4213,36.7213';
 
             const locationPart = cit === prov ? cit : `${cit}, ${prov}`;
             const query = `${addr}, ${locationPart}, Spain`;
@@ -94,10 +98,12 @@ const ClientManager = () => {
                 const validFeatures = data.features.filter(f => {
                     const ctx = f.context || [];
                     // Check if city name is specifically in a locality/place/neighborhood/municipality context
-                    return ctx.some(c =>
+                    const inContext = ctx.some(c =>
                         (c.id.startsWith('place') || c.id.startsWith('locality') || c.id.startsWith('neighborhood') || c.id.startsWith('municipality')) &&
-                        c.text.toLowerCase().includes(cit.toLowerCase())
-                    ) || f.place_name.toLowerCase().includes(cit.toLowerCase());
+                        normalize(c.text).includes(normalizedCit)
+                    );
+                    const inName = normalize(f.place_name || '').includes(normalizedCit);
+                    return inContext || inName;
                 });
 
                 // Pick best from filtered or fall back to any if no matches (should not happen with good query)
@@ -108,31 +114,35 @@ const ClientManager = () => {
                     pool.find(f => f.place_type.includes('street')) ||
                     pool[0];
 
-                const [lng, lat] = feature.center;
+                if (feature && feature.center) {
+                    const [lng, lat] = feature.center;
 
-                // Extract coordinates
-                setLatitude(lat.toFixed(6));
-                setLongitude(lng.toFixed(6));
+                    // Extract coordinates
+                    setLatitude(lat.toFixed(6));
+                    setLongitude(lng.toFixed(6));
 
-                // Extract Postal Code with Deep Scan
-                let pc = null;
+                    // Extract Postal Code with Deep Scan
+                    let pc = null;
 
-                // 1. Try context of the selected feature first
-                pc = feature.context?.find(c => c.id.startsWith('postcode'))?.text;
+                    // 1. Try context of the selected feature first
+                    pc = feature.context?.find(c => c.id.startsWith('postcode'))?.text;
 
-                // 2. If not found, look at other features in the VALID pool
-                if (!pc) {
-                    pc = validFeatures.map(f => f.context?.find(c => c.id.startsWith('postcode'))?.text).find(Boolean);
+                    // 2. If not found, look at other features in the VALID pool
+                    if (!pc) {
+                        pc = validFeatures.map(f => f.context?.find(c => c.id.startsWith('postcode'))?.text).find(Boolean);
+                    }
+
+                    if (pc) setPostalCode(pc);
+
+                    console.log("📍 Location Auto-filled (Resilient):", {
+                        lat, lng, pc,
+                        type: feature.place_type,
+                        place: feature.place_name,
+                        relevance: feature.relevance
+                    });
                 }
-
-                if (pc) setPostalCode(pc);
-
-                console.log("📍 Location Auto-filled (Strict Mode):", {
-                    lat, lng, pc,
-                    type: feature.place_type,
-                    place: feature.place_name,
-                    relevance: feature.relevance
-                });
+            } else {
+                console.warn("⚠️ No geocoding results found for:", query);
             }
         } catch (error) {
             console.error("Geocoding failed", error);
