@@ -134,15 +134,16 @@ const FleetMapbox = () => {
                 const results = await Promise.all(clientIds.map(async (id) => {
                     const { data, error } = await supabase
                         .from('profiles')
-                        .select('id, full_name, address, current_lat, current_lng')
+                        .select('id, full_name, address, current_lat, current_lng, latitude, longitude')
                         .eq('id', id)
-                        .maybeSingle(); // Use maybeSingle to avoid errors
+                        .maybeSingle();
 
                     if (error) console.warn(`⚠️ Error fetching profile ${id}:`, error.message);
 
                     if (data) {
-                        let lat = data.current_lat;
-                        let lng = data.current_lng;
+                        // Priority: Explicit Latitude/Longitude (from address) > Current Location (Real-time)
+                        let lat = data.latitude || data.current_lat;
+                        let lng = data.longitude || data.current_lng;
                         let wasGeocoded = false;
 
                         // AUTOMATIC GEOCODING (Fallback if no GPS but Address exists)

@@ -73,26 +73,36 @@ const ClientManager = () => {
         setIsGeocoding(true);
         setIsLookingUpCP(true);
         try {
+            // Refined query for better accuracy: specific types (address) usually yield better postcodes
             const query = `${addr}, ${cit}, ${prov}, Spain`;
             const encodedQuery = encodeURIComponent(query);
-            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${MAPBOX_TOKEN}&limit=1&country=es`;
+            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${MAPBOX_TOKEN}&limit=3&country=es&types=address,place`;
 
             const resp = await fetch(url);
             const data = await resp.json();
 
             if (data.features && data.features.length > 0) {
-                const feature = data.features[0];
+                // Priority to 'address' type features for exact CP match
+                const feature = data.features.find(f => f.place_type.includes('address')) || data.features[0];
                 const [lng, lat] = feature.center;
 
                 // Extract coordinates
                 setLatitude(lat.toFixed(6));
                 setLongitude(lng.toFixed(6));
 
-                // Extract Postal Code if available in context
-                const pc = feature.context?.find(c => c.id.startsWith('postcode'))?.text;
+                // Extract Postal Code
+                // Try context first, then look for a feature of type 'postcode' in the whole response if context fails
+                let pc = feature.context?.find(c => c.id.startsWith('postcode'))?.text;
+
+                if (!pc) {
+                    // Fallback: search in other nearby features if limit > 1
+                    const postcodeFeature = data.features.find(f => f.place_type.includes('postcode'));
+                    if (postcodeFeature) pc = postcodeFeature.text;
+                }
+
                 if (pc) setPostalCode(pc);
 
-                console.log("📍 Location Auto-filled:", { lat, lng, pc });
+                console.log("📍 Location Auto-filled (Refined):", { lat, lng, pc, type: feature.place_type });
             }
         } catch (error) {
             console.error("Geocoding failed", error);
