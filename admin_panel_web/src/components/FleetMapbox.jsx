@@ -210,7 +210,8 @@ const FleetMapbox = () => {
                 let isActive = false;
                 if (t.last_location_update) {
                     const diff = (new Date() - new Date(t.last_location_update)) / 1000 / 60;
-                    isActive = diff < 20;
+                    // STRICTER TIMEOUT: 5 minutes max to be "Online"
+                    isActive = diff < 5;
                 }
 
                 return {

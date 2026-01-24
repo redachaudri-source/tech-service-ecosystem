@@ -52,24 +52,19 @@ export const useLocationTracking = (isActive, userId) => {
                 const { latitude, longitude, heading, speed } = position.coords;
 
                 try {
-                    // 🛡️ PRIVACY CHECK: Working Hours (European Data Protection)
+                    // 🛡️ PRIVACY CHECK: Fail-Closed Strategy
                     const now = new Date();
-                    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']; // 0-6
+                    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
                     const currentDay = days[now.getDay()];
 
-                    // 🛡️ PRIVACY CHECK: Working Hours (European Data Protection)
-
-                    // If schedule is loaded, enforce it. If not yet loaded (null), we skip check (fail-open) momentarily 
-                    // or block (fail-closed). Let's go with Fail-Closed for privacy safety if strict.
+                    // Default to CLOSED (Block) until proven OPEN
+                    let isAllowed = false;
 
                     if (schedule) {
                         const dayConfig = schedule[currentDay];
 
-                        let isAllowed = false;
-
+                        // Only if day has config (is open)
                         if (dayConfig) {
-                            // Check if today is open
-                            // Parse times "09:00" -> Compare
                             const currentTime = now.getHours() * 60 + now.getMinutes();
                             const [startH, startM] = dayConfig.start.split(':').map(Number);
                             const [endH, endM] = dayConfig.end.split(':').map(Number);
@@ -80,33 +75,36 @@ export const useLocationTracking = (isActive, userId) => {
                                 isAllowed = true;
                             }
                         }
+                    } else {
+                        console.warn('⚠️ Privacy Schedule not loaded yet - Blocking GPS by default');
+                    }
 
-                        if (!isAllowed) {
-                            console.log(`🛡️ GPS Paused: Outside Working Hours (${currentDay}, ${now.toLocaleTimeString()})`);
-                            setError('⏸️ RASTREO PAUSADO (Fuera de Horario Laboral)');
-                            setIsTracking(false); // Visually indicate pause
-                            return; // ⛔ STOP: Do not send to DB
-                        }
+                    if (!isAllowed) {
+                        console.log(`🛡️ GPS Paused: Outside Working Hours or Schedule Unloaded (${currentDay})`);
+                        setError('⏸️ RASTREO PAUSADO (Fuera de Horario Laboral)');
+                        setIsTracking(false);
+                        return; // ⛔ STOP
+                    }
 
-                        // Proceed if allowed
-                        const { error: dbError } = await supabase
-                            .from('technician_locations')
-                            .upsert({
-                                technician_id: userId,
-                                latitude,
-                                longitude,
-                                heading: heading || 0,
-                                speed: speed || 0,
-                                updated_at: new Date().toISOString()
-                            });
+                    // Proceed only if explicit permission found
+                    const { error: dbError } = await supabase
+                        .from('technician_locations')
+                        .upsert({
+                            technician_id: userId,
+                            latitude,
+                            longitude,
+                            heading: heading || 0,
+                            speed: speed || 0,
+                            updated_at: new Date().toISOString()
+                        });
 
-                        if (dbError) throw dbError;
+                    if (dbError) throw dbError;
 
-                        setIsTracking(true);
-                        setError(null);
-                        console.log('✅ GPS Tracking ACTIVE - isTracking:', true);
-                        console.log(`📍 Location updated: ${latitude.toFixed(6)}, ${longitude.toFixed(6)} | Heading: ${heading}° | Speed: ${speed} m/s`);
-                    } // End if(schedule)
+                    setIsTracking(true);
+                    setError(null);
+                    console.log('✅ GPS Tracking ACTIVE - isTracking:', true);
+                    console.log(`📍 Location updated: ${latitude.toFixed(6)}, ${longitude.toFixed(6)} | Heading: ${heading}° | Speed: ${speed} m/s`);
+                    // End check block (structure flattened)
                 } catch (err) {
                     console.error('❌ Error updating location:', err);
                     // Don't show technical errors to user if it's just a hiccup, but show privacy pause clearly
