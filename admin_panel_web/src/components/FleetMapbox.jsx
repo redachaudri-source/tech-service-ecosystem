@@ -34,8 +34,7 @@ const FleetMapbox = () => {
     const [showTraffic, setShowTraffic] = useState(false);
     const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
     const [showStops, setShowStops] = useState(false); // DEFAULT FALSE (Req by user)
-    const [showRoute, setShowRoute] = useState(false); // NEW: Route Toggle
-    const [manualRouteInput, setManualRouteInput] = useState(''); // FIX: Revert to single textarea state
+    const [showRoute, setShowRoute] = useState(false); // Route Toggle (Auto-Draw)
 
     const [schedule, setSchedule] = useState(null); // PRIVACY: Store working hours
     const [isShopOpen, setIsShopOpen] = useState(true); // PRIVACY: Global shop status (persists across fetch cycles)
@@ -116,6 +115,17 @@ const FleetMapbox = () => {
         }
 
         return isWorking;
+    };
+
+    // Helper: Generate stop labels (A, B, C... → 1A, 1B after Z)
+    const getStopLabel = (index) => {
+        if (index < 26) {
+            return String.fromCharCode(65 + index); // A-Z (0-25)
+        }
+        // For indices >= 26: 1A, 1B, 1C..., 2A, 2B...
+        const cycle = Math.floor(index / 26);
+        const letter = String.fromCharCode(65 + (index % 26));
+        return `${cycle}${letter}`; // "1A", "1B", "2A"...
     };
 
 
@@ -310,11 +320,29 @@ const FleetMapbox = () => {
 
             // Route Logic (Only if showRoute ON)
             if (showRoute) {
-                // FORCE SORT: Ensure stops are time-ordered (A->B->C) for the route API
-                const sortedStops = [...techStops].sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
+                // SORT: scheduled_at first (chronological), then by created_at
+                const sortedStops = [...techStops]
+                    .filter(t => !['cancelado', 'rechazado'].includes(t.status?.toLowerCase()))
+                    .sort((a, b) => {
+                        // Priority 1: With scheduled_at comes first
+                        if (a.scheduled_at && b.scheduled_at) {
+                            return new Date(a.scheduled_at) - new Date(b.scheduled_at);
+                        }
+                        if (a.scheduled_at) return -1; // With scheduled_at first
+                        if (b.scheduled_at) return 1;  // Without scheduled_at goes last (FIXED COMMENT)
+
+                        // Priority 2: Among tickets without scheduled_at, sort by created_at
+                        return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+                    });
 
                 if (sortedStops.length > 0) {
-                    drawRoutesAndStops(selectedTech, sortedStops);
+                    // Add labels to stops (A, B, C... → 1A, 1B...)
+                    const stopsWithLabels = sortedStops.map((ticket, i) => ({
+                        ...ticket,
+                        stopLabel: getStopLabel(i)
+                    }));
+
+                    drawRoutesAndStops(selectedTech, stopsWithLabels);
                 }
             } else {
                 clearRoute();
@@ -689,6 +717,46 @@ const FleetMapbox = () => {
 
             console.log("✅ Ruta dibujada exitosamente");
 
+            // ✅ ADD LETTERED MARKERS for each stop
+            routeMarkersRef.current.forEach(m => m.remove());
+            routeMarkersRef.current = [];
+
+            stopsToUse.forEach((stop, index) => {
+                const clientData = stop.client || stop.clients || {};
+                if (!clientData.latitude || !clientData.longitude) return;
+
+                const el = document.createElement('div');
+                el.className = 'route-stop-marker';
+                el.innerHTML = `
+                    <div class="flex flex-col items-center cursor-pointer">
+                        <div class="relative">
+                            <div class="text-3xl drop-shadow-lg">🏠</div>
+                            <div class="absolute -bottom-1 -right-1 bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold border-2 border-white shadow-lg">
+                                ${stop.stopLabel || getStopLabel(index)}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                const marker = new mapboxgl.Marker({ element: el })
+                    .setLngLat([clientData.longitude, clientData.latitude])
+                    .addTo(mapRef.current);
+
+                const popupContent = `
+                    <div class="p-2">
+                        <p class="font-bold text-sm text-blue-600">${stop.stopLabel || getStopLabel(index)}: ${clientData.full_name || 'Cliente'}</p>
+                        <p class="text-xs text-gray-600 mt-1">📍 ${clientData.address || 'Sin dirección'}</p>
+                        ${stop.scheduled_at ? `<p class="text-xs text-blue-600 mt-1">📅 ${format(new Date(stop.scheduled_at), 'HH:mm', { locale: es })}</p>` : '<p class="text-xs text-gray-500 mt-1">⏰ Sin hora programada</p>'}
+                    </div>
+                `;
+
+                const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(popupContent);
+                marker.setPopup(popup);
+                routeMarkersRef.current.push(marker);
+            });
+
+            console.log(`✅ ${stopsToUse.length} marcadores etiquetados añadidos`);
+
         } catch (error) {
             console.error("❌ Error al obtener/dibujar ruta:", error);
         }
@@ -884,24 +952,7 @@ const FleetMapbox = () => {
                                 <span className="text-[10px] opacity-70">{showRoute ? 'ON' : 'OFF'}</span>
                             </button>
 
-                            {/* Manual Route Tester (DEV/DEBUG) */}
-                            {showRoute && (
-                                <div className="mt-2 p-2 bg-slate-50 rounded-xl border border-slate-200">
-                                    <p className="text-[10px] text-slate-500 mb-1 font-medium">Modo Manual (Pruebas)</p>
-                                    <textarea
-                                        value={manualRouteInput}
-                                        onChange={(e) => setManualRouteInput(e.target.value)}
-                                        placeholder="Dirección 1; Dirección 2 (Min. 2)"
-                                        className="w-full text-xs p-2 rounded-lg border border-slate-200 mb-2 h-16 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                    />
-                                    <button
-                                        onClick={handleManualRouteTest}
-                                        className="w-full py-1.5 bg-blue-100 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-200 transition-colors"
-                                    >
-                                        Trazar Ruta Manual
-                                    </button>
-                                </div>
-                            )}
+
                         </div>
                     </div>
                 </div>
