@@ -618,9 +618,9 @@ const ClientManager = () => {
                                             setValue(e.target.value);
                                             setAddress(e.target.value);
                                         }}
-                                        disabled={!ready}
+                                        // removed disabled={!ready} to prevent blocking
                                         placeholder="🔍 Ej: Carretera de Olias 46, Málaga..."
-                                        className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 shadow-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                                        className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 shadow-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
                                     />
 
                                     {/* Google Suggestions Dropdown */}
