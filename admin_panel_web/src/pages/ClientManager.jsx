@@ -67,111 +67,68 @@ const ClientManager = () => {
         fetchClients();
     }, []);
 
-    // Unified Geocoding & CP Lookup
-    const performGeocoding = async (addr, cit, prov) => {
-        if (!addr || addr.length < 5 || !cit) return;
+    // MANUAL GEOCODING: Precise Mapbox API Call
+    const handleGeolocate = async () => {
+        // Validation
+        if (!address || address.length < 5) {
+            alert('Por favor, introduce una dirección válida');
+            return;
+        }
+        if (!city) {
+            alert('Por favor, selecciona una ciudad');
+            return;
+        }
+
         setIsGeocoding(true);
         setIsLookingUpCP(true);
 
-        // Reset previous values to avoid showing stale data if search fails
-        setLatitude('');
-        setLongitude('');
-
         try {
-            const normalize = (str) => (str || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-            const normalizedCit = normalize(cit);
+            // Build precise query: "Address, City, Province, Spain"
+            const query = `${address}, ${city}, ${province}, Spain`;
+            const encodedQuery = encodeURIComponent(query);
 
-            // Proximity Bias for Malaga center if applicable
-            let proximity = '';
-            if (normalizedCit.includes('malaga')) proximity = '&proximity=-4.4213,36.7213';
+            // MAPBOX API CALL - Precise configuration
+            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${MAPBOX_TOKEN}&country=es&types=address&limit=1&language=es`;
 
-            // Broader query to help Mapbox find the right road
-            const encodedQuery = encodeURIComponent(`${addr}, ${cit}, ${prov}, Spain`);
+            console.log('🌍 Calling Mapbox Geocoding API:', query);
 
-            // REMOVED 'types' restriction to prevent empty results for valid addresses that Mapbox categorizes differently
-            // Increased limit to 10
-            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${MAPBOX_TOKEN}&limit=10&country=es&language=es${proximity}`;
+            const response = await fetch(url);
+            const data = await response.json();
 
-            const resp = await fetch(url);
-            const data = await resp.json();
+            if (data.features && data.features.length > 0) {
+                const result = data.features[0];
 
-            if (data && data.features && data.features.length > 0) {
-                // FILTER: Strict City Matching
-                // We must ensure the result is actually in the City (Place/Locality), not just the Province (Region)
-                // This prevents "Málaga" (Province) from allowing addresses in "Campillos"
-                const results = data.features.filter(f => {
-                    const ctx = f.context || [];
+                // Extract coordinates from center [lng, lat]
+                const [lng, lat] = result.center;
+                setLatitude(lat.toFixed(6));
+                setLongitude(lng.toFixed(6));
 
-                    // Find the semantic city element in the context
-                    // Usually 'place' (City) or 'locality' (Town/Village)
-                    const cityNode = ctx.find(c => c.id.startsWith('place') || c.id.startsWith('locality'));
+                // Extract Postal Code from context
+                const postcodeObj = result.context?.find(c => c.id.startsWith('postcode'));
+                if (postcodeObj) {
+                    setPostalCode(postcodeObj.text);
+                }
 
-                    // If we found a city node, it MUST match our search city
-                    if (cityNode) {
-                        return normalize(cityNode.text).includes(normalizedCit);
-                    }
-
-                    // If no city node found (rare, or maybe the feature IS the place), 
-                    // check if the feature itself is the place/locality matching our search
-                    if (f.place_type.includes('place') || f.place_type.includes('locality')) {
-                        return normalize(f.text).includes(normalizedCit);
-                    }
-
-                    // Fallback for Neighborhoods or POIs where upper context might be missing or complex
-                    // But if 'region' matches and 'place' is missing, it's risky. 
-                    // However, we default to stricter check: if we can't confirm city, we rely on text/place_name
-                    // BUT we explicitly exclude if we see a DIFFERENT place name
-                    return normalize(f.place_name).includes(normalizedCit) && !f.place_name.includes("Province");
+                console.log('✅ Geocoding successful:', {
+                    address: result.place_name,
+                    lat,
+                    lng,
+                    postcode: postcodeObj?.text || 'N/A'
                 });
 
-                const pool = results.length > 0 ? results : data.features;
-
-                // PICK BEST FEATURE
-                // We try to find an 'address' match first, then a 'street' match
-                const feature = pool.find(f => f.place_type.includes('address')) ||
-                    pool.find(f => f.place_type.includes('street')) ||
-                    pool[0];
-
-                if (feature && feature.center) {
-                    const [lng, lat] = feature.center;
-                    setLatitude(lat.toFixed(6));
-                    setLongitude(lng.toFixed(6));
-
-                    // Extract Postal Code
-                    let pc = feature.context?.find(c => c.id.startsWith('postcode'))?.text;
-                    if (!pc) {
-                        // Scan other features in the pool for a postcode match
-                        pc = pool.map(f => f.context?.find(c => c.id.startsWith('postcode'))?.text).find(Boolean);
-                    }
-                    if (pc) setPostalCode(pc);
-
-                    console.log("📍 Location Found:", { lat, lng, pc, name: feature.place_name });
-                } else {
-                    console.warn("⚠️ No valid center for feature:", feature);
-                    setLatitude('0.000000'); // Fallback to indicate finished but failed
-                    setLongitude('0.000000');
-                }
+                alert(`✅ Dirección localizada:\n${result.place_name}`);
             } else {
-                console.warn("⚠️ Zero results from Mapbox for:", query);
-                setLatitude('0.000000'); // Fallback
-                setLongitude('0.000000');
+                console.warn('⚠️ No results found');
+                alert('⚠️ No se encontraron resultados para esta dirección. Verifica que sea correcta.');
             }
         } catch (error) {
-            console.error("❌ Geocoding error:", error);
-            setLatitude('error');
-            setLongitude('error');
+            console.error('❌ Geocoding error:', error);
+            alert('❌ Error al conectar con el servicio de geolocalización');
         } finally {
             setIsGeocoding(false);
             setIsLookingUpCP(false);
         }
     };
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (address.length > 5 && city.length > 2) performGeocoding(address, city, province);
-        }, 1500);
-        return () => clearTimeout(timer);
-    }, [address, city, province]);
 
     const fetchClients = async () => {
         setErrorMsg(null);
@@ -620,6 +577,31 @@ const ClientManager = () => {
                                     <label className="text-xs font-bold text-slate-500 uppercase">C.P. {isLookingUpCP && '...'}</label>
                                     <input value={postalCode} onChange={e => setPostalCode(e.target.value)} className="w-full p-2 border rounded-lg text-sm" />
                                 </div>
+                            </div>
+
+                            {/* MANUAL GEOCODING BUTTON */}
+                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-200">
+                                <button
+                                    type="button"
+                                    onClick={handleGeolocate}
+                                    disabled={isGeocoding || !address || !city}
+                                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all duration-200"
+                                >
+                                    {isGeocoding ? (
+                                        <>
+                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                            Localizando...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <MapPin size={18} />
+                                            📍 Localizar Dirección Exacta
+                                        </>
+                                    )}
+                                </button>
+                                <p className="text-[10px] text-center text-slate-500 mt-2">
+                                    {!address || !city ? '⚠️ Introduce dirección y ciudad primero' : 'Obtiene coordenadas GPS y C.P. automáticamente'}
+                                </p>
                             </div>
 
                             {/* GPS Data (Read Only) */}
