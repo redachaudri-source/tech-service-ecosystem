@@ -67,7 +67,7 @@ const ClientManager = () => {
         fetchClients();
     }, []);
 
-    // MANUAL GEOCODING: Precise Mapbox API Call
+    // HIGH-PRECISION MANUAL GEOCODING with Relevance Validation
     const handleGeolocate = async () => {
         // Validation
         if (!address || address.length < 5) {
@@ -83,43 +83,65 @@ const ClientManager = () => {
         setIsLookingUpCP(true);
 
         try {
-            // Build precise query: "Address, City, Province, Spain"
-            const query = `${address}, ${city}, ${province}, Spain`;
+            // Build PRECISE query with full address components
+            const query = `${address}, ${city}, España`;
             const encodedQuery = encodeURIComponent(query);
 
-            // MAPBOX API CALL - Precise configuration
-            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${MAPBOX_TOKEN}&country=es&types=address&limit=1&language=es`;
+            // MAPBOX HIGH-PRECISION API CALL
+            // types=address forces exact postal address matching (not POIs or generic locations)
+            // country=es ensures Spain-only results
+            // limit=3 to allow validation of top results
+            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${MAPBOX_TOKEN}&country=es&types=address&limit=3&language=es`;
 
-            console.log('🌍 Calling Mapbox Geocoding API:', query);
+            console.log('🌍 Calling Mapbox (High-Precision):', query);
 
             const response = await fetch(url);
             const data = await response.json();
 
             if (data.features && data.features.length > 0) {
-                const result = data.features[0];
+                // CRITICAL: Filter for HIGH RELEVANCE results only
+                // Relevance 1.0 = exact match, < 0.8 = fuzzy/generic match
+                const preciseResults = data.features.filter(f => f.relevance >= 0.8);
 
-                // Extract coordinates from center [lng, lat]
-                const [lng, lat] = result.center;
+                if (preciseResults.length === 0) {
+                    console.warn('⚠️ Low relevance results:', data.features.map(f => ({
+                        name: f.place_name,
+                        relevance: f.relevance
+                    })));
+                    alert('⚠️ Dirección no encontrada con precisión.\n\nPor favor verifica:\n- Número de calle correcto\n- Nombre de calle completo\n- Ciudad correcta');
+                    return;
+                }
+
+                // Take the MOST RELEVANT result
+                const result = preciseResults[0];
+
+                // Extract coordinates from GEOMETRY (more precise than center)
+                const [lng, lat] = result.geometry.coordinates;
                 setLatitude(lat.toFixed(6));
                 setLongitude(lng.toFixed(6));
 
-                // Extract Postal Code from context
+                // Extract Postal Code from context array
                 const postcodeObj = result.context?.find(c => c.id.startsWith('postcode'));
                 if (postcodeObj) {
                     setPostalCode(postcodeObj.text);
+                } else {
+                    console.warn('⚠️ No postal code in context');
                 }
 
-                console.log('✅ Geocoding successful:', {
+                console.log('✅ High-Precision Geocoding:', {
                     address: result.place_name,
                     lat,
                     lng,
-                    postcode: postcodeObj?.text || 'N/A'
+                    postcode: postcodeObj?.text || 'N/A',
+                    relevance: result.relevance,
+                    accuracy: result.properties?.accuracy || 'N/A'
                 });
 
-                alert(`✅ Dirección localizada:\n${result.place_name}`);
+                // Show confirmation with normalized address
+                alert(`✅ Dirección localizada con precisión:\n\n${result.place_name}\n\nRelevancia: ${(result.relevance * 100).toFixed(0)}%`);
             } else {
                 console.warn('⚠️ No results found');
-                alert('⚠️ No se encontraron resultados para esta dirección. Verifica que sea correcta.');
+                alert('⚠️ No se encontraron resultados.\n\nVerifica que la dirección sea correcta.');
             }
         } catch (error) {
             console.error('❌ Geocoding error:', error);
@@ -590,7 +612,7 @@ const ClientManager = () => {
                                     {isGeocoding ? (
                                         <>
                                             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                            Localizando...
+                                            Buscando satélite...
                                         </>
                                     ) : (
                                         <>
