@@ -532,59 +532,129 @@ const FleetMapbox = () => {
     };
 
     const drawRoutesAndStops = async (tech, tickets) => {
-        if (!mapRef.current || !showStops) return; // Guard: Respect Toggle
+        if (!mapRef.current || !showStops) {
+            console.log("⚠️ Mapa no listo o stops desactivados");
+            return;
+        }
 
-        // Clear existing route first
-        if (mapRef.current.getLayer('route-line')) mapRef.current.removeLayer('route-line');
-        if (mapRef.current.getSource('route-source')) mapRef.current.removeSource('route-source');
+        // Limpiar ruta existente
+        clearRoute();
 
-        // Stops logic is handled by renderStopMarkers, this function just draws the LINES
-        // We will filter only valid stops to connect
-        const stopsToVisit = tickets.filter(t => t.client?.longitude && t.status !== 'cancelado');
+        // Filtrar tickets válidos con coordenadas
+        const validStops = tickets.filter(t => {
+            // Soportar ambas estructuras: client y clients
+            const clientData = t.client || t.clients;
 
-        if (stopsToVisit.length === 0) return;
+            if (!clientData) {
+                console.warn("⚠️ Ticket sin datos de cliente:", t.id);
+                return false;
+            }
 
-        // Build Coordinate String: TechPos;Stop1;Stop2...
-        // Limit: Mapbox Directions API allows max 25 coordinates.
+            const hasCoords = clientData.latitude && clientData.longitude;
+            const isNotCancelled = !['cancelado', 'rechazado', 'anulado'].includes((t.status || '').toLowerCase());
+
+            return hasCoords && isNotCancelled;
+        });
+
+        if (validStops.length === 0) {
+            console.log("ℹ️ No hay paradas válidas para trazar ruta");
+            return;
+        }
+
+        console.log(`🗺️ Trazando ruta con ${validStops.length} paradas para ${tech.full_name}`);
+
+        // IMPORTANTE: Mapbox Directions API límite = 25 coordenadas (incluyendo origen)
+        const maxWaypoints = 24; // 25 - 1 (origen técnico)
+        const stopsToUse = validStops.slice(0, maxWaypoints);
+
+        if (validStops.length > maxWaypoints) {
+            console.warn(`⚠️ Limitando a ${maxWaypoints} paradas (Mapbox límite)`);
+        }
+
+        // Construir coordenadas: Origen (Técnico) + Paradas
         const coordinates = [
-            `${tech.longitude},${tech.latitude}`, // Start: Tech
-            ...stopsToVisit.map(t => `${t.client.longitude},${t.client.latitude}`) // Stops
+            `${tech.longitude},${tech.latitude}`, // Origen
+            ...stopsToUse.map(t => {
+                const clientData = t.client || t.clients;
+                return `${clientData.longitude},${clientData.latitude}`;
+            })
         ].join(';');
 
         try {
-            console.log("🗺️ Fetching optimized route for:", tech.full_name);
-            const query = await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?steps=true&geometries=geojson&access_token=${mapboxgl.accessToken}`);
-            const json = await query.json();
+            console.log("� Solicitando ruta optimizada a Mapbox...");
 
-            if (json.routes && json.routes.length > 0) {
-                const routeGeoJSON = json.routes[0].geometry;
+            const response = await fetch(
+                `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?` +
+                `steps=true&` +
+                `geometries=geojson&` +
+                `overview=full&` +
+                `access_token=${mapboxgl.accessToken}`
+            );
 
-                mapRef.current.addSource('route-source', {
-                    'type': 'geojson',
-                    'data': {
-                        'type': 'Feature',
-                        'geometry': routeGeoJSON
-                    }
-                });
-
-                mapRef.current.addLayer({
-                    'id': 'route-line',
-                    'type': 'line',
-                    'source': 'route-source',
-                    'layout': {
-                        'line-join': 'round',
-                        'line-cap': 'round'
-                    },
-                    'paint': {
-                        'line-color': '#3b82f6', // User requested blue
-                        'line-width': 5,
-                        'line-opacity': 0.8
-                    }
-                });
-                console.log("✅ Route drawn successfully");
+            if (!response.ok) {
+                throw new Error(`Mapbox API Error: ${response.status} ${response.statusText}`);
             }
-        } catch (e) {
-            console.error("❌ Route fetch error:", e);
+
+            const json = await response.json();
+
+            if (!json.routes || json.routes.length === 0) {
+                console.error("❌ Mapbox no devolvió rutas:", json);
+                return;
+            }
+
+            const routeGeoJSON = json.routes[0].geometry;
+            const distance = (json.routes[0].distance / 1000).toFixed(1); // km
+            const duration = Math.round(json.routes[0].duration / 60); // minutos
+
+            console.log(`✅ Ruta obtenida: ${distance} km, ~${duration} min`);
+
+            // Añadir source
+            mapRef.current.addSource('route-source', {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    geometry: routeGeoJSON
+                }
+            });
+
+            // Añadir layer de la línea
+            mapRef.current.addLayer({
+                id: 'route-line',
+                type: 'line',
+                source: 'route-source',
+                layout: {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                paint: {
+                    'line-color': '#3b82f6', // Azul
+                    'line-width': 5,
+                    'line-opacity': 0.8
+                }
+            });
+
+            // Ajustar cámara para mostrar toda la ruta
+            const allCoords = [
+                [tech.longitude, tech.latitude],
+                ...stopsToUse.map(t => {
+                    const clientData = t.client || t.clients;
+                    return [clientData.longitude, clientData.latitude];
+                })
+            ];
+
+            const bounds = allCoords.reduce((bounds, coord) => {
+                return bounds.extend(coord);
+            }, new mapboxgl.LngLatBounds(allCoords[0], allCoords[0]));
+
+            mapRef.current.fitBounds(bounds, {
+                padding: { top: 100, bottom: 100, left: 500, right: 100 },
+                duration: 1500
+            });
+
+            console.log("✅ Ruta dibujada exitosamente");
+
+        } catch (error) {
+            console.error("❌ Error al obtener/dibujar ruta:", error);
         }
     };
 
