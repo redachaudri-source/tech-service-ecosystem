@@ -646,10 +646,14 @@ const FleetMapbox = () => {
                 return bounds.extend(coord);
             }, new mapboxgl.LngLatBounds(allCoords[0], allCoords[0]));
 
+            // ⚠️ FIX: No hacer fitBounds automático en cada actualización
+            // Esto causaba sensación de "congelado" al bloquear la interacción del usuario
+            /* 
             mapRef.current.fitBounds(bounds, {
                 padding: { top: 100, bottom: 100, left: 500, right: 100 },
                 duration: 1500
             });
+            */
 
             console.log("✅ Ruta dibujada exitosamente");
 

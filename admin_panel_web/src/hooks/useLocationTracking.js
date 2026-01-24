@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase';
  * 2. Verifica hora actual vs horario.
  * 3. Si es válido -> GPS ON -> Update 'profiles' (current_lat, current_lng).
  * 4. Si no es válido -> GPS OFF.
+ * 5. THROTTLE: Máximo 1 update cada 20s.
  */
 export const useLocationTracking = (isActive, userId) => {
     const [isTracking, setIsTracking] = useState(false);
@@ -17,6 +18,9 @@ export const useLocationTracking = (isActive, userId) => {
     const watchIdRef = useRef(null);
     const scheduleRef = useRef(null);
     const isTrackingRef = useRef(false);
+
+    // THROTTLE REF
+    const lastUpdateRef = useRef(0);
 
     // 1. Cargar horario de trabajo
     useEffect(() => {
@@ -64,7 +68,7 @@ export const useLocationTracking = (isActive, userId) => {
         return isWorking;
     };
 
-    // 3. Función para enviar ubicación
+    // 3. Función para enviar ubicación (THROTTLED)
     const sendLocation = async (position) => {
         if (!isWorkingNow()) {
             stopTracking();
@@ -72,8 +76,14 @@ export const useLocationTracking = (isActive, userId) => {
             return;
         }
 
+        const now = Date.now();
+        // 🛡️ THROTTLE: Máximo 1 actualización cada 20 segundos
+        if (now - lastUpdateRef.current < 20000) {
+            // console.log("⏳ GPS Throttled...");
+            return;
+        }
+
         const { latitude, longitude } = position.coords;
-        // console.log("📍 GPS Hook: Actualizando Profile...", latitude, longitude);
 
         // CORRECCIÓN: Update profiles en lugar de technician_locations
         const { error: dbError } = await supabase
@@ -91,6 +101,7 @@ export const useLocationTracking = (isActive, userId) => {
         } else {
             setError(null);
             setIsTracking(true);
+            lastUpdateRef.current = now;
         }
     };
 
