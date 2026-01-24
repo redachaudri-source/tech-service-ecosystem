@@ -96,12 +96,32 @@ const ClientManager = () => {
             const data = await resp.json();
 
             if (data && data.features && data.features.length > 0) {
-                // FILTER: Only keep results that belong to the selected city or province
-                // We use a looser filter first, then a strict one if possible
+                // FILTER: Strict City Matching
+                // We must ensure the result is actually in the City (Place/Locality), not just the Province (Region)
+                // This prevents "Málaga" (Province) from allowing addresses in "Campillos"
                 const results = data.features.filter(f => {
-                    const placeName = normalize(f.place_name);
-                    const context = (f.context || []).map(c => normalize(c.text)).join(' ');
-                    return placeName.includes(normalizedCit) || context.includes(normalizedCit);
+                    const ctx = f.context || [];
+
+                    // Find the semantic city element in the context
+                    // Usually 'place' (City) or 'locality' (Town/Village)
+                    const cityNode = ctx.find(c => c.id.startsWith('place') || c.id.startsWith('locality'));
+
+                    // If we found a city node, it MUST match our search city
+                    if (cityNode) {
+                        return normalize(cityNode.text).includes(normalizedCit);
+                    }
+
+                    // If no city node found (rare, or maybe the feature IS the place), 
+                    // check if the feature itself is the place/locality matching our search
+                    if (f.place_type.includes('place') || f.place_type.includes('locality')) {
+                        return normalize(f.text).includes(normalizedCit);
+                    }
+
+                    // Fallback for Neighborhoods or POIs where upper context might be missing or complex
+                    // But if 'region' matches and 'place' is missing, it's risky. 
+                    // However, we default to stricter check: if we can't confirm city, we rely on text/place_name
+                    // BUT we explicitly exclude if we see a DIFFERENT place name
+                    return normalize(f.place_name).includes(normalizedCit) && !f.place_name.includes("Province");
                 });
 
                 const pool = results.length > 0 ? results : data.features;
