@@ -35,8 +35,7 @@ const FleetMapbox = () => {
     const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
     const [showStops, setShowStops] = useState(false); // DEFAULT FALSE (Req by user)
     const [showRoute, setShowRoute] = useState(false); // NEW: Route Toggle
-    const [manualOrigin, setManualOrigin] = useState(''); // NEW: Manual Origin
-    const [manualDest, setManualDest] = useState(''); // NEW: Manual Dest
+    const [manualRouteInput, setManualRouteInput] = useState(''); // FIX: Revert to single textarea state
 
     const [schedule, setSchedule] = useState(null); // PRIVACY: Store working hours
     const [isShopOpen, setIsShopOpen] = useState(true); // PRIVACY: Global shop status (persists across fetch cycles)
