@@ -680,11 +680,7 @@ const TechTicketDetail = () => {
         return { subtotal, vat, total };
     };
 
-    const handleOpenMap = (address, lat, lng) => {
-        if (lat && lng) {
-            window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, '_blank');
-            return;
-        }
+    const handleOpenMap = (address) => {
         if (!address) return;
         const query = encodeURIComponent(address);
         window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
@@ -1142,7 +1138,7 @@ const TechTicketDetail = () => {
                         )}
                     </div>
                     <button
-                        onClick={() => handleOpenMap(ticket.client?.address, ticket.client?.latitude, ticket.client?.longitude)}
+                        onClick={() => handleOpenMap(ticket.client?.address)}
                         className="w-full py-2.5 bg-blue-50 text-blue-700 rounded-lg flex items-center justify-center gap-2 font-medium text-sm border border-blue-100 active:scale-95 transition"
                     >
                         <Navigation size={16} /> Como llegar (Mapa)
