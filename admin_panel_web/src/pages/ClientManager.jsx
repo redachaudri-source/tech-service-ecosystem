@@ -145,30 +145,13 @@ const ClientManager = () => {
         setValue,
         suggestions: { status, data },
         clearSuggestions,
-        init
     } = usePlacesAutocomplete({
         requestOptions: {
             componentRestrictions: { country: "es" }
         },
         debounce: 300,
         cache: 24 * 60 * 60,
-        initOnMount: false, // Wait for script
     });
-
-    // Initialize Google Places when script is ready
-    useEffect(() => {
-        if (window.google) {
-            init();
-        } else {
-            const checkGoogle = setInterval(() => {
-                if (window.google) {
-                    init();
-                    clearInterval(checkGoogle);
-                }
-            }, 100);
-            return () => clearInterval(checkGoogle);
-        }
-    }, [init]);
 
     // SYNC: Google Search -> Map & Form
     const handleGoogleSelect = async (address) => {
@@ -791,7 +774,7 @@ const ClientManager = () => {
                                     </div>
                                 </div>
                                 {/* --- DYNAMIC ZONES (Province & City) --- */}
-                                <div className="hidden">
+                                <div className="grid grid-cols-2 gap-4 mt-2 border-t pt-4">
                                     <div>
                                         <label className="text-xs font-bold text-slate-500 uppercase">Provincia</label>
                                         <div className="relative">
