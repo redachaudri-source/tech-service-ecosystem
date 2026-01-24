@@ -44,12 +44,18 @@ export const useLocationTracking = (isActive, userId) => {
         if (!scheduleRef.current) return false; // Fail-closed
 
         const now = new Date();
-        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        // Capitalized to match DB (UI Screenshot shows "Monday")
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const currentDay = days[now.getDay()];
-        const dayConfig = scheduleRef.current[currentDay];
+
+        // Case-insensitive lookup (Try Capitalized, then lowercase)
+        let dayConfig = scheduleRef.current[currentDay];
+        if (!dayConfig) {
+            dayConfig = scheduleRef.current[currentDay.toLowerCase()];
+        }
 
         if (!dayConfig) {
-            console.log(`🛡️ PRIVACIDAD: ${currentDay} cerrado, GPS DETENIDO`);
+            console.log(`🛡️ PRIVACIDAD: ${currentDay} cerrado (Sin config), GPS DETENIDO`);
             return false;
         }
 
