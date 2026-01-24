@@ -45,8 +45,10 @@ const BusinessSettings = () => {
         try {
             const { error } = await supabase
                 .from('business_config')
-                .update({ value: workingHours })
-                .eq('key', 'working_hours');
+                .upsert({
+                    key: 'working_hours',
+                    value: workingHours
+                }, { onConflict: 'key' });
 
             if (error) throw error;
             addToast('Horario actualizado correctamente', 'success');
