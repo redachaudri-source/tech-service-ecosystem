@@ -72,80 +72,72 @@ const ClientManager = () => {
         if (!addr || addr.length < 5 || !cit) return;
         setIsGeocoding(true);
         setIsLookingUpCP(true);
+
+        // Reset previous values to avoid showing stale data if search fails
+        setLatitude('');
+        setLongitude('');
+
         try {
-            // Helper to normalize strings for comparison (remove accents)
-            const normalize = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+            const normalize = (str) => (str || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
             const normalizedCit = normalize(cit);
 
-            // Biasing search towards Malaga city center if that's the city selected
-            // This is crucial for long roads or common names
+            // Proximity Bias for Malaga center if applicable
             let proximity = '';
-            if (normalizedCit === 'malaga') proximity = '&proximity=-4.4213,36.7213';
+            if (normalizedCit.includes('malaga')) proximity = '&proximity=-4.4213,36.7213';
 
-            const locationPart = cit === prov ? cit : `${cit}, ${prov}`;
-            const query = `${addr}, ${locationPart}, Spain`;
+            // Broader query to help Mapbox find the right road
+            const query = `${addr}, ${cit}, ${prov}, Spain`;
             const encodedQuery = encodeURIComponent(query);
-
-            // Limit 10 and more types to allow us to find the correct match even if not the first
-            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${MAPBOX_TOKEN}&limit=10&country=es&types=address,postcode,neighborhood,street,place,locality&language=es${proximity}`;
+            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${MAPBOX_TOKEN}&limit=8&country=es&types=address,postcode,street,neighborhood,place&language=es${proximity}`;
 
             const resp = await fetch(url);
             const data = await resp.json();
 
-            if (data.features && data.features.length > 0) {
-                // FORCE: The correctly selected city must be in the context as locality/place
-                // Otherwise Mapbox might return a similar named street in a different municipality of the same province
-                const validFeatures = data.features.filter(f => {
-                    const ctx = f.context || [];
-                    // Check if city name is specifically in a locality/place/neighborhood/municipality context
-                    const inContext = ctx.some(c =>
-                        (c.id.startsWith('place') || c.id.startsWith('locality') || c.id.startsWith('neighborhood') || c.id.startsWith('municipality')) &&
-                        normalize(c.text).includes(normalizedCit)
-                    );
-                    const inName = normalize(f.place_name || '').includes(normalizedCit);
-                    return inContext || inName;
+            if (data && data.features && data.features.length > 0) {
+                // FILTER: Only keep results that belong to the selected city or province
+                // We use a looser filter first, then a strict one if possible
+                const results = data.features.filter(f => {
+                    const placeName = normalize(f.place_name);
+                    const context = (f.context || []).map(c => normalize(c.text)).join(' ');
+                    return placeName.includes(normalizedCit) || context.includes(normalizedCit);
                 });
 
-                // Pick best from filtered or fall back to any if no matches (should not happen with good query)
-                const pool = validFeatures.length > 0 ? validFeatures : data.features;
+                const pool = results.length > 0 ? results : data.features;
 
-                // Priority: address > street > everything else
+                // PICK BEST FEATURE
+                // We try to find an 'address' match first, then a 'street' match
                 const feature = pool.find(f => f.place_type.includes('address')) ||
                     pool.find(f => f.place_type.includes('street')) ||
                     pool[0];
 
                 if (feature && feature.center) {
                     const [lng, lat] = feature.center;
-
-                    // Extract coordinates
                     setLatitude(lat.toFixed(6));
                     setLongitude(lng.toFixed(6));
 
-                    // Extract Postal Code with Deep Scan
-                    let pc = null;
-
-                    // 1. Try context of the selected feature first
-                    pc = feature.context?.find(c => c.id.startsWith('postcode'))?.text;
-
-                    // 2. If not found, look at other features in the VALID pool
+                    // Extract Postal Code
+                    let pc = feature.context?.find(c => c.id.startsWith('postcode'))?.text;
                     if (!pc) {
-                        pc = validFeatures.map(f => f.context?.find(c => c.id.startsWith('postcode'))?.text).find(Boolean);
+                        // Scan other features in the pool for a postcode match
+                        pc = pool.map(f => f.context?.find(c => c.id.startsWith('postcode'))?.text).find(Boolean);
                     }
-
                     if (pc) setPostalCode(pc);
 
-                    console.log("📍 Location Auto-filled (Resilient):", {
-                        lat, lng, pc,
-                        type: feature.place_type,
-                        place: feature.place_name,
-                        relevance: feature.relevance
-                    });
+                    console.log("📍 Location Found:", { lat, lng, pc, name: feature.place_name });
+                } else {
+                    console.warn("⚠️ No valid center for feature:", feature);
+                    setLatitude('0.000000'); // Fallback to indicate finished but failed
+                    setLongitude('0.000000');
                 }
             } else {
-                console.warn("⚠️ No geocoding results found for:", query);
+                console.warn("⚠️ Zero results from Mapbox for:", query);
+                setLatitude('0.000000'); // Fallback
+                setLongitude('0.000000');
             }
         } catch (error) {
-            console.error("Geocoding failed", error);
+            console.error("❌ Geocoding error:", error);
+            setLatitude('error');
+            setLongitude('error');
         } finally {
             setIsGeocoding(false);
             setIsLookingUpCP(false);
