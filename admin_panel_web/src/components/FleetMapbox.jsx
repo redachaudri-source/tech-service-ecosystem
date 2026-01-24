@@ -291,7 +291,12 @@ const FleetMapbox = () => {
 
             // Route Logic (Only if showRoute ON)
             if (showRoute) {
-                drawRoutesAndStops(selectedTech, techItinerary);
+                // FORCE SORT: Ensure stops are time-ordered (A->B->C) for the route API
+                const sortedStops = [...techStops].sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
+
+                if (sortedStops.length > 0) {
+                    drawRoutesAndStops(selectedTech, sortedStops);
+                }
             } else {
                 clearRoute();
             }
