@@ -73,36 +73,66 @@ const ClientManager = () => {
         setIsGeocoding(true);
         setIsLookingUpCP(true);
         try {
-            // Refined query for better accuracy: specific types (address) usually yield better postcodes
-            const query = `${addr}, ${cit}, ${prov}, Spain`;
+            // Biasing search towards Malaga city center if that's the city selected
+            // This is crucial for long roads or common names
+            let proximity = '';
+            if (cit === 'Málaga') proximity = '&proximity=-4.4213,36.7213';
+
+            const locationPart = cit === prov ? cit : `${cit}, ${prov}`;
+            const query = `${addr}, ${locationPart}, Spain`;
             const encodedQuery = encodeURIComponent(query);
-            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${MAPBOX_TOKEN}&limit=3&country=es&types=address,place`;
+
+            // Limit 10 and more types to allow us to find the correct match even if not the first
+            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${MAPBOX_TOKEN}&limit=10&country=es&types=address,postcode,neighborhood,street,place,locality&language=es${proximity}`;
 
             const resp = await fetch(url);
             const data = await resp.json();
 
             if (data.features && data.features.length > 0) {
-                // Priority to 'address' type features for exact CP match
-                const feature = data.features.find(f => f.place_type.includes('address')) || data.features[0];
+                // FORCE: The correctly selected city must be in the context as locality/place
+                // Otherwise Mapbox might return a similar named street in a different municipality of the same province
+                const validFeatures = data.features.filter(f => {
+                    const ctx = f.context || [];
+                    // Check if city name is specifically in a locality/place/neighborhood/municipality context
+                    return ctx.some(c =>
+                        (c.id.startsWith('place') || c.id.startsWith('locality') || c.id.startsWith('neighborhood') || c.id.startsWith('municipality')) &&
+                        c.text.toLowerCase().includes(cit.toLowerCase())
+                    ) || f.place_name.toLowerCase().includes(cit.toLowerCase());
+                });
+
+                // Pick best from filtered or fall back to any if no matches (should not happen with good query)
+                const pool = validFeatures.length > 0 ? validFeatures : data.features;
+
+                // Priority: address > street > everything else
+                const feature = pool.find(f => f.place_type.includes('address')) ||
+                    pool.find(f => f.place_type.includes('street')) ||
+                    pool[0];
+
                 const [lng, lat] = feature.center;
 
                 // Extract coordinates
                 setLatitude(lat.toFixed(6));
                 setLongitude(lng.toFixed(6));
 
-                // Extract Postal Code
-                // Try context first, then look for a feature of type 'postcode' in the whole response if context fails
-                let pc = feature.context?.find(c => c.id.startsWith('postcode'))?.text;
+                // Extract Postal Code with Deep Scan
+                let pc = null;
 
+                // 1. Try context of the selected feature first
+                pc = feature.context?.find(c => c.id.startsWith('postcode'))?.text;
+
+                // 2. If not found, look at other features in the VALID pool
                 if (!pc) {
-                    // Fallback: search in other nearby features if limit > 1
-                    const postcodeFeature = data.features.find(f => f.place_type.includes('postcode'));
-                    if (postcodeFeature) pc = postcodeFeature.text;
+                    pc = validFeatures.map(f => f.context?.find(c => c.id.startsWith('postcode'))?.text).find(Boolean);
                 }
 
                 if (pc) setPostalCode(pc);
 
-                console.log("📍 Location Auto-filled (Refined):", { lat, lng, pc, type: feature.place_type });
+                console.log("📍 Location Auto-filled (Strict Mode):", {
+                    lat, lng, pc,
+                    type: feature.place_type,
+                    place: feature.place_name,
+                    relevance: feature.relevance
+                });
             }
         } catch (error) {
             console.error("Geocoding failed", error);
