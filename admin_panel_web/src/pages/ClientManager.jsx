@@ -828,8 +828,9 @@ const ClientManager = () => {
                                         </div>
                                     </div>
                                 </div>
+                            </div>
 
-                                <button className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-bold hover:bg-blue-700">Guardar</button>
+                            <button className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-bold hover:bg-blue-700">Guardar</button>
                         </form>
                     </div>
                 </div>
