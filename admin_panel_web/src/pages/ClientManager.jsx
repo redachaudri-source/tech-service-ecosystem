@@ -791,7 +791,7 @@ const ClientManager = () => {
                                     </div>
                                 </div>
                                 {/* --- DYNAMIC ZONES (Province & City) --- */}
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="hidden">
                                     <div>
                                         <label className="text-xs font-bold text-slate-500 uppercase">Provincia</label>
                                         <div className="relative">
