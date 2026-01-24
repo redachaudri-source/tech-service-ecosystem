@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext'; // Import useAuth
-import { Plus, User, MapPin, Trash2, Edit2, X, Phone, Mail, History, Filter, Search as SearchIcon, Lock, Unlock, Package, Zap, Waves, Wind, Refrigerator, Flame, Thermometer, Tv, Smartphone, Disc, TrendingUp, AlertTriangle, CheckCircle, Clock, Star, ShieldAlert, Building2, Laptop } from 'lucide-react';
+import { Plus, User, MapPin, Trash2, Edit2, X, Phone, Mail, History, Filter, Search as SearchIcon, Lock, Unlock, Package, Zap, Waves, Wind, Refrigerator, Flame, Thermometer, Tv, Smartphone, Disc, TrendingUp, AlertTriangle, CheckCircle, Clock, Star, ShieldAlert, Building2, Laptop, Navigation } from 'lucide-react';
 import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { MAPBOX_TOKEN } from '../config/mapbox';
 
 const ClientManager = () => {
     const { user } = useAuth(); // Get current user
@@ -40,6 +42,9 @@ const ClientManager = () => {
     const [postalCode, setPostalCode] = useState('');
     const [notes, setNotes] = useState('');
     const [isLookingUpCP, setIsLookingUpCP] = useState(false);
+    const [latitude, setLatitude] = useState('');
+    const [longitude, setLongitude] = useState('');
+    const [isGeocoding, setIsGeocoding] = useState(false);
 
     // Search & Filter State
     const [searchTerm, setSearchTerm] = useState('');
@@ -62,27 +67,44 @@ const ClientManager = () => {
         fetchClients();
     }, []);
 
-    // CP Lookup
-    const lookupPostalCode = async (addr, cit, prov) => {
-        if (!addr || !cit) return;
+    // Unified Geocoding & CP Lookup
+    const performGeocoding = async (addr, cit, prov) => {
+        if (!addr || addr.length < 5 || !cit) return;
+        setIsGeocoding(true);
         setIsLookingUpCP(true);
         try {
             const query = `${addr}, ${cit}, ${prov}, Spain`;
-            const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&addressdetails=1`);
+            const encodedQuery = encodeURIComponent(query);
+            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${MAPBOX_TOKEN}&limit=1&country=es`;
+
+            const resp = await fetch(url);
             const data = await resp.json();
-            if (data?.[0]?.address?.postcode) {
-                setPostalCode(data[0].address.postcode);
+
+            if (data.features && data.features.length > 0) {
+                const feature = data.features[0];
+                const [lng, lat] = feature.center;
+
+                // Extract coordinates
+                setLatitude(lat.toFixed(6));
+                setLongitude(lng.toFixed(6));
+
+                // Extract Postal Code if available in context
+                const pc = feature.context?.find(c => c.id.startsWith('postcode'))?.text;
+                if (pc) setPostalCode(pc);
+
+                console.log("📍 Location Auto-filled:", { lat, lng, pc });
             }
         } catch (error) {
-            console.error("CP Lookup failed", error);
+            console.error("Geocoding failed", error);
         } finally {
+            setIsGeocoding(false);
             setIsLookingUpCP(false);
         }
     };
 
     useEffect(() => {
         const timer = setTimeout(() => {
-            if (address.length > 5 && city.length > 2) lookupPostalCode(address, city, province);
+            if (address.length > 5 && city.length > 2) performGeocoding(address, city, province);
         }, 1500);
         return () => clearTimeout(timer);
     }, [address, city, province]);
@@ -127,6 +149,8 @@ const ClientManager = () => {
         const payload = {
             full_name: fullName, email, phone, phone_2: phone2,
             address, floor, apartment, city, province, postal_code: postalCode,
+            latitude: latitude ? parseFloat(latitude) : null,
+            longitude: longitude ? parseFloat(longitude) : null,
             notes, role: 'client', created_via: id ? undefined : 'admin'
         };
 
@@ -201,6 +225,7 @@ const ClientManager = () => {
         setFullName(client.full_name); setEmail(client.email); setPhone(client.phone); setPhone2(client.phone_2);
         setAddress(client.address); setFloor(client.floor); setApartment(client.apartment);
         setCity(client.city || 'Málaga'); setPostalCode(client.postal_code); setNotes(client.notes);
+        setLatitude(client.latitude || ''); setLongitude(client.longitude || '');
         setSelectedClient(client);
         setShowModal(true);
     };
@@ -208,6 +233,7 @@ const ClientManager = () => {
     const handleClose = () => {
         setShowModal(false); setId(null); setFullName(''); setEmail(''); setPhone(''); setPhone2('');
         setAddress(''); setFloor(''); setApartment(''); setCity('Málaga'); setPostalCode(''); setNotes('');
+        setLatitude(''); setLongitude('');
     };
 
     const handleViewAppliances = async (client) => {
@@ -531,6 +557,31 @@ const ClientManager = () => {
                                     <input value={postalCode} onChange={e => setPostalCode(e.target.value)} className="w-full p-2 border rounded-lg text-sm" />
                                 </div>
                             </div>
+
+                            {/* GPS Data (Read Only) */}
+                            <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-[10px] font-bold text-blue-600 uppercase tracking-widest flex items-center gap-2">
+                                        <Navigation size={12} /> Localización GPS {isGeocoding && <span className="animate-pulse">...</span>}
+                                    </label>
+                                    {latitude && (
+                                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                                            Auto-geolocalizado
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Latitud</label>
+                                        <input readOnly value={latitude} className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-mono text-slate-500 cursor-not-allowed" placeholder="Calculando..." />
+                                    </div>
+                                    <div>
+                                        <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Longitud</label>
+                                        <input readOnly value={longitude} className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-mono text-slate-500 cursor-not-allowed" placeholder="Calculando..." />
+                                    </div>
+                                </div>
+                            </div>
+
                             <button className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-bold hover:bg-blue-700">Guardar</button>
                         </form>
                     </div>
