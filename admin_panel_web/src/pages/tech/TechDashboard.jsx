@@ -180,6 +180,13 @@ const TechDashboard = () => {
         // e.stopPropagation() is handled in ServiceCard
         if (user?.profile?.status === 'paused') return;
 
+        // 🗺️ AUTO-MAP: Open Google Maps automatically
+        const ticket = tickets.find(t => t.id === ticketId) || pendingTickets.find(t => t.id === ticketId);
+        if (ticket?.client?.address) {
+            const query = encodeURIComponent(ticket.client.address);
+            window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
+        }
+
         try {
             const { error } = await supabase
                 .from('tickets')
