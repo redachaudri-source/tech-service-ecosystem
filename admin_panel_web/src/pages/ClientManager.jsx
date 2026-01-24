@@ -775,44 +775,7 @@ const ClientManager = () => {
                                 </div>
                             </div>
 
-                            {/* --- DYNAMIC ZONES (Province & City) --- */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Provincia</label>
-                                    <div className="relative">
-                                        <select
-                                            value={province}
-                                            onChange={e => handleProvinceChange(e.target.value)}
-                                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:bg-white focus:border-blue-400 outline-none appearance-none cursor-pointer"
-                                        >
-                                            {serviceZones.map(z => (
-                                                <option key={z.id} value={z.province}>{z.province}</option>
-                                            ))}
-                                        </select>
-                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                            <ChevronDown size={14} />
-                                        </div>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Localidad</label>
-                                    <div className="relative">
-                                        <select
-                                            value={city}
-                                            onChange={e => setCity(e.target.value)}
-                                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:bg-white focus:border-blue-400 outline-none appearance-none cursor-pointer"
-                                            disabled={availableCities.length === 0}
-                                        >
-                                            {availableCities.map(c => (
-                                                <option key={c} value={c}>{c}</option>
-                                            ))}
-                                        </select>
-                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                            <ChevronDown size={14} />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+
 
                             <button className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-bold hover:bg-blue-700">Guardar</button>
                         </form>
