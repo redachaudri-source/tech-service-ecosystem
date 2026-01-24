@@ -23,6 +23,20 @@ export const useLocationTracking = (isActive, userId) => {
         return () => stopTracking();
     }, [isActive, userId]);
 
+    const [schedule, setSchedule] = useState(null);
+
+    // 🕒 Load Schedule on Mount
+    useEffect(() => {
+        const fetchSchedule = async () => {
+            const { data } = await supabase.from('business_config').select('value').eq('key', 'working_hours').single();
+            if (data) {
+                setSchedule(data.value);
+                console.log('📅 Schedule loaded for GPS tracking:', data.value);
+            }
+        };
+        fetchSchedule();
+    }, []);
+
     const startTracking = () => {
         if (!navigator.geolocation) {
             setError('GPS no disponible en este dispositivo');
@@ -42,81 +56,71 @@ export const useLocationTracking = (isActive, userId) => {
                     const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']; // 0-6
                     const currentDay = days[now.getDay()];
 
-                    // Fetch schedule if not already loaded (Optimization: Cache in a ref or simple fetch per ping if infrequent)
-                    // For robustness and real-time updates, we'll fetch 'business_config' occasionally or assume passed via context.
-                    // Given hook isolation, let's fast-fetch or check logic here.
+                    // 🛡️ PRIVACY CHECK: Working Hours (European Data Protection)
 
-                    // To avoid massive reads, we'll fetch once on mount and check.
-                    // But to ensure "real-time" compliance, let's do a lightweight check or use the fetched schedule.
+                    // If schedule is loaded, enforce it. If not yet loaded (null), we skip check (fail-open) momentarily 
+                    // or block (fail-closed). Let's go with Fail-Closed for privacy safety if strict.
 
-                    // BETTER APPROACH: The hook should probably receive the schedule or fetch it.
-                    // Let's lazy-fetch inside the hook.
+                    if (schedule) {
+                        const dayConfig = schedule[currentDay];
 
-                    if (!window.latestSchedule) {
-                        const { data } = await supabase.from('business_config').select('value').eq('key', 'working_hours').single();
-                        if (data) window.latestSchedule = data.value;
-                    }
+                        let isAllowed = false;
 
-                    const schedule = window.latestSchedule;
-                    const dayConfig = schedule ? schedule[currentDay] : null;
+                        if (dayConfig) {
+                            // Check if today is open
+                            // Parse times "09:00" -> Compare
+                            const currentTime = now.getHours() * 60 + now.getMinutes();
+                            const [startH, startM] = dayConfig.start.split(':').map(Number);
+                            const [endH, endM] = dayConfig.end.split(':').map(Number);
+                            const startTime = startH * 60 + startM;
+                            const endTime = endH * 60 + endM;
 
-                    let isAllowed = false;
-
-                    if (dayConfig) {
-                        // Check if today is open
-                        // Parse times "09:00" -> Compare
-                        const currentTime = now.getHours() * 60 + now.getMinutes();
-                        const [startH, startM] = dayConfig.start.split(':').map(Number);
-                        const [endH, endM] = dayConfig.end.split(':').map(Number);
-                        const startTime = startH * 60 + startM;
-                        const endTime = endH * 60 + endM;
-
-                        if (currentTime >= startTime && currentTime < endTime) {
-                            isAllowed = true;
+                            if (currentTime >= startTime && currentTime < endTime) {
+                                isAllowed = true;
+                            }
                         }
+
+                        if (!isAllowed) {
+                            console.log(`🛡️ GPS Paused: Outside Working Hours (${currentDay}, ${now.toLocaleTimeString()})`);
+                            setError('⏸️ RASTREO PAUSADO (Fuera de Horario Laboral)');
+                            setIsTracking(false); // Visually indicate pause
+                            return; // ⛔ STOP: Do not send to DB
+                        }
+
+                        // Proceed if allowed
+                        const { error: dbError } = await supabase
+                            .from('technician_locations')
+                            .upsert({
+                                technician_id: userId,
+                                latitude,
+                                longitude,
+                                heading: heading || 0,
+                                speed: speed || 0,
+                                updated_at: new Date().toISOString()
+                            });
+
+                        if (dbError) throw dbError;
+
+                        setIsTracking(true);
+                        setError(null);
+                        console.log('✅ GPS Tracking ACTIVE - isTracking:', true);
+                        console.log(`📍 Location updated: ${latitude.toFixed(6)}, ${longitude.toFixed(6)} | Heading: ${heading}° | Speed: ${speed} m/s`);
+                    } catch (err) {
+                        console.error('❌ Error updating location:', err);
+                        // Don't show technical errors to user if it's just a hiccup, but show privacy pause clearly
+                        if (err.message !== 'Privacy') setError('Error al compartir ubicación');
                     }
-
-                    if (!isAllowed) {
-                        console.log(`🛡️ GPS Paused: Outside Working Hours (${currentDay}, ${now.toLocaleTimeString()})`);
-                        setError('⏸️ RASTREO PAUSADO (Fuera de Horario Laboral)');
-                        setIsTracking(false); // Visually indicate pause
-                        return; // ⛔ STOP: Do not send to DB
-                    }
-
-                    // Proceed if allowed
-                    const { error: dbError } = await supabase
-                        .from('technician_locations')
-                        .upsert({
-                            technician_id: userId,
-                            latitude,
-                            longitude,
-                            heading: heading || 0,
-                            speed: speed || 0,
-                            updated_at: new Date().toISOString()
-                        });
-
-                    if (dbError) throw dbError;
-
-                    setIsTracking(true);
-                    setError(null);
-                    console.log('✅ GPS Tracking ACTIVE - isTracking:', true);
-                    console.log(`📍 Location updated: ${latitude.toFixed(6)}, ${longitude.toFixed(6)} | Heading: ${heading}° | Speed: ${speed} m/s`);
-                } catch (err) {
-                    console.error('❌ Error updating location:', err);
-                    // Don't show technical errors to user if it's just a hiccup, but show privacy pause clearly
-                    if (err.message !== 'Privacy') setError('Error al compartir ubicación');
+                },
+                (err) => {
+                    console.error('❌ Geolocation error:', err);
+                    setError(`Error GPS: ${err.message}`);
+                    setIsTracking(false);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 30000, // Increased to 30 seconds
+                    maximumAge: 0 // Always get fresh position
                 }
-            },
-            (err) => {
-                console.error('❌ Geolocation error:', err);
-                setError(`Error GPS: ${err.message}`);
-                setIsTracking(false);
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 30000, // Increased to 30 seconds
-                maximumAge: 0 // Always get fresh position
-            }
         );
     };
 

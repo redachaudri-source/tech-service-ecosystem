@@ -70,13 +70,11 @@ const FleetMapbox = () => {
     const fetchFleetData = async () => {
         try {
             const now = new Date();
-            // Wide range: Yesterday to Tomorrow (-1 / +1 day)
+            // STRICT: Only Today (00:00:00 to 23:59:59)
             const start = new Date(now);
-            start.setDate(now.getDate() - 1);
             start.setHours(0, 0, 0, 0);
 
             const end = new Date(now);
-            end.setDate(now.getDate() + 1);
             end.setHours(23, 59, 59, 999);
 
             const startDate = start.toISOString();
