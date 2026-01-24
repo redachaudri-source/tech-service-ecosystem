@@ -139,19 +139,38 @@ const ClientManager = () => {
     }, []);
 
     // GOOGLE PLACES HOOK
+    // GOOGLE PLACES HOOK
     const {
         ready,
         value,
         setValue,
         suggestions: { status, data },
         clearSuggestions,
+        init
     } = usePlacesAutocomplete({
         requestOptions: {
             componentRestrictions: { country: "es" }
         },
         debounce: 300,
         cache: 24 * 60 * 60,
+        initOnMount: false, // 🔒 CRITICAL: Wait for script to load manually
     });
+
+    // 🔒 SAFELOCK: Initialize Google Places ONLY when script is fully ready
+    // DO NOT REMOVE THIS EFFECT - IT FIXES THE "DISAPPEARING LIST" BUG
+    useEffect(() => {
+        if (window.google) {
+            init();
+        } else {
+            const checkGoogle = setInterval(() => {
+                if (window.google) {
+                    init();
+                    clearInterval(checkGoogle);
+                }
+            }, 100);
+            return () => clearInterval(checkGoogle);
+        }
+    }, [init]);
 
     // SYNC: Google Search -> Map & Form
     const handleGoogleSelect = async (address) => {
