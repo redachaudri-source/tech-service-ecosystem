@@ -10,7 +10,9 @@ const client = new Client({
 async function run() {
     try {
         await client.connect();
-        const sql = fs.readFileSync('check_client_row.sql', 'utf8');
+        const sql = process.argv[2]; // Read from command line arg
+        if (!sql) throw new Error("Please provide SQL query as argument");
+        console.log("Executing SQL:", sql);
         const res = await client.query(sql);
         console.log("Rows:", res.rows);
     } catch (e) {
