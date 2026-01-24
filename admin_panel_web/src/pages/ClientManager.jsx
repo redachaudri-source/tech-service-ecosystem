@@ -40,12 +40,9 @@ const ClientManager = () => {
     const [showBlockModal, setShowBlockModal] = useState(false);
     const [blockActionData, setBlockActionData] = useState(null);
 
-    const [cities] = useState([
-        'Málaga', 'Marbella', 'Mijas', 'Fuengirola', 'Vélez-Málaga',
-        'Torremolinos', 'Benalmádena', 'Estepona', 'Rincón de la Victoria',
-        'Antequera', 'Alhaurín de la Torre', 'Ronda', 'Cártama',
-        'Alhaurín el Grande', 'Coín', 'Nerja', 'Torrox', 'Manilva', 'Álora'
-    ]);
+    // Dynamic Zones State
+    const [serviceZones, setServiceZones] = useState([]);
+    const [availableCities, setAvailableCities] = useState([]);
 
     // Form State
     const [id, setId] = useState(null);
@@ -56,14 +53,56 @@ const ClientManager = () => {
     const [address, setAddress] = useState('');
     const [floor, setFloor] = useState('');
     const [apartment, setApartment] = useState('');
-    const [city, setCity] = useState('Málaga');
-    const [province] = useState('Málaga');
+
+    // Default to empty, will be auto-set by dynamic zones
+    const [province, setProvince] = useState('');
+    const [city, setCity] = useState('');
+
     const [postalCode, setPostalCode] = useState('');
     const [notes, setNotes] = useState('');
     const [isLookingUpCP, setIsLookingUpCP] = useState(false);
     const [latitude, setLatitude] = useState('');
     const [longitude, setLongitude] = useState('');
     const [isGeocoding, setIsGeocoding] = useState(false);
+
+    // Load Service Zones
+    useEffect(() => {
+        const fetchZones = async () => {
+            const { data, error } = await supabase
+                .from('service_zones')
+                .select('*')
+                .eq('is_active', true)
+                .order('province');
+
+            if (data && data.length > 0) {
+                setServiceZones(data);
+
+                // AUTO-SELECT DEFAULT (First Province)
+                const defaultZone = data[0];
+                setProvince(defaultZone.province);
+                setAvailableCities(defaultZone.cities || []);
+
+                // Default to first city if available
+                if (defaultZone.cities && defaultZone.cities.length > 0) {
+                    setCity(defaultZone.cities[0]);
+                }
+            }
+        };
+        fetchZones();
+    }, []);
+
+    // Update cities when province changes
+    const handleProvinceChange = (newProvince) => {
+        setProvince(newProvince);
+        const zone = serviceZones.find(z => z.province === newProvince);
+        if (zone) {
+            setAvailableCities(zone.cities || []);
+            setCity(zone.cities[0] || '');
+        } else {
+            setAvailableCities([]);
+            setCity('');
+        }
+    };
 
     // Search & Filter State
     const [searchTerm, setSearchTerm] = useState('');
@@ -736,15 +775,42 @@ const ClientManager = () => {
                                 </div>
                             </div>
 
-                            {/* Standard City/CP Fields (Hidden/Auto but editable if needed) */}
-                            <div className="grid grid-cols-2 gap-4 pt-2">
+                            {/* --- DYNAMIC ZONES (Province & City) --- */}
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">Ciudad (Auto)</label>
-                                    <input value={city} onChange={e => setCity(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:bg-white focus:border-blue-400 outline-none transition-colors" />
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Provincia</label>
+                                    <div className="relative">
+                                        <select
+                                            value={province}
+                                            onChange={e => handleProvinceChange(e.target.value)}
+                                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:bg-white focus:border-blue-400 outline-none appearance-none cursor-pointer"
+                                        >
+                                            {serviceZones.map(z => (
+                                                <option key={z.id} value={z.province}>{z.province}</option>
+                                            ))}
+                                        </select>
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                            <ChevronDown size={14} />
+                                        </div>
+                                    </div>
                                 </div>
                                 <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">C.P. (Auto)</label>
-                                    <input value={postalCode} onChange={e => setPostalCode(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:bg-white focus:border-blue-400 outline-none transition-colors" />
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Localidad</label>
+                                    <div className="relative">
+                                        <select
+                                            value={city}
+                                            onChange={e => setCity(e.target.value)}
+                                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:bg-white focus:border-blue-400 outline-none appearance-none cursor-pointer"
+                                            disabled={availableCities.length === 0}
+                                        >
+                                            {availableCities.map(c => (
+                                                <option key={c} value={c}>{c}</option>
+                                            ))}
+                                        </select>
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                            <ChevronDown size={14} />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
