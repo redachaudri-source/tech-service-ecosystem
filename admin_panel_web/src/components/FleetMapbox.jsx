@@ -35,9 +35,11 @@ const FleetMapbox = () => {
     const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
     const [showStops, setShowStops] = useState(false); // DEFAULT FALSE (Req by user)
     const [showRoute, setShowRoute] = useState(false); // NEW: Route Toggle
-    const [manualRouteInput, setManualRouteInput] = useState(''); // NEW: Manual Route Testing
+    const [manualOrigin, setManualOrigin] = useState(''); // NEW: Manual Origin
+    const [manualDest, setManualDest] = useState(''); // NEW: Manual Dest
 
     const [schedule, setSchedule] = useState(null); // PRIVACY: Store working hours
+    const [isShopOpen, setIsShopOpen] = useState(true); // PRIVACY: Global shop status (persists across fetch cycles)
 
     // MAP INIT
     useEffect(() => {
@@ -84,12 +86,23 @@ const FleetMapbox = () => {
     // 🛡️ PRIVACY HELPER
     const isWorkingNow = (scheduleConfig) => {
         if (!scheduleConfig) return false; // Default blocked if no schedule yet
-        const now = new Date();
-        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-        const currentDay = days[now.getDay()];
-        const dayConfig = scheduleConfig[currentDay];
 
-        if (!dayConfig) return false; // Closed today (null)
+        const now = new Date();
+
+        // ✅ FIX: Capitalized to match DB (Screenshot shows "Monday", "Tuesday"...)
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const currentDay = days[now.getDay()];
+
+        // ✅ FALLBACK: Case-insensitive lookup (try Capitalized, then lowercase)
+        let dayConfig = scheduleConfig[currentDay];
+        if (!dayConfig) {
+            dayConfig = scheduleConfig[currentDay.toLowerCase()];
+        }
+
+        if (!dayConfig) {
+            console.log(`🛡️ PRIVACY: ${currentDay} cerrado (sin config), GPS bloqueado`);
+            return false; // Closed today (no entry in DB)
+        }
 
         const nowMins = now.getHours() * 60 + now.getMinutes();
         const [startH, startM] = dayConfig.start.split(':').map(Number);
@@ -97,7 +110,13 @@ const FleetMapbox = () => {
         const startMins = startH * 60 + startM;
         const endMins = endH * 60 + endM;
 
-        return nowMins >= startMins && nowMins < endMins;
+        const isWorking = nowMins >= startMins && nowMins < endMins;
+
+        if (!isWorking) {
+            console.log(`🛡️ PRIVACY: Fuera de horario (${nowMins} mins vs ${startMins}-${endMins}), GPS bloqueado`);
+        }
+
+        return isWorking;
     };
 
 
@@ -125,12 +144,12 @@ const FleetMapbox = () => {
             // 🛡️ PRIVACY CHECK LIST
             // 1. Is the shop open right now?
             const shopOpen = isWorkingNow(currentSchedule);
+            setIsShopOpen(shopOpen); // ✅ Update global state (persists across fetch cycles)
+
             if (!shopOpen && currentSchedule) { // If schedule loaded AND closed
-                console.log("🛡️ PRIVACY GUARD: Shop Closed. Hiding fleet.");
-                setTechs([]);
-                setActiveTechsCount(0);
-                updateMarkers([]);
-                return; // 🛑 STOP EVERYTHING
+                console.log("🛡️ PRIVACY GUARD: Shop Closed. Entering PRIVACY MODE (techs visible but grayed out)");
+                // ❌ NO: setTechs([]); // Don't hide techs completely
+                // ✅ YES: Continue fetch - markers will use isShopOpen to apply opacity
             }
 
             // ... (Rest of fetch logic, profiles, tickets, etc.)
@@ -448,12 +467,32 @@ const FleetMapbox = () => {
             if (!marker) {
                 const el = document.createElement('div');
                 el.innerHTML = html;
+
+                // ✅ PRIVACY MODE: Apply opacity + grayscale when shop is closed
+                if (!isShopOpen) {
+                    el.style.opacity = '0.3';
+                    el.style.filter = 'grayscale(1)';
+                    el.title = `${tech.full_name} - 🛡️ Fuera de horario laboral`;
+                }
+
                 marker = new mapboxgl.Marker({ element: el }).setLngLat([tech.longitude, tech.latitude]).addTo(mapRef.current);
                 el.addEventListener('click', (e) => { e.stopPropagation(); handleTechSelect(tech); });
                 markersRef.current[tech.id] = marker;
             } else {
                 marker.setLngLat([tech.longitude, tech.latitude]);
-                marker.getElement().innerHTML = html;
+                const el = marker.getElement();
+                el.innerHTML = html;
+
+                // ✅ PRIVACY MODE: Update opacity + grayscale based on current shop status
+                if (!isShopOpen) {
+                    el.style.opacity = '0.3';
+                    el.style.filter = 'grayscale(1)';
+                    el.title = `${tech.full_name} - 🛡️ Fuera de horario laboral`;
+                } else {
+                    el.style.opacity = '1';
+                    el.style.filter = 'none';
+                    el.title = tech.full_name;
+                }
             }
         });
     };
