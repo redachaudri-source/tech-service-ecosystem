@@ -86,9 +86,11 @@ const ClientManager = () => {
             if (normalizedCit.includes('malaga')) proximity = '&proximity=-4.4213,36.7213';
 
             // Broader query to help Mapbox find the right road
-            const query = `${addr}, ${cit}, ${prov}, Spain`;
-            const encodedQuery = encodeURIComponent(query);
-            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${MAPBOX_TOKEN}&limit=8&country=es&types=address,postcode,street,neighborhood,place&language=es${proximity}`;
+            const encodedQuery = encodeURIComponent(`${addr}, ${cit}, ${prov}, Spain`);
+
+            // REMOVED 'types' restriction to prevent empty results for valid addresses that Mapbox categorizes differently
+            // Increased limit to 10
+            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${MAPBOX_TOKEN}&limit=10&country=es&language=es${proximity}`;
 
             const resp = await fetch(url);
             const data = await resp.json();
