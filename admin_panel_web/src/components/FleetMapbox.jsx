@@ -614,6 +614,16 @@ const FleetMapbox = () => {
         // Route drawing handled by effect now
     };
 
+    // Handler: Deselect technician + cleanup all state
+    const handleTechDeselect = () => {
+        setSelectedTech(null);
+        setTechItinerary([]);
+        setTechStops([]);
+        clearRoute();
+        // Reset zoom to overview
+        mapRef.current?.flyTo({ center: [-4.4214, 36.7213], zoom: 12, duration: 1000 });
+    };
+
     const drawRoutesAndStops = async (tech, tickets) => {
         if (!mapRef.current || !showRoute) { // Guard: Check showRoute!
             console.log("⚠️ Mapa no listo o ruta desactivada");
@@ -967,65 +977,77 @@ const FleetMapbox = () => {
             `}>
                 <div className="h-full bg-white/80 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-slate-900/10 border border-white/50 flex flex-col overflow-hidden">
 
-                    {/* Header */}
-                    <div className="relative p-6 bg-gradient-to-br from-blue-600 via-blue-500 to-purple-600 text-white">
-                        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjA1IiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-30"></div>
-
-                        <div className="relative flex justify-between items-start mb-6">
-                            <div>
-                                <h1 className="text-2xl font-bold tracking-tight mb-1 flex items-center gap-2">
-                                    <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                                        <MapIcon size={18} />
-                                    </div>
-                                    Fuerza de Campo
-                                </h1>
-                                <p className="text-blue-100 text-sm font-medium">Control en Tiempo Real</p>
+                    {/* Header - ULTRA COMPACT (Linear-style) */}
+                    <div className="p-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                        {/* Top Bar: Título + Cerrar */}
+                        <div className="flex justify-between items-center mb-2">
+                            <div className="flex items-center gap-2">
+                                <MapIcon size={16} className="text-blue-200" />
+                                <h1 className="text-sm font-bold tracking-tight">Tracking</h1>
                             </div>
-                            <button onClick={() => setIsSidebarOpen(false)} className="p-2 hover:bg-white/20 rounded-xl transition-colors backdrop-blur-sm">
-                                <ChevronLeft size={20} />
+                            <button
+                                onClick={() => setIsSidebarOpen(false)}
+                                className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+                            >
+                                <ChevronLeft size={16} />
                             </button>
                         </div>
 
                         {selectedTech ? (
-                            <div className="relative bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
-                                <div className="flex items-center gap-4">
-                                    <div className="relative">
-                                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-white to-blue-50 p-0.5 shadow-lg">
-                                            <div className="w-full h-full rounded-2xl overflow-hidden">
-                                                <img src={selectedTech.avatar_url} className="w-full h-full object-cover" />
+                            /* TÉCNICO SELECCIONADO - Layout Horizontal Compacto */
+                            <div className="flex items-center gap-3 bg-white/10 rounded-xl p-2.5 border border-white/20">
+                                {/* Avatar Pequeño */}
+                                <div className="relative flex-shrink-0">
+                                    <div className="w-10 h-10 rounded-xl overflow-hidden ring-2 ring-white/30">
+                                        {selectedTech.avatar_url ? (
+                                            <img src={selectedTech.avatar_url} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full bg-white/20 flex items-center justify-center">
+                                                <span className="text-sm font-bold">{selectedTech.full_name?.[0]}</span>
                                             </div>
-                                        </div>
-                                        <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-[3px] border-blue-600 ${selectedTech.isActive ? 'bg-emerald-400' : 'bg-gray-300'}`}></div>
+                                        )}
                                     </div>
-                                    <div className="flex-1">
-                                        <h2 className="text-xl font-bold leading-tight mb-1">{selectedTech.full_name}</h2>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`text-xs font-bold px-2.5 py-1 rounded-lg ${selectedTech.isActive ? 'bg-emerald-400/20 text-emerald-100 border border-emerald-300/30' : 'bg-white/20 text-white/70'}`}>
-                                                {selectedTech.isActive ? '● En Línea' : 'Desconectado'}
+                                    <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-indigo-600 ${selectedTech.isActive ? 'bg-emerald-400' : 'bg-gray-400'}`} />
+                                </div>
+
+                                {/* Info + Botón Inline */}
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <h2 className="text-sm font-bold truncate">{selectedTech.full_name}</h2>
+                                        <button
+                                            onClick={handleTechDeselect}
+                                            className="text-[10px] font-medium px-2 py-0.5 bg-white/20 hover:bg-white/30 rounded-md transition-colors flex-shrink-0"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${selectedTech.isActive ? 'bg-emerald-400/30 text-emerald-200' : 'bg-white/20 text-white/60'}`}>
+                                            {selectedTech.isActive ? '● Online' : '○ Offline'}
+                                        </span>
+                                        {selectedTech.workload > 0 && (
+                                            <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-orange-400/30 text-orange-200 rounded">
+                                                {selectedTech.workload} tareas
                                             </span>
-                                        </div>
+                                        )}
                                     </div>
                                 </div>
-                                <button onClick={() => setSelectedTech(null)} className="mt-3 w-full py-2.5 bg-white/10 hover:bg-white/20 text-white text-sm font-medium rounded-xl transition-all border border-white/20">
-                                    ← Ver todos
-                                </button>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="relative overflow-hidden bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/20">
-                                    <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-400/20 rounded-full blur-xl"></div>
-                                    <div className="relative">
-                                        <Activity size={16} className="text-emerald-300 mb-1" />
-                                        <div className="text-2xl font-black mb-0.5">{activeTechsCount}</div>
-                                        <div className="text-[10px] font-bold text-blue-100 uppercase tracking-wider">Activos</div>
+                            /* STATS - Inline Horizontal */
+                            <div className="flex gap-2">
+                                <div className="flex-1 bg-white/10 rounded-lg p-2 border border-white/20">
+                                    <div className="flex items-center gap-2">
+                                        <Activity size={14} className="text-emerald-300" />
+                                        <span className="text-lg font-black">{activeTechsCount}</span>
+                                        <span className="text-[10px] text-blue-200 font-medium">activos</span>
                                     </div>
                                 </div>
-                                <div className="relative overflow-hidden bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/20">
-                                    <div className="absolute top-0 right-0 w-16 h-16 bg-purple-400/20 rounded-full blur-xl"></div>
-                                    <div className="relative">
-                                        <TrendingUp size={16} className="text-purple-300 mb-1" />
-                                        <div className="text-2xl font-black text-white/90 mb-0.5">{techs.length}</div>
-                                        <div className="text-[10px] font-bold text-blue-100/80 uppercase tracking-wider">Total</div>
+                                <div className="flex-1 bg-white/10 rounded-lg p-2 border border-white/20">
+                                    <div className="flex items-center gap-2">
+                                        <TrendingUp size={14} className="text-purple-300" />
+                                        <span className="text-lg font-black">{techs.length}</span>
+                                        <span className="text-[10px] text-blue-200 font-medium">total</span>
                                     </div>
                                 </div>
                             </div>
