@@ -191,6 +191,14 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
                 } else {
                     console.log(`[SmartAssistant] 🛡️ Found ${existingServices?.length || 0} existing services for ${techIds.length} techs`);
 
+                    // Debug: Show all existing services
+                    (existingServices || []).forEach(svc => {
+                        const svcStart = new Date(svc.scheduled_at);
+                        const svcDuration = svc.estimated_duration || 60;
+                        const svcEnd = new Date(svcStart.getTime() + svcDuration * 60000);
+                        console.log(`[SmartAssistant] 🔍 Servicio existente: Tech ${svc.technician_id.substring(0, 8)}... | ${svcStart.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} - ${svcEnd.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} (${svcDuration}min)`);
+                    });
+
                     // Group services by tech
                     const servicesByTech = {};
                     (existingServices || []).forEach(svc => {
@@ -217,14 +225,21 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
                             // Calculate minimum available time after this service
                             const minAvailableAfter = new Date(svcEnd.getTime() + MARGEN_MINIMO_MINUTOS * 60000);
 
-                            // REGLA 1: Slot no puede empezar antes del margen mínimo después del servicio
-                            if (slotStart < minAvailableAfter && slotStart >= svcStart) {
+                            // REGLA 1: El slot empieza DURANTE o DESPUÉS del servicio existente 
+                            //          pero ANTES del tiempo mínimo permitido
+                            // Ejemplo: Servicio 16:00-17:30, margen 30min
+                            //          minAvailableAfter = 18:00
+                            //          Slot 17:30 -> slotStart(17:30) >= svcStart(16:00) ✓
+                            //                     -> slotStart(17:30) < minAvailableAfter(18:00) ✓
+                            //          -> RECHAZADO
+                            if (slotStart >= svcStart && slotStart < minAvailableAfter) {
+                                console.log(`[SmartAssistant] ❌ RECHAZADO: Slot ${slotStart.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} - Muy cerca del servicio que termina ${svcEnd.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} (min disponible: ${minAvailableAfter.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })})`);
                                 return false; // Slot inválido
                             }
 
-                            // REGLA 2: Slot no puede terminar después del inicio de un servicio existente
-                            // (esto ya lo maneja la RPC, pero verificamos por seguridad)
+                            // REGLA 2: El slot termina después del inicio de un servicio existente (overlap)
                             if (slotStart < svcStart && slotEnd > svcStart) {
+                                console.log(`[SmartAssistant] ❌ RECHAZADO: Slot ${slotStart.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}-${slotEnd.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} - Overlap con servicio ${svcStart.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`);
                                 return false; // Overlap
                             }
                         }
