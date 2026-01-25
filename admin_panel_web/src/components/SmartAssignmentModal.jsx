@@ -1,7 +1,8 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Calendar, User, X, Plus, CheckCircle, Clock, MapPin, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Calendar, User, X, Plus, CheckCircle, Clock, MapPin, AlertTriangle, ShieldCheck, Car } from 'lucide-react';
+import { getTravelTime } from '../services/mapboxService';
 
 const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
     // Phase 14: Smart Scheduling "God Mode"
@@ -166,6 +167,112 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
                         console.log(`[SmartAssistant] Filtered slots for ${dayName} (Close: ${closeHour}:00). Remaining: ${filteredData.length}`);
                     }
                 }
+            }
+
+            // 🚗 FIX: Filter slots considering TRAVEL TIME from previous service
+            // Get target client coordinates
+            const targetLat = ticket.profiles?.latitude;
+            const targetLng = ticket.profiles?.longitude;
+
+            if (targetLat && targetLng && filteredData.length > 0) {
+                console.log(`[SmartAssistant] 🚗 Calculating travel times to client at ${targetLat}, ${targetLng}`);
+
+                // Get all tech IDs from current slots
+                const techIds = [...new Set(filteredData.map(s => s.technician_id))];
+
+                // Fetch existing services for these techs on this day
+                const { data: existingServices } = await supabase
+                    .from('tickets')
+                    .select(`
+                        id, 
+                        technician_id, 
+                        scheduled_at, 
+                        scheduled_end_at,
+                        estimated_duration,
+                        profiles:client_id (latitude, longitude, postal_code)
+                    `)
+                    .in('technician_id', techIds)
+                    .gte('scheduled_at', `${selectedDate}T00:00:00`)
+                    .lt('scheduled_at', `${selectedDate}T23:59:59`)
+                    .not('status', 'in', '("cancelado","rejected","finalizado")')
+                    .order('scheduled_at', { ascending: true });
+
+                // Group services by tech
+                const servicesByTech = {};
+                (existingServices || []).forEach(svc => {
+                    if (!servicesByTech[svc.technician_id]) {
+                        servicesByTech[svc.technician_id] = [];
+                    }
+                    servicesByTech[svc.technician_id].push(svc);
+                });
+
+                // Cache for travel times to avoid duplicate API calls
+                const travelTimeCache = {};
+
+                // Filter slots based on travel time
+                const slotsWithTravelTime = await Promise.all(
+                    filteredData.map(async (slot) => {
+                        const techServices = servicesByTech[slot.technician_id] || [];
+                        const slotStart = new Date(slot.slot_start);
+
+                        // Find the previous service (ends before this slot starts)
+                        let previousService = null;
+                        for (let i = techServices.length - 1; i >= 0; i--) {
+                            const svc = techServices[i];
+                            const svcStart = new Date(svc.scheduled_at);
+                            const svcDuration = svc.estimated_duration || 60;
+                            const svcEnd = new Date(svcStart.getTime() + svcDuration * 60000);
+
+                            if (svcEnd <= slotStart) {
+                                previousService = { ...svc, endTime: svcEnd };
+                                break;
+                            }
+                        }
+
+                        // If no previous service, slot is valid
+                        if (!previousService) {
+                            return { ...slot, travelTime: 0, isValid: true };
+                        }
+
+                        // Check if previous service has coordinates
+                        const prevLat = previousService.profiles?.latitude;
+                        const prevLng = previousService.profiles?.longitude;
+
+                        if (!prevLat || !prevLng) {
+                            // No coords, assume 15 min default buffer
+                            const gapMinutes = (slotStart - previousService.endTime) / 60000;
+                            return { ...slot, travelTime: 15, isValid: gapMinutes >= 15 };
+                        }
+
+                        // Calculate travel time (with caching)
+                        const cacheKey = `${prevLat},${prevLng}->${targetLat},${targetLng}`;
+                        let travelResult = travelTimeCache[cacheKey];
+
+                        if (!travelResult) {
+                            travelResult = await getTravelTime(
+                                { lat: prevLat, lng: prevLng },
+                                { lat: targetLat, lng: targetLng }
+                            );
+                            travelTimeCache[cacheKey] = travelResult || { duration: 15 }; // Default 15 min
+                        }
+
+                        const travelMinutes = travelResult?.duration || 15;
+                        const bufferMinutes = 5; // 5 min safety buffer
+                        const requiredGap = travelMinutes + bufferMinutes;
+                        const actualGap = (slotStart - previousService.endTime) / 60000;
+
+                        return {
+                            ...slot,
+                            travelTime: travelMinutes,
+                            isValid: actualGap >= requiredGap
+                        };
+                    })
+                );
+
+                // Filter only valid slots
+                const beforeTravelFilter = filteredData.length;
+                filteredData = slotsWithTravelTime.filter(s => s.isValid);
+                console.log(`[SmartAssistant] 🚗 Travel time filter: Removed ${beforeTravelFilter - filteredData.length} slots. Remaining: ${filteredData.length}`);
             }
 
             setSmartSlots(filteredData);
