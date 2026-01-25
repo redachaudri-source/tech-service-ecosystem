@@ -358,10 +358,13 @@ function processStep(
     switch (currentStep) {
         // ─────────────────────────────────────────────────────────────────────────
         case 'greeting':
-            // Primer mensaje del usuario - responder con saludo y preguntar electrodoméstico
+            // Primer mensaje del usuario - responder con saludo Y preguntar electrodoméstico
+            // Concatenamos ambos mensajes para una mejor experiencia
+            const greetingMsg = replaceVariables(config.messages.greeting || '', vars);
+            const askApplianceMsg = replaceVariables(config.messages.ask_appliance || '¿Qué electrodoméstico necesita reparación?', vars);
             return {
                 nextStep: 'ask_appliance',
-                responseMessage: replaceVariables(config.messages.greeting, vars),
+                responseMessage: `${greetingMsg}\n\n${askApplianceMsg}`,
                 updatedData: data
             };
 
