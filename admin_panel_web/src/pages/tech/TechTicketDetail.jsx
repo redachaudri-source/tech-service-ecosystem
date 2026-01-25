@@ -2285,6 +2285,7 @@ const TechTicketDetail = () => {
                 clientPhone={ticket?.client?.phone}
                 clientEmail={ticket?.client?.email}
                 ticketNumber={ticket?.ticket_number}
+                ticketId={ticket?.id}
                 onSuccess={(results) => {
                     console.log('[SendPdfModal] Delivery results:', results);
                 }}
