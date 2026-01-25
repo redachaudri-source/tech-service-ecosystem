@@ -170,9 +170,19 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
             }
 
             // 🚗 FIX: Filter slots considering TRAVEL TIME from previous service
-            // Get target client coordinates
-            const targetLat = ticket.profiles?.latitude;
-            const targetLng = ticket.profiles?.longitude;
+            // Get target client coordinates - check multiple possible structures
+            const clientData = ticket.profiles || ticket.client || ticket.clients || {};
+            const targetLat = clientData.latitude;
+            const targetLng = clientData.longitude;
+
+            console.log('[SmartAssistant] 🚗 Travel Time Debug:', {
+                hasProfiles: !!ticket.profiles,
+                hasClient: !!ticket.client,
+                clientData: clientData,
+                targetLat,
+                targetLng,
+                filteredDataLength: filteredData.length
+            });
 
             if (targetLat && targetLng && filteredData.length > 0) {
                 console.log(`[SmartAssistant] 🚗 Calculating travel times to client at ${targetLat}, ${targetLng}`);

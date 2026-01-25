@@ -99,22 +99,21 @@ const ServiceMonitor = () => {
 
     const fetchData = async () => {
         try {
-            // 1. Tickets (Try complex join first)
+            // 1. Tickets
             const { data: ticketData, error } = await supabase
                 .from('tickets')
-                .select('*, profiles:client_id(full_name, address, phone, email, user_id), creator:created_by(full_name), reviews(rating)')
+                .select('*, profiles:client_id(full_name, address, phone, email, user_id, latitude, longitude), reviews(rating)')
                 .order('updated_at', { ascending: false });
 
             if (error) throw error;
             if (ticketData) setTickets(ticketData);
 
         } catch (err) {
-            console.warn("Complex fetch failed (likely missing created_by), falling back to simple fetch:", err);
-            // Fallback: Simple fetch without creator join
-            // Fallback: Simple fetch without creator join but keeping reviews
+            console.warn("Ticket fetch error, trying simple query:", err.message);
+            // Fallback: Simple fetch without reviews
             const { data: ticketData } = await supabase
                 .from('tickets')
-                .select('*, profiles:client_id(full_name, address, phone, email, user_id), reviews(rating)')
+                .select('*, profiles:client_id(full_name, address, phone, email, user_id, latitude, longitude)')
                 .order('updated_at', { ascending: false });
 
             if (ticketData) setTickets(ticketData || []);
