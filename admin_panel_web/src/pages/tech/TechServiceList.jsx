@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, MapPin, Wrench, CheckCircle, Clock, AlertCircle, ChevronRight, Search, ClipboardList, ShieldAlert } from 'lucide-react';
+import { Calendar, MapPin, Wrench, CheckCircle, Clock, AlertCircle, ChevronRight, Search, ClipboardList, ShieldAlert, FileText, Send, MessageCircle } from 'lucide-react';
+import SendPdfModal from '../../components/SendPdfModal';
 
 const TechServiceList = ({ filterType }) => {
     const { user } = useAuth();
@@ -15,6 +16,17 @@ const TechServiceList = ({ filterType }) => {
     const [historyDate, setHistoryDate] = useState('');
     const [sortOrder, setSortOrder] = useState('desc'); // 'desc' (newest first) or 'asc' (oldest first)
 
+    // SendPdfModal state for resend
+    const [sendPdfModal, setSendPdfModal] = useState({
+        isOpen: false,
+        pdfUrl: '',
+        pdfName: '',
+        ticketId: null,
+        ticketNumber: '',
+        clientPhone: '',
+        clientEmail: ''
+    });
+
     useEffect(() => {
         if (user) {
             fetchTickets();
@@ -25,7 +37,9 @@ const TechServiceList = ({ filterType }) => {
         setLoading(true);
         let query = supabase
             .from('tickets')
-            .select('*, profiles:client_id(full_name, address, city)')
+            .select(`*, 
+                profiles:client_id(full_name, address, city, phone, email)
+            `)
             .eq('technician_id', user.id); // Only my tickets
 
         // Apply Filters
@@ -140,139 +154,194 @@ const TechServiceList = ({ filterType }) => {
         navigate(`/tech/ticket/${ticketId}`);
     };
 
-    return (
-        <div className="p-4 space-y-4 pb-24">
-            {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold text-slate-800">{getTitle()}</h1>
-                <p className="text-slate-500 text-sm">{filteredTickets.length} servicios encontrados</p>
-            </div>
+    // Handle resend PDF
+    const handleResendPdf = (e, ticket) => {
+        e.stopPropagation(); // Don't navigate to ticket
+        setSendPdfModal({
+            isOpen: true,
+            pdfUrl: ticket.pdf_url || ticket.warranty_pdf_url || '',
+            pdfName: `Parte ${ticket.ticket_number}`,
+            ticketId: ticket.id,
+            ticketNumber: ticket.ticket_number,
+            clientPhone: ticket.profiles?.phone || '',
+            clientEmail: ticket.profiles?.email || ''
+        });
+    };
 
-            {/* Controls */}
-            <div className="space-y-3">
-                {/* Search Bar */}
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                    <input
-                        type="text"
-                        placeholder="Buscar cliente, dirección..."
-                        className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+    return (
+        <>
+            <div className="p-4 space-y-4 pb-24">
+                {/* Header */}
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800">{getTitle()}</h1>
+                    <p className="text-slate-500 text-sm">{filteredTickets.length} servicios encontrados</p>
                 </div>
 
-                {/* History Specific Filters */}
-                {filterType === 'history' && (
-                    <div className="flex gap-2 animate-in fade-in slide-in-from-top-2">
+                {/* Controls */}
+                <div className="space-y-3">
+                    {/* Search Bar */}
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                         <input
-                            type="date"
-                            value={historyDate}
-                            onChange={(e) => setHistoryDate(e.target.value)}
-                            className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            type="text"
+                            placeholder="Buscar cliente, dirección..."
+                            className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onChange={(e) => setSearchTerm(e.target.value)}
                         />
-                        <button
-                            onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
-                            className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-600 flex items-center gap-2 active:bg-slate-50"
-                        >
-                            {sortOrder === 'desc' ? (
-                                <>
-                                    <Clock size={16} className="text-blue-500" />
-                                    Más Recientes
-                                </>
-                            ) : (
-                                <>
-                                    <Clock size={16} className="text-slate-400" />
-                                    Más Antiguos
-                                </>
-                            )}
-                        </button>
                     </div>
-                )}
-            </div>
 
-            {/* List */}
-            <div className="space-y-3">
-                {loading ? (
-                    <div className="text-center py-10 text-slate-400">Cargando servicios...</div>
-                ) : filteredTickets.length === 0 ? (
-                    <div className="text-center py-10">
-                        <div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <ClipboardList size={32} className="text-slate-300" />
-                        </div>
-                        <h3 className="text-slate-600 font-medium">No hay servicios aquí</h3>
-                        <p className="text-slate-400 text-sm">Prueba a cambiar los filtros.</p>
-                        {filterType === 'history' && historyDate && (
+                    {/* History Specific Filters */}
+                    {filterType === 'history' && (
+                        <div className="flex gap-2 animate-in fade-in slide-in-from-top-2">
+                            <input
+                                type="date"
+                                value={historyDate}
+                                onChange={(e) => setHistoryDate(e.target.value)}
+                                className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
                             <button
-                                onClick={() => setHistoryDate('')}
-                                className="mt-4 text-blue-600 font-medium text-sm hover:underline"
+                                onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-600 flex items-center gap-2 active:bg-slate-50"
                             >
-                                Borrar filtro de fecha
+                                {sortOrder === 'desc' ? (
+                                    <>
+                                        <Clock size={16} className="text-blue-500" />
+                                        Más Recientes
+                                    </>
+                                ) : (
+                                    <>
+                                        <Clock size={16} className="text-slate-400" />
+                                        Más Antiguos
+                                    </>
+                                )}
                             </button>
-                        )}
-                    </div>
-                ) : (
-                    filteredTickets.map(ticket => (
-                        <div
-                            key={ticket.id}
-                            onClick={() => handleTicketClick(ticket.id)}
-                            className={`bg-white p-4 rounded-xl shadow-sm border border-slate-100 active:scale-[0.98] transition-transform ${user?.profile?.status === 'paused' ? 'opacity-75 grayscale-[0.8]' : ''}`}
-                        >
-                            <div className="flex justify-between items-start mb-2">
-                                <span className="font-mono text-xs font-bold text-slate-400">#{ticket.ticket_number}</span>
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${getStatusColor(ticket.status)}`}>
-                                    {ticket.status.replace('_', ' ')}
-                                </span>
+                        </div>
+                    )}
+                </div>
+
+                {/* List */}
+                <div className="space-y-3">
+                    {loading ? (
+                        <div className="text-center py-10 text-slate-400">Cargando servicios...</div>
+                    ) : filteredTickets.length === 0 ? (
+                        <div className="text-center py-10">
+                            <div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <ClipboardList size={32} className="text-slate-300" />
                             </div>
-
-                            <div className="flex items-start gap-3 mb-3">
-                                <div className={`mt-1 p-2 rounded-lg shrink-0 ${filterType === 'history' ? 'bg-green-50 text-green-600' : ticket.is_warranty ? 'bg-purple-100 text-purple-600' : 'bg-blue-50 text-blue-600'}`}>
-                                    {ticket.is_warranty ? <ShieldAlert size={18} /> : filterType === 'history' ? <CheckCircle size={18} /> : <Wrench size={18} />}
+                            <h3 className="text-slate-600 font-medium">No hay servicios aquí</h3>
+                            <p className="text-slate-400 text-sm">Prueba a cambiar los filtros.</p>
+                            {filterType === 'history' && historyDate && (
+                                <button
+                                    onClick={() => setHistoryDate('')}
+                                    className="mt-4 text-blue-600 font-medium text-sm hover:underline"
+                                >
+                                    Borrar filtro de fecha
+                                </button>
+                            )}
+                        </div>
+                    ) : (
+                        filteredTickets.map(ticket => (
+                            <div
+                                key={ticket.id}
+                                onClick={() => handleTicketClick(ticket.id)}
+                                className={`bg-white p-4 rounded-xl shadow-sm border border-slate-100 active:scale-[0.98] transition-transform ${user?.profile?.status === 'paused' ? 'opacity-75 grayscale-[0.8]' : ''}`}
+                            >
+                                <div className="flex justify-between items-start mb-2">
+                                    <span className="font-mono text-xs font-bold text-slate-400">#{ticket.ticket_number}</span>
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${getStatusColor(ticket.status)}`}>
+                                        {ticket.status.replace('_', ' ')}
+                                    </span>
                                 </div>
-                                <div>
-                                    <h3 className="font-bold text-slate-800 text-base leading-tight mb-1">
-                                        {ticket.profiles?.full_name || 'Cliente Desconocido'}
-                                    </h3>
-                                    <div className="flex items-center gap-1 text-xs text-slate-500 mb-0.5">
-                                        <MapPin size={12} />
-                                        <span className="truncate max-w-[200px]">{ticket.profiles?.address}</span>
-                                    </div>
-                                    <div className="flex items-center gap-1 text-xs text-slate-500">
-                                        <Wrench size={12} />
-                                        <span>{ticket.appliance_info?.type} {ticket.appliance_info?.brand}</span>
-                                    </div>
 
-                                    {/* Reason for Cancellation */}
-                                    {(ticket.status === 'cancelado' || ticket.status === 'rejected') && ticket.client_feedback && (
-                                        <div className="mt-2 text-[10px] bg-red-50 text-red-800 p-2 rounded border border-red-100 italic">
-                                            <span className="font-bold not-italic">Motivo: </span>
-                                            "{ticket.client_feedback}"
+                                <div className="flex items-start gap-3 mb-3">
+                                    <div className={`mt-1 p-2 rounded-lg shrink-0 ${filterType === 'history' ? 'bg-green-50 text-green-600' : ticket.is_warranty ? 'bg-purple-100 text-purple-600' : 'bg-blue-50 text-blue-600'}`}>
+                                        {ticket.is_warranty ? <ShieldAlert size={18} /> : filterType === 'history' ? <CheckCircle size={18} /> : <Wrench size={18} />}
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-slate-800 text-base leading-tight mb-1">
+                                            {ticket.profiles?.full_name || 'Cliente Desconocido'}
+                                        </h3>
+                                        <div className="flex items-center gap-1 text-xs text-slate-500 mb-0.5">
+                                            <MapPin size={12} />
+                                            <span className="truncate max-w-[200px]">{ticket.profiles?.address}</span>
                                         </div>
+                                        <div className="flex items-center gap-1 text-xs text-slate-500">
+                                            <Wrench size={12} />
+                                            <span>{ticket.appliance_info?.type} {ticket.appliance_info?.brand}</span>
+                                        </div>
+
+                                        {/* Reason for Cancellation */}
+                                        {(ticket.status === 'cancelado' || ticket.status === 'rejected') && ticket.client_feedback && (
+                                            <div className="mt-2 text-[10px] bg-red-50 text-red-800 p-2 rounded border border-red-100 italic">
+                                                <span className="font-bold not-italic">Motivo: </span>
+                                                "{ticket.client_feedback}"
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 pt-3 border-t border-slate-50">
+                                    <Clock size={14} className={filterType === 'history' ? "text-slate-400" : "text-indigo-500"} />
+                                    <span className={`text-xs font-medium ${filterType === 'history' ? "text-slate-500" : "text-indigo-900"}`}>
+                                        {filterType === 'history'
+                                            ? (() => {
+                                                const dateVal = ticket.updated_at || ticket.created_at;
+                                                if (!dateVal) return 'Fecha desconocida';
+                                                const d = new Date(dateVal);
+                                                return `Cerrado: ${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                                            })()
+                                            : (ticket.scheduled_at
+                                                ? new Date(ticket.scheduled_at).toLocaleString('es-ES', { weekday: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                                : 'Sin Fecha')
+                                        }
+                                    </span>
+
+                                    {/* PDF Sent Indicator & Resend Button - Only for history/finalized */}
+                                    {(filterType === 'history' || ticket.status === 'finalizado') && ticket.pdf_url && (
+                                        <div className="ml-auto flex items-center gap-1">
+                                            {ticket.pdf_sent_at ? (
+                                                <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded flex items-center gap-1" title={`Enviado: ${new Date(ticket.pdf_sent_at).toLocaleString()}`}>
+                                                    <MessageCircle size={10} />
+                                                    Enviado
+                                                </span>
+                                            ) : (
+                                                <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">
+                                                    No enviado
+                                                </span>
+                                            )}
+                                            <button
+                                                onClick={(e) => handleResendPdf(e, ticket)}
+                                                className="p-1.5 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded transition"
+                                                title="Reenviar documento"
+                                            >
+                                                <Send size={12} />
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {!(filterType === 'history' || ticket.status === 'finalizado') && (
+                                        <ChevronRight size={16} className="ml-auto text-slate-300" />
                                     )}
                                 </div>
                             </div>
-
-                            <div className="flex items-center gap-2 pt-3 border-t border-slate-50">
-                                <Clock size={14} className={filterType === 'history' ? "text-slate-400" : "text-indigo-500"} />
-                                <span className={`text-xs font-medium ${filterType === 'history' ? "text-slate-500" : "text-indigo-900"}`}>
-                                    {filterType === 'history'
-                                        ? (() => {
-                                            const dateVal = ticket.updated_at || ticket.created_at;
-                                            if (!dateVal) return 'Fecha desconocida';
-                                            const d = new Date(dateVal);
-                                            return `Cerrado: ${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-                                        })()
-                                        : (ticket.scheduled_at
-                                            ? new Date(ticket.scheduled_at).toLocaleString('es-ES', { weekday: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-                                            : 'Sin Fecha')
-                                    }
-                                </span>
-                                <ChevronRight size={16} className="ml-auto text-slate-300" />
-                            </div>
-                        </div>
-                    ))
-                )}
+                        ))
+                    )}
+                </div>
             </div>
-        </div>
+
+            {/* SendPdfModal for resend */}
+            <SendPdfModal
+                isOpen={sendPdfModal.isOpen}
+                onClose={() => setSendPdfModal(prev => ({ ...prev, isOpen: false }))}
+                pdfUrl={sendPdfModal.pdfUrl}
+                pdfName={sendPdfModal.pdfName}
+                clientPhone={sendPdfModal.clientPhone}
+                clientEmail={sendPdfModal.clientEmail}
+                ticketNumber={sendPdfModal.ticketNumber}
+                ticketId={sendPdfModal.ticketId}
+                onSuccess={() => fetchTickets()} // Refresh list after send
+            />
+        </>
     );
 };
 
