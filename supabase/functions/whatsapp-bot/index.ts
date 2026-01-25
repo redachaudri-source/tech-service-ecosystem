@@ -2,12 +2,17 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 // ============================================================================
-// CONFIGURACIÓN
+// CONFIGURACIÓN - META CLOUD API
 // ============================================================================
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+// Meta Cloud API credentials
+const META_TOKEN = Deno.env.get('META_WHATSAPP_TOKEN')!;
+const META_PHONE_NUMBER_ID = Deno.env.get('META_PHONE_NUMBER_ID')!;
+const META_VERIFY_TOKEN = Deno.env.get('META_VERIFY_TOKEN')!;
 
 // Palabras clave que reinician la conversación
 const RESET_KEYWORDS = ['hola', 'hello', 'hi', 'reiniciar', 'reset', 'empezar', 'inicio', 'comenzar', 'nueva', 'nuevo'];
@@ -92,8 +97,18 @@ const DEFAULT_CONFIG: BotConfig = {
 // FUNCIONES AUXILIARES
 // ============================================================================
 
+/**
+ * Normaliza número de teléfono: quita caracteres no numéricos excepto +
+ * Meta envía sin +, así que normalizamos a formato con +
+ */
 function normalizePhone(phone: string): string {
-    return phone.replace(/[^+\d]/g, '');
+    // Remove all non-digit characters except +
+    let cleaned = phone.replace(/[^\d+]/g, '');
+    // If doesn't start with +, add it
+    if (!cleaned.startsWith('+')) {
+        cleaned = '+' + cleaned;
+    }
+    return cleaned;
 }
 
 function replaceVariables(message: string, variables: Record<string, string>): string {
@@ -115,21 +130,51 @@ function isWithinWorkingHours(config: BotConfig): boolean {
     return currentTime >= config.settings.working_hours_start && currentTime <= config.settings.working_hours_end;
 }
 
-function twimlResponse(message: string): Response {
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Message>${escapeXml(message)}</Message>
-</Response>`;
-    return new Response(xml, { headers: { 'Content-Type': 'text/xml' } });
-}
+// ============================================================================
+// META CLOUD API - ENVÍO DE MENSAJES
+// ============================================================================
 
-function escapeXml(text: string): string {
-    return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&apos;');
+/**
+ * Envía un mensaje de WhatsApp usando Meta Cloud API
+ */
+async function sendWhatsAppMessage(to: string, text: string): Promise<boolean> {
+    try {
+        // Meta espera el número SIN el + 
+        const toNumber = to.replace('+', '');
+
+        console.log(`[Bot] 📤 Sending to ${toNumber}: "${text.substring(0, 50)}..."`);
+
+        const response = await fetch(
+            `https://graph.facebook.com/v17.0/${META_PHONE_NUMBER_ID}/messages`,
+            {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${META_TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    messaging_product: 'whatsapp',
+                    to: toNumber,
+                    type: 'text',
+                    text: { body: text }
+                })
+            }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            console.error('[Bot] ❌ Meta API Error:', JSON.stringify(result));
+            return false;
+        }
+
+        console.log('[Bot] ✅ Message sent successfully:', result.messages?.[0]?.id);
+        return true;
+
+    } catch (error) {
+        console.error('[Bot] ❌ Error sending WhatsApp message:', error);
+        return false;
+    }
 }
 
 // ============================================================================
@@ -249,7 +294,6 @@ async function createTicketFromConversation(data: CollectedData, phone: string):
             clientId = existingClient.id;
             console.log('[Bot] 👤 Found existing client:', clientId);
 
-            // Update client info
             const { error: updateError } = await supabase
                 .from('profiles')
                 .update({ full_name: data.name, address: data.address })
@@ -272,11 +316,7 @@ async function createTicketFromConversation(data: CollectedData, phone: string):
                 .single();
 
             if (clientError) {
-                console.error('[Bot] ❌ CLIENT CREATE ERROR:');
-                console.error('[Bot] ❌ Code:', clientError.code);
-                console.error('[Bot] ❌ Message:', clientError.message);
-                console.error('[Bot] ❌ Details:', clientError.details);
-                console.error('[Bot] ❌ Hint:', clientError.hint);
+                console.error('[Bot] ❌ CLIENT CREATE ERROR:', JSON.stringify(clientError));
                 throw clientError;
             }
             clientId = newClient.id;
@@ -309,11 +349,7 @@ async function createTicketFromConversation(data: CollectedData, phone: string):
             .single();
 
         if (ticketError) {
-            console.error('[Bot] ❌ TICKET CREATE ERROR:');
-            console.error('[Bot] ❌ Code:', ticketError.code);
-            console.error('[Bot] ❌ Message:', ticketError.message);
-            console.error('[Bot] ❌ Details:', ticketError.details);
-            console.error('[Bot] ❌ Hint:', ticketError.hint);
+            console.error('[Bot] ❌ TICKET CREATE ERROR:', JSON.stringify(ticketError));
             throw ticketError;
         }
 
@@ -323,19 +359,12 @@ async function createTicketFromConversation(data: CollectedData, phone: string):
         console.log('[Bot] 🧹 Step 3: Deleting conversation...');
         await deleteConversation(phone);
 
-        console.log('[Bot] ══════════════════════════════════════════════════════');
         console.log('[Bot] 🎉 TICKET CREATION COMPLETE! ID:', ticket.id);
 
         return ticket.id;
 
     } catch (error: any) {
-        console.error('[Bot] ══════════════════════════════════════════════════════');
-        console.error('[Bot] ❌ FATAL ERROR in createTicketFromConversation');
-        console.error('[Bot] ❌ Error type:', error?.constructor?.name);
-        console.error('[Bot] ❌ Error message:', error?.message);
-        console.error('[Bot] ❌ Error code:', error?.code);
-        console.error('[Bot] ❌ Full error:', JSON.stringify(error, null, 2));
-        console.error('[Bot] ══════════════════════════════════════════════════════');
+        console.error('[Bot] ❌ FATAL ERROR in createTicketFromConversation:', error);
         throw error;
     }
 }
@@ -371,10 +400,8 @@ function processStep(
 
     console.log(`[Bot] ═══ STEP: ${currentStep}`);
     console.log(`[Bot] 💬 Message: "${message}"`);
-    console.log(`[Bot] 📦 Data: ${JSON.stringify(data)}`);
 
     switch (currentStep) {
-        // ─────────────────────────────────────────────────────────────────────
         case 'greeting': {
             const greetingMsg = replaceVariables(config.messages.greeting, vars);
             const askApplianceMsg = replaceVariables(config.messages.ask_appliance || '¿Qué electrodoméstico necesita reparación?', vars);
@@ -385,7 +412,6 @@ function processStep(
             };
         }
 
-        // ─────────────────────────────────────────────────────────────────────
         case 'ask_appliance':
             data.appliance = message;
             vars.appliance = message;
@@ -395,7 +421,6 @@ function processStep(
                 updatedData: data
             };
 
-        // ─────────────────────────────────────────────────────────────────────
         case 'ask_brand':
             data.brand = message;
             vars.brand = message;
@@ -405,7 +430,6 @@ function processStep(
                 updatedData: data
             };
 
-        // ─────────────────────────────────────────────────────────────────────
         case 'ask_model': {
             const noModel = ['no sé', 'no se', 'nose', 'desconocido', 'no lo sé', 'ns', 'no'];
             data.model = noModel.some(n => message.toLowerCase().includes(n)) ? 'No especificado' : message;
@@ -416,11 +440,9 @@ function processStep(
             };
         }
 
-        // ─────────────────────────────────────────────────────────────────────
         case 'ask_problem': {
             data.problem = message;
             vars.problem = message;
-            // Next: show legal before personal data
             const legalText = config.legal?.service_conditions || DEFAULT_CONFIG.legal?.service_conditions || '';
             return {
                 nextStep: 'show_legal',
@@ -429,7 +451,6 @@ function processStep(
             };
         }
 
-        // ─────────────────────────────────────────────────────────────────────
         case 'show_legal': {
             const acceptKeywords = ['si', 'sí', 'yes', 'de acuerdo', 'acepto', 'ok', 'vale', 'claro', 'por supuesto'];
             const accepted = acceptKeywords.some(kw => message.toLowerCase().includes(kw));
@@ -442,7 +463,6 @@ function processStep(
                     updatedData: data
                 };
             } else {
-                // User rejected - end conversation
                 return {
                     nextStep: 'rejected',
                     responseMessage: 'Entendido. No podemos continuar sin tu aceptación de las condiciones.\n\nSi cambias de opinión, escríbenos de nuevo con un simple "Hola". ¡Hasta pronto! 👋',
@@ -451,7 +471,6 @@ function processStep(
             }
         }
 
-        // ─────────────────────────────────────────────────────────────────────
         case 'ask_address':
             data.address = message;
             vars.address = message;
@@ -461,7 +480,6 @@ function processStep(
                 updatedData: data
             };
 
-        // ─────────────────────────────────────────────────────────────────────
         case 'ask_name':
             data.name = message;
             return {
@@ -470,7 +488,6 @@ function processStep(
                 updatedData: data
             };
 
-        // ─────────────────────────────────────────────────────────────────────
         case 'ask_phone': {
             const useSamePhone = ['este', 'mismo', 'este mismo', 'el mismo', 'si', 'sí'];
             data.phone = useSamePhone.some(p => message.toLowerCase().includes(p))
@@ -483,17 +500,14 @@ function processStep(
             };
         }
 
-        // ─────────────────────────────────────────────────────────────────────
         case 'completed':
         case 'rejected':
-            // These states allow restart with any message
             return {
                 nextStep: 'greeting',
                 responseMessage: '',
                 updatedData: {}
             };
 
-        // ─────────────────────────────────────────────────────────────────────
         default:
             console.log(`[Bot] ⚠️ Unknown step: ${currentStep}, resetting`);
             return {
@@ -505,68 +519,117 @@ function processStep(
 }
 
 // ============================================================================
-// HANDLER PRINCIPAL
+// HANDLER PRINCIPAL - META CLOUD API
 // ============================================================================
 
 serve(async (req: Request) => {
-    console.log('[Bot] ════════════════════════════════════════════════════════');
-    console.log('[Bot] 🔔 Incoming request at', new Date().toISOString());
+    const url = new URL(req.url);
 
-    try {
-        if (req.method !== 'POST') {
-            return new Response('Method not allowed', { status: 405 });
+    console.log('[Bot] ════════════════════════════════════════════════════════');
+    console.log(`[Bot] 🔔 ${req.method} request at`, new Date().toISOString());
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // GET: Verificación del webhook de Meta
+    // ═══════════════════════════════════════════════════════════════════════
+    if (req.method === 'GET') {
+        const mode = url.searchParams.get('hub.mode');
+        const token = url.searchParams.get('hub.verify_token');
+        const challenge = url.searchParams.get('hub.challenge');
+
+        console.log('[Bot] 🔐 Webhook verification request');
+        console.log(`[Bot] Mode: ${mode}, Token: ${token}, Challenge: ${challenge}`);
+
+        if (mode === 'subscribe' && token === META_VERIFY_TOKEN) {
+            console.log('[Bot] ✅ Webhook verified successfully');
+            return new Response(challenge, { status: 200 });
         }
 
-        const formData = await req.formData();
-        const from = formData.get('From')?.toString() || '';
-        const body = formData.get('Body')?.toString() || '';
+        console.log('[Bot] ❌ Webhook verification failed');
+        return new Response('Forbidden', { status: 403 });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // POST: Mensaje entrante de Meta
+    // ═══════════════════════════════════════════════════════════════════════
+    if (req.method !== 'POST') {
+        return new Response('Method not allowed', { status: 405 });
+    }
+
+    try {
+        const json = await req.json();
+        console.log('[Bot] 📨 Received webhook:', JSON.stringify(json).substring(0, 200));
+
+        // Extraer el mensaje del payload de Meta
+        const entry = json.entry?.[0];
+        const changes = entry?.changes?.[0];
+        const value = changes?.value;
+        const messageData = value?.messages?.[0];
+
+        // Si no hay mensaje (es un status update), responder OK y salir
+        if (!messageData) {
+            console.log('[Bot] ℹ️ No message in payload (status update), ignoring');
+            return new Response('OK', { status: 200 });
+        }
+
+        // Extraer from y body
+        const from = messageData.from; // ej: "34633489521" (sin +)
+        const body = messageData.text?.body || '';
 
         console.log(`[Bot] 📱 From: ${from}`);
         console.log(`[Bot] 💬 Body: "${body}"`);
 
         if (!from || !body) {
-            return twimlResponse('Error: datos incompletos');
+            console.log('[Bot] ⚠️ Missing from or body');
+            return new Response('OK', { status: 200 });
         }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // LÓGICA DEL BOT (igual que antes)
+        // ═══════════════════════════════════════════════════════════════════
 
         const config = await getBotConfig();
         console.log(`[Bot] ⚙️ Bot enabled: ${config.settings.bot_enabled}`);
 
         if (!config.settings.bot_enabled) {
-            return twimlResponse(config.messages.bot_disabled);
+            await sendWhatsAppMessage(from, config.messages.bot_disabled);
+            return new Response('OK', { status: 200 });
         }
 
         if (!isWithinWorkingHours(config)) {
             console.log('[Bot] 🕐 Outside working hours');
-            return twimlResponse(replaceVariables(config.messages.outside_hours, {
+            await sendWhatsAppMessage(from, replaceVariables(config.messages.outside_hours, {
                 start: config.settings.working_hours_start,
                 end: config.settings.working_hours_end
             }));
+            return new Response('OK', { status: 200 });
         }
+
+        // Normalizar el número (Meta lo envía sin +)
+        const normalizedFrom = normalizePhone(from);
 
         // Check for reset keywords
         const isResetRequest = RESET_KEYWORDS.some(kw => body.toLowerCase().trim() === kw);
 
         // Get existing conversation
-        let conversation = await getConversation(from);
+        let conversation = await getConversation(normalizedFrom);
 
         // Reset if: keyword match OR conversation is in terminal state
         const shouldReset = isResetRequest ||
             (conversation && ['completed', 'rejected'].includes(conversation.current_step));
 
         if (shouldReset && conversation) {
-            console.log(`[Bot] 🔄 Resetting conversation for ${from}`);
-            await deleteConversation(from);
+            console.log(`[Bot] 🔄 Resetting conversation for ${normalizedFrom}`);
+            await deleteConversation(normalizedFrom);
             conversation = null;
         }
 
         // Create new conversation if needed
         if (!conversation) {
-            console.log(`[Bot] 🆕 Creating new conversation for ${from}`);
-            conversation = await createConversation(from);
+            console.log(`[Bot] 🆕 Creating new conversation for ${normalizedFrom}`);
+            conversation = await createConversation(normalizedFrom);
         }
 
         console.log(`[Bot] 📍 Current step: ${conversation.current_step}`);
-        console.log(`[Bot] 📦 Current data: ${JSON.stringify(conversation.collected_data)}`);
 
         // Process current step
         const { nextStep, responseMessage, updatedData } = processStep(
@@ -583,10 +646,10 @@ serve(async (req: Request) => {
             console.log('[Bot] 🎫 Creating ticket...');
 
             if (updatedData.phone === 'USE_WHATSAPP_NUMBER') {
-                updatedData.phone = normalizePhone(from);
+                updatedData.phone = normalizedFrom;
             }
 
-            const ticketId = await createTicketFromConversation(updatedData, from);
+            const ticketId = await createTicketFromConversation(updatedData, normalizedFrom);
             console.log(`[Bot] ✅ Created ticket #${ticketId}`);
 
             const confirmVars: Record<string, string> = {
@@ -598,31 +661,30 @@ serve(async (req: Request) => {
                 address: updatedData.address || ''
             };
 
-            console.log('[Bot] ════════════════════════════════════════════════════════');
-            return twimlResponse(replaceVariables(config.messages.ticket_created, confirmVars));
+            await sendWhatsAppMessage(from, replaceVariables(config.messages.ticket_created, confirmVars));
+            return new Response('OK', { status: 200 });
         }
 
-        // Handle rejected state (conversation ends)
+        // Handle rejected state
         if (nextStep === 'rejected') {
-            await updateConversation(from, 'rejected', {});
-            console.log('[Bot] ❌ User rejected terms');
-            console.log('[Bot] ════════════════════════════════════════════════════════');
-            return twimlResponse(responseMessage);
+            await updateConversation(normalizedFrom, 'rejected', {});
+            await sendWhatsAppMessage(from, responseMessage);
+            return new Response('OK', { status: 200 });
         }
 
         // Update conversation for next step
-        await updateConversation(from, nextStep, updatedData);
+        await updateConversation(normalizedFrom, nextStep, updatedData);
 
-        // Safety check: ensure we have a response
+        // Send response
         const finalResponse = responseMessage || 'Gracias por tu mensaje. ¿En qué puedo ayudarte?';
+        await sendWhatsAppMessage(from, finalResponse);
 
-        console.log(`[Bot] 📤 Response (${finalResponse.length} chars): "${finalResponse.substring(0, 80)}..."`);
         console.log('[Bot] ════════════════════════════════════════════════════════');
-
-        return twimlResponse(finalResponse);
+        return new Response('OK', { status: 200 });
 
     } catch (error) {
         console.error('[Bot] ❌ Error:', error);
-        return twimlResponse(DEFAULT_CONFIG.messages.error_message);
+        // Siempre responder 200 a Meta para evitar reintentos
+        return new Response('OK', { status: 200 });
     }
 });
