@@ -31,6 +31,10 @@ const TechDashboard = () => {
     const [showReviewsModal, setShowReviewsModal] = useState(false); // Added state
     const [statusFilter, setStatusFilter] = useState('Todos'); // Added Filter State
 
+    // 🛡️ GDPR Privacy Mode State
+    const [isWorkingHours, setIsWorkingHours] = useState(true); // Default: assume working
+    const [workScheduleInfo, setWorkScheduleInfo] = useState({ start: '--:--', end: '--:--' });
+
     // Live Clock
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -49,6 +53,54 @@ const TechDashboard = () => {
             return () => { supabase.removeChannel(channel); };
         }
     }, [user?.id, filterDate]);
+
+    // 🛡️ GDPR: Check if within working hours
+    useEffect(() => {
+        const checkWorkingHours = async () => {
+            try {
+                const { data } = await supabase
+                    .from('business_config')
+                    .select('value')
+                    .eq('key', 'working_hours')
+                    .single();
+
+                if (!data?.value) {
+                    setIsWorkingHours(true);
+                    return;
+                }
+
+                const schedule = data.value;
+                const now = new Date();
+                const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                const currentDay = days[now.getDay()];
+
+                const dayConfig = schedule[currentDay] || schedule[currentDay.toLowerCase()];
+
+                if (!dayConfig) {
+                    setIsWorkingHours(false);
+                    setWorkScheduleInfo({ start: 'Cerrado', end: 'Cerrado' });
+                    return;
+                }
+
+                setWorkScheduleInfo({ start: dayConfig.start, end: dayConfig.end });
+
+                const nowMins = now.getHours() * 60 + now.getMinutes();
+                const [startH, startM] = dayConfig.start.split(':').map(Number);
+                const [endH, endM] = dayConfig.end.split(':').map(Number);
+                const startMins = startH * 60 + startM;
+                const endMins = endH * 60 + endM;
+
+                setIsWorkingHours(nowMins >= startMins && nowMins < endMins);
+            } catch (e) {
+                console.error('Error checking working hours:', e);
+                setIsWorkingHours(true);
+            }
+        };
+
+        checkWorkingHours();
+        const interval = setInterval(checkWorkingHours, 60000);
+        return () => clearInterval(interval);
+    }, []);
 
     const fetchTickets = async (background = false) => {
         if (!background) setLoading(true);
@@ -241,6 +293,31 @@ const TechDashboard = () => {
                     </div>
                 </div>
             </div>
+
+            {/* 🛡️ GDPR Privacy Mode Banner */}
+            {!isWorkingHours && (
+                <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-2xl p-4 shadow-lg border border-slate-600 mb-4">
+                    <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                            <span className="text-xl">🛡️</span>
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="text-sm font-bold text-white mb-0.5">Privacidad Activa</h3>
+                            <p className="text-xs text-slate-300 mb-2">Tu ubicación NO está siendo rastreada</p>
+                            <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                                <Clock size={12} />
+                                <span>
+                                    Horario hoy: {workScheduleInfo.start} - {workScheduleInfo.end} (Ahora: {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
+                                </span>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 bg-emerald-500/20 px-2 py-1 rounded-lg">
+                            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                            <span className="text-[10px] font-bold text-emerald-300">PROTEGIDO</span>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Smart Search */}
             <div className="sticky top-0 z-20 bg-gray-50/95 backdrop-blur py-2">
