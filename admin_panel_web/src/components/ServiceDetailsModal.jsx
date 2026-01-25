@@ -154,8 +154,9 @@ const ServiceDetailsModal = ({ ticket, onClose, onOpenWarrantyClaim }) => {
                             </div>
                         )}
 
-                        {/* VIABILITY JUDGE (Phase 3.1) */}
+                        {/* VIABILITY JUDGE - Comentado temporalmente por rendimiento
                         {/* We use ticket.appliance_id if available (direct link) or info.id (snapshot) */}
+                        {/*
                         <div className="mt-6">
                             <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-3 text-lg border-b pb-2">
                                 <FileText size={20} className="text-slate-400" />
@@ -166,6 +167,7 @@ const ServiceDetailsModal = ({ ticket, onClose, onOpenWarrantyClaim }) => {
                                 applianceSnapshot={ticket.appliance_info}
                             />
                         </div>
+                        */}
                     </div>
 
                     {/* Label/Photo */}
