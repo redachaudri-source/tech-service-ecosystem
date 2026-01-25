@@ -95,7 +95,7 @@ async function sendViaResend(
             emailPayload.attachments = [{
                 filename: finalFilename,
                 content: content,
-                content_type: 'application/pdf', // Resend uses content_type, not type
+                contentType: 'application/pdf', // camelCase per Resend API docs
             }];
             console.log(`[send-email] Attached PDF: ${finalFilename} (${content.length} chars base64)`);
         } catch (err) {
