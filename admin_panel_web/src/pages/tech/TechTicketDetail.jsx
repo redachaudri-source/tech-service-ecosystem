@@ -554,12 +554,28 @@ const TechTicketDetail = () => {
                 ? { warranty_pdf_url: publicUrl }
                 : { pdf_url: publicUrl, pdf_generated_at: new Date().toISOString() };
 
+            // 🔴 DEBUG: Log what we're sending to Supabase
+            console.log('🔴 handleGeneratePDF - UPDATE tickets');
+            console.log('🔴 Ticket ID:', id);
+            console.log('🔴 Type:', type);
+            console.log('🔴 Update Fields:', JSON.stringify(updateFields, null, 2));
+
             const { error: dbError } = await supabase
                 .from('tickets')
                 .update(updateFields)
                 .eq('id', id);
 
-            if (dbError) throw dbError;
+            if (dbError) {
+                console.error('🔴 SUPABASE UPDATE ERROR:');
+                console.error('🔴 Message:', dbError.message);
+                console.error('🔴 Details:', dbError.details);
+                console.error('🔴 Hint:', dbError.hint);
+                console.error('🔴 Code:', dbError.code);
+                console.error('🔴 Full Error:', JSON.stringify(dbError, null, 2));
+                throw dbError;
+            }
+
+            console.log('✅ handleGeneratePDF - UPDATE successful');
 
             // 5. Update Local State
             if (type === 'warranty') {
