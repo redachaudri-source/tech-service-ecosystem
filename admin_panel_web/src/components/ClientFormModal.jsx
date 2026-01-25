@@ -78,7 +78,8 @@ const ClientFormModal = ({ isOpen, onClose, onSuccess, editClient = null }) => {
         init
     } = usePlacesAutocomplete({
         requestOptions: {
-            componentRestrictions: { country: "es" }
+            componentRestrictions: { country: "es" },
+            types: ['address']  // Get full addresses with street numbers
         },
         debounce: 300,
         cache: 24 * 60 * 60,
