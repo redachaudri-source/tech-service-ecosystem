@@ -95,7 +95,8 @@ const TechTicketDetail = () => {
     const [sendPdfModal, setSendPdfModal] = useState({
         isOpen: false,
         pdfUrl: '',
-        pdfName: ''
+        pdfName: '',
+        showSuccessAfter: false // Flag to show ServiceCompletionModal after closing SendPdfModal
     });
 
     // UI Helper State
@@ -2207,10 +2208,11 @@ const TechTicketDetail = () => {
                                     // Finalize
                                     await updateStatus('finalizado', warrantyData);
 
-                                    // SUCCESS FEEDBACK -> MODAL (No Alert)
+                                    // SUCCESS FEEDBACK -> Modal will show after SendPdfModal closes
                                     setCompletionType(isWarranty ? 'warranty' : 'standard');
                                     setShowSignaturePad(false);
-                                    setShowSuccessModal(true);
+                                    // Mark that success modal should show after SendPdfModal closes
+                                    setSendPdfModal(prev => ({ ...prev, showSuccessAfter: true }));
                                 }
                             } catch (e) {
                                 console.error(e);
@@ -2235,7 +2237,14 @@ const TechTicketDetail = () => {
             {/* SEND PDF MODAL - WhatsApp/Email Delivery */}
             <SendPdfModal
                 isOpen={sendPdfModal.isOpen}
-                onClose={() => setSendPdfModal({ isOpen: false, pdfUrl: '', pdfName: '' })}
+                onClose={() => {
+                    const shouldShowSuccess = sendPdfModal.showSuccessAfter;
+                    setSendPdfModal({ isOpen: false, pdfUrl: '', pdfName: '', showSuccessAfter: false });
+                    // Show success modal after closing SendPdfModal if it was from signature flow
+                    if (shouldShowSuccess) {
+                        setShowSuccessModal(true);
+                    }
+                }}
                 pdfUrl={sendPdfModal.pdfUrl}
                 pdfName={sendPdfModal.pdfName}
                 clientPhone={ticket?.client?.phone}
