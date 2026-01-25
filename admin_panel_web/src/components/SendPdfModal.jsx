@@ -154,10 +154,10 @@ const SendPdfModal = ({
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
 
-                {/* Header */}
-                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex justify-between items-center">
+                {/* Header - Fixed at top */}
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex justify-between items-center flex-shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-white/20 rounded-lg">
                             <Send size={20} className="text-white" />
@@ -170,13 +170,14 @@ const SendPdfModal = ({
                     <button
                         onClick={handleClose}
                         className="p-2 hover:bg-white/20 rounded-full transition text-white/80 hover:text-white"
+                        title="Cerrar"
                     >
                         <X size={20} />
                     </button>
                 </div>
 
-                {/* Content */}
-                <div className="p-6 space-y-5">
+                {/* Content - Scrollable */}
+                <div className="p-6 space-y-5 overflow-y-auto flex-1">
 
                     {/* Document Info */}
                     <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center gap-3">
@@ -216,10 +217,10 @@ const SendPdfModal = ({
 
                         {/* WhatsApp Option */}
                         <label className={`flex items-center gap-4 p-4 rounded-xl border-2 transition cursor-pointer ${sendViaWhatsApp && hasPhone
-                                ? 'border-green-500 bg-green-50'
-                                : hasPhone
-                                    ? 'border-slate-200 bg-white hover:border-green-300'
-                                    : 'border-slate-100 bg-slate-50 cursor-not-allowed opacity-60'
+                            ? 'border-green-500 bg-green-50'
+                            : hasPhone
+                                ? 'border-slate-200 bg-white hover:border-green-300'
+                                : 'border-slate-100 bg-slate-50 cursor-not-allowed opacity-60'
                             }`}>
                             <input
                                 type="checkbox"
@@ -250,10 +251,10 @@ const SendPdfModal = ({
 
                         {/* Email Option */}
                         <label className={`flex items-center gap-4 p-4 rounded-xl border-2 transition cursor-pointer ${sendViaEmail && hasEmail
-                                ? 'border-blue-500 bg-blue-50'
-                                : hasEmail
-                                    ? 'border-slate-200 bg-white hover:border-blue-300'
-                                    : 'border-slate-100 bg-slate-50 cursor-not-allowed opacity-60'
+                            ? 'border-blue-500 bg-blue-50'
+                            : hasEmail
+                                ? 'border-slate-200 bg-white hover:border-blue-300'
+                                : 'border-slate-100 bg-slate-50 cursor-not-allowed opacity-60'
                             }`}>
                             <input
                                 type="checkbox"
@@ -323,8 +324,8 @@ const SendPdfModal = ({
                     )}
                 </div>
 
-                {/* Actions */}
-                <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex gap-3">
+                {/* Actions - Fixed at bottom */}
+                <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex gap-3 flex-shrink-0">
                     <button
                         onClick={handleClose}
                         disabled={status === 'loading'}

@@ -28,6 +28,7 @@ interface WhatsAppResponse {
     messageId?: string;
     provider: string;
     error?: string;
+    twilioStatus?: string; // 'queued', 'sent', 'delivered', 'failed', etc.
 }
 
 /**
@@ -69,15 +70,34 @@ async function sendViaTwilio(to: string, message: string, mediaUrl?: string): Pr
 
     const result = await response.json();
 
+    // Detailed logging for debugging
+    console.log('[send-whatsapp] Twilio Response:', {
+        status: result.status,
+        sid: result.sid,
+        to: result.to,
+        from: result.from,
+        body_preview: result.body?.substring(0, 50),
+        error_code: result.error_code,
+        error_message: result.error_message,
+        http_status: response.status
+    });
+
     if (!response.ok) {
-        console.error('Twilio Error:', result);
-        throw new Error(result.message || `Twilio API error: ${response.status}`);
+        console.error('[send-whatsapp] Twilio Error Full:', JSON.stringify(result, null, 2));
+        throw new Error(result.message || result.error_message || `Twilio API error: ${response.status}`);
+    }
+
+    // Check for Twilio-level errors (can return 201 but still have errors)
+    if (result.error_code) {
+        console.error('[send-whatsapp] Twilio Error Code:', result.error_code, result.error_message);
+        throw new Error(`Twilio error ${result.error_code}: ${result.error_message}`);
     }
 
     return {
         success: true,
         messageId: result.sid,
         provider: 'twilio',
+        twilioStatus: result.status // 'queued', 'sent', 'delivered', 'failed', etc.
     };
 }
 
