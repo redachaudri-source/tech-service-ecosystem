@@ -223,71 +223,121 @@ async function deleteConversation(phone: string): Promise<void> {
 
 async function createTicketFromConversation(data: CollectedData, phone: string): Promise<number> {
     const normalizedPhone = normalizePhone(phone);
-    console.log('[Bot] 📝 Creating ticket with data:', JSON.stringify(data));
 
-    // 1. Find or create client
-    let { data: existingClient } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('phone', normalizedPhone)
-        .single();
+    console.log('[Bot] ══════════════════════════════════════════════════════');
+    console.log('[Bot] 🎫 STARTING TICKET CREATION');
+    console.log('[Bot] 📦 Full data:', JSON.stringify(data, null, 2));
+    console.log('[Bot] 📱 Phone:', normalizedPhone);
 
     let clientId: string;
 
-    if (existingClient) {
-        clientId = existingClient.id;
-        console.log('[Bot] 👤 Using existing client:', clientId);
-        await supabase
+    try {
+        // Step 1: Find or create client
+        console.log('[Bot] 👤 Step 1: Looking for existing client...');
+
+        const { data: existingClient, error: findError } = await supabase
             .from('profiles')
-            .update({ full_name: data.name, address: data.address })
-            .eq('id', clientId);
-    } else {
-        console.log('[Bot] 👤 Creating new client');
-        const { data: newClient, error: clientError } = await supabase
-            .from('profiles')
-            .insert({
-                phone: normalizedPhone,
-                full_name: data.name || 'Cliente WhatsApp',
-                address: data.address,
-                role: 'client'
-            })
             .select('id')
+            .eq('phone', normalizedPhone)
             .single();
 
-        if (clientError) {
-            console.error('[Bot] ❌ Error creating client:', clientError);
-            throw clientError;
+        if (findError && findError.code !== 'PGRST116') {
+            console.error('[Bot] ❌ Error finding client:', JSON.stringify(findError));
         }
-        clientId = newClient.id;
-    }
 
-    // 2. Create ticket
-    const applianceInfo = {
-        type: data.appliance || 'No especificado',
-        brand: data.brand || 'No especificado',
-        model: data.model || 'No especificado'
-    };
+        if (existingClient) {
+            clientId = existingClient.id;
+            console.log('[Bot] 👤 Found existing client:', clientId);
 
-    const { data: ticket, error: ticketError } = await supabase
-        .from('tickets')
-        .insert({
+            // Update client info
+            const { error: updateError } = await supabase
+                .from('profiles')
+                .update({ full_name: data.name, address: data.address })
+                .eq('id', clientId);
+
+            if (updateError) {
+                console.error('[Bot] ⚠️ Error updating client (non-fatal):', JSON.stringify(updateError));
+            }
+        } else {
+            console.log('[Bot] 👤 Creating new client...');
+            const { data: newClient, error: clientError } = await supabase
+                .from('profiles')
+                .insert({
+                    phone: normalizedPhone,
+                    full_name: data.name || 'Cliente WhatsApp',
+                    address: data.address,
+                    role: 'client'
+                })
+                .select('id')
+                .single();
+
+            if (clientError) {
+                console.error('[Bot] ❌ CLIENT CREATE ERROR:');
+                console.error('[Bot] ❌ Code:', clientError.code);
+                console.error('[Bot] ❌ Message:', clientError.message);
+                console.error('[Bot] ❌ Details:', clientError.details);
+                console.error('[Bot] ❌ Hint:', clientError.hint);
+                throw clientError;
+            }
+            clientId = newClient.id;
+            console.log('[Bot] ✅ Created new client:', clientId);
+        }
+
+        // Step 2: Create ticket
+        console.log('[Bot] 🎫 Step 2: Creating ticket...');
+
+        const applianceInfo = {
+            type: data.appliance || 'No especificado',
+            brand: data.brand || 'No especificado',
+            model: data.model || 'No especificado'
+        };
+
+        const ticketData = {
             client_id: clientId,
             appliance_info: applianceInfo,
             description_failure: data.problem || 'Reportado por WhatsApp',
             status: 'pendiente_asignacion',
             origin_source: 'whatsapp_bot'
-        })
-        .select('id')
-        .single();
+        };
 
-    if (ticketError) {
-        console.error('[Bot] ❌ Error creating ticket:', ticketError);
-        throw ticketError;
+        console.log('[Bot] 🎫 Ticket payload:', JSON.stringify(ticketData, null, 2));
+
+        const { data: ticket, error: ticketError } = await supabase
+            .from('tickets')
+            .insert(ticketData)
+            .select('id')
+            .single();
+
+        if (ticketError) {
+            console.error('[Bot] ❌ TICKET CREATE ERROR:');
+            console.error('[Bot] ❌ Code:', ticketError.code);
+            console.error('[Bot] ❌ Message:', ticketError.message);
+            console.error('[Bot] ❌ Details:', ticketError.details);
+            console.error('[Bot] ❌ Hint:', ticketError.hint);
+            throw ticketError;
+        }
+
+        console.log('[Bot] ✅ Created ticket ID:', ticket.id);
+
+        // Step 3: Clean up conversation
+        console.log('[Bot] 🧹 Step 3: Deleting conversation...');
+        await deleteConversation(phone);
+
+        console.log('[Bot] ══════════════════════════════════════════════════════');
+        console.log('[Bot] 🎉 TICKET CREATION COMPLETE! ID:', ticket.id);
+
+        return ticket.id;
+
+    } catch (error: any) {
+        console.error('[Bot] ══════════════════════════════════════════════════════');
+        console.error('[Bot] ❌ FATAL ERROR in createTicketFromConversation');
+        console.error('[Bot] ❌ Error type:', error?.constructor?.name);
+        console.error('[Bot] ❌ Error message:', error?.message);
+        console.error('[Bot] ❌ Error code:', error?.code);
+        console.error('[Bot] ❌ Full error:', JSON.stringify(error, null, 2));
+        console.error('[Bot] ══════════════════════════════════════════════════════');
+        throw error;
     }
-
-    console.log('[Bot] ✅ Created ticket:', ticket.id);
-    await deleteConversation(phone);
-    return ticket.id;
 }
 
 // ============================================================================
