@@ -89,26 +89,44 @@ const WhatsAppBotSection = () => {
     const handleSave = async () => {
         setSaving(true);
         try {
+            console.log('[WhatsApp Settings] Saving config:', JSON.stringify(config.settings, null, 2));
+
             // Check if exists
-            const { data: existing } = await supabase
+            const { data: existing, error: checkError } = await supabase
                 .from('business_config')
                 .select('key')
                 .eq('key', 'whatsapp_bot_config')
                 .single();
 
+            if (checkError && checkError.code !== 'PGRST116') {
+                console.error('[WhatsApp Settings] Error checking existing:', checkError);
+            }
+
+            let saveError;
             if (existing) {
-                await supabase
+                console.log('[WhatsApp Settings] Updating existing config...');
+                const { error } = await supabase
                     .from('business_config')
                     .update({ value: config })
                     .eq('key', 'whatsapp_bot_config');
+                saveError = error;
             } else {
-                await supabase
+                console.log('[WhatsApp Settings] Inserting new config...');
+                const { error } = await supabase
                     .from('business_config')
                     .insert({ key: 'whatsapp_bot_config', value: config });
+                saveError = error;
             }
 
-            addToast('Configuración del bot guardada', 'success');
+            if (saveError) {
+                console.error('[WhatsApp Settings] Save error:', saveError);
+                addToast('Error al guardar: ' + saveError.message, 'error');
+            } else {
+                console.log('[WhatsApp Settings] ✅ Saved successfully!');
+                addToast('Configuración del bot guardada', 'success');
+            }
         } catch (err) {
+            console.error('[WhatsApp Settings] Exception:', err);
             addToast('Error al guardar: ' + err.message, 'error');
         } finally {
             setSaving(false);
@@ -178,8 +196,8 @@ const WhatsAppBotSection = () => {
                 <div className="flex items-center gap-3">
                     {/* Bot Status Badge */}
                     <div className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 ${config.settings.bot_enabled
-                            ? 'bg-green-100 text-green-700 border border-green-200'
-                            : 'bg-slate-100 text-slate-500 border border-slate-200'
+                        ? 'bg-green-100 text-green-700 border border-green-200'
+                        : 'bg-slate-100 text-slate-500 border border-slate-200'
                         }`}>
                         <div className={`w-2 h-2 rounded-full ${config.settings.bot_enabled ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}`} />
                         {config.settings.bot_enabled ? 'Bot Activo' : 'Bot Desactivado'}
@@ -206,8 +224,8 @@ const WhatsAppBotSection = () => {
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
                                 className={`flex-1 px-4 py-3 text-sm font-medium transition-all flex items-center justify-center gap-2 ${isActive
-                                        ? 'bg-green-50 text-green-700 border-b-2 border-green-500'
-                                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                                    ? 'bg-green-50 text-green-700 border-b-2 border-green-500'
+                                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
                                     }`}
                             >
                                 <span>{tab.emoji}</span>
@@ -337,8 +355,8 @@ const WhatsAppBotSection = () => {
                             <div
                                 onClick={() => updateSettings('bot_enabled', !config.settings.bot_enabled)}
                                 className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${config.settings.bot_enabled
-                                        ? 'bg-green-50 border-green-300'
-                                        : 'bg-slate-50 border-slate-200'
+                                    ? 'bg-green-50 border-green-300'
+                                    : 'bg-slate-50 border-slate-200'
                                     }`}
                             >
                                 <div className="flex items-center justify-between">
