@@ -1030,6 +1030,12 @@ const FleetMapbox = () => {
                                                 {selectedTech.workload} tareas
                                             </span>
                                         )}
+                                        {/* 🛡️ GDPR Privacy Badge */}
+                                        {!isShopOpen && (
+                                            <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-amber-500/30 text-amber-200 rounded flex items-center gap-1">
+                                                🛡️ Privacidad
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -1050,6 +1056,16 @@ const FleetMapbox = () => {
                                         <span className="text-[10px] text-blue-200 font-medium">total</span>
                                     </div>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* 🛡️ GDPR Privacy Badge - Always visible when !isShopOpen */}
+                        {!isShopOpen && (
+                            <div className="mt-2 flex items-center gap-2 bg-amber-500/20 border border-amber-400/30 rounded-lg p-1.5">
+                                <span className="text-amber-300 text-xs">🛡️</span>
+                                <span className="text-[10px] font-medium text-amber-200">
+                                    GPS deshabilitado - Fuera de horario
+                                </span>
                             </div>
                         )}
                     </div>
