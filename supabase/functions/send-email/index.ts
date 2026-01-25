@@ -1,7 +1,7 @@
 // Supabase Edge Function: send-email
 // Uses Resend API to send emails with optional PDF attachment
 
-import { serve } from "std/http/server.ts"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 // Environment variables (set with `supabase secrets set`)
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');

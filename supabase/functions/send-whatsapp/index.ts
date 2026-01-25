@@ -2,7 +2,7 @@
 // Uses Twilio API to send WhatsApp messages with optional media (PDF)
 // Prepared for future migration to WhatsApp Cloud API (Meta)
 
-import { serve } from "std/http/server.ts"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 // Environment variables (set with `supabase secrets set`)
 const TWILIO_ACCOUNT_SID = Deno.env.get('TWILIO_ACCOUNT_SID');
