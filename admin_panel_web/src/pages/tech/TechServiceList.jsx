@@ -296,36 +296,40 @@ const TechServiceList = ({ filterType }) => {
                                         }
                                     </span>
 
-                                    {/* PDF Sent Indicator & Resend Button - Only for history/finalized */}
-                                    {(filterType === 'history' || ticket.status === 'finalizado') && (ticket.pdf_url || ticket.warranty_pdf_url) && (
-                                        <div className="ml-auto flex items-center gap-1">
+                                    {/* PDF Sent Indicator & Resend Button - For history/finalized tickets */}
+                                    {(filterType === 'history' || ticket.status === 'finalizado' || ticket.status === 'pagado') && (
+                                        <div className="ml-auto flex items-center gap-2">
+                                            {/* Status indicator */}
                                             {ticket.pdf_sent_at ? (
                                                 <div className="flex flex-col items-end">
-                                                    <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded flex items-center gap-1"
+                                                    <span className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-lg flex items-center gap-1 font-bold"
                                                         title={`Enviado a: ${ticket.pdf_sent_to || 'N/A'}\nVía: ${ticket.pdf_sent_via || 'N/A'}\nFecha: ${new Date(ticket.pdf_sent_at).toLocaleString()}`}>
-                                                        <MessageCircle size={10} />
                                                         {ticket.pdf_sent_via === 'whatsapp' ? '📱' : ticket.pdf_sent_via === 'email' ? '📧' : '✓'} Enviado
                                                     </span>
                                                     <span className="text-[8px] text-slate-400 mt-0.5">
                                                         {new Date(ticket.pdf_sent_at).toLocaleDateString()}
                                                     </span>
                                                 </div>
-                                            ) : (
-                                                <span className="text-[10px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-200">
-                                                    Pendiente
+                                            ) : (ticket.pdf_url || ticket.warranty_pdf_url) ? (
+                                                <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-1 rounded-lg border border-amber-300 font-bold">
+                                                    ⏳ Pendiente
                                                 </span>
+                                            ) : null}
+
+                                            {/* Resend button - only if PDF exists */}
+                                            {(ticket.pdf_url || ticket.warranty_pdf_url) && (
+                                                <button
+                                                    onClick={(e) => handleResendPdf(e, ticket)}
+                                                    className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-md transition flex items-center gap-1"
+                                                    title="Reenviar documento al cliente"
+                                                >
+                                                    <Send size={14} />
+                                                </button>
                                             )}
-                                            <button
-                                                onClick={(e) => handleResendPdf(e, ticket)}
-                                                className="p-1.5 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded transition"
-                                                title="Reenviar documento"
-                                            >
-                                                <Send size={12} />
-                                            </button>
                                         </div>
                                     )}
 
-                                    {!(filterType === 'history' || ticket.status === 'finalizado') && (
+                                    {!(filterType === 'history' || ticket.status === 'finalizado' || ticket.status === 'pagado') && (
                                         <ChevronRight size={16} className="ml-auto text-slate-300" />
                                     )}
                                 </div>
