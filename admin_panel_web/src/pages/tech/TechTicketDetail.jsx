@@ -12,6 +12,7 @@ import TechLocationMap from '../../components/TechLocationMap';
 import ErrorBoundary from '../../components/ErrorBoundary';
 import SignaturePad from '../../components/SignaturePad';
 import ServiceCompletionModal from '../../components/ServiceCompletionModal'; // NEW ROBUST MODAL
+import SendPdfModal from '../../components/SendPdfModal'; // PDF Delivery Modal
 import { useAuth } from '../../context/AuthContext';
 import { useGeolocation } from '../../hooks/useGeolocation';
 import { useLocationTracking } from '../../hooks/useLocationTracking';
@@ -89,6 +90,13 @@ const TechTicketDetail = () => {
     const [showSuccessModal, setShowSuccessModal] = useState(false); // NEW ROBUST SUCCESS
     const [completionType, setCompletionType] = useState('standard'); // 'standard' | 'warranty'
     const [signaturePurpose, setSignaturePurpose] = useState('budget'); // 'budget' | 'closing'
+
+    // SendPdfModal State
+    const [sendPdfModal, setSendPdfModal] = useState({
+        isOpen: false,
+        pdfUrl: '',
+        pdfName: ''
+    });
 
     // UI Helper State
     const [newPart, setNewPart] = useState({ name: '', price: '', qty: 1 });
@@ -459,7 +467,13 @@ const TechTicketDetail = () => {
 
             // 5. Success
             await fetchTicket(); // Refresh all
-            alert('¡Presupuesto generado y enviado correctamente!');
+
+            // 6. Open SendPdfModal for delivery
+            setSendPdfModal({
+                isOpen: true,
+                pdfUrl: publicUrl,
+                pdfName: `Presupuesto ${ticket.ticket_number}`
+            });
 
         } catch (e) {
             console.error('Error in generation flow:', e);
@@ -549,12 +563,13 @@ const TechTicketDetail = () => {
                 setTicket(prev => ({ ...prev, pdf_url: publicUrl }));
             }
 
-            alert(`PDF de ${type === 'warranty' ? 'Garantía' : 'Trabajo'} generado y guardado correctamente.`);
-
-            // Open PDF (Manual)
-            if (window.confirm("PDF Generado. ¿Deseas abrirlo ahora?")) {
-                window.open(publicUrl, '_blank');
-            }
+            // 6. Open SendPdfModal for delivery
+            const pdfTypeName = type === 'warranty' ? 'Garantía' : 'Parte de Trabajo';
+            setSendPdfModal({
+                isOpen: true,
+                pdfUrl: publicUrl,
+                pdfName: `${pdfTypeName} ${ticket.ticket_number}`
+            });
 
         } catch (error) {
             console.error('Error creating PDF:', error);
@@ -601,9 +616,12 @@ const TechTicketDetail = () => {
 
             if (dbError) throw dbError;
 
-            // 5. Open and Notify
-            window.open(publicUrl, '_blank');
-            alert('Recibo generado y guardado correctamente.');
+            // 5. Open SendPdfModal for delivery
+            setSendPdfModal({
+                isOpen: true,
+                pdfUrl: publicUrl,
+                pdfName: `Recibo Señal ${ticket.ticket_number}`
+            });
 
         } catch (error) {
             console.error('Error receipt:', error);
@@ -2211,6 +2229,20 @@ const TechTicketDetail = () => {
                 onClose={() => setShowSuccessModal(false)}
                 ticketNumber={ticket?.ticket_number}
                 type={completionType}
+            />
+
+            {/* SEND PDF MODAL - WhatsApp/Email Delivery */}
+            <SendPdfModal
+                isOpen={sendPdfModal.isOpen}
+                onClose={() => setSendPdfModal({ isOpen: false, pdfUrl: '', pdfName: '' })}
+                pdfUrl={sendPdfModal.pdfUrl}
+                pdfName={sendPdfModal.pdfName}
+                clientPhone={ticket?.client?.phone}
+                clientEmail={ticket?.client?.email}
+                ticketNumber={ticket?.ticket_number}
+                onSuccess={(results) => {
+                    console.log('[SendPdfModal] Delivery results:', results);
+                }}
             />
 
         </div >
