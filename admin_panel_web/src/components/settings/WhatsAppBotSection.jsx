@@ -89,29 +89,20 @@ const WhatsAppBotSection = () => {
     const handleSave = async () => {
         setSaving(true);
         try {
-            console.log('[WhatsApp Settings] Saving config:', JSON.stringify(config.settings, null, 2));
-
-            // Check if exists
-            const { data: existing, error: checkError } = await supabase
+            const { data: existing } = await supabase
                 .from('business_config')
                 .select('key')
                 .eq('key', 'whatsapp_bot_config')
                 .single();
 
-            if (checkError && checkError.code !== 'PGRST116') {
-                console.error('[WhatsApp Settings] Error checking existing:', checkError);
-            }
-
             let saveError;
             if (existing) {
-                console.log('[WhatsApp Settings] Updating existing config...');
                 const { error } = await supabase
                     .from('business_config')
                     .update({ value: config })
                     .eq('key', 'whatsapp_bot_config');
                 saveError = error;
             } else {
-                console.log('[WhatsApp Settings] Inserting new config...');
                 const { error } = await supabase
                     .from('business_config')
                     .insert({ key: 'whatsapp_bot_config', value: config });
@@ -119,14 +110,11 @@ const WhatsAppBotSection = () => {
             }
 
             if (saveError) {
-                console.error('[WhatsApp Settings] Save error:', saveError);
                 addToast('Error al guardar: ' + saveError.message, 'error');
             } else {
-                console.log('[WhatsApp Settings] ✅ Saved successfully!');
                 addToast('Configuración del bot guardada', 'success');
             }
         } catch (err) {
-            console.error('[WhatsApp Settings] Exception:', err);
             addToast('Error al guardar: ' + err.message, 'error');
         } finally {
             setSaving(false);
