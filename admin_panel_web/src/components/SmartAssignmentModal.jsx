@@ -116,6 +116,23 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
             // 🛑 GOD MODE FILTER: Apply Per-Day Business Hours
             let filteredData = data || [];
 
+            // 🕐 FIX: Filter out PAST slots for today's date
+            const now = new Date();
+            const todayStr = now.toISOString().split('T')[0];
+            const isToday = selectedDate === todayStr;
+
+            if (isToday) {
+                const marginMinutes = 30; // Safety margin - don't show slots starting in less than 30 min
+                const cutoffTime = new Date(now.getTime() + marginMinutes * 60000);
+
+                const beforeCount = filteredData.length;
+                filteredData = filteredData.filter(slot => {
+                    const slotTime = new Date(slot.slot_start);
+                    return slotTime > cutoffTime;
+                });
+                console.log(`[SmartAssistant] Filtered past slots for TODAY. Removed ${beforeCount - filteredData.length} past slots. Remaining: ${filteredData.length}`);
+            }
+
             if (businessConfig && businessConfig.value) {
                 // Determine Day Name
                 const dateObj = new Date(selectedDate);
