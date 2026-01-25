@@ -613,10 +613,13 @@ serve(async (req: Request) => {
         // Update conversation for next step
         await updateConversation(from, nextStep, updatedData);
 
-        console.log(`[Bot] 📤 Response: ${responseMessage.substring(0, 80)}...`);
+        // Safety check: ensure we have a response
+        const finalResponse = responseMessage || 'Gracias por tu mensaje. ¿En qué puedo ayudarte?';
+
+        console.log(`[Bot] 📤 Response (${finalResponse.length} chars): "${finalResponse.substring(0, 80)}..."`);
         console.log('[Bot] ════════════════════════════════════════════════════════');
 
-        return twimlResponse(responseMessage);
+        return twimlResponse(finalResponse);
 
     } catch (error) {
         console.error('[Bot] ❌ Error:', error);
