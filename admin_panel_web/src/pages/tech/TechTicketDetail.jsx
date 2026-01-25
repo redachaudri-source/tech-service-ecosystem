@@ -370,10 +370,8 @@ const TechTicketDetail = () => {
             // Refresh local state
             setTicket(prev => ({ ...prev, status: newStatus, status_history: updatedHistory, ...extraFields }));
 
-            // If finalized, maybe navigate or just show success
-            if (newStatus === 'finalizado') {
-                navigate('/tech/dashboard');
-            }
+            // NOTE: Navigation for 'finalizado' status is now handled by SendPdfModal onClose
+            // This ensures the PDF delivery modal is shown before navigating away
 
         } catch (error) {
             console.error('Error updating status:', error);
@@ -2240,8 +2238,8 @@ const TechTicketDetail = () => {
                                     // SUCCESS FEEDBACK -> Modal will show after SendPdfModal closes
                                     setCompletionType(isWarranty ? 'warranty' : 'standard');
                                     setShowSignaturePad(false);
-                                    // Mark that success modal should show after SendPdfModal closes
-                                    setSendPdfModal(prev => ({ ...prev, showSuccessAfter: true }));
+                                    // Mark that success modal should show AND navigate after SendPdfModal closes
+                                    setSendPdfModal(prev => ({ ...prev, showSuccessAfter: true, navigateAfter: true }));
                                 }
                             } catch (e) {
                                 console.error(e);
@@ -2258,7 +2256,10 @@ const TechTicketDetail = () => {
             {/* ROBUST SUCCESS MODAL */}
             <ServiceCompletionModal
                 isOpen={showSuccessModal}
-                onClose={() => setShowSuccessModal(false)}
+                onClose={() => {
+                    setShowSuccessModal(false);
+                    navigate('/tech/dashboard');
+                }}
                 ticketNumber={ticket?.ticket_number}
                 type={completionType}
             />
@@ -2270,12 +2271,12 @@ const TechTicketDetail = () => {
                     const shouldShowSuccess = sendPdfModal.showSuccessAfter;
                     const shouldNavigate = sendPdfModal.navigateAfter;
                     setSendPdfModal({ isOpen: false, pdfUrl: '', pdfName: '', showSuccessAfter: false, navigateAfter: false });
-                    // Show success modal after closing SendPdfModal if it was from signature flow
+
                     if (shouldShowSuccess) {
+                        // Show success modal - it will handle navigation on its own close
                         setShowSuccessModal(true);
-                    }
-                    // Navigate to dashboard if it was from material deposit flow
-                    if (shouldNavigate) {
+                    } else if (shouldNavigate) {
+                        // Only navigate directly if not showing success modal
                         navigate('/tech/dashboard');
                     }
                 }}
