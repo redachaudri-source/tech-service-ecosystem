@@ -87,11 +87,17 @@ async function sendViaResend(
     if (attachmentUrl) {
         try {
             const { content, filename } = await fetchPdfAsBase64(attachmentUrl);
+            // Ensure filename ends with .pdf
+            const finalFilename = (attachmentName || filename).endsWith('.pdf')
+                ? (attachmentName || filename)
+                : `${attachmentName || filename}.pdf`;
+
             emailPayload.attachments = [{
-                filename: attachmentName || filename,
+                filename: finalFilename,
                 content: content,
-                type: 'application/pdf',
+                content_type: 'application/pdf', // Resend uses content_type, not type
             }];
+            console.log(`[send-email] Attached PDF: ${finalFilename} (${content.length} chars base64)`);
         } catch (err) {
             console.warn('[send-email] Failed to attach PDF, sending without attachment:', err);
             // Continue without attachment rather than failing completely
