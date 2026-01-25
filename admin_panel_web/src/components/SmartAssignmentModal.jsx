@@ -1,8 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Calendar, User, X, Plus, CheckCircle, Clock, MapPin, AlertTriangle, ShieldCheck, Car } from 'lucide-react';
-import { getTravelTime } from '../services/mapboxService';
+import { Calendar, User, X, Plus, CheckCircle, Clock, MapPin, AlertTriangle, ShieldCheck } from 'lucide-react';
 
 const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
     // Phase 14: Smart Scheduling "God Mode"
@@ -169,120 +168,71 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
                 }
             }
 
-            // 🚗 FIX: Filter slots considering TRAVEL TIME from previous service
-            // Get target client coordinates - check multiple possible structures
-            const clientData = ticket.profiles || ticket.client || ticket.clients || {};
-            const targetLat = clientData.latitude;
-            const targetLng = clientData.longitude;
+            // 🛡️ REGLA BASE: Margen mínimo entre servicios consecutivos
+            // Un técnico NO puede tener un servicio que empiece antes de MARGEN_MINIMO después del anterior
+            const MARGEN_MINIMO_MINUTOS = 30;
 
-            console.log('[SmartAssistant] 🚗 Travel Time Debug:', {
-                hasProfiles: !!ticket.profiles,
-                hasClient: !!ticket.client,
-                clientData: clientData,
-                targetLat,
-                targetLng,
-                filteredDataLength: filteredData.length
-            });
-
-            if (targetLat && targetLng && filteredData.length > 0) {
-                console.log(`[SmartAssistant] 🚗 Calculating travel times to client at ${targetLat}, ${targetLng}`);
-
+            if (filteredData.length > 0) {
                 // Get all tech IDs from current slots
                 const techIds = [...new Set(filteredData.map(s => s.technician_id))];
 
                 // Fetch existing services for these techs on this day
-                const { data: existingServices } = await supabase
+                const { data: existingServices, error: svcError } = await supabase
                     .from('tickets')
-                    .select(`
-                        id, 
-                        technician_id, 
-                        scheduled_at, 
-                        scheduled_end_at,
-                        estimated_duration,
-                        profiles:client_id (latitude, longitude, postal_code)
-                    `)
+                    .select('id, technician_id, scheduled_at, estimated_duration')
                     .in('technician_id', techIds)
                     .gte('scheduled_at', `${selectedDate}T00:00:00`)
                     .lt('scheduled_at', `${selectedDate}T23:59:59`)
                     .not('status', 'in', '("cancelado","rejected","finalizado")')
                     .order('scheduled_at', { ascending: true });
 
-                // Group services by tech
-                const servicesByTech = {};
-                (existingServices || []).forEach(svc => {
-                    if (!servicesByTech[svc.technician_id]) {
-                        servicesByTech[svc.technician_id] = [];
-                    }
-                    servicesByTech[svc.technician_id].push(svc);
-                });
+                if (svcError) {
+                    console.error('[SmartAssistant] Error fetching existing services:', svcError);
+                } else {
+                    console.log(`[SmartAssistant] 🛡️ Found ${existingServices?.length || 0} existing services for ${techIds.length} techs`);
 
-                // Cache for travel times to avoid duplicate API calls
-                const travelTimeCache = {};
+                    // Group services by tech
+                    const servicesByTech = {};
+                    (existingServices || []).forEach(svc => {
+                        if (!servicesByTech[svc.technician_id]) {
+                            servicesByTech[svc.technician_id] = [];
+                        }
+                        servicesByTech[svc.technician_id].push(svc);
+                    });
 
-                // Filter slots based on travel time
-                const slotsWithTravelTime = await Promise.all(
-                    filteredData.map(async (slot) => {
+                    // Filter slots based on minimum gap rule
+                    const beforeGapFilter = filteredData.length;
+
+                    filteredData = filteredData.filter(slot => {
                         const techServices = servicesByTech[slot.technician_id] || [];
                         const slotStart = new Date(slot.slot_start);
+                        const slotEnd = new Date(slotStart.getTime() + duration * 60000);
 
-                        // Find the previous service (ends before this slot starts)
-                        let previousService = null;
-                        for (let i = techServices.length - 1; i >= 0; i--) {
-                            const svc = techServices[i];
+                        // Check against ALL services of this tech
+                        for (const svc of techServices) {
                             const svcStart = new Date(svc.scheduled_at);
                             const svcDuration = svc.estimated_duration || 60;
                             const svcEnd = new Date(svcStart.getTime() + svcDuration * 60000);
 
-                            if (svcEnd <= slotStart) {
-                                previousService = { ...svc, endTime: svcEnd };
-                                break;
+                            // Calculate minimum available time after this service
+                            const minAvailableAfter = new Date(svcEnd.getTime() + MARGEN_MINIMO_MINUTOS * 60000);
+
+                            // REGLA 1: Slot no puede empezar antes del margen mínimo después del servicio
+                            if (slotStart < minAvailableAfter && slotStart >= svcStart) {
+                                return false; // Slot inválido
+                            }
+
+                            // REGLA 2: Slot no puede terminar después del inicio de un servicio existente
+                            // (esto ya lo maneja la RPC, pero verificamos por seguridad)
+                            if (slotStart < svcStart && slotEnd > svcStart) {
+                                return false; // Overlap
                             }
                         }
+                        return true; // Slot válido
+                    });
 
-                        // If no previous service, slot is valid
-                        if (!previousService) {
-                            return { ...slot, travelTime: 0, isValid: true };
-                        }
-
-                        // Check if previous service has coordinates
-                        const prevLat = previousService.profiles?.latitude;
-                        const prevLng = previousService.profiles?.longitude;
-
-                        if (!prevLat || !prevLng) {
-                            // No coords, assume 15 min default buffer
-                            const gapMinutes = (slotStart - previousService.endTime) / 60000;
-                            return { ...slot, travelTime: 15, isValid: gapMinutes >= 15 };
-                        }
-
-                        // Calculate travel time (with caching)
-                        const cacheKey = `${prevLat},${prevLng}->${targetLat},${targetLng}`;
-                        let travelResult = travelTimeCache[cacheKey];
-
-                        if (!travelResult) {
-                            travelResult = await getTravelTime(
-                                { lat: prevLat, lng: prevLng },
-                                { lat: targetLat, lng: targetLng }
-                            );
-                            travelTimeCache[cacheKey] = travelResult || { duration: 15 }; // Default 15 min
-                        }
-
-                        const travelMinutes = travelResult?.duration || 15;
-                        const bufferMinutes = 5; // 5 min safety buffer
-                        const requiredGap = travelMinutes + bufferMinutes;
-                        const actualGap = (slotStart - previousService.endTime) / 60000;
-
-                        return {
-                            ...slot,
-                            travelTime: travelMinutes,
-                            isValid: actualGap >= requiredGap
-                        };
-                    })
-                );
-
-                // Filter only valid slots
-                const beforeTravelFilter = filteredData.length;
-                filteredData = slotsWithTravelTime.filter(s => s.isValid);
-                console.log(`[SmartAssistant] 🚗 Travel time filter: Removed ${beforeTravelFilter - filteredData.length} slots. Remaining: ${filteredData.length}`);
+                    console.log(`[SmartAssistant] 🛡️ Gap filter (${MARGEN_MINIMO_MINUTOS}min): Removed ${beforeGapFilter - filteredData.length} slots. Remaining: ${filteredData.length}`);
+                }
             }
 
             setSmartSlots(filteredData);
