@@ -296,7 +296,7 @@ async function createTicketFromConversation(data: CollectedData, phone: string):
             client_id: clientId,
             appliance_info: applianceInfo,
             description_failure: data.problem || 'Reportado por WhatsApp',
-            status: 'pendiente_asignacion',
+            status: 'solicitado',
             origin_source: 'whatsapp_bot'
         };
 
