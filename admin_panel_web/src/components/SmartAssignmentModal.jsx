@@ -176,32 +176,40 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
                 // Get all tech IDs from current slots
                 const techIds = [...new Set(filteredData.map(s => s.technician_id))];
 
+                console.log(`[SmartAssistant] 🔍 DEBUG: Fetching services for date=${selectedDate}, techIds=${techIds.length}`);
+
                 // Fetch existing services for these techs on this day
+                // Note: We filter status client-side to avoid complex query syntax issues
                 const { data: existingServices, error: svcError } = await supabase
                     .from('tickets')
-                    .select('id, technician_id, scheduled_at, estimated_duration')
+                    .select('id, technician_id, scheduled_at, estimated_duration, status')
                     .in('technician_id', techIds)
                     .gte('scheduled_at', `${selectedDate}T00:00:00`)
                     .lt('scheduled_at', `${selectedDate}T23:59:59`)
-                    .not('status', 'in', '("cancelado","rejected","finalizado")')
                     .order('scheduled_at', { ascending: true });
 
                 if (svcError) {
-                    console.error('[SmartAssistant] Error fetching existing services:', svcError);
+                    console.error('[SmartAssistant] ❌ Error fetching existing services:', svcError?.message || svcError, svcError?.details, svcError?.hint);
                 } else {
-                    console.log(`[SmartAssistant] 🛡️ Found ${existingServices?.length || 0} existing services for ${techIds.length} techs`);
+                    // Filter out cancelled/finished services client-side
+                    const excludedStatuses = ['cancelado', 'rejected', 'finalizado', 'anulado'];
+                    const activeServices = (existingServices || []).filter(svc =>
+                        !excludedStatuses.includes((svc.status || '').toLowerCase())
+                    );
 
-                    // Debug: Show all existing services
-                    (existingServices || []).forEach(svc => {
+                    console.log(`[SmartAssistant] 🛡️ Found ${existingServices?.length || 0} total, ${activeServices.length} active services for ${techIds.length} techs`);
+
+                    // Debug: Show all active services
+                    activeServices.forEach(svc => {
                         const svcStart = new Date(svc.scheduled_at);
                         const svcDuration = svc.estimated_duration || 60;
                         const svcEnd = new Date(svcStart.getTime() + svcDuration * 60000);
-                        console.log(`[SmartAssistant] 🔍 Servicio existente: Tech ${svc.technician_id.substring(0, 8)}... | ${svcStart.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} - ${svcEnd.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} (${svcDuration}min)`);
+                        console.log(`[SmartAssistant] 🔍 Servicio existente: Tech ${svc.technician_id.substring(0, 8)}... | ${svcStart.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} - ${svcEnd.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} (${svcDuration}min) [${svc.status}]`);
                     });
 
                     // Group services by tech
                     const servicesByTech = {};
-                    (existingServices || []).forEach(svc => {
+                    activeServices.forEach(svc => {
                         if (!servicesByTech[svc.technician_id]) {
                             servicesByTech[svc.technician_id] = [];
                         }
