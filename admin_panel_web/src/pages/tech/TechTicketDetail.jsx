@@ -160,6 +160,7 @@ const TechTicketDetail = () => {
                         address,
                         phone,
                         phone_2,
+                        email,
                         user_id,
                         id,
                         has_mortify,
