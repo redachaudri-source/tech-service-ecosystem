@@ -420,13 +420,14 @@ const ServiceMonitor = () => {
                                                     {(ticket.pdf_url || ticket.warranty_pdf_url || ticket.quote_pdf_url) && (
                                                         <div className="flex items-center gap-1">
                                                             {ticket.pdf_sent_at ? (
-                                                                <span className="text-[8px] bg-green-100 text-green-700 px-1 py-0.5 rounded flex items-center gap-0.5" title={`Enviado: ${new Date(ticket.pdf_sent_at).toLocaleString()}`}>
-                                                                    <MessageCircle size={8} />
+                                                                <span className="text-[8px] bg-green-100 text-green-700 px-1 py-0.5 rounded flex items-center gap-0.5"
+                                                                    title={`Enviado a: ${ticket.pdf_sent_to || 'N/A'}\nVía: ${ticket.pdf_sent_via || 'N/A'}\nFecha: ${new Date(ticket.pdf_sent_at).toLocaleString()}`}>
+                                                                    {ticket.pdf_sent_via === 'whatsapp' ? '📱' : ticket.pdf_sent_via === 'email' ? '📧' : <MessageCircle size={8} />}
                                                                     ✓
                                                                 </span>
                                                             ) : (
-                                                                <span className="text-[8px] bg-slate-100 text-slate-400 px-1 py-0.5 rounded">
-                                                                    ✗
+                                                                <span className="text-[8px] bg-amber-50 text-amber-600 px-1 py-0.5 rounded border border-amber-200" title="No enviado">
+                                                                    ⏳
                                                                 </span>
                                                             )}
                                                             <button

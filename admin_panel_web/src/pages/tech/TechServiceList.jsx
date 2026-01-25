@@ -297,16 +297,22 @@ const TechServiceList = ({ filterType }) => {
                                     </span>
 
                                     {/* PDF Sent Indicator & Resend Button - Only for history/finalized */}
-                                    {(filterType === 'history' || ticket.status === 'finalizado') && ticket.pdf_url && (
+                                    {(filterType === 'history' || ticket.status === 'finalizado') && (ticket.pdf_url || ticket.warranty_pdf_url) && (
                                         <div className="ml-auto flex items-center gap-1">
                                             {ticket.pdf_sent_at ? (
-                                                <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded flex items-center gap-1" title={`Enviado: ${new Date(ticket.pdf_sent_at).toLocaleString()}`}>
-                                                    <MessageCircle size={10} />
-                                                    Enviado
-                                                </span>
+                                                <div className="flex flex-col items-end">
+                                                    <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded flex items-center gap-1"
+                                                        title={`Enviado a: ${ticket.pdf_sent_to || 'N/A'}\nVía: ${ticket.pdf_sent_via || 'N/A'}\nFecha: ${new Date(ticket.pdf_sent_at).toLocaleString()}`}>
+                                                        <MessageCircle size={10} />
+                                                        {ticket.pdf_sent_via === 'whatsapp' ? '📱' : ticket.pdf_sent_via === 'email' ? '📧' : '✓'} Enviado
+                                                    </span>
+                                                    <span className="text-[8px] text-slate-400 mt-0.5">
+                                                        {new Date(ticket.pdf_sent_at).toLocaleDateString()}
+                                                    </span>
+                                                </div>
                                             ) : (
-                                                <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">
-                                                    No enviado
+                                                <span className="text-[10px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-200">
+                                                    Pendiente
                                                 </span>
                                             )}
                                             <button
