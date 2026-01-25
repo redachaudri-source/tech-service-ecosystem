@@ -127,7 +127,19 @@ function isWithinWorkingHours(config: BotConfig): boolean {
         hour12: false,
         timeZone: 'Europe/Madrid'
     });
-    return currentTime >= config.settings.working_hours_start && currentTime <= config.settings.working_hours_end;
+
+    const start = config.settings.working_hours_start;
+    const end = config.settings.working_hours_end;
+    const isWithin = currentTime >= start && currentTime <= end;
+
+    console.log('[Bot] ⏰ Working hours check:', {
+        currentTime,
+        start,
+        end,
+        isWithin
+    });
+
+    return isWithin;
 }
 
 // ============================================================================
@@ -183,24 +195,43 @@ async function sendWhatsAppMessage(to: string, text: string): Promise<boolean> {
 
 async function getBotConfig(): Promise<BotConfig> {
     try {
+        console.log('[Bot] 📋 Fetching config from DB...');
+
         const { data, error } = await supabase
             .from('business_config')
             .select('value')
             .eq('key', 'whatsapp_bot_config')
             .single();
 
-        if (error || !data) {
-            console.log('[Bot] Using default config');
+        if (error) {
+            console.log('[Bot] ⚠️ DB Error:', error.code, error.message);
+            console.log('[Bot] ⚠️ Using DEFAULT config');
+            return DEFAULT_CONFIG;
+        }
+
+        if (!data) {
+            console.log('[Bot] ⚠️ No config found in DB, using DEFAULT');
             return DEFAULT_CONFIG;
         }
 
         const config = data.value;
-        return {
-            company: { ...DEFAULT_CONFIG.company, ...config.company },
-            messages: { ...DEFAULT_CONFIG.messages, ...config.messages },
-            legal: { ...DEFAULT_CONFIG.legal, ...config.legal },
-            settings: { ...DEFAULT_CONFIG.settings, ...config.settings }
+        console.log('[Bot] ✅ Loaded config from DB:', {
+            company_name: config?.company?.name,
+            working_hours_start: config?.settings?.working_hours_start,
+            working_hours_end: config?.settings?.working_hours_end,
+            bot_enabled: config?.settings?.bot_enabled
+        });
+
+        const mergedConfig = {
+            company: { ...DEFAULT_CONFIG.company, ...config?.company },
+            messages: { ...DEFAULT_CONFIG.messages, ...config?.messages },
+            legal: { ...DEFAULT_CONFIG.legal, ...config?.legal },
+            settings: { ...DEFAULT_CONFIG.settings, ...config?.settings }
         };
+
+        console.log('[Bot] 📋 Final merged settings:', mergedConfig.settings);
+        return mergedConfig;
+
     } catch (e) {
         console.error('[Bot] Error getting config:', e);
         return DEFAULT_CONFIG;
