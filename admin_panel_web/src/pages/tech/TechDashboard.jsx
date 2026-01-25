@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Phone, Calendar, Clock, ChevronRight, Search, Filter, Package, History, Star, ShieldAlert, CheckCircle, FileText } from 'lucide-react'; // Added ShieldAlert, CheckCircle, FileText
+import { MapPin, Phone, Calendar, Clock, ChevronRight, Search, Filter, Package, History, Star, ShieldAlert, CheckCircle, FileText, Send, MessageCircle } from 'lucide-react';
 import TechRouteLine from '../../components/TechRouteLine';
 import TechReviewsModal from '../../components/TechReviewsModal';
 import ServiceCard from '../../components/ServiceCard';
+import SendPdfModal from '../../components/SendPdfModal';
 
 import { useToast } from '../../components/ToastProvider';
 
@@ -28,8 +29,19 @@ const TechDashboard = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [stats, setStats] = useState({ rating: 0, reviews: 0 });
     const [currentTime, setCurrentTime] = useState(new Date());
-    const [showReviewsModal, setShowReviewsModal] = useState(false); // Added state
-    const [statusFilter, setStatusFilter] = useState('Todos'); // Added Filter State
+    const [showReviewsModal, setShowReviewsModal] = useState(false);
+    const [statusFilter, setStatusFilter] = useState('Todos');
+
+    // SendPdfModal state for resend
+    const [sendPdfModal, setSendPdfModal] = useState({
+        isOpen: false,
+        pdfUrl: '',
+        pdfName: '',
+        ticketId: null,
+        ticketNumber: '',
+        clientPhone: '',
+        clientEmail: ''
+    });
 
     // 🛡️ GDPR Privacy Mode State
     const [isWorkingHours, setIsWorkingHours] = useState(true); // Default: assume working
@@ -518,7 +530,20 @@ const TechDashboard = () => {
                                             {ticket.ticket_number} • {new Date(ticket.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-2">
+                                        {/* Sent Status Indicator */}
+                                        {ticket.pdf_sent_at ? (
+                                            <span className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-lg flex items-center gap-1 font-bold"
+                                                title={`Enviado a: ${ticket.pdf_sent_to || 'N/A'}\nVía: ${ticket.pdf_sent_via || 'N/A'}\nFecha: ${new Date(ticket.pdf_sent_at).toLocaleString()}`}>
+                                                {ticket.pdf_sent_via === 'whatsapp' ? '📱' : ticket.pdf_sent_via === 'email' ? '📧' : '✓'} Enviado
+                                            </span>
+                                        ) : (ticket.pdf_url || ticket.warranty_pdf_url) ? (
+                                            <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-1 rounded-lg border border-amber-200 font-bold">
+                                                ⏳ Pendiente
+                                            </span>
+                                        ) : null}
+
+                                        {/* PDF View Button */}
                                         {ticket.pdf_url && (
                                             <a
                                                 href={ticket.pdf_url}
@@ -531,6 +556,29 @@ const TechDashboard = () => {
                                                 <FileText size={18} />
                                             </a>
                                         )}
+
+                                        {/* Resend Button */}
+                                        {(ticket.pdf_url || ticket.warranty_pdf_url) && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSendPdfModal({
+                                                        isOpen: true,
+                                                        pdfUrl: ticket.pdf_url || ticket.warranty_pdf_url,
+                                                        pdfName: `Parte ${ticket.ticket_number}`,
+                                                        ticketId: ticket.id,
+                                                        ticketNumber: ticket.ticket_number,
+                                                        clientPhone: ticket.client?.phone || '',
+                                                        clientEmail: ticket.client?.email || ''
+                                                    });
+                                                }}
+                                                className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-md transition flex items-center gap-1"
+                                                title="Reenviar documento al cliente"
+                                            >
+                                                <Send size={16} />
+                                            </button>
+                                        )}
+
                                         <CheckCircle size={20} className="text-green-500/50" />
                                     </div>
                                 </div>
@@ -545,6 +593,22 @@ const TechDashboard = () => {
                 isOpen={showReviewsModal}
                 onClose={() => setShowReviewsModal(false)}
                 userId={user?.id}
+            />
+
+            {/* SendPdfModal for resend */}
+            <SendPdfModal
+                isOpen={sendPdfModal.isOpen}
+                onClose={() => setSendPdfModal(prev => ({ ...prev, isOpen: false }))}
+                pdfUrl={sendPdfModal.pdfUrl}
+                pdfName={sendPdfModal.pdfName}
+                clientPhone={sendPdfModal.clientPhone}
+                clientEmail={sendPdfModal.clientEmail}
+                ticketNumber={sendPdfModal.ticketNumber}
+                ticketId={sendPdfModal.ticketId}
+                onSuccess={() => {
+                    // Refresh closed tickets
+                    addToast('Documento reenviado correctamente', 'success');
+                }}
             />
         </div >
     );
