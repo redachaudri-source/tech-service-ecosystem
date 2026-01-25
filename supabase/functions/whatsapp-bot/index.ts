@@ -9,6 +9,9 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+// Palabras clave que reinician la conversación
+const RESET_KEYWORDS = ['hola', 'hello', 'hi', 'reiniciar', 'reset', 'empezar', 'inicio', 'comenzar', 'nueva', 'nuevo'];
+
 // ============================================================================
 // TIPOS
 // ============================================================================
@@ -29,6 +32,7 @@ interface CollectedData {
     address?: string;
     name?: string;
     phone?: string;
+    legal_accepted?: boolean;
 }
 
 interface BotConfig {
@@ -38,6 +42,9 @@ interface BotConfig {
         email: string;
     };
     messages: Record<string, string>;
+    legal?: {
+        service_conditions?: string;
+    };
     settings: {
         bot_enabled: boolean;
         working_hours_start: string;
@@ -57,17 +64,21 @@ const DEFAULT_CONFIG: BotConfig = {
         email: 'info@fixarr.es'
     },
     messages: {
-        greeting: '¡Hola! 👋 Bienvenido a {company_name}. Soy tu asistente virtual para gestionar servicios técnicos.\n\n¿Qué electrodoméstico necesita reparación?\n\n_(Ejemplo: Lavadora, Lavavajillas, Frigorífico, Horno...)_',
+        greeting: '¡Hola! 👋 Bienvenido a {company_name}. Soy tu asistente virtual.',
+        ask_appliance: '¿Qué electrodoméstico necesita reparación?',
         ask_brand: '¿Cuál es la marca del {appliance}?',
-        ask_model: '¿Conoces el modelo? _(puedes escribir "no sé" si no lo tienes a mano)_',
-        ask_problem: 'Describe brevemente el problema que presenta el {appliance}',
-        ask_address: '¿Cuál es la dirección completa donde realizaremos el servicio?\n\n_(Incluye calle, número, piso y código postal)_',
+        ask_model: '¿Conoces el modelo? (puedes escribir "no sé")',
+        ask_problem: 'Describe brevemente el problema que presenta',
+        ask_address: '¿Cuál es la dirección completa donde realizaremos el servicio? (Incluye calle, número, piso y código postal)',
         ask_name: '¿A nombre de quién agendamos la cita?',
-        ask_phone: '¿Un teléfono de contacto?\n\n_(Escribe "este mismo" para usar este número de WhatsApp)_',
-        ticket_created: '✅ *¡Registrado!*\n\nTu solicitud *#{ticket_id}* está en proceso.\n\n📋 *Resumen:*\n• Equipo: {appliance} {brand}\n• Problema: {problem}\n• Dirección: {address}\n\nTe contactaremos pronto para confirmar día y hora de la visita.\n\n¡Gracias por confiar en {company_name}! 🙏',
-        outside_hours: 'Gracias por contactarnos. 🕐\n\nNuestro horario de atención es de {start} a {end}.\n\nTu mensaje ha sido recibido y te responderemos lo antes posible.',
-        bot_disabled: 'Gracias por tu mensaje. En este momento no podemos atenderte de forma automática.\n\nUn agente te contactará pronto.',
-        error_message: 'Disculpa, hubo un problema procesando tu mensaje. Por favor, intenta de nuevo o llámanos directamente.'
+        ask_phone: '¿Un teléfono de contacto? (Escribe "este mismo" para usar este número de WhatsApp)',
+        ticket_created: '✅ *¡Registrado!*\n\nTu solicitud *#{ticket_id}* está en proceso.\n\n📋 *Resumen:*\n• Equipo: {appliance} {brand}\n• Problema: {problem}\n• Dirección: {address}\n\nTe contactaremos pronto para confirmar día y hora.\n\n¡Gracias por confiar en {company_name}! 🙏',
+        outside_hours: 'Gracias por contactarnos. 🕐\n\nNuestro horario de atención es de {start} a {end}.\n\nTe responderemos lo antes posible.',
+        bot_disabled: 'Gracias por tu mensaje. Un agente te contactará pronto.',
+        error_message: 'Disculpa, hubo un problema procesando tu mensaje. Por favor, intenta de nuevo.'
+    },
+    legal: {
+        service_conditions: 'Al continuar, aceptas que un técnico acuda a tu domicilio para realizar el diagnóstico. El servicio de visita tiene un coste mínimo de desplazamiento.'
     },
     settings: {
         bot_enabled: true,
@@ -81,27 +92,18 @@ const DEFAULT_CONFIG: BotConfig = {
 // FUNCIONES AUXILIARES
 // ============================================================================
 
-/**
- * Normaliza número de teléfono a formato internacional
- */
 function normalizePhone(phone: string): string {
     return phone.replace(/[^+\d]/g, '');
 }
 
-/**
- * Reemplaza variables en un mensaje: {company_name}, {appliance}, etc.
- */
 function replaceVariables(message: string, variables: Record<string, string>): string {
-    let result = message;
+    let result = message || '';
     for (const [key, value] of Object.entries(variables)) {
         result = result.replace(new RegExp(`\\{${key}\\}`, 'g'), value || '');
     }
     return result;
 }
 
-/**
- * Verifica si estamos dentro del horario de atención
- */
 function isWithinWorkingHours(config: BotConfig): boolean {
     const now = new Date();
     const currentTime = now.toLocaleTimeString('es-ES', {
@@ -110,25 +112,15 @@ function isWithinWorkingHours(config: BotConfig): boolean {
         hour12: false,
         timeZone: 'Europe/Madrid'
     });
-
-    const start = config.settings.working_hours_start;
-    const end = config.settings.working_hours_end;
-
-    return currentTime >= start && currentTime <= end;
+    return currentTime >= config.settings.working_hours_start && currentTime <= config.settings.working_hours_end;
 }
 
-/**
- * Genera respuesta TwiML para Twilio
- */
 function twimlResponse(message: string): Response {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Message>${escapeXml(message)}</Message>
 </Response>`;
-
-    return new Response(xml, {
-        headers: { 'Content-Type': 'text/xml' }
-    });
+    return new Response(xml, { headers: { 'Content-Type': 'text/xml' } });
 }
 
 function escapeXml(text: string): string {
@@ -144,9 +136,6 @@ function escapeXml(text: string): string {
 // ACCESO A BASE DE DATOS
 // ============================================================================
 
-/**
- * Obtiene la configuración del bot desde business_config
- */
 async function getBotConfig(): Promise<BotConfig> {
     try {
         const { data, error } = await supabase
@@ -156,45 +145,49 @@ async function getBotConfig(): Promise<BotConfig> {
             .single();
 
         if (error || !data) {
-            console.log('[WhatsApp Bot] Using default config');
+            console.log('[Bot] Using default config');
             return DEFAULT_CONFIG;
         }
 
-        // Merge con defaults para campos faltantes
         const config = data.value;
         return {
             company: { ...DEFAULT_CONFIG.company, ...config.company },
             messages: { ...DEFAULT_CONFIG.messages, ...config.messages },
+            legal: { ...DEFAULT_CONFIG.legal, ...config.legal },
             settings: { ...DEFAULT_CONFIG.settings, ...config.settings }
         };
     } catch (e) {
-        console.error('[WhatsApp Bot] Error getting config:', e);
+        console.error('[Bot] Error getting config:', e);
         return DEFAULT_CONFIG;
     }
 }
 
-/**
- * Obtiene o crea una conversación para un número de teléfono
- */
-async function getOrCreateConversation(phone: string): Promise<ConversationState> {
+async function getConversation(phone: string): Promise<ConversationState | null> {
     const normalizedPhone = normalizePhone(phone);
-
-    // Intentar obtener conversación existente
-    const { data: existing } = await supabase
+    const { data } = await supabase
         .from('whatsapp_conversations')
         .select('*')
         .eq('phone', normalizedPhone)
         .single();
 
-    // Si existe y no ha expirado, retornarla
-    if (existing && new Date(existing.expires_at) > new Date()) {
-        return existing;
+    if (data && new Date(data.expires_at) > new Date()) {
+        return data;
     }
+    return null;
+}
 
-    // Crear nueva conversación (o resetear si expiró)
-    const { data: newConv, error } = await supabase
+async function createConversation(phone: string): Promise<ConversationState> {
+    const normalizedPhone = normalizePhone(phone);
+
+    // Delete any existing conversation first
+    await supabase
         .from('whatsapp_conversations')
-        .upsert({
+        .delete()
+        .eq('phone', normalizedPhone);
+
+    const { data, error } = await supabase
+        .from('whatsapp_conversations')
+        .insert({
             phone: normalizedPhone,
             current_step: 'greeting',
             collected_data: {},
@@ -204,21 +197,11 @@ async function getOrCreateConversation(phone: string): Promise<ConversationState
         .select()
         .single();
 
-    if (error) {
-        console.error('[WhatsApp Bot] Error creating conversation:', error);
-        throw error;
-    }
-    return newConv;
+    if (error) throw error;
+    return data;
 }
 
-/**
- * Actualiza el estado de una conversación
- */
-async function updateConversation(
-    phone: string,
-    step: string,
-    data: CollectedData
-): Promise<void> {
+async function updateConversation(phone: string, step: string, data: CollectedData): Promise<void> {
     const { error } = await supabase
         .from('whatsapp_conversations')
         .update({
@@ -228,24 +211,21 @@ async function updateConversation(
         })
         .eq('phone', normalizePhone(phone));
 
-    if (error) {
-        console.error('[WhatsApp Bot] Error updating conversation:', error);
-        throw error;
-    }
+    if (error) throw error;
 }
 
-/**
- * Crea el ticket y cliente al finalizar la conversación
- */
-async function createTicketFromConversation(
-    data: CollectedData,
-    phone: string
-): Promise<number> {
+async function deleteConversation(phone: string): Promise<void> {
+    await supabase
+        .from('whatsapp_conversations')
+        .delete()
+        .eq('phone', normalizePhone(phone));
+}
+
+async function createTicketFromConversation(data: CollectedData, phone: string): Promise<number> {
     const normalizedPhone = normalizePhone(phone);
+    console.log('[Bot] 📝 Creating ticket with data:', JSON.stringify(data));
 
-    console.log('[WhatsApp Bot] Creating ticket with data:', data);
-
-    // 1. Buscar cliente existente por teléfono
+    // 1. Find or create client
     let { data: existingClient } = await supabase
         .from('profiles')
         .select('id')
@@ -256,19 +236,13 @@ async function createTicketFromConversation(
 
     if (existingClient) {
         clientId = existingClient.id;
-        console.log('[WhatsApp Bot] Found existing client:', clientId);
-
-        // Actualizar datos si han cambiado
+        console.log('[Bot] 👤 Using existing client:', clientId);
         await supabase
             .from('profiles')
-            .update({
-                full_name: data.name || undefined,
-                address: data.address || undefined
-            })
+            .update({ full_name: data.name, address: data.address })
             .eq('id', clientId);
     } else {
-        // 2. Crear nuevo cliente
-        console.log('[WhatsApp Bot] Creating new client');
+        console.log('[Bot] 👤 Creating new client');
         const { data: newClient, error: clientError } = await supabase
             .from('profiles')
             .insert({
@@ -281,13 +255,13 @@ async function createTicketFromConversation(
             .single();
 
         if (clientError) {
-            console.error('[WhatsApp Bot] Error creating client:', clientError);
+            console.error('[Bot] ❌ Error creating client:', clientError);
             throw clientError;
         }
         clientId = newClient.id;
     }
 
-    // 3. Crear ticket con los campos correctos del schema
+    // 2. Create ticket
     const applianceInfo = {
         type: data.appliance || 'No especificado',
         brand: data.brand || 'No especificado',
@@ -307,23 +281,17 @@ async function createTicketFromConversation(
         .single();
 
     if (ticketError) {
-        console.error('[WhatsApp Bot] Error creating ticket:', ticketError);
+        console.error('[Bot] ❌ Error creating ticket:', ticketError);
         throw ticketError;
     }
 
-    console.log('[WhatsApp Bot] Created ticket:', ticket.id);
-
-    // 4. Limpiar conversación
-    await supabase
-        .from('whatsapp_conversations')
-        .delete()
-        .eq('phone', normalizedPhone);
-
+    console.log('[Bot] ✅ Created ticket:', ticket.id);
+    await deleteConversation(phone);
     return ticket.id;
 }
 
 // ============================================================================
-// MÁQUINA DE ESTADOS - LÓGICA PRINCIPAL
+// MÁQUINA DE ESTADOS
 // ============================================================================
 
 interface StepResult {
@@ -338,14 +306,10 @@ function processStep(
     currentData: CollectedData,
     config: BotConfig
 ): StepResult {
-
     const message = userMessage.trim();
     const data = { ...currentData };
-    const companyName = config.company.name;
-
-    // Variables comunes para reemplazar en mensajes
     const vars: Record<string, string> = {
-        company_name: companyName,
+        company_name: config.company.name,
         appliance: data.appliance || '',
         brand: data.brand || '',
         model: data.model || '',
@@ -355,22 +319,24 @@ function processStep(
         end: config.settings.working_hours_end
     };
 
+    console.log(`[Bot] ═══ STEP: ${currentStep}`);
+    console.log(`[Bot] 💬 Message: "${message}"`);
+    console.log(`[Bot] 📦 Data: ${JSON.stringify(data)}`);
+
     switch (currentStep) {
-        // ─────────────────────────────────────────────────────────────────────────
-        case 'greeting':
-            // Primer mensaje del usuario - responder con saludo Y preguntar electrodoméstico
-            // Concatenamos ambos mensajes para una mejor experiencia
-            const greetingMsg = replaceVariables(config.messages.greeting || '', vars);
+        // ─────────────────────────────────────────────────────────────────────
+        case 'greeting': {
+            const greetingMsg = replaceVariables(config.messages.greeting, vars);
             const askApplianceMsg = replaceVariables(config.messages.ask_appliance || '¿Qué electrodoméstico necesita reparación?', vars);
             return {
                 nextStep: 'ask_appliance',
                 responseMessage: `${greetingMsg}\n\n${askApplianceMsg}`,
                 updatedData: data
             };
+        }
 
-        // ─────────────────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────
         case 'ask_appliance':
-            // Usuario dice qué electrodoméstico es
             data.appliance = message;
             vars.appliance = message;
             return {
@@ -379,7 +345,7 @@ function processStep(
                 updatedData: data
             };
 
-        // ─────────────────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────
         case 'ask_brand':
             data.brand = message;
             vars.brand = message;
@@ -389,30 +355,53 @@ function processStep(
                 updatedData: data
             };
 
-        // ─────────────────────────────────────────────────────────────────────────
-        case 'ask_model':
-            // Aceptar "no sé", "no se", "desconocido", etc.
-            const noModel = ['no sé', 'no se', 'nose', 'desconocido', 'no lo sé', 'ns'];
-            data.model = noModel.some(n => message.toLowerCase().includes(n))
-                ? 'No especificado'
-                : message;
+        // ─────────────────────────────────────────────────────────────────────
+        case 'ask_model': {
+            const noModel = ['no sé', 'no se', 'nose', 'desconocido', 'no lo sé', 'ns', 'no'];
+            data.model = noModel.some(n => message.toLowerCase().includes(n)) ? 'No especificado' : message;
             return {
                 nextStep: 'ask_problem',
                 responseMessage: replaceVariables(config.messages.ask_problem, vars),
                 updatedData: data
             };
+        }
 
-        // ─────────────────────────────────────────────────────────────────────────
-        case 'ask_problem':
+        // ─────────────────────────────────────────────────────────────────────
+        case 'ask_problem': {
             data.problem = message;
             vars.problem = message;
+            // Next: show legal before personal data
+            const legalText = config.legal?.service_conditions || DEFAULT_CONFIG.legal?.service_conditions || '';
             return {
-                nextStep: 'ask_address',
-                responseMessage: replaceVariables(config.messages.ask_address, vars),
+                nextStep: 'show_legal',
+                responseMessage: `📋 *Condiciones del Servicio*\n\n${legalText}\n\n¿Estás de acuerdo? Responde *Sí* o *No*`,
                 updatedData: data
             };
+        }
 
-        // ─────────────────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────
+        case 'show_legal': {
+            const acceptKeywords = ['si', 'sí', 'yes', 'de acuerdo', 'acepto', 'ok', 'vale', 'claro', 'por supuesto'];
+            const accepted = acceptKeywords.some(kw => message.toLowerCase().includes(kw));
+
+            if (accepted) {
+                data.legal_accepted = true;
+                return {
+                    nextStep: 'ask_address',
+                    responseMessage: replaceVariables(config.messages.ask_address, vars),
+                    updatedData: data
+                };
+            } else {
+                // User rejected - end conversation
+                return {
+                    nextStep: 'rejected',
+                    responseMessage: 'Entendido. No podemos continuar sin tu aceptación de las condiciones.\n\nSi cambias de opinión, escríbenos de nuevo con un simple "Hola". ¡Hasta pronto! 👋',
+                    updatedData: {}
+                };
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
         case 'ask_address':
             data.address = message;
             vars.address = message;
@@ -422,7 +411,7 @@ function processStep(
                 updatedData: data
             };
 
-        // ─────────────────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────
         case 'ask_name':
             data.name = message;
             return {
@@ -431,26 +420,35 @@ function processStep(
                 updatedData: data
             };
 
-        // ─────────────────────────────────────────────────────────────────────────
-        case 'ask_phone':
-            // "este mismo" significa usar el número de WhatsApp
+        // ─────────────────────────────────────────────────────────────────────
+        case 'ask_phone': {
             const useSamePhone = ['este', 'mismo', 'este mismo', 'el mismo', 'si', 'sí'];
             data.phone = useSamePhone.some(p => message.toLowerCase().includes(p))
                 ? 'USE_WHATSAPP_NUMBER'
                 : message;
             return {
                 nextStep: 'create_ticket',
-                responseMessage: '', // Se genera después de crear el ticket
+                responseMessage: '',
                 updatedData: data
             };
+        }
 
-        // ─────────────────────────────────────────────────────────────────────────
-        default:
-            // Estado desconocido - reiniciar
-            console.log('[WhatsApp Bot] Unknown step, resetting:', currentStep);
+        // ─────────────────────────────────────────────────────────────────────
+        case 'completed':
+        case 'rejected':
+            // These states allow restart with any message
             return {
                 nextStep: 'greeting',
-                responseMessage: replaceVariables(config.messages.greeting, vars),
+                responseMessage: '',
+                updatedData: {}
+            };
+
+        // ─────────────────────────────────────────────────────────────────────
+        default:
+            console.log(`[Bot] ⚠️ Unknown step: ${currentStep}, resetting`);
+            return {
+                nextStep: 'greeting',
+                responseMessage: '',
                 updatedData: {}
             };
     }
@@ -461,55 +459,66 @@ function processStep(
 // ============================================================================
 
 serve(async (req: Request) => {
-    console.log('[WhatsApp Bot] ═══════════════════════════════════════════════');
-    console.log('[WhatsApp Bot] Incoming request at', new Date().toISOString());
+    console.log('[Bot] ════════════════════════════════════════════════════════');
+    console.log('[Bot] 🔔 Incoming request at', new Date().toISOString());
 
     try {
-        // Solo aceptar POST
         if (req.method !== 'POST') {
-            console.log('[WhatsApp Bot] Method not allowed:', req.method);
             return new Response('Method not allowed', { status: 405 });
         }
 
-        // Parsear datos de Twilio (form-urlencoded)
         const formData = await req.formData();
         const from = formData.get('From')?.toString() || '';
         const body = formData.get('Body')?.toString() || '';
 
-        console.log(`[WhatsApp Bot] From: ${from}`);
-        console.log(`[WhatsApp Bot] Body: "${body}"`);
+        console.log(`[Bot] 📱 From: ${from}`);
+        console.log(`[Bot] 💬 Body: "${body}"`);
 
         if (!from || !body) {
-            console.log('[WhatsApp Bot] Missing from or body');
             return twimlResponse('Error: datos incompletos');
         }
 
-        // Obtener configuración del bot
         const config = await getBotConfig();
-        console.log(`[WhatsApp Bot] Bot enabled: ${config.settings.bot_enabled}`);
+        console.log(`[Bot] ⚙️ Bot enabled: ${config.settings.bot_enabled}`);
 
-        // Verificar si el bot está habilitado
         if (!config.settings.bot_enabled) {
-            console.log('[WhatsApp Bot] Bot is disabled');
             return twimlResponse(config.messages.bot_disabled);
         }
 
-        // Verificar horario de atención
         if (!isWithinWorkingHours(config)) {
-            console.log('[WhatsApp Bot] Outside working hours');
-            const vars = {
+            console.log('[Bot] 🕐 Outside working hours');
+            return twimlResponse(replaceVariables(config.messages.outside_hours, {
                 start: config.settings.working_hours_start,
                 end: config.settings.working_hours_end
-            };
-            return twimlResponse(replaceVariables(config.messages.outside_hours, vars));
+            }));
         }
 
-        // Obtener o crear conversación
-        const conversation = await getOrCreateConversation(from);
-        console.log(`[WhatsApp Bot] Current step: ${conversation.current_step}`);
-        console.log(`[WhatsApp Bot] Collected data:`, conversation.collected_data);
+        // Check for reset keywords
+        const isResetRequest = RESET_KEYWORDS.some(kw => body.toLowerCase().trim() === kw);
 
-        // Procesar el paso actual
+        // Get existing conversation
+        let conversation = await getConversation(from);
+
+        // Reset if: keyword match OR conversation is in terminal state
+        const shouldReset = isResetRequest ||
+            (conversation && ['completed', 'rejected'].includes(conversation.current_step));
+
+        if (shouldReset && conversation) {
+            console.log(`[Bot] 🔄 Resetting conversation for ${from}`);
+            await deleteConversation(from);
+            conversation = null;
+        }
+
+        // Create new conversation if needed
+        if (!conversation) {
+            console.log(`[Bot] 🆕 Creating new conversation for ${from}`);
+            conversation = await createConversation(from);
+        }
+
+        console.log(`[Bot] 📍 Current step: ${conversation.current_step}`);
+        console.log(`[Bot] 📦 Current data: ${JSON.stringify(conversation.collected_data)}`);
+
+        // Process current step
         const { nextStep, responseMessage, updatedData } = processStep(
             conversation.current_step,
             body,
@@ -517,22 +526,19 @@ serve(async (req: Request) => {
             config
         );
 
-        console.log(`[WhatsApp Bot] Next step: ${nextStep}`);
+        console.log(`[Bot] ➡️ Next step: ${nextStep}`);
 
-        // Si el siguiente paso es crear ticket
+        // Handle ticket creation
         if (nextStep === 'create_ticket') {
-            console.log('[WhatsApp Bot] Creating ticket...');
+            console.log('[Bot] 🎫 Creating ticket...');
 
-            // Si el teléfono es "USE_WHATSAPP_NUMBER", usar el número de WhatsApp
             if (updatedData.phone === 'USE_WHATSAPP_NUMBER') {
                 updatedData.phone = normalizePhone(from);
             }
 
-            // Crear el ticket
             const ticketId = await createTicketFromConversation(updatedData, from);
-            console.log(`[WhatsApp Bot] ✅ Created ticket #${ticketId}`);
+            console.log(`[Bot] ✅ Created ticket #${ticketId}`);
 
-            // Generar mensaje de confirmación
             const confirmVars: Record<string, string> = {
                 company_name: config.company.name,
                 ticket_id: ticketId.toString(),
@@ -541,22 +547,29 @@ serve(async (req: Request) => {
                 problem: updatedData.problem || '',
                 address: updatedData.address || ''
             };
-            const confirmMessage = replaceVariables(config.messages.ticket_created, confirmVars);
 
-            console.log('[WhatsApp Bot] ═══════════════════════════════════════════════');
-            return twimlResponse(confirmMessage);
+            console.log('[Bot] ════════════════════════════════════════════════════════');
+            return twimlResponse(replaceVariables(config.messages.ticket_created, confirmVars));
         }
 
-        // Actualizar conversación
+        // Handle rejected state (conversation ends)
+        if (nextStep === 'rejected') {
+            await updateConversation(from, 'rejected', {});
+            console.log('[Bot] ❌ User rejected terms');
+            console.log('[Bot] ════════════════════════════════════════════════════════');
+            return twimlResponse(responseMessage);
+        }
+
+        // Update conversation for next step
         await updateConversation(from, nextStep, updatedData);
 
-        console.log('[WhatsApp Bot] Response:', responseMessage.substring(0, 100) + '...');
-        console.log('[WhatsApp Bot] ═══════════════════════════════════════════════');
+        console.log(`[Bot] 📤 Response: ${responseMessage.substring(0, 80)}...`);
+        console.log('[Bot] ════════════════════════════════════════════════════════');
 
         return twimlResponse(responseMessage);
 
     } catch (error) {
-        console.error('[WhatsApp Bot] ❌ Error:', error);
+        console.error('[Bot] ❌ Error:', error);
         return twimlResponse(DEFAULT_CONFIG.messages.error_message);
     }
 });
