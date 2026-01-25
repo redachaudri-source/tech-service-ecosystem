@@ -1,16 +1,11 @@
 // Supabase Edge Function: send-whatsapp
-// Uses Twilio API to send WhatsApp messages with optional media (PDF)
-// Prepared for future migration to WhatsApp Cloud API (Meta)
+// Uses Meta Cloud API to send WhatsApp messages with optional media (PDF/documents)
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 // Environment variables (set with `supabase secrets set`)
-const TWILIO_ACCOUNT_SID = Deno.env.get('TWILIO_ACCOUNT_SID');
-const TWILIO_AUTH_TOKEN = Deno.env.get('TWILIO_AUTH_TOKEN');
-const TWILIO_WHATSAPP_NUMBER = Deno.env.get('TWILIO_WHATSAPP_NUMBER') || 'whatsapp:+14155238886';
-
-// Provider flag for future migration
-const WHATSAPP_PROVIDER = Deno.env.get('WHATSAPP_PROVIDER') || 'twilio'; // 'twilio' | 'meta'
+const META_TOKEN = Deno.env.get('META_WHATSAPP_TOKEN');
+const META_PHONE_NUMBER_ID = Deno.env.get('META_PHONE_NUMBER_ID');
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -21,6 +16,8 @@ interface WhatsAppRequest {
     to: string;           // Phone number with country code: +34612345678
     message: string;      // Text message to send
     mediaUrl?: string;    // Optional: URL of PDF or image to attach
+    mediaType?: 'document' | 'image'; // Type of media (default: document)
+    filename?: string;    // Optional: filename for document
 }
 
 interface WhatsAppResponse {
@@ -28,87 +25,98 @@ interface WhatsAppResponse {
     messageId?: string;
     provider: string;
     error?: string;
-    twilioStatus?: string; // 'queued', 'sent', 'delivered', 'failed', etc.
 }
 
 /**
- * Send WhatsApp message via Twilio
+ * Normalize phone number for Meta API (removes + and spaces)
  */
-async function sendViaTwilio(to: string, message: string, mediaUrl?: string): Promise<WhatsAppResponse> {
-    if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
-        throw new Error('Missing Twilio credentials. Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN.');
-    }
-
-    // Normalize phone number to WhatsApp format
-    const toNumber = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
-    const fromNumber = TWILIO_WHATSAPP_NUMBER.startsWith('whatsapp:')
-        ? TWILIO_WHATSAPP_NUMBER
-        : `whatsapp:${TWILIO_WHATSAPP_NUMBER}`;
-
-    // Build form data for Twilio API
-    const formData = new URLSearchParams();
-    formData.append('From', fromNumber);
-    formData.append('To', toNumber);
-    formData.append('Body', message);
-
-    if (mediaUrl) {
-        formData.append('MediaUrl', mediaUrl);
-    }
-
-    // Call Twilio Messages API
-    const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
-    const authHeader = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
-
-    const response = await fetch(twilioUrl, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Basic ${authHeader}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: formData.toString(),
-    });
-
-    const result = await response.json();
-
-    // Detailed logging for debugging
-    console.log('[send-whatsapp] Twilio Response:', {
-        status: result.status,
-        sid: result.sid,
-        to: result.to,
-        from: result.from,
-        body_preview: result.body?.substring(0, 50),
-        error_code: result.error_code,
-        error_message: result.error_message,
-        http_status: response.status
-    });
-
-    if (!response.ok) {
-        console.error('[send-whatsapp] Twilio Error Full:', JSON.stringify(result, null, 2));
-        throw new Error(result.message || result.error_message || `Twilio API error: ${response.status}`);
-    }
-
-    // Check for Twilio-level errors (can return 201 but still have errors)
-    if (result.error_code) {
-        console.error('[send-whatsapp] Twilio Error Code:', result.error_code, result.error_message);
-        throw new Error(`Twilio error ${result.error_code}: ${result.error_message}`);
-    }
-
-    return {
-        success: true,
-        messageId: result.sid,
-        provider: 'twilio',
-        twilioStatus: result.status // 'queued', 'sent', 'delivered', 'failed', etc.
-    };
+function normalizePhoneForMeta(phone: string): string {
+    return phone.replace(/[^\d]/g, '');
 }
 
 /**
- * Placeholder for Meta WhatsApp Cloud API
- * To be implemented when migrating from Twilio
+ * Send text message via Meta Cloud API
  */
-async function sendViaMeta(_to: string, _message: string, _mediaUrl?: string): Promise<WhatsAppResponse> {
-    // TODO: Implement Meta WhatsApp Cloud API
-    // Documentation: https://developers.facebook.com/docs/whatsapp/cloud-api/
-    throw new Error('Meta WhatsApp Cloud API not yet implemented. Set WHATSAPP_PROVIDER=twilio');
+async function sendTextMessage(to: string, message: string): Promise<any> {
+    const toNumber = normalizePhoneForMeta(to);
+
+    const response = await fetch(
+        `https://graph.facebook.com/v17.0/${META_PHONE_NUMBER_ID}/messages`,
+        {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${META_TOKEN}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                messaging_product: 'whatsapp',
+                to: toNumber,
+                type: 'text',
+                text: { body: message }
+            })
+        }
+    );
+
+    return { response, result: await response.json() };
+}
+
+/**
+ * Send document (PDF) via Meta Cloud API
+ */
+async function sendDocument(to: string, caption: string, documentUrl: string, filename?: string): Promise<any> {
+    const toNumber = normalizePhoneForMeta(to);
+
+    const response = await fetch(
+        `https://graph.facebook.com/v17.0/${META_PHONE_NUMBER_ID}/messages`,
+        {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${META_TOKEN}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                messaging_product: 'whatsapp',
+                to: toNumber,
+                type: 'document',
+                document: {
+                    link: documentUrl,
+                    caption: caption,
+                    filename: filename || 'documento.pdf'
+                }
+            })
+        }
+    );
+
+    return { response, result: await response.json() };
+}
+
+/**
+ * Send image via Meta Cloud API
+ */
+async function sendImage(to: string, caption: string, imageUrl: string): Promise<any> {
+    const toNumber = normalizePhoneForMeta(to);
+
+    const response = await fetch(
+        `https://graph.facebook.com/v17.0/${META_PHONE_NUMBER_ID}/messages`,
+        {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${META_TOKEN}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                messaging_product: 'whatsapp',
+                to: toNumber,
+                type: 'image',
+                image: {
+                    link: imageUrl,
+                    caption: caption
+                }
+            })
+        }
+    );
+
+    return { response, result: await response.json() };
 }
 
 serve(async (req: Request) => {
@@ -118,8 +126,13 @@ serve(async (req: Request) => {
     }
 
     try {
+        // Validate credentials
+        if (!META_TOKEN || !META_PHONE_NUMBER_ID) {
+            throw new Error('Missing Meta credentials. Set META_WHATSAPP_TOKEN and META_PHONE_NUMBER_ID.');
+        }
+
         // Parse request body
-        const { to, message, mediaUrl }: WhatsAppRequest = await req.json();
+        const { to, message, mediaUrl, mediaType, filename }: WhatsAppRequest = await req.json();
 
         // Validate required fields
         if (!to) {
@@ -136,18 +149,49 @@ serve(async (req: Request) => {
             throw new Error(`Invalid phone number format: ${to}. Expected format: +34612345678`);
         }
 
-        console.log(`[send-whatsapp] Sending to ${to} via ${WHATSAPP_PROVIDER}`);
+        console.log(`[send-whatsapp] Sending to ${to} via Meta Cloud API`);
+        console.log(`[send-whatsapp] Message: "${message.substring(0, 50)}..."`);
 
-        // Route to appropriate provider
-        let result: WhatsAppResponse;
+        let apiResponse: any;
+        let apiResult: any;
 
-        if (WHATSAPP_PROVIDER === 'meta') {
-            result = await sendViaMeta(to, message, mediaUrl);
+        // If media URL provided, send with media
+        if (mediaUrl) {
+            console.log(`[send-whatsapp] With media: ${mediaUrl}`);
+
+            if (mediaType === 'image') {
+                const { response, result } = await sendImage(to, message, mediaUrl);
+                apiResponse = response;
+                apiResult = result;
+            } else {
+                // Default to document (PDF)
+                const { response, result } = await sendDocument(to, message, mediaUrl, filename);
+                apiResponse = response;
+                apiResult = result;
+            }
         } else {
-            result = await sendViaTwilio(to, message, mediaUrl);
+            // Text only
+            const { response, result } = await sendTextMessage(to, message);
+            apiResponse = response;
+            apiResult = result;
         }
 
-        console.log(`[send-whatsapp] Success: ${result.messageId}`);
+        // Log response
+        console.log('[send-whatsapp] Meta API Response:', JSON.stringify(apiResult));
+
+        if (!apiResponse.ok) {
+            console.error('[send-whatsapp] Meta API Error:', JSON.stringify(apiResult));
+            throw new Error(apiResult.error?.message || `Meta API error: ${apiResponse.status}`);
+        }
+
+        const messageId = apiResult.messages?.[0]?.id;
+        console.log(`[send-whatsapp] Success: ${messageId}`);
+
+        const result: WhatsAppResponse = {
+            success: true,
+            messageId: messageId,
+            provider: 'meta'
+        };
 
         return new Response(
             JSON.stringify(result),
@@ -163,7 +207,7 @@ serve(async (req: Request) => {
         return new Response(
             JSON.stringify({
                 success: false,
-                provider: WHATSAPP_PROVIDER,
+                provider: 'meta',
                 error: error.message,
             }),
             {
