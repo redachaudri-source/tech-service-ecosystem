@@ -200,25 +200,38 @@ const ClientManager = () => {
     };
 
     const confirmDelete = async () => {
-        if (!deleteTargetClient || !deletePassword) return;
+        if (!deleteTargetClient || !deletePassword) {
+            console.log("❌ Delete aborted: missing client or password");
+            return;
+        }
         setLoading(true);
+        console.log("🗑️ Attempting to delete client:", deleteTargetClient.id, deleteTargetClient.full_name);
 
         try {
             // 1. Verify Password
+            console.log("🔐 Verifying password for:", user.email);
             const { error: authError } = await supabase.auth.signInWithPassword({
                 email: user.email,
                 password: deletePassword
             });
 
             if (authError) {
+                console.error("❌ Password verification failed:", authError);
                 alert("Contraseña incorrecta. No se puede borrar.");
                 setLoading(false);
                 return;
             }
+            console.log("✅ Password verified successfully");
 
             // 2. Perform Delete
+            console.log("🗑️ Executing DELETE on profiles for ID:", deleteTargetClient.id);
             const { error: deleteError } = await supabase.from('profiles').delete().eq('id', deleteTargetClient.id);
-            if (deleteError) throw deleteError;
+
+            if (deleteError) {
+                console.error("❌ Delete error from Supabase:", deleteError);
+                throw deleteError;
+            }
+            console.log("✅ Client deleted successfully");
 
             // Success
             await fetchClients();
@@ -227,7 +240,7 @@ const ClientManager = () => {
             setDeletePassword('');
 
         } catch (err) {
-            console.error("Delete failed:", err);
+            console.error("❌ Delete failed:", err);
             alert("Error al borrar: " + err.message);
         } finally {
             setLoading(false);
