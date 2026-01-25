@@ -96,7 +96,8 @@ const TechTicketDetail = () => {
         isOpen: false,
         pdfUrl: '',
         pdfName: '',
-        showSuccessAfter: false // Flag to show ServiceCompletionModal after closing SendPdfModal
+        showSuccessAfter: false, // Flag to show ServiceCompletionModal after closing SendPdfModal
+        navigateAfter: false // Flag to navigate to dashboard after closing SendPdfModal
     });
 
     // UI Helper State
@@ -474,7 +475,9 @@ const TechTicketDetail = () => {
             setSendPdfModal({
                 isOpen: true,
                 pdfUrl: publicUrl,
-                pdfName: `Presupuesto ${ticket.ticket_number}`
+                pdfName: `Presupuesto ${ticket.ticket_number}`,
+                showSuccessAfter: false,
+                navigateAfter: false
             });
 
         } catch (e) {
@@ -570,7 +573,9 @@ const TechTicketDetail = () => {
             setSendPdfModal({
                 isOpen: true,
                 pdfUrl: publicUrl,
-                pdfName: `${pdfTypeName} ${ticket.ticket_number}`
+                pdfName: `${pdfTypeName} ${ticket.ticket_number}`,
+                showSuccessAfter: false,
+                navigateAfter: false
             });
 
         } catch (error) {
@@ -622,7 +627,9 @@ const TechTicketDetail = () => {
             setSendPdfModal({
                 isOpen: true,
                 pdfUrl: publicUrl,
-                pdfName: `Recibo Señal ${ticket.ticket_number}`
+                pdfName: `Recibo Señal ${ticket.ticket_number}`,
+                showSuccessAfter: false,
+                navigateAfter: false
             });
 
         } catch (error) {
@@ -2176,9 +2183,15 @@ const TechTicketDetail = () => {
                                     // Then trigger status change (which appends history)
                                     await updateStatus('pendiente_material');
 
-                                    alert('Pago confirmado, PDF generado y pieza solicitada correctamente.');
+                                    // Show SendPdfModal for delivery, then navigate on close
                                     setShowSignaturePad(false);
-                                    navigate('/tech/dashboard');
+                                    setSendPdfModal({
+                                        isOpen: true,
+                                        pdfUrl: receiptUrl,
+                                        pdfName: `Recibo Señal ${ticket.ticket_number}`,
+                                        showSuccessAfter: false,
+                                        navigateAfter: true // Navigate to dashboard after closing
+                                    });
 
                                 } else if (signaturePurpose === 'closing' || signaturePurpose === 'warranty_closing') {
                                     const isWarranty = signaturePurpose === 'warranty_closing';
@@ -2239,10 +2252,15 @@ const TechTicketDetail = () => {
                 isOpen={sendPdfModal.isOpen}
                 onClose={() => {
                     const shouldShowSuccess = sendPdfModal.showSuccessAfter;
-                    setSendPdfModal({ isOpen: false, pdfUrl: '', pdfName: '', showSuccessAfter: false });
+                    const shouldNavigate = sendPdfModal.navigateAfter;
+                    setSendPdfModal({ isOpen: false, pdfUrl: '', pdfName: '', showSuccessAfter: false, navigateAfter: false });
                     // Show success modal after closing SendPdfModal if it was from signature flow
                     if (shouldShowSuccess) {
                         setShowSuccessModal(true);
+                    }
+                    // Navigate to dashboard if it was from material deposit flow
+                    if (shouldNavigate) {
+                        navigate('/tech/dashboard');
                     }
                 }}
                 pdfUrl={sendPdfModal.pdfUrl}
