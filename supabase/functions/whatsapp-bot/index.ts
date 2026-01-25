@@ -522,10 +522,15 @@ function processStep(
 // ============================================================================
 
 serve(async (req: Request) => {
-    const url = new URL(req.url);
+    // ═══════════════════════════════════════════════════════════════════════
+    // VERBOSE ENTRY LOGGING - DEBUG
+    // ═══════════════════════════════════════════════════════════════════════
+    console.log('[Bot] ══════════════════════════════════════════════════════════');
+    console.log('[Bot] 🚀 REQUEST RECEIVED:', new Date().toISOString());
+    console.log('[Bot] Method:', req.method);
+    console.log('[Bot] URL:', req.url);
 
-    console.log('[Bot] ════════════════════════════════════════════════════════');
-    console.log(`[Bot] 🔔 ${req.method} request at`, new Date().toISOString());
+    const url = new URL(req.url);
 
     // ═══════════════════════════════════════════════════════════════════════
     // GET: Verificación del webhook de Meta
@@ -551,12 +556,18 @@ serve(async (req: Request) => {
     // POST: Mensaje entrante de Meta
     // ═══════════════════════════════════════════════════════════════════════
     if (req.method !== 'POST') {
+        console.log('[Bot] ⚠️ Method not allowed:', req.method);
         return new Response('Method not allowed', { status: 405 });
     }
 
     try {
-        const json = await req.json();
-        console.log('[Bot] 📨 Received webhook:', JSON.stringify(json).substring(0, 200));
+        // Leer el body raw primero para logging
+        const clonedReq = req.clone();
+        const rawBody = await clonedReq.text();
+        console.log('[Bot] 📦 RAW BODY:', rawBody.substring(0, 500));
+
+        const json = JSON.parse(rawBody);
+        console.log('[Bot] 📨 Parsed JSON successfully');
 
         // Extraer el mensaje del payload de Meta
         const entry = json.entry?.[0];
