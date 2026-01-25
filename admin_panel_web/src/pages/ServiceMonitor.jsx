@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../components/ToastProvider';
-import { Search, Plus, Trash2, FileText, CheckCircle, Clock, AlertCircle, Eye, AlertTriangle, Phone, Star, ShieldAlert } from 'lucide-react';
+import { Search, Plus, Trash2, FileText, CheckCircle, Clock, AlertCircle, Eye, AlertTriangle, Phone, Star, ShieldAlert, Send, MessageCircle } from 'lucide-react';
 import CreateTicketModal from '../components/CreateTicketModal';
-import SmartAssignmentModal from '../components/SmartAssignmentModal'; // Import
-import ServiceDetailsModal from '../components/ServiceDetailsModal'; // Import Details Modal
-import BudgetManagerModal from '../components/BudgetManagerModal'; // Import Budget Modal
+import SmartAssignmentModal from '../components/SmartAssignmentModal';
+import ServiceDetailsModal from '../components/ServiceDetailsModal';
+import BudgetManagerModal from '../components/BudgetManagerModal';
+import SendPdfModal from '../components/SendPdfModal';
 import { useAuth } from '../context/AuthContext';
 import { useLocation } from 'react-router-dom';
 
@@ -35,6 +36,17 @@ const ServiceMonitor = () => {
     // Delete State
     const [deleteId, setDeleteId] = useState(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+    // SendPdfModal state for resend
+    const [sendPdfModal, setSendPdfModal] = useState({
+        isOpen: false,
+        pdfUrl: '',
+        pdfName: '',
+        ticketId: null,
+        ticketNumber: '',
+        clientPhone: '',
+        clientEmail: ''
+    });
 
     const { addToast } = useToast();
 
@@ -90,8 +102,8 @@ const ServiceMonitor = () => {
             // 1. Tickets (Try complex join first)
             const { data: ticketData, error } = await supabase
                 .from('tickets')
-                .select('*, profiles:client_id(full_name, address, phone, user_id), creator:created_by(full_name), reviews(rating)')
-                .order('updated_at', { ascending: false }); // Sort by updated_at on fetch too
+                .select('*, profiles:client_id(full_name, address, phone, email, user_id), creator:created_by(full_name), reviews(rating)')
+                .order('updated_at', { ascending: false });
 
             if (error) throw error;
             if (ticketData) setTickets(ticketData);
@@ -102,8 +114,8 @@ const ServiceMonitor = () => {
             // Fallback: Simple fetch without creator join but keeping reviews
             const { data: ticketData } = await supabase
                 .from('tickets')
-                .select('*, profiles:client_id(full_name, address, phone, user_id), reviews(rating)')
-                .order('updated_at', { ascending: false }); // Sort by updated_at on fallback too
+                .select('*, profiles:client_id(full_name, address, phone, email, user_id), reviews(rating)')
+                .order('updated_at', { ascending: false });
 
             if (ticketData) setTickets(ticketData || []);
         }
@@ -146,6 +158,22 @@ const ServiceMonitor = () => {
             setDeleteId(null);
             fetchData();
         }
+    };
+
+    // Handle resend PDF from admin panel
+    const handleResendPdf = (ticket) => {
+        const pdfUrl = ticket.pdf_url || ticket.warranty_pdf_url || ticket.quote_pdf_url;
+        setSendPdfModal({
+            isOpen: true,
+            pdfUrl: pdfUrl,
+            pdfName: ticket.pdf_url ? `Parte ${ticket.ticket_number}` :
+                ticket.warranty_pdf_url ? `Garantía ${ticket.ticket_number}` :
+                    `Presupuesto ${ticket.ticket_number}`,
+            ticketId: ticket.id,
+            ticketNumber: ticket.ticket_number,
+            clientPhone: ticket.profiles?.phone || '',
+            clientEmail: ticket.profiles?.email || ''
+        });
     };
 
     if (loading) return <div className="text-center p-10">Cargando...</div>;
@@ -362,28 +390,54 @@ const ServiceMonitor = () => {
                                                 <StatusBadge ticket={ticket} />
                                             </td>
 
-                                            {/* Doc (Restored Column) */}
+                                            {/* Doc (with Sent Indicator & Resend) */}
                                             <td className="px-3 py-2 md:px-4 md:py-3 text-center align-top hidden md:table-cell">
-                                                <div className="flex justify-center gap-1">
-                                                    {ticket.quote_pdf_url ? (
-                                                        <a href={ticket.quote_pdf_url} target="_blank" className="p-1 text-amber-600 hover:bg-amber-50 rounded" title="Presupuesto">
-                                                            <FileText size={14} />
-                                                        </a>
-                                                    ) : <span className="text-slate-200">-</span>}
-                                                    {ticket.pdf_url ? (
-                                                        <a href={ticket.pdf_url} target="_blank" className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Parte de Trabajo">
-                                                            <FileText size={14} />
-                                                        </a>
-                                                    ) : <span className="text-slate-200">-</span>}
-                                                    {ticket.warranty_pdf_url ? (
-                                                        <a href={ticket.warranty_pdf_url} target="_blank" className="p-1 text-purple-600 hover:bg-purple-50 rounded" title="Parte de Garantía">
-                                                            <FileText size={14} />
-                                                        </a>
-                                                    ) : (ticket.is_warranty && ticket.status === 'finalizado') ? (
-                                                        <div className="p-1 text-red-400" title="Falta PDF de Garantía">
-                                                            <AlertTriangle size={14} />
+                                                <div className="flex flex-col items-center gap-1">
+                                                    {/* PDF Icons Row */}
+                                                    <div className="flex justify-center gap-1">
+                                                        {ticket.quote_pdf_url ? (
+                                                            <a href={ticket.quote_pdf_url} target="_blank" className="p-1 text-amber-600 hover:bg-amber-50 rounded" title="Presupuesto">
+                                                                <FileText size={14} />
+                                                            </a>
+                                                        ) : <span className="text-slate-200">-</span>}
+                                                        {ticket.pdf_url ? (
+                                                            <a href={ticket.pdf_url} target="_blank" className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Parte de Trabajo">
+                                                                <FileText size={14} />
+                                                            </a>
+                                                        ) : <span className="text-slate-200">-</span>}
+                                                        {ticket.warranty_pdf_url ? (
+                                                            <a href={ticket.warranty_pdf_url} target="_blank" className="p-1 text-purple-600 hover:bg-purple-50 rounded" title="Parte de Garantía">
+                                                                <FileText size={14} />
+                                                            </a>
+                                                        ) : (ticket.is_warranty && ticket.status === 'finalizado') ? (
+                                                            <div className="p-1 text-red-400" title="Falta PDF de Garantía">
+                                                                <AlertTriangle size={14} />
+                                                            </div>
+                                                        ) : <span className="text-slate-200">-</span>}
+                                                    </div>
+
+                                                    {/* Sent Status & Resend Button */}
+                                                    {(ticket.pdf_url || ticket.warranty_pdf_url || ticket.quote_pdf_url) && (
+                                                        <div className="flex items-center gap-1">
+                                                            {ticket.pdf_sent_at ? (
+                                                                <span className="text-[8px] bg-green-100 text-green-700 px-1 py-0.5 rounded flex items-center gap-0.5" title={`Enviado: ${new Date(ticket.pdf_sent_at).toLocaleString()}`}>
+                                                                    <MessageCircle size={8} />
+                                                                    ✓
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-[8px] bg-slate-100 text-slate-400 px-1 py-0.5 rounded">
+                                                                    ✗
+                                                                </span>
+                                                            )}
+                                                            <button
+                                                                onClick={() => handleResendPdf(ticket)}
+                                                                className="p-0.5 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded transition"
+                                                                title="Reenviar documento al cliente"
+                                                            >
+                                                                <Send size={10} />
+                                                            </button>
                                                         </div>
-                                                    ) : <span className="text-slate-200">-</span>}
+                                                    )}
                                                 </div>
                                             </td>
 
@@ -488,6 +542,22 @@ const ServiceMonitor = () => {
                     onUpdate={() => fetchData()}
                 />
             )}
+
+            {/* SendPdfModal for resend from admin */}
+            <SendPdfModal
+                isOpen={sendPdfModal.isOpen}
+                onClose={() => setSendPdfModal(prev => ({ ...prev, isOpen: false }))}
+                pdfUrl={sendPdfModal.pdfUrl}
+                pdfName={sendPdfModal.pdfName}
+                clientPhone={sendPdfModal.clientPhone}
+                clientEmail={sendPdfModal.clientEmail}
+                ticketNumber={sendPdfModal.ticketNumber}
+                ticketId={sendPdfModal.ticketId}
+                onSuccess={() => {
+                    fetchData();
+                    addToast('Documento reenviado correctamente', 'success');
+                }}
+            />
         </div>
     );
 };
