@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Calendar, User, X, Plus, CheckCircle, Clock, MapPin, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { getTravelTimeBetweenPostalCodes } from '../services/mapboxService';
 
 const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
     // Phase 14: Smart Scheduling "God Mode"
@@ -179,10 +180,10 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
                 console.log(`[SmartAssistant] 🔍 DEBUG: Fetching services for date=${selectedDate}, techIds=${techIds.length}`);
 
                 // Fetch existing services for these techs on this day
-                // Note: We filter status client-side to avoid complex query syntax issues
+                // Include client profile data for CP extraction (needed for travel time)
                 const { data: existingServices, error: svcError } = await supabase
                     .from('tickets')
-                    .select('id, technician_id, scheduled_at, estimated_duration, status')
+                    .select('id, technician_id, scheduled_at, estimated_duration, status, profiles:client_id(address, postal_code)')
                     .in('technician_id', techIds)
                     .gte('scheduled_at', `${selectedDate}T00:00:00`)
                     .lt('scheduled_at', `${selectedDate}T23:59:59`)
@@ -199,12 +200,24 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
 
                     console.log(`[SmartAssistant] 🛡️ Found ${existingServices?.length || 0} total, ${activeServices.length} active services for ${techIds.length} techs`);
 
-                    // Debug: Show all active services
+                    // Helper: Extract CP from address or postal_code field
+                    const extractCP = (profile) => {
+                        if (!profile) return null;
+                        if (profile.postal_code) return profile.postal_code;
+                        if (profile.address) {
+                            const match = profile.address.match(/\b\d{5}\b/);
+                            return match ? match[0] : null;
+                        }
+                        return null;
+                    };
+
+                    // Debug: Show all active services with CP
                     activeServices.forEach(svc => {
                         const svcStart = new Date(svc.scheduled_at);
                         const svcDuration = svc.estimated_duration || 60;
                         const svcEnd = new Date(svcStart.getTime() + svcDuration * 60000);
-                        console.log(`[SmartAssistant] 🔍 Servicio existente: Tech ${svc.technician_id.substring(0, 8)}... | ${svcStart.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} - ${svcEnd.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} (${svcDuration}min) [${svc.status}]`);
+                        const svcCP = extractCP(svc.profiles);
+                        console.log(`[SmartAssistant] 🔍 Servicio existente: Tech ${svc.technician_id.substring(0, 8)}... | ${svcStart.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} - ${svcEnd.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} (${svcDuration}min) [${svc.status}] CP: ${svcCP || 'N/A'}`);
                     });
 
                     // Group services by tech
@@ -216,10 +229,62 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
                         servicesByTech[svc.technician_id].push(svc);
                     });
 
-                    // Filter slots based on minimum gap rule
+                    // Get new client CP
+                    const newClientCP = targetCp;
+                    console.log(`[SmartAssistant] 🚗 New client CP: ${newClientCP || 'N/A'}`);
+
+                    // Travel time cache to avoid duplicate API calls
+                    const travelTimeCache = {};
+
+                    // Constants for gap limits
+                    const MIN_GAP = 15;  // Minimum 15 min even if same location
+                    const MAX_GAP = 120; // Maximum 2 hours
+                    const DEFAULT_GAP = 30; // Fallback if calculation fails
+
+                    // Async function to calculate dynamic gap based on travel time
+                    const calculateDynamicGap = async (previousServiceCP) => {
+                        // If missing either CP, use default
+                        if (!previousServiceCP || !newClientCP) {
+                            console.log(`[SmartAssistant] ⚠️ Missing CP (prev: ${previousServiceCP || 'N/A'}, new: ${newClientCP || 'N/A'}), using default ${DEFAULT_GAP}min`);
+                            return DEFAULT_GAP;
+                        }
+
+                        // Check cache first
+                        const cacheKey = `${previousServiceCP}->${newClientCP}`;
+                        if (travelTimeCache[cacheKey] !== undefined) {
+                            return travelTimeCache[cacheKey];
+                        }
+
+                        try {
+                            console.log(`[SmartAssistant] 🚗 Calculating travel: CP ${previousServiceCP} → CP ${newClientCP}`);
+
+                            const result = await getTravelTimeBetweenPostalCodes(previousServiceCP, newClientCP);
+
+                            if (result && result.duration !== undefined) {
+                                const rawDuration = result.duration;
+                                const safeGap = Math.max(MIN_GAP, Math.min(MAX_GAP, rawDuration));
+
+                                console.log(`[SmartAssistant] 🚗 Travel time: ${rawDuration}min (raw) → ${safeGap}min (clamped min:${MIN_GAP}, max:${MAX_GAP})`);
+
+                                travelTimeCache[cacheKey] = safeGap;
+                                return safeGap;
+                            } else {
+                                console.log(`[SmartAssistant] ⚠️ Mapbox returned no result, using default ${DEFAULT_GAP}min`);
+                                travelTimeCache[cacheKey] = DEFAULT_GAP;
+                                return DEFAULT_GAP;
+                            }
+                        } catch (error) {
+                            console.error(`[SmartAssistant] ⚠️ Mapbox error, using default ${DEFAULT_GAP}min:`, error?.message || error);
+                            travelTimeCache[cacheKey] = DEFAULT_GAP;
+                            return DEFAULT_GAP;
+                        }
+                    };
+
+                    // Filter slots based on DYNAMIC gap rule (async)
                     const beforeGapFilter = filteredData.length;
 
-                    filteredData = filteredData.filter(slot => {
+                    // Process slots with async travel time calculation
+                    const slotValidityPromises = filteredData.map(async (slot) => {
                         const techServices = servicesByTech[slot.technician_id] || [];
                         const slotStart = new Date(slot.slot_start);
                         const slotEnd = new Date(slotStart.getTime() + duration * 60000);
@@ -230,31 +295,35 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
                             const svcDuration = svc.estimated_duration || 60;
                             const svcEnd = new Date(svcStart.getTime() + svcDuration * 60000);
 
-                            // Calculate minimum available time after this service
-                            const minAvailableAfter = new Date(svcEnd.getTime() + MARGEN_MINIMO_MINUTOS * 60000);
+                            // Get CP of previous service
+                            const previousServiceCP = extractCP(svc.profiles);
 
-                            // REGLA 1: El slot empieza DURANTE o DESPUÉS del servicio existente 
-                            //          pero ANTES del tiempo mínimo permitido
-                            // Ejemplo: Servicio 16:00-17:30, margen 30min
-                            //          minAvailableAfter = 18:00
-                            //          Slot 17:30 -> slotStart(17:30) >= svcStart(16:00) ✓
-                            //                     -> slotStart(17:30) < minAvailableAfter(18:00) ✓
-                            //          -> RECHAZADO
+                            // Calculate dynamic gap based on travel time
+                            const dynamicGapMinutes = await calculateDynamicGap(previousServiceCP);
+
+                            // Calculate minimum available time after this service
+                            const minAvailableAfter = new Date(svcEnd.getTime() + dynamicGapMinutes * 60000);
+
+                            // REGLA 1: Slot starts during/after service but before minimum gap
                             if (slotStart >= svcStart && slotStart < minAvailableAfter) {
-                                console.log(`[SmartAssistant] ❌ RECHAZADO: Slot ${slotStart.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} - Muy cerca del servicio que termina ${svcEnd.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} (min disponible: ${minAvailableAfter.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })})`);
-                                return false; // Slot inválido
+                                console.log(`[SmartAssistant] ❌ RECHAZADO: Slot ${slotStart.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} - Trayecto ${dynamicGapMinutes}min desde CP ${previousServiceCP || 'N/A'} (disponible: ${minAvailableAfter.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })})`);
+                                return { slot, isValid: false };
                             }
 
-                            // REGLA 2: El slot termina después del inicio de un servicio existente (overlap)
+                            // REGLA 2: Overlap check
                             if (slotStart < svcStart && slotEnd > svcStart) {
                                 console.log(`[SmartAssistant] ❌ RECHAZADO: Slot ${slotStart.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}-${slotEnd.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} - Overlap con servicio ${svcStart.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`);
-                                return false; // Overlap
+                                return { slot, isValid: false };
                             }
                         }
-                        return true; // Slot válido
+                        return { slot, isValid: true };
                     });
 
-                    console.log(`[SmartAssistant] 🛡️ Gap filter (${MARGEN_MINIMO_MINUTOS}min): Removed ${beforeGapFilter - filteredData.length} slots. Remaining: ${filteredData.length}`);
+                    // Wait for all async validations
+                    const slotResults = await Promise.all(slotValidityPromises);
+                    filteredData = slotResults.filter(r => r.isValid).map(r => r.slot);
+
+                    console.log(`[SmartAssistant] 🚗 Dynamic gap filter: Removed ${beforeGapFilter - filteredData.length} slots. Remaining: ${filteredData.length}`);
                 }
             }
 
