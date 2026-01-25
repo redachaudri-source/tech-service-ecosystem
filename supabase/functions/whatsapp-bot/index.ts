@@ -287,19 +287,21 @@ async function createTicketFromConversation(
         clientId = newClient.id;
     }
 
-    // 3. Crear ticket
+    // 3. Crear ticket con los campos correctos del schema
+    const applianceInfo = {
+        type: data.appliance || 'No especificado',
+        brand: data.brand || 'No especificado',
+        model: data.model || 'No especificado'
+    };
+
     const { data: ticket, error: ticketError } = await supabase
         .from('tickets')
         .insert({
             client_id: clientId,
-            appliance_type: data.appliance,
-            brand: data.brand,
-            model: data.model || 'No especificado',
-            problem_description: data.problem,
-            address: data.address,
+            appliance_info: applianceInfo,
+            description_failure: data.problem || 'Reportado por WhatsApp',
             status: 'pendiente_asignacion',
-            origin: 'whatsapp_bot',
-            notes: `Creado automáticamente por WhatsApp Bot desde ${normalizedPhone}`
+            origin_source: 'whatsapp_bot'
         })
         .select('id')
         .single();
