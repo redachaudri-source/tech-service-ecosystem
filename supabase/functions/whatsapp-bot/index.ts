@@ -29,6 +29,36 @@ interface ConversationState {
     expires_at: string;
 }
 
+// ============================================================================
+// TIPOS - IDENTIFICACIÓN DE CLIENTE (Fase 2)
+// ============================================================================
+
+interface ClientAddress {
+    id: string;
+    label: string;
+    address_line: string;
+    floor?: string | null;
+    apartment?: string | null;
+    postal_code?: string | null;
+    city?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    is_primary: boolean;
+}
+
+interface ClientProfile {
+    id: string;
+    full_name: string;
+    phone: string;
+    email?: string | null;
+}
+
+interface ClientIdentity {
+    exists: boolean;
+    client?: ClientProfile;
+    addresses?: ClientAddress[];
+}
+
 interface CollectedData {
     appliance?: string;
     brand?: string;
@@ -38,6 +68,8 @@ interface CollectedData {
     name?: string;
     phone?: string;
     legal_accepted?: boolean;
+    // Fase 2: Identidad del cliente (cacheada)
+    client_identity?: ClientIdentity;
 }
 
 interface BotConfig {
@@ -174,6 +206,76 @@ async function sendWhatsAppMessage(to: string, text: string): Promise<boolean> {
     } catch (error) {
         console.error('[Bot] ❌ Error sending WhatsApp message:', error);
         return false;
+    }
+}
+
+// ============================================================================
+// IDENTIFICACIÓN DE CLIENTE (Fase 2)
+// ============================================================================
+
+/**
+ * Obtiene las direcciones de un cliente, ordenadas por is_primary DESC
+ */
+async function getClientAddresses(clientId: string): Promise<ClientAddress[]> {
+    const { data, error } = await supabase
+        .from('client_addresses')
+        .select('*')
+        .eq('client_id', clientId)
+        .order('is_primary', { ascending: false })
+        .order('created_at', { ascending: true });
+
+    if (error) {
+        console.error('[Bot] ❌ Error getting addresses:', error);
+        return [];
+    }
+
+    return data || [];
+}
+
+/**
+ * Identifica si un número de WhatsApp corresponde a un cliente existente
+ * @param waId - Número de WhatsApp (formato: +34633489521 o 34633489521)
+ * @returns ClientIdentity con exists, client y addresses
+ */
+async function identifyClient(waId: string): Promise<ClientIdentity> {
+    const normalizedPhone = normalizePhone(waId);
+
+    console.log(`[Bot] 🔍 Identifying client: ${normalizedPhone}`);
+
+    try {
+        // Buscar cliente por teléfono
+        const { data: clientData, error } = await supabase
+            .from('profiles')
+            .select('id, full_name, phone, email')
+            .eq('phone', normalizedPhone)
+            .eq('role', 'client')
+            .single();
+
+        if (error || !clientData) {
+            console.log(`[Bot] 👤 Client NOT found for ${normalizedPhone}`);
+            return { exists: false };
+        }
+
+        console.log(`[Bot] ✅ Client found: ${clientData.full_name} (${clientData.id})`);
+
+        // Cargar direcciones del cliente
+        const addresses = await getClientAddresses(clientData.id);
+        console.log(`[Bot] 📍 Loaded ${addresses.length} addresses`);
+
+        return {
+            exists: true,
+            client: {
+                id: clientData.id,
+                full_name: clientData.full_name,
+                phone: clientData.phone,
+                email: clientData.email
+            },
+            addresses
+        };
+
+    } catch (e) {
+        console.error('[Bot] ❌ Error identifying client:', e);
+        return { exists: false };
     }
 }
 
@@ -402,13 +504,33 @@ function processStep(
 
     switch (currentStep) {
         case 'greeting': {
-            const greetingMsg = replaceVariables(config.messages.greeting, vars);
-            const askApplianceMsg = replaceVariables(config.messages.ask_appliance || '¿Qué electrodoméstico necesita reparación?', vars);
-            return {
-                nextStep: 'ask_appliance',
-                responseMessage: `${greetingMsg}\n\n${askApplianceMsg}`,
-                updatedData: data
-            };
+            // Fase 2: Saludo personalizado según identidad del cliente
+            const identity = data.client_identity;
+
+            if (identity?.exists && identity.client) {
+                // Cliente conocido: saludo personalizado
+                const clientName = identity.client.full_name.split(' ')[0]; // Primer nombre
+                console.log(`[Bot] 👋 Known client greeting: ${clientName}`);
+
+                // Pre-cargar nombre para que no lo pida después
+                data.name = identity.client.full_name;
+
+                return {
+                    nextStep: 'ask_appliance',
+                    responseMessage: `¡Hola ${clientName}! 👋 ¿En qué podemos ayudarte hoy?\n\n¿Qué electrodoméstico necesita reparación?`,
+                    updatedData: data
+                };
+            } else {
+                // Cliente nuevo: bienvenida estándar
+                console.log('[Bot] 🆕 New client greeting');
+                const greetingMsg = replaceVariables(config.messages.greeting, vars);
+                const askApplianceMsg = replaceVariables(config.messages.ask_appliance || '¿Qué electrodoméstico necesita reparación?', vars);
+                return {
+                    nextStep: 'ask_appliance',
+                    responseMessage: `${greetingMsg}\n\n${askApplianceMsg}`,
+                    updatedData: data
+                };
+            }
         }
 
         case 'ask_appliance':
@@ -640,6 +762,16 @@ serve(async (req: Request) => {
         }
 
         console.log(`[Bot] 📍 Current step: ${conversation.current_step}`);
+
+        // ═══════════════════════════════════════════════════════════════════
+        // FASE 2: Identificación de cliente (con caché)
+        // ═══════════════════════════════════════════════════════════════════
+        if (!conversation.collected_data.client_identity) {
+            console.log('[Bot] 🔍 First message - identifying client...');
+            conversation.collected_data.client_identity = await identifyClient(normalizedFrom);
+        } else {
+            console.log('[Bot] 📦 Using cached client identity');
+        }
 
         // Process current step
         const { nextStep, responseMessage, updatedData } = processStep(

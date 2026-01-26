@@ -214,24 +214,29 @@ const ClientFormModal = ({ isOpen, onClose, onSuccess, editClient = null }) => {
 
             let result;
             if (editClient) {
+                // Use array result instead of .single() to avoid PGRST116 error
                 const { data, error } = await supabase
                     .from('profiles')
                     .update(payload)
                     .eq('id', editClient.id)
-                    .select()
-                    .single();
+                    .select();
 
                 if (error) throw error;
-                result = data;
+                if (!data || data.length === 0) {
+                    throw new Error('No se pudo actualizar el cliente. Puede que no tengas permisos.');
+                }
+                result = data[0];
             } else {
                 const { data, error } = await supabase
                     .from('profiles')
                     .insert(payload)
-                    .select()
-                    .single();
+                    .select();
 
                 if (error) throw error;
-                result = data;
+                if (!data || data.length === 0) {
+                    throw new Error('No se pudo crear el cliente.');
+                }
+                result = data[0];
             }
 
             // Success callback with the new/updated client

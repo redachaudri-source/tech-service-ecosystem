@@ -5,6 +5,65 @@
  * and reference for the "Backend Architect" phase.
  */
 
+// ============================================================================
+// Address Types (Multi-Address System - Phase 1)
+// ============================================================================
+
+export type AddressLabel =
+    | 'Vivienda Principal'
+    | 'Oficina'
+    | 'Segunda Residencia'
+    | 'Otro';
+
+export interface ClientAddress {
+    id: string; // UUID
+    client_id: string; // UUID -> profiles.id
+    label: AddressLabel;
+    address_line: string;
+    floor?: string | null;
+    apartment?: string | null;
+    postal_code?: string | null;
+    city?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    is_primary: boolean;
+    created_at?: string;
+    updated_at?: string;
+}
+
+// ============================================================================
+// Client Profile
+// ============================================================================
+
+export interface Client {
+    id: string; // UUID
+    full_name: string;
+    email?: string | null;
+    phone: string;
+    phone_2?: string | null;
+    role: 'client';
+    notes?: string | null;
+    created_via?: string;
+    created_at?: string;
+    updated_at?: string;
+
+    // Legacy fields (kept for backwards compatibility during migration)
+    address?: string | null;
+    floor?: string | null;
+    apartment?: string | null;
+    city?: string | null;
+    postal_code?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+
+    // New multi-address relationship
+    addresses?: ClientAddress[];
+}
+
+// ============================================================================
+// Client Assets
+// ============================================================================
+
 export interface ClientAsset {
     id: string; // UUID
     client_id: string; // UUID -> profiles.id
@@ -42,3 +101,4 @@ export type TicketStatus =
     | 'reparado'
     | 'cancelado'
     | 'cerrado';
+
