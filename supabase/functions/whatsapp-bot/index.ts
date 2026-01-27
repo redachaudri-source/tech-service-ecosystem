@@ -757,12 +757,7 @@ serve(async (req: Request) => {
             return new Response('OK', { status: 200 });
         }
 
-        // Ignorar mensajes antiguos (más de 2 minutos)
-        const now = Math.floor(Date.now() / 1000);
-        if (messageTimestamp && (now - messageTimestamp) > 120) {
-            console.log(`[Bot] ⏰ Message too old (${now - messageTimestamp}s), ignoring`);
-            return new Response('OK', { status: 200 });
-        }
+        // NOTE: Removed timestamp filter - Meta timestamps are unreliable
 
         // ═══════════════════════════════════════════════════════════════════
         // LÓGICA DEL BOT (igual que antes)
