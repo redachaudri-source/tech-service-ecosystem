@@ -224,6 +224,7 @@ const ClientFormModal = ({
     const handleUseExistingClient = () => {
         if (phoneCheck.client && onSelectExisting) {
             onSelectExisting(phoneCheck.client);
+            onClose();  // Also close this modal
         }
     };
 
