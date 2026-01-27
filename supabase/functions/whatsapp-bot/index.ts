@@ -817,8 +817,19 @@ serve(async (req: Request) => {
         if (!conversation.collected_data.client_identity) {
             console.log('[Bot] 🔍 First message - identifying client...');
             conversation.collected_data.client_identity = await identifyClient(normalizedFrom);
+
+            // Detailed logging
+            const identity = conversation.collected_data.client_identity;
+            console.log(`[Bot] 📋 Identity result: exists=${identity.exists}`);
+            if (identity.exists && identity.client) {
+                console.log(`[Bot] 👤 Client name: ${identity.client.full_name}`);
+                console.log(`[Bot] 📍 Client profile address: ${identity.client.address || 'NULL'}`);
+                console.log(`[Bot] 📍 Addresses count: ${identity.addresses?.length || 0}`);
+            }
         } else {
             console.log('[Bot] 📦 Using cached client identity');
+            const identity = conversation.collected_data.client_identity;
+            console.log(`[Bot] 📋 Cached: name=${identity.client?.full_name}, addr=${identity.client?.address || 'NULL'}`);
         }
 
         // Process current step
