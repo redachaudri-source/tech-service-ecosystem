@@ -51,6 +51,7 @@ interface ClientProfile {
     full_name: string;
     phone: string;
     email?: string | null;
+    address?: string | null; // Fallback address from profile
 }
 
 interface ClientIdentity {
@@ -243,10 +244,10 @@ async function identifyClient(waId: string): Promise<ClientIdentity> {
     console.log(`[Bot] 🔍 Identifying client: ${normalizedPhone}`);
 
     try {
-        // Buscar cliente por teléfono
+        // Buscar cliente por teléfono (incluir address del perfil como fallback)
         const { data: clientData, error } = await supabase
             .from('profiles')
-            .select('id, full_name, phone, email')
+            .select('id, full_name, phone, email, address')
             .eq('phone', normalizedPhone)
             .eq('role', 'client')
             .single();
@@ -257,10 +258,11 @@ async function identifyClient(waId: string): Promise<ClientIdentity> {
         }
 
         console.log(`[Bot] ✅ Client found: ${clientData.full_name} (${clientData.id})`);
+        console.log(`[Bot] 📍 Profile address: ${clientData.address || 'N/A'}`);
 
         // Cargar direcciones del cliente
         const addresses = await getClientAddresses(clientData.id);
-        console.log(`[Bot] 📍 Loaded ${addresses.length} addresses`);
+        console.log(`[Bot] 📍 Loaded ${addresses.length} addresses from client_addresses`);
 
         return {
             exists: true,
@@ -268,7 +270,8 @@ async function identifyClient(waId: string): Promise<ClientIdentity> {
                 id: clientData.id,
                 full_name: clientData.full_name,
                 phone: clientData.phone,
-                email: clientData.email
+                email: clientData.email,
+                address: clientData.address // Fallback address from profile
             },
             addresses
         };
@@ -585,11 +588,20 @@ function processStep(
                     console.log('[Bot] 🎫 Known client - skipping address/name/phone');
                     data.name = identity.client.full_name;
                     data.phone = identity.client.phone;
-                    // Usar la dirección principal si existe
+
+                    // Usar la dirección: primero de client_addresses, luego de profile
                     if (identity.addresses && identity.addresses.length > 0) {
                         const primaryAddr = identity.addresses.find(a => a.is_primary) || identity.addresses[0];
                         data.address = primaryAddr.address_line;
+                        console.log(`[Bot] 📍 Using address from client_addresses: ${data.address}`);
+                    } else if (identity.client.address) {
+                        // Fallback: usar dirección del perfil
+                        data.address = identity.client.address;
+                        console.log(`[Bot] 📍 Using address from profile: ${data.address}`);
+                    } else {
+                        console.log('[Bot] ⚠️ No address found for client');
                     }
+
                     return {
                         nextStep: 'create_ticket',
                         responseMessage: '',
