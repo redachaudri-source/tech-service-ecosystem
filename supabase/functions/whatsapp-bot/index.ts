@@ -804,6 +804,10 @@ serve(async (req: Request) => {
             };
 
             await sendWhatsAppMessage(from, replaceVariables(config.messages.ticket_created, confirmVars));
+
+            // Mark conversation as completed to prevent immediate restart
+            await updateConversation(normalizedFrom, 'completed', updatedData);
+
             return new Response('OK', { status: 200 });
         }
 
