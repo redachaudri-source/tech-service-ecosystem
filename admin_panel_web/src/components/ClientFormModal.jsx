@@ -475,7 +475,11 @@ const ClientFormModal = ({
                                             )}
                                             <button
                                                 type="button"
-                                                onClick={handleUseExistingClient}
+                                                onMouseDown={(e) => {
+                                                    e.preventDefault();  // Prevent input blur
+                                                    e.stopPropagation();
+                                                    handleUseExistingClient();
+                                                }}
                                                 className="mt-2 w-full flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700 transition-colors"
                                             >
                                                 <UserCheck size={14} />
