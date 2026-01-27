@@ -730,15 +730,25 @@ serve(async (req: Request) => {
             return new Response('OK', { status: 200 });
         }
 
-        // Extraer from y body
+        // Extraer from, body y message_id
         const from = messageData.from; // ej: "34633489521" (sin +)
         const body = messageData.text?.body || '';
+        const messageId = messageData.id; // Meta message ID para deduplicación
+        const messageTimestamp = parseInt(messageData.timestamp || '0', 10);
 
         console.log(`[Bot] 📱 From: ${from}`);
         console.log(`[Bot] 💬 Body: "${body}"`);
+        console.log(`[Bot] 🆔 Message ID: ${messageId}`);
 
         if (!from || !body) {
             console.log('[Bot] ⚠️ Missing from or body');
+            return new Response('OK', { status: 200 });
+        }
+
+        // Ignorar mensajes antiguos (más de 2 minutos)
+        const now = Math.floor(Date.now() / 1000);
+        if (messageTimestamp && (now - messageTimestamp) > 120) {
+            console.log(`[Bot] ⏰ Message too old (${now - messageTimestamp}s), ignoring`);
             return new Response('OK', { status: 200 });
         }
 
