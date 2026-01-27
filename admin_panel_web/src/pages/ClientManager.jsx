@@ -558,6 +558,7 @@ const ClientManager = () => {
                     handleClose();
                 }}
                 editClient={selectedClient}
+                context="client-management"
             />
 
             {/* Appliances Modal Refined */}

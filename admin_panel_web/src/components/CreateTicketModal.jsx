@@ -747,6 +747,19 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
                 isOpen={showClientModal}
                 onClose={() => setShowClientModal(false)}
                 onSuccess={handleClientCreated}
+                context="service-creation"
+                onSelectExisting={(existingClient) => {
+                    // Auto-select existing client for the ticket
+                    setClientId(existingClient.id);
+                    setClients(prev => {
+                        // Add to list if not already there
+                        if (!prev.find(c => c.id === existingClient.id)) {
+                            return [existingClient, ...prev];
+                        }
+                        return prev;
+                    });
+                    setShowClientModal(false);
+                }}
             />
         </>
     );

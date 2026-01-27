@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, MapPin, Navigation, Search, User, Phone, Mail, Building2 } from 'lucide-react';
+import { X, MapPin, Navigation, Search, User, Phone, Mail, Building2, AlertTriangle, CheckCircle, Loader2, UserCheck } from 'lucide-react';
 import { MAPBOX_TOKEN } from '../config/mapbox';
 import usePlacesAutocomplete, { getGeocode, getLatLng } from "use-places-autocomplete";
 import Map, { Marker, NavigationControl } from 'react-map-gl';
@@ -37,10 +37,21 @@ const loadGoogleMapsScript = (callback) => {
  * @param {function} onSuccess - Callback with created/edited client data
  * @param {object} editClient - Optional client to edit (null for new)
  */
-const ClientFormModal = ({ isOpen, onClose, onSuccess, editClient = null }) => {
+const ClientFormModal = ({
+    isOpen,
+    onClose,
+    onSuccess,
+    editClient = null,
+    context = 'client-management',  // 'client-management' | 'service-creation'
+    onSelectExisting = null         // Callback for Context B to use existing client
+}) => {
     const [loading, setLoading] = useState(false);
     const [isGoogleReady, setIsGoogleReady] = useState(false);
     const [showMap, setShowMap] = useState(false);
+
+    // Phone Validation State
+    const [phoneCheck, setPhoneCheck] = useState({ loading: false, exists: false, client: null });
+    const phoneValidationTimeout = useRef(null);
 
     // Form State
     const [fullName, setFullName] = useState('');
@@ -143,6 +154,89 @@ const ClientFormModal = ({ isOpen, onClose, onSuccess, editClient = null }) => {
         }
     }, [editClient, isOpen]);
 
+    // ═══════════════════════════════════════════════════════════════════
+    // 📞 PHONE VALIDATION SYSTEM
+    // ═══════════════════════════════════════════════════════════════════
+
+    // Normalize phone to +34 format
+    const normalizePhone = (phoneInput) => {
+        let cleaned = phoneInput.replace(/\s+/g, '').replace(/[^\d+]/g, '');
+        if (cleaned && !cleaned.startsWith('+')) {
+            cleaned = '+34' + cleaned;
+        }
+        return cleaned;
+    };
+
+    // Check if phone format is valid
+    const isValidPhoneFormat = (phoneInput) => {
+        const cleaned = phoneInput.replace(/\s+/g, '');
+        return /^\+?\d{9,15}$/.test(cleaned);
+    };
+
+    // Validate phone against database (with debounce)
+    const validatePhoneDebounced = (phoneInput) => {
+        // Clear previous timeout
+        if (phoneValidationTimeout.current) {
+            clearTimeout(phoneValidationTimeout.current);
+        }
+
+        // Don't validate if too short or editing same client
+        if (!phoneInput || phoneInput.length < 9) {
+            setPhoneCheck({ loading: false, exists: false, client: null });
+            return;
+        }
+
+        if (!isValidPhoneFormat(phoneInput)) {
+            setPhoneCheck({ loading: false, exists: false, client: null });
+            return;
+        }
+
+        // Set loading state
+        setPhoneCheck(prev => ({ ...prev, loading: true }));
+
+        // Debounced validation (500ms)
+        phoneValidationTimeout.current = setTimeout(async () => {
+            try {
+                const normalized = normalizePhone(phoneInput);
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, address, phone, city')
+                    .eq('phone', normalized)
+                    .eq('role', 'client')
+                    .maybeSingle();
+
+                if (error) throw error;
+
+                // Check if found client is different from the one being edited
+                if (data && (!editClient || data.id !== editClient.id)) {
+                    setPhoneCheck({ loading: false, exists: true, client: data });
+                } else {
+                    setPhoneCheck({ loading: false, exists: false, client: null });
+                }
+            } catch (err) {
+                console.error('Phone validation error:', err);
+                setPhoneCheck({ loading: false, exists: false, client: null });
+            }
+        }, 500);
+    };
+
+    // Handle using existing client (Context B)
+    const handleUseExistingClient = () => {
+        if (phoneCheck.client && onSelectExisting) {
+            onSelectExisting(phoneCheck.client);
+        }
+    };
+
+    // Reset phone check when modal closes
+    useEffect(() => {
+        if (!isOpen) {
+            setPhoneCheck({ loading: false, exists: false, client: null });
+            if (phoneValidationTimeout.current) {
+                clearTimeout(phoneValidationTimeout.current);
+            }
+        }
+    }, [isOpen]);
+
     // SYNC: Google Search -> Map & Form
     const handleGoogleSelect = async (selectedAddress) => {
         setValue(selectedAddress, false);
@@ -198,8 +292,8 @@ const ClientFormModal = ({ isOpen, onClose, onSuccess, editClient = null }) => {
             const payload = {
                 full_name: fullName,
                 email: email || null,
-                phone,
-                phone_2: phone2 || null,
+                phone: normalizePhone(phone),  // Normalize to +34 format
+                phone_2: phone2 ? normalizePhone(phone2) : null,
                 address,
                 floor: floor || null,
                 apartment: apartment || null,
@@ -303,13 +397,93 @@ const ClientFormModal = ({ isOpen, onClose, onSuccess, editClient = null }) => {
                             <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
                                 <Phone size={12} /> Teléfono <span className="text-amber-500">*</span>
                             </label>
-                            <input
-                                required
-                                value={phone}
-                                onChange={e => setPhone(e.target.value)}
-                                className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                                placeholder="600 123 456"
-                            />
+                            <div className="relative">
+                                <input
+                                    required
+                                    value={phone}
+                                    onChange={e => {
+                                        setPhone(e.target.value);
+                                        validatePhoneDebounced(e.target.value);
+                                    }}
+                                    onBlur={() => validatePhoneDebounced(phone)}
+                                    className={`w-full p-3 border rounded-xl text-sm focus:ring-2 transition-all pr-10 ${phoneCheck.exists
+                                        ? (context === 'client-management'
+                                            ? 'border-amber-400 bg-amber-50 focus:ring-amber-500'
+                                            : 'border-emerald-400 bg-emerald-50 focus:ring-emerald-500')
+                                        : 'border-slate-200 focus:ring-blue-500 focus:border-blue-500'
+                                        }`}
+                                    placeholder="+34 600123456"
+                                />
+                                {/* Loading/Status Indicator */}
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                    {phoneCheck.loading && (
+                                        <Loader2 size={16} className="text-blue-500 animate-spin" />
+                                    )}
+                                    {!phoneCheck.loading && phoneCheck.exists && context === 'client-management' && (
+                                        <AlertTriangle size={16} className="text-amber-500" />
+                                    )}
+                                    {!phoneCheck.loading && phoneCheck.exists && context === 'service-creation' && (
+                                        <CheckCircle size={16} className="text-emerald-500" />
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Validation Feedback */}
+                            {phoneCheck.loading && (
+                                <div className="text-xs text-slate-500 mt-1.5 flex items-center gap-1">
+                                    <Loader2 size={12} className="animate-spin" /> Verificando teléfono...
+                                </div>
+                            )}
+
+                            {/* Context A: Warning (Client Management) */}
+                            {!phoneCheck.loading && phoneCheck.exists && context === 'client-management' && (
+                                <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm">
+                                    <div className="flex items-start gap-2">
+                                        <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="font-bold text-amber-800">
+                                                Este número pertenece a:
+                                            </p>
+                                            <p className="text-amber-700 font-medium">
+                                                {phoneCheck.client?.full_name}
+                                            </p>
+                                            <p className="text-xs text-amber-600 mt-1">
+                                                No se puede registrar dos veces.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Context B: Selection (Service Creation) */}
+                            {!phoneCheck.loading && phoneCheck.exists && context === 'service-creation' && (
+                                <div className="mt-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-sm">
+                                    <div className="flex items-start gap-2">
+                                        <UserCheck size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                                        <div className="flex-1">
+                                            <p className="font-bold text-emerald-800">
+                                                Este número pertenece a:
+                                            </p>
+                                            <p className="text-emerald-700 font-medium">
+                                                {phoneCheck.client?.full_name}
+                                            </p>
+                                            {phoneCheck.client?.address && (
+                                                <p className="text-xs text-emerald-600 mt-0.5">
+                                                    📍 {phoneCheck.client.address}
+                                                </p>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={handleUseExistingClient}
+                                                className="mt-2 w-full flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700 transition-colors"
+                                            >
+                                                <UserCheck size={14} />
+                                                Usar Este Cliente
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <div>
                             <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
@@ -491,7 +665,7 @@ const ClientFormModal = ({ isOpen, onClose, onSuccess, editClient = null }) => {
                         </button>
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={loading || (phoneCheck.exists && context === 'client-management')}
                             className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-600/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
                             {loading ? (
