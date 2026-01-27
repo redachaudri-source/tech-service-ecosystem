@@ -578,6 +578,26 @@ function processStep(
 
             if (accepted) {
                 data.legal_accepted = true;
+
+                // Si el cliente está identificado, usar sus datos y crear ticket directamente
+                const identity = data.client_identity;
+                if (identity?.exists && identity.client) {
+                    console.log('[Bot] 🎫 Known client - skipping address/name/phone');
+                    data.name = identity.client.full_name;
+                    data.phone = identity.client.phone;
+                    // Usar la dirección principal si existe
+                    if (identity.addresses && identity.addresses.length > 0) {
+                        const primaryAddr = identity.addresses.find(a => a.is_primary) || identity.addresses[0];
+                        data.address = primaryAddr.address_line;
+                    }
+                    return {
+                        nextStep: 'create_ticket',
+                        responseMessage: '',
+                        updatedData: data
+                    };
+                }
+
+                // Cliente nuevo: pedir dirección
                 return {
                     nextStep: 'ask_address',
                     responseMessage: replaceVariables(config.messages.ask_address, vars),
@@ -622,10 +642,17 @@ function processStep(
         }
 
         case 'completed':
+            // No auto-restart - user must explicitly say "hola" or "reiniciar"
+            return {
+                nextStep: 'completed',
+                responseMessage: '✅ Tu solicitud ya fue registrada. Si necesitas otra reparación, escribe "Hola" para comenzar.',
+                updatedData: currentData
+            };
+
         case 'rejected':
             return {
-                nextStep: 'greeting',
-                responseMessage: '',
+                nextStep: 'rejected',
+                responseMessage: 'Si cambias de opinión, escríbenos "Hola" para comenzar de nuevo. ¡Hasta pronto! 👋',
                 updatedData: {}
             };
 
@@ -739,15 +766,14 @@ serve(async (req: Request) => {
         // Normalizar el número (Meta lo envía sin +)
         const normalizedFrom = normalizePhone(from);
 
-        // Check for reset keywords
+        // Check for reset keywords (hola, reiniciar, etc)
         const isResetRequest = RESET_KEYWORDS.some(kw => body.toLowerCase().trim() === kw);
 
         // Get existing conversation
         let conversation = await getConversation(normalizedFrom);
 
-        // Reset if: keyword match OR conversation is in terminal state
-        const shouldReset = isResetRequest ||
-            (conversation && ['completed', 'rejected'].includes(conversation.current_step));
+        // Only reset if explicit reset keyword is used
+        const shouldReset = isResetRequest;
 
         if (shouldReset && conversation) {
             console.log(`[Bot] 🔄 Resetting conversation for ${normalizedFrom}`);
