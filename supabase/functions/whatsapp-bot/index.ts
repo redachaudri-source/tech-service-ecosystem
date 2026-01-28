@@ -144,58 +144,6 @@ function normalizePhone(phone: string): string {
     return cleaned;
 }
 
-/**
- * Normaliza el nombre del electrodoméstico:
- * - Elimina artículos (el, la, los, las, un, una, unos, unas)
- * - Elimina posesivos (mi, mis, tu, tus, su, sus, nuestro, nuestra)
- * - Elimina expresiones comunes (de mi casa, de casa, etc.)
- * - Normaliza a minúsculas con primera letra mayúscula
- * 
- * Ejemplos:
- * - "LA LAVADORA" → "Lavadora"
- * - "mi frigorífico" → "Frigorífico"
- * - "el horno de mi casa" → "Horno"
- * - "la lavadora-secadora" → "Lavadora-secadora"
- */
-function normalizeAppliance(input: string): string {
-    if (!input || input.trim() === '') return input;
-
-    let text = input.trim().toLowerCase();
-
-    // Eliminar expresiones comunes al final
-    const suffixPatterns = [
-        /\s+de\s+(mi|tu|su|nuestra?)\s+casa$/i,
-        /\s+de\s+(la\s+)?casa$/i,
-        /\s+de\s+mi\s+cocina$/i,
-        /\s+que\s+tengo$/i,
-        /\s+de\s+casa$/i
-    ];
-
-    for (const pattern of suffixPatterns) {
-        text = text.replace(pattern, '');
-    }
-
-    // Eliminar artículos y posesivos al principio
-    const prefixPatterns = [
-        /^(el|la|los|las|un|una|unos|unas)\s+/i,
-        /^(mi|mis|tu|tus|su|sus|nuestro|nuestra|nuestros|nuestras)\s+/i
-    ];
-
-    for (const pattern of prefixPatterns) {
-        text = text.replace(pattern, '');
-    }
-
-    // Limpiar espacios extra
-    text = text.replace(/\s+/g, ' ').trim();
-
-    // Capitalizar primera letra
-    if (text.length > 0) {
-        text = text.charAt(0).toUpperCase() + text.slice(1);
-    }
-
-    return text;
-}
-
 function replaceVariables(message: string, variables: Record<string, string>): string {
     let result = message || '';
     for (const [key, value] of Object.entries(variables)) {
@@ -588,18 +536,14 @@ function processStep(
             }
         }
 
-        case 'ask_appliance': {
-            // Normalizar el nombre del electrodoméstico
-            const normalizedAppliance = normalizeAppliance(message);
-            data.appliance = normalizedAppliance;
-            vars.appliance = normalizedAppliance;
-            console.log(`[Bot] Appliance: "${message}" -> "${normalizedAppliance}"`);
+        case 'ask_appliance':
+            data.appliance = message;
+            vars.appliance = message;
             return {
                 nextStep: 'ask_brand',
                 responseMessage: replaceVariables(config.messages.ask_brand, vars),
                 updatedData: data
             };
-        }
 
         case 'ask_brand':
             data.brand = message;
@@ -813,12 +757,7 @@ serve(async (req: Request) => {
             return new Response('OK', { status: 200 });
         }
 
-        // Ignorar mensajes antiguos (más de 2 minutos)
-        const now = Math.floor(Date.now() / 1000);
-        if (messageTimestamp && (now - messageTimestamp) > 120) {
-            console.log(`[Bot] ⏰ Message too old (${now - messageTimestamp}s), ignoring`);
-            return new Response('OK', { status: 200 });
-        }
+        // NOTE: Removed timestamp filter - Meta timestamps are unreliable
 
         // ═══════════════════════════════════════════════════════════════════
         // LÓGICA DEL BOT (igual que antes)
