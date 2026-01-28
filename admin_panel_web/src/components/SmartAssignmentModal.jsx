@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Calendar, User, X, Plus, CheckCircle, Clock, MapPin, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { getTravelTimeBetweenPostalCodes } from '../services/mapboxService';
+import { notifyClientAssignment } from '../services/notifyClient';
 
 const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
     // Phase 14: Smart Scheduling "God Mode"
@@ -403,6 +404,19 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
                 .eq('id', ticket.id);
 
             if (error) throw error; // Trigger will catch overlaps!
+
+            // 🔔 Send WhatsApp notification to client
+            const techPhone = techs.find(t => t.id === p.technician_id)?.phone;
+            notifyClientAssignment({
+                clientPhone: ticket.profiles?.phone,
+                clientName: ticket.profiles?.full_name,
+                technicianName: p.technician_name,
+                technicianPhone: techPhone,
+                scheduledAt: p.start,
+                address: ticket.profiles?.address,
+                ticketNumber: ticket.ticket_number
+            }).catch(err => console.error('[SmartAssignment] Notification failed:', err));
+
             onSuccess();
             onClose();
         } catch (err) {
