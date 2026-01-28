@@ -593,7 +593,7 @@ function processStep(
             const normalizedAppliance = normalizeAppliance(message);
             data.appliance = normalizedAppliance;
             vars.appliance = normalizedAppliance;
-            console.log(`[Bot] 🔧 Appliance: "${message}" → "${normalizedAppliance}"`);
+            console.log(`[Bot] Appliance: "${message}" -> "${normalizedAppliance}"`);
             return {
                 nextStep: 'ask_brand',
                 responseMessage: replaceVariables(config.messages.ask_brand, vars),
