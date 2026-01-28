@@ -148,15 +148,15 @@ const Register = () => {
                 .select('id, full_name, phone, address')
                 .eq('phone', normalized)
                 .eq('role', 'client')
-                .limit(1)
-                .maybeSingle();
+                .limit(1);
             setCheckingPhone(false);
 
             console.log('🔍 Phone check result:', { data, error });
 
-            if (data) {
-                console.log('✅ Found existing client:', data);
-                setExistingClient(data);
+            // data is an array - check if it has any results
+            if (data && data.length > 0) {
+                console.log('✅ Found existing client:', data[0]);
+                setExistingClient(data[0]);
                 setShowDuplicateModal(true);
                 return; // Don't proceed, show modal
             }
