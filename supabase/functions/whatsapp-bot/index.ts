@@ -71,6 +71,7 @@ interface CollectedData {
     legal_accepted?: boolean;
     // Fase 2: Identidad del cliente (cacheada)
     client_identity?: ClientIdentity;
+    selected_address_id?: string;
 }
 
 interface BotConfig {
@@ -436,13 +437,18 @@ async function createTicketFromConversation(data: CollectedData, phone: string):
             model: data.model || 'No especificado'
         };
 
-        const ticketData = {
+        const ticketData: Record<string, any> = {
             client_id: clientId,
             appliance_info: applianceInfo,
             description_failure: data.problem || 'Reportado por WhatsApp',
             status: 'solicitado',
             origin_source: 'whatsapp_bot'
         };
+
+        // Add address_id if selected
+        if (data.selected_address_id) {
+            ticketData.address_id = data.selected_address_id;
+        }
 
         console.log('[Bot] 🎫 Ticket payload:', JSON.stringify(ticketData, null, 2));
 
@@ -459,8 +465,17 @@ async function createTicketFromConversation(data: CollectedData, phone: string):
 
         console.log('[Bot] ✅ Created ticket ID:', ticket.id);
 
-        // Step 3: Clean up conversation
-        console.log('[Bot] 🧹 Step 3: Deleting conversation...');
+        // Step 3: Update last_used_at if address was selected
+        if (data.selected_address_id) {
+            console.log('[Bot] 📍 Updating last_used_at for address:', data.selected_address_id);
+            await supabase
+                .from('client_addresses')
+                .update({ last_used_at: new Date().toISOString() })
+                .eq('id', data.selected_address_id);
+        }
+
+        // Step 4: Clean up conversation
+        console.log('[Bot] 🧹 Step 4: Deleting conversation...');
         await deleteConversation(phone);
 
         console.log('[Bot] 🎉 TICKET CREATION COMPLETE! ID:', ticket.id);
@@ -582,31 +597,73 @@ function processStep(
             if (accepted) {
                 data.legal_accepted = true;
 
-                // Si el cliente está identificado, usar sus datos y crear ticket directamente
+                // Si el cliente está identificado, usar sus datos
                 const identity = data.client_identity;
                 if (identity?.exists && identity.client) {
-                    console.log('[Bot] 🎫 Known client - skipping address/name/phone');
+                    console.log('[Bot] 🎫 Known client - checking addresses');
                     data.name = identity.client.full_name;
                     data.phone = identity.client.phone;
 
-                    // Usar la dirección: primero de client_addresses, luego de profile
-                    if (identity.addresses && identity.addresses.length > 0) {
-                        const primaryAddr = identity.addresses.find(a => a.is_primary) || identity.addresses[0];
-                        data.address = primaryAddr.address_line;
-                        console.log(`[Bot] 📍 Using address from client_addresses: ${data.address}`);
-                    } else if (identity.client.address) {
-                        // Fallback: usar dirección del perfil
-                        data.address = identity.client.address;
-                        console.log(`[Bot] 📍 Using address from profile: ${data.address}`);
-                    } else {
-                        console.log('[Bot] ⚠️ No address found for client');
-                    }
+                    // Verificar direcciones del cliente
+                    const addresses = identity.addresses || [];
 
-                    return {
-                        nextStep: 'create_ticket',
-                        responseMessage: '',
-                        updatedData: data
-                    };
+                    if (addresses.length === 0) {
+                        // Sin direcciones: usar del perfil o pedir
+                        if (identity.client.address) {
+                            data.address = identity.client.address;
+                            console.log(`[Bot] 📍 Using address from profile: ${data.address}`);
+                            return {
+                                nextStep: 'create_ticket',
+                                responseMessage: '',
+                                updatedData: data
+                            };
+                        } else {
+                            console.log('[Bot] ⚠️ No address found, asking client');
+                            return {
+                                nextStep: 'ask_address',
+                                responseMessage: replaceVariables(config.messages.ask_address, vars),
+                                updatedData: data
+                            };
+                        }
+                    } else if (addresses.length === 1) {
+                        // Solo 1 dirección: usar directamente
+                        data.address = addresses[0].address_line;
+                        data.selected_address_id = addresses[0].id;
+                        console.log(`[Bot] 📍 Single address: ${data.address}`);
+                        return {
+                            nextStep: 'create_ticket',
+                            responseMessage: '',
+                            updatedData: data
+                        };
+                    } else {
+                        // Múltiples direcciones: mostrar selector
+                        console.log(`[Bot] 📍 Multiple addresses (${addresses.length}), showing selector`);
+
+                        // Construir mensaje con lista de direcciones
+                        let addressList = '📍 *¿A cuál dirección iremos?*\n\n';
+
+                        // Para <=5 direcciones: mostrar todas
+                        // Para >5: mostrar primeras 5 + opción "ver más"
+                        const showAll = addresses.length <= 5;
+                        const displayAddresses = showAll ? addresses : addresses.slice(0, 5);
+
+                        displayAddresses.forEach((addr, i) => {
+                            const isPrimary = addr.is_primary ? ' ⭐' : '';
+                            addressList += `*${i + 1}.* ${addr.label || 'Dirección'}${isPrimary}\n   📍 ${addr.address_line}\n\n`;
+                        });
+
+                        if (!showAll) {
+                            addressList += `*6.* Ver todas (${addresses.length - 5} más)\n\n`;
+                        }
+
+                        addressList += '_Responde con el número de la dirección_';
+
+                        return {
+                            nextStep: 'select_address',
+                            responseMessage: addressList,
+                            updatedData: data
+                        };
+                    }
                 }
 
                 // Cliente nuevo: pedir dirección
@@ -632,6 +689,69 @@ function processStep(
                 responseMessage: replaceVariables(config.messages.ask_name, vars),
                 updatedData: data
             };
+
+        case 'select_address': {
+            // Parse user's address selection
+            const addresses = data.client_identity?.addresses || [];
+            const msgLower = message.toLowerCase().trim();
+
+            // Check for "ver todas" / "ver más" / "6"
+            if (addresses.length > 5 && (msgLower === '6' || msgLower.includes('ver') || msgLower.includes('todas'))) {
+                // Show all addresses
+                let fullList = '📍 *Todas tus direcciones:*\n\n';
+                addresses.forEach((addr, i) => {
+                    const isPrimary = addr.is_primary ? ' ⭐' : '';
+                    fullList += `*${i + 1}.* ${addr.label || 'Dirección'}${isPrimary}\n   📍 ${addr.address_line}\n\n`;
+                });
+                fullList += '_Responde con el número de la dirección_';
+                return {
+                    nextStep: 'select_address',
+                    responseMessage: fullList,
+                    updatedData: data
+                };
+            }
+
+            // Parse number selection
+            const numMatch = message.match(/(\d+)/);
+            let selectedAddr = null;
+
+            if (numMatch) {
+                const idx = parseInt(numMatch[1]) - 1;
+                if (idx >= 0 && idx < addresses.length) {
+                    selectedAddr = addresses[idx];
+                }
+            }
+
+            // Try matching by alias/label
+            if (!selectedAddr) {
+                selectedAddr = addresses.find(a =>
+                    a.label?.toLowerCase().includes(msgLower) ||
+                    a.address_line?.toLowerCase().includes(msgLower)
+                );
+            }
+
+            if (selectedAddr) {
+                data.address = selectedAddr.address_line;
+                data.selected_address_id = selectedAddr.id;
+                console.log(`[Bot] 📍 Selected address: ${selectedAddr.label} - ${data.address}`);
+
+                // Update last_used_at for this address (fire-and-forget)
+                // This will be done via a separate update call
+
+                return {
+                    nextStep: 'create_ticket',
+                    responseMessage: '',
+                    updatedData: data
+                };
+            }
+
+            // Invalid selection - ask again
+            return {
+                nextStep: 'select_address',
+                responseMessage: '❓ No reconocí esa opción. Por favor, responde con el *número* de la dirección.',
+                updatedData: data
+            };
+        }
 
         case 'ask_name':
             data.name = message;

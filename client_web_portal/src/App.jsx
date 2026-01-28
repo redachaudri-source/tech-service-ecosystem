@@ -11,6 +11,7 @@ import NewService from './pages/dashboard/NewService';
 import DashboardLayout from './layouts/DashboardLayout';
 import MyAppliances from './pages/MyAppliances';
 import Analytics from './pages/Analytics';
+import AddressesPage from './pages/AddressesPage';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -54,6 +55,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/new-service" element={<NewService />} />
           <Route path="/appliances" element={<MyAppliances />} />
+          <Route path="/addresses" element={<AddressesPage />} />
           <Route path="/analytics" element={<Analytics />} />
         </Route>
 

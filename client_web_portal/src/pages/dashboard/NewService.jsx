@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, Save, MapPin, Phone, AlertCircle, Wrench, Camera, HelpCircle, X, Image as ImageIcon } from 'lucide-react';
+import { ChevronLeft, Save, MapPin, Phone, AlertCircle, Wrench, Camera, HelpCircle, X, Image as ImageIcon, Star, ChevronDown } from 'lucide-react';
 import SmartBrandSelector from '../../components/SmartBrandSelector';
 
 const NewService = () => {
@@ -11,15 +11,20 @@ const NewService = () => {
     const [profile, setProfile] = useState(null);
     const [showHelp, setShowHelp] = useState(false);
 
+    // Address selection state
+    const [addresses, setAddresses] = useState([]);
+    const [selectedAddressId, setSelectedAddressId] = useState(null);
+    const [showAddressSelector, setShowAddressSelector] = useState(false);
+
     const [formData, setFormData] = useState({
-        type: 'Lavadora', // Default
+        type: 'Lavadora',
         brand: '',
-        brand_id: null, // New
+        brand_id: null,
         model: '',
         description_failure: '',
         address: '',
         phone: '',
-        label_image_url: '' // New field for the photo
+        label_image_url: ''
     });
 
     const [applianceTypes, setApplianceTypes] = useState([]);
@@ -34,7 +39,6 @@ const NewService = () => {
             if (appTypes) setApplianceTypes(appTypes.map(t => t.name));
             if (servTypes) {
                 setServiceTypes(servTypes);
-                // Default to 'Reparación' or similar if exists, else first
                 const defaultType = servTypes.find(t => t.name.toLowerCase().includes('reparación') || t.name.toLowerCase().includes('estándar'));
                 if (defaultType) setSelectedServiceTypeId(defaultType.id);
             }
@@ -67,6 +71,8 @@ const NewService = () => {
                     model: data.model || '',
                     label_image_url: data.photo_url || ''
                 }));
+                // If appliance has address_id, pre-select it
+                if (data.address_id) setSelectedAddressId(data.address_id);
             }
         } catch (err) {
             console.error('Error fetching appliance:', err);
@@ -85,11 +91,32 @@ const NewService = () => {
                     phone: data.phone || ''
                 }));
             }
+
+            // Load client addresses
+            const { data: addressData } = await supabase
+                .from('client_addresses')
+                .select('*')
+                .eq('client_id', user.id)
+                .order('address_order', { ascending: true });
+
+            if (addressData && addressData.length > 0) {
+                setAddresses(addressData);
+                // Auto-select primary or first
+                const primary = addressData.find(a => a.is_primary) || addressData[0];
+                setSelectedAddressId(primary.id);
+                setFormData(prev => ({ ...prev, address: primary.address_line }));
+            }
         }
     };
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleAddressSelect = (addr) => {
+        setSelectedAddressId(addr.id);
+        setFormData(prev => ({ ...prev, address: addr.address_line }));
+        setShowAddressSelector(false);
     };
 
     const handleImageUpload = async (e) => {
@@ -138,13 +165,14 @@ const NewService = () => {
                         status: 'solicitado',
                         description_failure: formData.description_failure,
                         appliance_id: applianceId || null,
+                        address_id: selectedAddressId || null,
                         appliance_info: {
                             type: formData.type,
                             brand: formData.brand,
                             model: formData.model,
                             label_image_url: formData.label_image_url
                         },
-                        brand_id: formData.brand_id || null, // store ID
+                        brand_id: formData.brand_id || null,
                         service_type_id: selectedServiceTypeId || null,
                         origin_source: 'client_web'
                     }
@@ -326,14 +354,76 @@ const NewService = () => {
                             />
                         </div>
 
-                        {/* Contact Info Confirmation */}
-                        <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-4 flex gap-3 text-sm text-yellow-800">
-                            <AlertCircle size={20} className="shrink-0" />
-                            <p>
-                                Los técnicos se desplazarán a: <strong>{formData.address || 'Tu dirección registrada'}</strong>
-                                <br />
-                                Contactarán al: <strong>{formData.phone || 'Tu teléfono registrado'}</strong>
-                            </p>
+                        {/* Address Selection */}
+                        <div className="space-y-2">
+                            <label className="block text-sm font-medium text-slate-700">
+                                <MapPin size={14} className="inline mr-1" /> Dirección del Servicio
+                            </label>
+                            {addresses.length > 1 ? (
+                                <div className="relative">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAddressSelector(!showAddressSelector)}
+                                        className="w-full p-3 border border-slate-200 rounded-xl bg-white text-left flex items-center justify-between hover:border-blue-300 transition"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <MapPin size={16} className="text-blue-500" />
+                                            <span className="font-medium text-slate-700">
+                                                {addresses.find(a => a.id === selectedAddressId)?.label || 'Seleccionar'}
+                                            </span>
+                                            {addresses.find(a => a.id === selectedAddressId)?.is_primary && (
+                                                <Star size={12} className="text-amber-500" />
+                                            )}
+                                        </div>
+                                        <ChevronDown size={18} className={`text-slate-400 transition ${showAddressSelector ? 'rotate-180' : ''}`} />
+                                    </button>
+                                    <p className="text-xs text-slate-500 mt-1 pl-1">
+                                        {addresses.find(a => a.id === selectedAddressId)?.address_line}
+                                    </p>
+
+                                    {showAddressSelector && (
+                                        <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden">
+                                            {addresses.map(addr => (
+                                                <button
+                                                    key={addr.id}
+                                                    type="button"
+                                                    onClick={() => handleAddressSelect(addr)}
+                                                    className={`w-full p-3 text-left flex items-center gap-3 hover:bg-blue-50 border-b border-slate-100 last:border-0 ${addr.id === selectedAddressId ? 'bg-blue-50' : ''
+                                                        }`}
+                                                >
+                                                    <div className={`w-4 h-4 rounded-full border-2 ${addr.id === selectedAddressId
+                                                            ? 'border-blue-500 bg-blue-500'
+                                                            : 'border-slate-300'
+                                                        }`}>
+                                                        {addr.id === selectedAddressId && (
+                                                            <div className="w-2 h-2 bg-white rounded-full mx-auto mt-0.5" />
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-medium text-slate-700">{addr.label}</span>
+                                                            {addr.is_primary && (
+                                                                <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded">Principal</span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-xs text-slate-500">{addr.address_line}</p>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                                    <p className="text-sm text-slate-600">{formData.address || 'No hay dirección registrada'}</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Contact Info */}
+                        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex gap-3 text-sm text-blue-700">
+                            <Phone size={18} className="shrink-0" />
+                            <p>Contactarán al: <strong>{formData.phone || 'Tu teléfono'}</strong></p>
                         </div>
 
                         <button
