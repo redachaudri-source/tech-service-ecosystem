@@ -132,7 +132,7 @@ const DEFAULT_CONFIG: BotConfig = {
 // ============================================================================
 
 /**
- * Normaliza número de teléfono: quita caracteres no numéricos excepto +
+ * Normaliza número de teléfono para Meta API: formato con +
  * Meta envía sin +, así que normalizamos a formato con +
  */
 function normalizePhone(phone: string): string {
@@ -143,6 +143,21 @@ function normalizePhone(phone: string): string {
         cleaned = '+' + cleaned;
     }
     return cleaned;
+}
+
+/**
+ * Normaliza número de teléfono para queries a la BD: 9 dígitos sin prefijo
+ * Esto coincide con el trigger normalize_phone en la base de datos
+ */
+function normalizePhoneForDB(phone: string): string {
+    if (!phone) return '';
+    // Remove all non-digit characters
+    let clean = phone.replace(/\D/g, '');
+    // Remove 34 prefix if longer than 9 digits
+    if (clean.length > 9 && clean.startsWith('34')) {
+        clean = clean.slice(2);
+    }
+    return clean;
 }
 
 function replaceVariables(message: string, variables: Record<string, string>): string {
@@ -240,22 +255,31 @@ async function getClientAddresses(clientId: string): Promise<ClientAddress[]> {
  * @returns ClientIdentity con exists, client y addresses
  */
 async function identifyClient(waId: string): Promise<ClientIdentity> {
-    const normalizedPhone = normalizePhone(waId);
+    const normalizedPhone = normalizePhoneForDB(waId);
 
-    console.log(`[Bot] 🔍 Identifying client: ${normalizedPhone}`);
+    console.log(`[Bot] 🔍 Identifying client with phone: ${normalizedPhone}`);
 
     try {
-        // Buscar cliente por teléfono (incluir address del perfil como fallback)
-        const { data: clientData, error } = await supabase
+        // Buscar cliente por teléfono usando formato 9-dígitos
+        // Ordenar por updated_at DESC para tomar el más reciente si hay duplicados
+        const { data: clientsData, error } = await supabase
             .from('profiles')
             .select('id, full_name, phone, email, address')
             .eq('phone', normalizedPhone)
             .eq('role', 'client')
-            .single();
+            .order('updated_at', { ascending: false })
+            .limit(1);
 
-        if (error || !clientData) {
+        if (error || !clientsData || clientsData.length === 0) {
             console.log(`[Bot] 👤 Client NOT found for ${normalizedPhone}`);
             return { exists: false };
+        }
+
+        const clientData = clientsData[0];
+
+        // Log warning if there might be duplicates
+        if (clientsData.length > 1) {
+            console.warn(`[Bot] ⚠️ DUPLICATE PHONES DETECTED for ${normalizedPhone}! Using most recent: ${clientData.full_name}`);
         }
 
         console.log(`[Bot] ✅ Client found: ${clientData.full_name} (${clientData.id})`);
@@ -372,7 +396,7 @@ async function deleteConversation(phone: string): Promise<void> {
 }
 
 async function createTicketFromConversation(data: CollectedData, phone: string): Promise<number> {
-    const normalizedPhone = normalizePhone(phone);
+    const normalizedPhone = normalizePhoneForDB(phone);
 
     console.log('[Bot] ══════════════════════════════════════════════════════');
     console.log('[Bot] 🎫 STARTING TICKET CREATION');

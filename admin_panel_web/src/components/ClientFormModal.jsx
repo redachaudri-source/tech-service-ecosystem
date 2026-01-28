@@ -398,13 +398,16 @@ const ClientFormModal = ({
         if (isOpen) loadClientData();
     }, [editClient, isOpen]);
 
-    // Phone validation functions
+    // Phone normalization - returns clean 9-digit format
     const normalizePhone = (phoneInput) => {
-        let cleaned = phoneInput.replace(/\s+/g, '').replace(/[^\d+]/g, '');
-        if (cleaned && !cleaned.startsWith('+')) {
-            cleaned = '+34' + cleaned;
+        if (!phoneInput) return '';
+        // Remove all non-digit characters
+        let clean = phoneInput.replace(/\D/g, '');
+        // Remove 34 prefix if longer than 9 digits
+        if (clean.length > 9 && clean.startsWith('34')) {
+            clean = clean.slice(2);
         }
-        return cleaned;
+        return clean;
     };
 
     const isValidPhoneFormat = (phoneInput) => {
@@ -670,8 +673,8 @@ const ClientFormModal = ({
                                             value={phone}
                                             onChange={e => { setPhone(e.target.value); validatePhoneDebounced(e.target.value); }}
                                             className={`w-full p-3 border rounded-xl text-sm pr-10 ${phoneCheck.exists
-                                                    ? (context === 'client-management' ? 'border-amber-400 bg-amber-50' : 'border-emerald-400 bg-emerald-50')
-                                                    : 'border-slate-200'
+                                                ? (context === 'client-management' ? 'border-amber-400 bg-amber-50' : 'border-emerald-400 bg-emerald-50')
+                                                : 'border-slate-200'
                                                 }`}
                                             placeholder="+34 600123456"
                                         />
@@ -731,8 +734,8 @@ const ClientFormModal = ({
                                                 type="button"
                                                 onClick={() => setClientType(type)}
                                                 className={`p-4 rounded-xl border-2 text-left transition-all ${isSelected
-                                                        ? `border-${config.color}-500 bg-${config.color}-50 ring-2 ring-${config.color}-500/20`
-                                                        : 'border-slate-200 hover:border-slate-300'
+                                                    ? `border-${config.color}-500 bg-${config.color}-50 ring-2 ring-${config.color}-500/20`
+                                                    : 'border-slate-200 hover:border-slate-300'
                                                     }`}
                                             >
                                                 <div className="flex items-center gap-3 mb-2">
@@ -817,8 +820,8 @@ const ClientFormModal = ({
                                 onClick={addAddress}
                                 disabled={!canAddMore}
                                 className={`w-full py-3 border-2 border-dashed rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all ${canAddMore
-                                        ? 'border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-400'
-                                        : 'border-slate-200 text-slate-400 cursor-not-allowed'
+                                    ? 'border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-400'
+                                    : 'border-slate-200 text-slate-400 cursor-not-allowed'
                                     }`}
                             >
                                 <Plus size={18} />

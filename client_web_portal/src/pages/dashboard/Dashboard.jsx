@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { LogOut, Plus, Clock, CheckCircle, AlertCircle, Wrench, User, Calendar, FileText, Package, PieChart, ShieldAlert } from 'lucide-react';
+import { LogOut, Plus, Clock, CheckCircle, AlertCircle, Wrench, User, Calendar, FileText, Package, PieChart, ShieldAlert, MapPin } from 'lucide-react';
 import TechLocationMap from '../../components/TechLocationMap';
 
 import { useToast } from '../../components/ToastProvider';
@@ -460,6 +460,13 @@ const Dashboard = () => {
                         >
                             <PieChart size={20} />
                             <span className="hidden sm:inline">Gastos</span>
+                        </button>
+                        <button
+                            onClick={() => navigate('/addresses')}
+                            className="flex items-center gap-2 bg-white text-slate-600 px-4 py-2.5 rounded-xl font-bold border border-slate-200 hover:bg-slate-50 transition shadow-sm active:scale-95"
+                        >
+                            <MapPin size={20} />
+                            <span className="hidden sm:inline">Direcciones</span>
                         </button>
                         <button
                             onClick={() => navigate('/new-service')}

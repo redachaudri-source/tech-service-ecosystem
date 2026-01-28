@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useNavigate, Link } from 'react-router-dom';
 import {
     Mail, Lock, User, Phone, MapPin, ArrowRight, ArrowLeft,
-    Loader2, CheckCircle, Home, Briefcase, AlertTriangle, Plus, Trash2, Star
+    Loader2, CheckCircle, Home, Briefcase, AlertTriangle, Plus, Trash2, Star,
+    AlertCircle, HelpCircle
 } from 'lucide-react';
+import { normalizePhone, formatPhoneDisplay } from '../../lib/utils';
 
 // CLIENT TYPE CONSTANTS
 const CLIENT_TYPES = {
@@ -30,6 +32,11 @@ const Register = () => {
     const [step, setStep] = useState(1); // 1: Basic Info, 2: Client Type, 3: Addresses, 4: Password
     const [showTypeConfirmModal, setShowTypeConfirmModal] = useState(false);
     const [pendingType, setPendingType] = useState(null);
+
+    // Phone duplicate detection
+    const [checkingPhone, setCheckingPhone] = useState(false);
+    const [existingClient, setExistingClient] = useState(null);
+    const [showDuplicateModal, setShowDuplicateModal] = useState(false);
 
     // Form Data
     const [formData, setFormData] = useState({
@@ -98,11 +105,59 @@ const Register = () => {
         })));
     };
 
-    // Phone normalization
-    const normalizePhone = (phoneInput) => {
-        let cleaned = phoneInput.replace(/\s+/g, '').replace(/[^\d+]/g, '');
-        if (cleaned && !cleaned.startsWith('+')) cleaned = '+34' + cleaned;
-        return cleaned;
+    // Check if phone exists in database
+    const checkPhoneExists = useCallback(async (phone) => {
+        const normalized = normalizePhone(phone);
+        if (!normalized || normalized.length < 9) return;
+
+        setCheckingPhone(true);
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('id, full_name, phone, address')
+                .eq('phone', normalized)
+                .eq('role', 'client')
+                .limit(1)
+                .maybeSingle();
+
+            if (data && !error) {
+                setExistingClient(data);
+                setShowDuplicateModal(true);
+            } else {
+                setExistingClient(null);
+            }
+        } catch (err) {
+            console.error('Phone check error:', err);
+        } finally {
+            setCheckingPhone(false);
+        }
+    }, []);
+
+    // Handle going to next step with phone validation
+    const handleStep1Next = async () => {
+        if (!canProceed()) return;
+
+        // Check if phone exists before proceeding
+        const normalized = normalizePhone(formData.phone);
+        if (normalized.length >= 9) {
+            setCheckingPhone(true);
+            const { data } = await supabase
+                .from('profiles')
+                .select('id, full_name, phone, address')
+                .eq('phone', normalized)
+                .eq('role', 'client')
+                .limit(1)
+                .maybeSingle();
+            setCheckingPhone(false);
+
+            if (data) {
+                setExistingClient(data);
+                setShowDuplicateModal(true);
+                return; // Don't proceed, show modal
+            }
+        }
+
+        setStep(2); // Proceed to step 2
     };
 
     // Final registration
@@ -206,10 +261,10 @@ const Register = () => {
             {[1, 2, 3, 4].map((s) => (
                 <div key={s} className="flex items-center">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${s === step
-                            ? 'bg-blue-600 text-white ring-4 ring-blue-100'
-                            : s < step
-                                ? 'bg-emerald-500 text-white'
-                                : 'bg-slate-200 text-slate-500'
+                        ? 'bg-blue-600 text-white ring-4 ring-blue-100'
+                        : s < step
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-slate-200 text-slate-500'
                         }`}>
                         {s < step ? <CheckCircle size={16} /> : s}
                     </div>
@@ -289,11 +344,15 @@ const Register = () => {
 
                     <button
                         type="button"
-                        onClick={() => setStep(2)}
-                        disabled={!canProceed()}
+                        onClick={handleStep1Next}
+                        disabled={!canProceed() || checkingPhone}
                         className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        Continuar <ArrowRight size={18} />
+                        {checkingPhone ? (
+                            <><Loader2 className="animate-spin" size={18} /> Verificando...</>
+                        ) : (
+                            <>Continuar <ArrowRight size={18} /></>
+                        )}
                     </button>
                 </div>
             )}
@@ -314,8 +373,8 @@ const Register = () => {
                                     type="button"
                                     onClick={() => handleTypeSelect(type)}
                                     className={`p-5 rounded-2xl border-2 text-left transition-all hover:shadow-lg ${formData.client_type === type
-                                            ? `border-${config.color}-500 bg-${config.color}-50`
-                                            : 'border-slate-200 hover:border-slate-300'
+                                        ? `border-${config.color}-500 bg-${config.color}-50`
+                                        : 'border-slate-200 hover:border-slate-300'
                                         }`}
                                 >
                                     <div className="flex items-start gap-4">
@@ -536,6 +595,65 @@ const Register = () => {
                                 className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700"
                             >
                                 Confirmar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* DUPLICATE PHONE MODAL */}
+            {showDuplicateModal && existingClient && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+                        <div className="flex items-center gap-3 text-amber-600 mb-4">
+                            <AlertCircle size={24} />
+                            <h3 className="font-bold text-lg">Teléfono ya registrado</h3>
+                        </div>
+
+                        <p className="text-slate-600 mb-4">
+                            Este teléfono ya pertenece a una cuenta existente:
+                        </p>
+
+                        <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl mb-4">
+                            <div className="flex items-center gap-2 mb-2">
+                                <Phone size={16} className="text-blue-500" />
+                                <span className="font-semibold">{formatPhoneDisplay(existingClient.phone)}</span>
+                            </div>
+                            <div className="flex items-center gap-2 mb-2">
+                                <User size={16} className="text-slate-400" />
+                                <span>{existingClient.full_name}</span>
+                            </div>
+                            {existingClient.address && (
+                                <div className="flex items-center gap-2">
+                                    <MapPin size={16} className="text-slate-400" />
+                                    <span className="text-sm text-slate-500 truncate">{existingClient.address}</span>
+                                </div>
+                            )}
+                        </div>
+
+                        <p className="text-sm text-slate-500 mb-4">
+                            ¿Eres tú?
+                        </p>
+
+                        <div className="space-y-3">
+                            <button
+                                onClick={() => {
+                                    setShowDuplicateModal(false);
+                                    navigate('/auth/login', { state: { prefillPhone: formData.phone } });
+                                }}
+                                className="w-full py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 flex items-center justify-center gap-2"
+                            >
+                                <CheckCircle size={18} /> Sí, soy yo - Iniciar sesión
+                            </button>
+
+                            <button
+                                onClick={() => {
+                                    setShowDuplicateModal(false);
+                                    alert('Por favor, contacta con soporte en +34 633 489 521.\n\nNo podemos tener el mismo teléfono en dos cuentas.');
+                                }}
+                                className="w-full py-2.5 border border-slate-200 rounded-xl font-semibold text-slate-600 hover:bg-slate-50 flex items-center justify-center gap-2"
+                            >
+                                <HelpCircle size={18} /> No, es otra persona
                             </button>
                         </div>
                     </div>
