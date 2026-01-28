@@ -407,6 +407,16 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
 
             // 🔔 Send WhatsApp notification to client
             const techPhone = techs.find(t => t.id === p.technician_id)?.phone;
+
+            // DEBUG: Log ticket data to identify notification issue
+            console.log('[SmartAssignment] Ticket data for notification:', {
+                clientPhone: ticket.profiles?.phone,
+                clientName: ticket.profiles?.full_name,
+                ticketId: ticket.id,
+                ticketNumber: ticket.ticket_number,
+                hasProfiles: !!ticket.profiles
+            });
+
             notifyClientAssignment({
                 clientPhone: ticket.profiles?.phone,
                 clientName: ticket.profiles?.full_name,
