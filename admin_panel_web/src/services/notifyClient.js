@@ -60,8 +60,8 @@ export async function notifyClientAssignment({
         return { success: false, error: 'Missing client phone' };
     }
 
-    // Build the message
-    const message = `🔧 ¡Tu servicio ha sido asignado!
+    // Build the assignment message
+    const assignmentMessage = `🔧 ¡Tu servicio ha sido asignado!
 
 Técnico: ${technicianName || 'Por confirmar'}
 📅 Fecha: ${formatDate(scheduledAt)}
@@ -72,13 +72,25 @@ El técnico se pondrá en contacto contigo para confirmar.
 
 Servicio #${ticketNumber}`;
 
+    // Educational message about WhatsApp bot
+    const educationalMessage = `💡 *¿Sabías que puedes solicitar servicios por WhatsApp?*
+
+La próxima vez que necesites una reparación, simplemente escríbenos "Hola" a este número y nuestro asistente virtual te guiará paso a paso para:
+
+✅ Registrar tu avería
+✅ Elegir fecha y hora
+✅ Recibir confirmación inmediata
+
+¡Rápido, fácil y disponible 24/7! 📱`;
+
     try {
         console.log(`[notifyClient] Sending assignment notification to ${clientPhone}`);
 
+        // Send assignment message
         const { data, error } = await supabase.functions.invoke('send-whatsapp', {
             body: {
                 to: clientPhone,
-                message
+                message: assignmentMessage
             }
         });
 
@@ -87,7 +99,26 @@ Servicio #${ticketNumber}`;
             return { success: false, error: error.message };
         }
 
-        console.log('[notifyClient] Notification sent successfully:', data);
+        console.log('[notifyClient] Assignment notification sent:', data);
+
+        // Small delay before sending educational message
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // Send educational message
+        const { data: eduData, error: eduError } = await supabase.functions.invoke('send-whatsapp', {
+            body: {
+                to: clientPhone,
+                message: educationalMessage
+            }
+        });
+
+        if (eduError) {
+            console.warn('[notifyClient] Educational message failed:', eduError);
+            // Don't fail the whole notification if educational message fails
+        } else {
+            console.log('[notifyClient] Educational message sent:', eduData);
+        }
+
         return { success: true, messageId: data?.messageId };
     } catch (err) {
         console.error('[notifyClient] Exception:', err);
