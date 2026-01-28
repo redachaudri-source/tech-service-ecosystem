@@ -182,9 +182,17 @@ CREATE TRIGGER trigger_auto_address_order
     EXECUTE FUNCTION auto_assign_address_order();
 
 -- ============================================================================
--- PASO 6: Función para actualizar last_used_at
+-- PASO 6: Añadir address_id a tickets + Trigger last_used_at
 -- ============================================================================
 
+-- Añadir columna address_id a tickets
+ALTER TABLE tickets 
+ADD COLUMN IF NOT EXISTS address_id UUID REFERENCES client_addresses(id) ON DELETE SET NULL;
+
+-- Índice para tickets por dirección
+CREATE INDEX IF NOT EXISTS idx_tickets_address ON tickets(address_id);
+
+-- Función para actualizar last_used_at
 CREATE OR REPLACE FUNCTION update_address_last_used()
 RETURNS TRIGGER AS $$
 BEGIN
