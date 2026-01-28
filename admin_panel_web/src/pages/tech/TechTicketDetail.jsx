@@ -370,8 +370,38 @@ const TechTicketDetail = () => {
             // Refresh local state
             setTicket(prev => ({ ...prev, status: newStatus, status_history: updatedHistory, ...extraFields }));
 
-            // NOTE: Navigation for 'finalizado' status is now handled by SendPdfModal onClose
-            // This ensures the PDF delivery modal is shown before navigating away
+            // 🚗 ON_DEPARTURE Notification: Send WhatsApp when technician starts traveling
+            if (newStatus === 'en_camino') {
+                console.log('[Departure] Triggering ON_DEPARTURE notification...');
+
+                // Get current GPS position for accurate ETA
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        supabase.functions.invoke('notify-departure', {
+                            body: {
+                                ticket_id: id,
+                                tech_latitude: position.coords.latitude,
+                                tech_longitude: position.coords.longitude
+                            }
+                        }).then(({ data, error }) => {
+                            if (error) {
+                                console.error('[Departure] Notification error:', error);
+                            } else {
+                                console.log('[Departure] Notification sent:', data);
+                            }
+                        });
+                    },
+                    (geoError) => {
+                        // Fallback: send without GPS coordinates
+                        console.warn('[Departure] GPS unavailable, sending without coordinates:', geoError);
+                        supabase.functions.invoke('notify-departure', {
+                            body: { ticket_id: id }
+                        }).catch(err => console.error('[Departure] Notification error:', err));
+                    },
+                    { timeout: 5000, enableHighAccuracy: true }
+                );
+            }
+
 
         } catch (error) {
             console.error('Error updating status:', error);
