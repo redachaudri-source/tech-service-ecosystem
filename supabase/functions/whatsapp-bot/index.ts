@@ -757,7 +757,16 @@ serve(async (req: Request) => {
             return new Response('OK', { status: 200 });
         }
 
-        // NOTE: Removed timestamp filter - Meta timestamps are unreliable
+        // Filtrar mensajes antiguos (más de 2 minutos)
+        // Esto previene loops cuando Meta re-envía mensajes acumulados
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const messageAgeSeconds = nowSeconds - messageTimestamp;
+        console.log(`[Bot] ⏱️ Message age: ${messageAgeSeconds} seconds`);
+
+        if (messageAgeSeconds > 120) {
+            console.log(`[Bot] ⏰ Ignoring stale message (${messageAgeSeconds}s old)`);
+            return new Response('OK', { status: 200 });
+        }
 
         // ═══════════════════════════════════════════════════════════════════
         // LÓGICA DEL BOT (igual que antes)
