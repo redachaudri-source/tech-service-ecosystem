@@ -139,9 +139,11 @@ const Register = () => {
 
         // Check if phone exists before proceeding
         const normalized = normalizePhone(formData.phone);
+        console.log('🔍 Checking phone:', { original: formData.phone, normalized, length: normalized.length });
+
         if (normalized.length >= 9) {
             setCheckingPhone(true);
-            const { data } = await supabase
+            const { data, error } = await supabase
                 .from('profiles')
                 .select('id, full_name, phone, address')
                 .eq('phone', normalized)
@@ -150,7 +152,10 @@ const Register = () => {
                 .maybeSingle();
             setCheckingPhone(false);
 
+            console.log('🔍 Phone check result:', { data, error });
+
             if (data) {
+                console.log('✅ Found existing client:', data);
                 setExistingClient(data);
                 setShowDuplicateModal(true);
                 return; // Don't proceed, show modal
