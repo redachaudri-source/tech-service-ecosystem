@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { Plus, User, MapPin, Trash2, Edit2, X, Phone, Mail, History, Filter, Search as SearchIcon, Lock, Unlock, Package, Zap, Waves, Wind, Refrigerator, Flame, Thermometer, Tv, Smartphone, Disc, TrendingUp, AlertTriangle, CheckCircle, Clock, Star, ShieldAlert, Building2, Laptop, Navigation, Search, ChevronDown } from 'lucide-react';
+import { Plus, User, MapPin, Trash2, Edit2, X, Phone, Mail, History, Filter, Search as SearchIcon, Lock, Unlock, Package, Zap, Waves, Wind, Refrigerator, Flame, Thermometer, Tv, Smartphone, Disc, TrendingUp, AlertTriangle, CheckCircle, Clock, Star, ShieldAlert, Building2, Laptop, Navigation, Search, ChevronDown, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import ClientFormModal from '../components/ClientFormModal';
@@ -117,6 +117,11 @@ const ClientManager = () => {
     const [showAppliances, setShowAppliances] = useState(false);
     const [clientAppliances, setClientAppliances] = useState([]);
     const [appliancesLoading, setAppliancesLoading] = useState(false);
+
+    // Addresses State
+    const [showAddresses, setShowAddresses] = useState(false);
+    const [clientAddresses, setClientAddresses] = useState([]);
+    const [addressesLoading, setAddressesLoading] = useState(false);
 
     useEffect(() => {
         fetchClients();
@@ -325,6 +330,29 @@ const ClientManager = () => {
         setClientTickets(data || []);
     };
 
+    const handleViewAddresses = async (client) => {
+        setSelectedClient(client);
+        setShowAddresses(true);
+        setAddressesLoading(true);
+        setClientAddresses([]);
+
+        try {
+            const { data, error } = await supabase
+                .from('client_addresses')
+                .select('*')
+                .eq('client_id', client.id)
+                .order('is_primary', { ascending: false })
+                .order('label');
+
+            if (error) throw error;
+            setClientAddresses(data || []);
+        } catch (err) {
+            console.error('Error fetching addresses:', err);
+        } finally {
+            setAddressesLoading(false);
+        }
+    };
+
     // --- Smart Filter ---
     const filteredClients = useMemo(() => {
         let result = clients.filter(client => {
@@ -494,6 +522,9 @@ const ClientManager = () => {
                                             <button onClick={() => handleViewHistory(client)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded" title="Ver Historial">
                                                 <History size={16} />
                                             </button>
+                                            <button onClick={() => handleViewAddresses(client)} className="p-1.5 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded" title="Ver Direcciones">
+                                                <Eye size={16} />
+                                            </button>
                                             <button onClick={() => handleViewAppliances(client)} className="p-1.5 text-slate-500 hover:text-purple-600 hover:bg-purple-50 rounded" title="Ver Equipos">
                                                 <Package size={16} />
                                             </button>
@@ -607,6 +638,59 @@ const ClientManager = () => {
                 </div>
             )
             }
+
+            {/* Addresses Modal */}
+            {showAddresses && selectedClient && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col">
+                        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                    <MapPin size={20} className="text-teal-600" /> Direcciones Registradas
+                                </h2>
+                                <p className="text-xs text-slate-500">{selectedClient.full_name}</p>
+                            </div>
+                            <button onClick={() => setShowAddresses(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+                        </div>
+                        <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50">
+                            {addressesLoading ? (
+                                <div className="text-center py-8 text-slate-400">Cargando direcciones...</div>
+                            ) : clientAddresses.length === 0 ? (
+                                <div className="p-8 text-center text-slate-400 border-2 border-dashed rounded-xl">
+                                    <MapPin size={32} className="mx-auto mb-2 opacity-50" />
+                                    <p>Este cliente no tiene direcciones en la tabla multi-direcciones.</p>
+                                    <p className="text-xs mt-1">Dirección del perfil: {selectedClient.address || 'No especificada'}</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {clientAddresses.map(addr => (
+                                        <div key={addr.id} className={`bg-white p-4 rounded-xl border ${addr.is_primary ? 'border-teal-300 ring-2 ring-teal-100' : 'border-slate-200'} shadow-sm`}>
+                                            <div className="flex justify-between items-start">
+                                                <div className="flex items-center gap-2">
+                                                    {addr.is_primary && (
+                                                        <span className="px-2 py-0.5 text-[10px] font-bold bg-teal-100 text-teal-700 rounded-full uppercase">Principal</span>
+                                                    )}
+                                                    <span className="font-bold text-slate-800">{addr.label || 'Sin etiqueta'}</span>
+                                                </div>
+                                            </div>
+                                            <p className="text-sm text-slate-600 mt-2 flex items-start gap-2">
+                                                <MapPin size={14} className="text-slate-400 mt-0.5 shrink-0" />
+                                                {addr.address_line}
+                                            </p>
+                                            <div className="flex gap-4 mt-2 text-xs text-slate-400">
+                                                <span>Ciudad: {addr.city || '-'}</span>
+                                                <span>CP: {addr.postal_code || '-'}</span>
+                                                {addr.floor && <span>Piso: {addr.floor}</span>}
+                                                {addr.apartment && <span>Pta: {addr.apartment}</span>}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* History Modal Reuse Logic */}
             {

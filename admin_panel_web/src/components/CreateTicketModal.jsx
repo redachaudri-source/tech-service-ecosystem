@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Save, User, Smartphone, Plus, Clock, Sparkles, AlertCircle, Zap } from 'lucide-react';
+import { X, Save, User, Smartphone, Plus, Clock, Sparkles, AlertCircle, Zap, MapPin } from 'lucide-react';
 import AgendaPicker from './AgendaPicker';
 import SmartBrandSelector from './SmartBrandSelector';
 import ClientSearchInput from './ClientSearchInput';
@@ -273,6 +273,11 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
     const [aiDiagnosis, setAiDiagnosis] = useState('');
     const [isAnalyzing, setIsAnalyzing] = useState(false);
 
+    // Client Addresses
+    const [clientAddresses, setClientAddresses] = useState([]);
+    const [selectedAddressId, setSelectedAddressId] = useState('');
+    const [loadingAddresses, setLoadingAddresses] = useState(false);
+
     // Form State - Schedule
     const [appointmentDate, setAppointmentDate] = useState('');
     const [appointmentTime, setAppointmentTime] = useState('');
@@ -336,6 +341,44 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
         if (techsData) setTechs(techsData);
         if (typesData) setServiceTypes(typesData);
     };
+
+    // Fetch client addresses when client is selected
+    useEffect(() => {
+        if (!clientId) {
+            setClientAddresses([]);
+            setSelectedAddressId('');
+            return;
+        }
+
+        const fetchClientAddresses = async () => {
+            setLoadingAddresses(true);
+            try {
+                const { data, error } = await supabase
+                    .from('client_addresses')
+                    .select('*')
+                    .eq('client_id', clientId)
+                    .order('is_primary', { ascending: false })
+                    .order('label');
+
+                if (!error && data) {
+                    setClientAddresses(data);
+                    // Auto-select primary address
+                    const primary = data.find(a => a.is_primary);
+                    if (primary) {
+                        setSelectedAddressId(primary.id);
+                    } else if (data.length > 0) {
+                        setSelectedAddressId(data[0].id);
+                    }
+                }
+            } catch (err) {
+                console.error('Error fetching addresses:', err);
+            } finally {
+                setLoadingAddresses(false);
+            }
+        };
+
+        fetchClientAddresses();
+    }, [clientId]);
 
     const handleServiceTypeChange = (e) => {
         const id = e.target.value;
@@ -438,6 +481,7 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
             .from('tickets')
             .insert({
                 client_id: finalClientId,
+                address_id: selectedAddressId || null,
                 technician_id: assignedTech || null,
                 service_type_id: serviceTypeId || null,
                 brand_id: selectedBrandId || null,
@@ -516,6 +560,41 @@ const CreateTicketModal = ({ onClose, onSuccess, title = 'Nuevo Servicio', submi
                                 disabled={!!warrantyClaimFrom}
                                 placeholder="Buscar por nombre, teléfono o dirección..."
                             />
+
+                            {/* Address Selector - Shows when client has addresses */}
+                            {clientId && clientAddresses.length > 0 && (
+                                <div className="mt-4 animate-in slide-in-from-top-2">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center gap-1">
+                                        <MapPin size={12} className="text-blue-500" />
+                                        Dirección del Servicio
+                                        <span className="text-amber-500 text-base leading-none">*</span>
+                                    </label>
+                                    <select
+                                        value={selectedAddressId}
+                                        onChange={e => setSelectedAddressId(e.target.value)}
+                                        className="w-full p-3 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 transition-all"
+                                        required
+                                    >
+                                        {clientAddresses.map(addr => (
+                                            <option key={addr.id} value={addr.id}>
+                                                {addr.is_primary && '⭐ '}
+                                                {addr.label || 'Sin etiqueta'}: {addr.address_line}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-[10px] text-slate-500 mt-1">
+                                        {clientAddresses.length} dirección(es) registrada(s) para este cliente
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* No addresses warning */}
+                            {clientId && !loadingAddresses && clientAddresses.length === 0 && (
+                                <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800 flex items-center gap-2 animate-in fade-in">
+                                    <AlertCircle size={16} />
+                                    Este cliente no tiene direcciones registradas. Se usará la dirección del perfil.
+                                </div>
+                            )}
                         </div>
 
                         {/* ═══════════════════════════════════════════════════════════════ */}
