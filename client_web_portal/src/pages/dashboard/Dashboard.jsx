@@ -683,24 +683,30 @@ const Dashboard = () => {
                 {/* Active Services List */}
                 {activeTickets.length > 0 ? (
                     <div className="space-y-4">
-                        <h2 className="font-bold text-lg text-slate-700 flex items-center gap-2">
-                            <Clock size={20} className="text-blue-500" />
+                        <h2 className={`font-bold text-lg flex items-center gap-2 ${isPro ? 'text-white' : 'text-slate-700'}`}>
+                            <Clock size={20} className={isPro ? 'text-emerald-400' : 'text-blue-500'} />
                             En Curso
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${isPro ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-blue-100 text-blue-600 border border-blue-200'}`}>
+                                {activeTickets.length}
+                            </span>
                         </h2>
                         {activeTickets.map(ticket => (
-                            <div key={ticket.id} className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition">
+                            <div key={ticket.id} className={`rounded-xl p-6 transition ${isPro
+                                ? 'bg-slate-800/50 backdrop-blur-sm border border-white/10 hover:border-white/20 hover:bg-slate-800/70'
+                                : 'bg-white shadow-sm border border-slate-200 hover:shadow-md hover:border-slate-300'
+                                }`}>
                                 <div className="flex flex-col md:flex-row justify-between gap-4">
                                     <div className="flex-1">
                                         <div className="flex items-center gap-3 mb-2">
                                             <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(ticket.status)}`}>
                                                 {getStatusLabel(ticket.status)}
                                             </span>
-                                            <span className="text-xs text-slate-400">#{ticket.ticket_number}</span>
+                                            <span className={`text-xs ${isPro ? 'text-white/50' : 'text-slate-400'}`}>#{ticket.ticket_number}</span>
                                         </div>
-                                        <h3 className="font-bold text-lg text-slate-800 mb-1">
+                                        <h3 className={`font-bold text-lg mb-1 ${isPro ? 'text-white' : 'text-slate-800'}`}>
                                             {ticket.appliance_info?.type} - {ticket.appliance_info?.brand}
                                         </h3>
-                                        <p className="text-slate-500 text-sm line-clamp-2">
+                                        <p className={`text-sm line-clamp-2 ${isPro ? 'text-white/60' : 'text-slate-500'}`}>
                                             {ticket.description_failure}
                                         </p>
 
