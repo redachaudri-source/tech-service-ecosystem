@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, Save, MapPin, Phone, AlertCircle, Wrench, Camera, HelpCircle, X, Image as ImageIcon, Star, ChevronDown } from 'lucide-react';
 import SmartBrandSelector from '../../components/SmartBrandSelector';
+import AppointmentSelectorModal from '../../components/AppointmentSelectorModal';
 
 const NewService = () => {
     const navigate = useNavigate();
@@ -15,6 +16,12 @@ const NewService = () => {
     const [addresses, setAddresses] = useState([]);
     const [selectedAddressId, setSelectedAddressId] = useState(null);
     const [showAddressSelector, setShowAddressSelector] = useState(false);
+
+    // PRO Mode - Appointment Selector
+    const [showAppointmentModal, setShowAppointmentModal] = useState(false);
+    const [pendingSlots, setPendingSlots] = useState([]);
+    const [createdTicketId, setCreatedTicketId] = useState(null);
+    const [ticketInfoForModal, setTicketInfoForModal] = useState({});
 
     const [formData, setFormData] = useState({
         type: 'Lavadora',
@@ -157,7 +164,8 @@ const NewService = () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('Usuario no autenticado');
 
-            const { error } = await supabase
+            // Create ticket
+            const { data: ticketData, error } = await supabase
                 .from('tickets')
                 .insert([
                     {
@@ -176,11 +184,54 @@ const NewService = () => {
                         service_type_id: selectedServiceTypeId || null,
                         origin_source: 'client_web'
                     }
-                ]);
+                ])
+                .select('id')
+                .single();
 
             if (error) throw error;
 
-            alert('Solicitud enviada correctamente.');
+            const ticketId = ticketData.id;
+
+            // Check if PRO mode is enabled
+            const { data: secretaryModeConfig } = await supabase
+                .from('business_config')
+                .select('value')
+                .eq('key', 'secretary_mode')
+                .single();
+
+            const { data: proConfigData } = await supabase
+                .from('business_config')
+                .select('value')
+                .eq('key', 'pro_config')
+                .single();
+
+            const secretaryMode = secretaryModeConfig?.value || 'basic';
+            const proConfig = proConfigData?.value || { channels: { app: false } };
+
+            // If PRO mode and app channel enabled, show slot selector
+            if (secretaryMode === 'pro' && proConfig.channels?.app) {
+                console.log('[NewService] PRO mode active, fetching slots...');
+
+                // Get available slots via Edge Function or direct query
+                const slots = await fetchAvailableSlots(selectedAddressId, proConfig);
+
+                if (slots && slots.length > 0) {
+                    // Show modal instead of navigating
+                    setCreatedTicketId(ticketId);
+                    setPendingSlots(slots);
+                    setTicketInfoForModal({
+                        appliance: formData.type,
+                        brand: formData.brand,
+                        address: formData.address
+                    });
+                    setShowAppointmentModal(true);
+                    setLoading(false);
+                    return; // Don't navigate, wait for modal
+                }
+            }
+
+            // BASIC mode or no slots available - navigate normally
+            alert('Solicitud enviada correctamente. Ref: #' + ticketId);
             navigate('/dashboard');
 
         } catch (error) {
@@ -189,6 +240,157 @@ const NewService = () => {
         } finally {
             setLoading(false);
         }
+    };
+
+    // Fetch available slots for PRO mode
+    const fetchAvailableSlots = async (addressId, proConfig) => {
+        try {
+            // Get postal code from selected address
+            let postalCode = null;
+            if (addressId) {
+                const selectedAddr = addresses.find(a => a.id === addressId);
+                postalCode = selectedAddr?.postal_code || null;
+            }
+
+            const slotsCount = proConfig.slots_count || 3;
+            const searchDays = proConfig.search_days || 7;
+
+            // Get active technicians
+            const { data: technicians } = await supabase
+                .from('technicians')
+                .select('id, full_name, postal_codes_covered')
+                .eq('is_active', true)
+                .eq('is_deleted', false);
+
+            if (!technicians || technicians.length === 0) return [];
+
+            // Filter by postal code if available
+            let validTechs = technicians;
+            if (postalCode) {
+                validTechs = technicians.filter(t => {
+                    const cpList = t.postal_codes_covered || [];
+                    return cpList.length === 0 || cpList.includes(postalCode);
+                });
+            }
+
+            if (validTechs.length === 0) return [];
+
+            // Get busy slots
+            const startDate = new Date();
+            const endDate = new Date();
+            endDate.setDate(endDate.getDate() + searchDays);
+
+            const { data: busySlots } = await supabase
+                .from('tickets')
+                .select('assigned_technician_id, scheduled_date, scheduled_time')
+                .in('assigned_technician_id', validTechs.map(t => t.id))
+                .gte('scheduled_date', startDate.toISOString().split('T')[0])
+                .lte('scheduled_date', endDate.toISOString().split('T')[0])
+                .in('status', ['asignado', 'en_camino', 'en_proceso']);
+
+            // Build busy map
+            const busyMap = new Map();
+            if (busySlots) {
+                for (const slot of busySlots) {
+                    const key = `${slot.assigned_technician_id}_${slot.scheduled_date}`;
+                    if (!busyMap.has(key)) busyMap.set(key, new Set());
+                    if (slot.scheduled_time) busyMap.get(key).add(slot.scheduled_time);
+                }
+            }
+
+            // Generate available slots
+            const timeSlots = ['09:00', '11:00', '13:00', '16:00', '18:00'];
+            const slots = [];
+
+            for (let d = 1; d <= searchDays && slots.length < slotsCount; d++) {
+                const checkDate = new Date();
+                checkDate.setDate(checkDate.getDate() + d);
+                const dayOfWeek = checkDate.getDay();
+
+                // Skip weekends
+                if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+
+                const dateStr = checkDate.toISOString().split('T')[0];
+
+                for (const tech of validTechs) {
+                    if (slots.length >= slotsCount) break;
+
+                    const busyKey = `${tech.id}_${dateStr}`;
+                    const busyTimes = busyMap.get(busyKey) || new Set();
+
+                    for (const time of timeSlots) {
+                        if (slots.length >= slotsCount) break;
+                        if (busyTimes.has(time)) continue;
+
+                        const startHour = parseInt(time.split(':')[0]);
+                        const endHour = startHour + 2;
+                        const endTime = `${endHour.toString().padStart(2, '0')}:00`;
+
+                        slots.push({
+                            date: dateStr,
+                            time_start: time,
+                            time_end: endTime,
+                            technician_id: tech.id,
+                            technician_name: tech.full_name
+                        });
+
+                        busyTimes.add(time);
+                        busyMap.set(busyKey, busyTimes);
+                        break;
+                    }
+                }
+            }
+
+            return slots;
+        } catch (e) {
+            console.error('Error fetching slots:', e);
+            return [];
+        }
+    };
+
+    // Handle slot confirmation
+    const handleSlotConfirm = async (selectedIndex) => {
+        const slot = pendingSlots[selectedIndex];
+        if (!slot || !createdTicketId) return;
+
+        try {
+            // Update ticket with assignment
+            const { error } = await supabase
+                .from('tickets')
+                .update({
+                    status: 'asignado',
+                    assigned_technician_id: slot.technician_id,
+                    scheduled_date: slot.date,
+                    scheduled_time: slot.time_start
+                })
+                .eq('id', createdTicketId);
+
+            if (error) throw error;
+
+            setShowAppointmentModal(false);
+            alert(`✅ ¡Cita confirmada!\n\n📅 ${slot.date}\n🕐 ${slot.time_start} - ${slot.time_end}\n👤 Técnico: ${slot.technician_name}`);
+            navigate('/dashboard');
+        } catch (e) {
+            console.error('Error confirming slot:', e);
+            alert('Error al confirmar la cita. Te llamaremos para coordinar.');
+            navigate('/dashboard');
+        }
+    };
+
+    // Handle slot skip
+    const handleSlotSkip = () => {
+        setShowAppointmentModal(false);
+        alert('📞 Entendido, te llamaremos para coordinar un horario que te venga mejor.\n\nReferencia: #' + createdTicketId);
+        navigate('/dashboard');
+    };
+
+    // Handle timeout
+    const handleSlotTimeout = () => {
+        // Modal will show timeout screen, then user can acknowledge
+        setTimeout(() => {
+            setShowAppointmentModal(false);
+            navigate('/dashboard');
+        }, 3000);
     };
 
     return (
@@ -392,8 +594,8 @@ const NewService = () => {
                                                         }`}
                                                 >
                                                     <div className={`w-4 h-4 rounded-full border-2 ${addr.id === selectedAddressId
-                                                            ? 'border-blue-500 bg-blue-500'
-                                                            : 'border-slate-300'
+                                                        ? 'border-blue-500 bg-blue-500'
+                                                        : 'border-slate-300'
                                                         }`}>
                                                         {addr.id === selectedAddressId && (
                                                             <div className="w-2 h-2 bg-white rounded-full mx-auto mt-0.5" />
@@ -470,6 +672,17 @@ const NewService = () => {
                     </div>
                 </div>
             )}
+
+            {/* PRO Mode - Appointment Selector Modal */}
+            <AppointmentSelectorModal
+                isOpen={showAppointmentModal}
+                slots={pendingSlots}
+                ticketId={createdTicketId}
+                ticketInfo={ticketInfoForModal}
+                onConfirm={handleSlotConfirm}
+                onSkip={handleSlotSkip}
+                onTimeout={handleSlotTimeout}
+            />
         </div>
     );
 };
