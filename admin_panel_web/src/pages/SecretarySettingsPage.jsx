@@ -588,7 +588,7 @@ const SecretarySettingsPage = () => {
     }
 
     return (
-        <div className="fixed inset-0 overflow-auto" style={{ background: colors.dark.primary }}>
+        <div className="min-h-screen w-full" style={{ background: colors.dark.primary }}>
             <style>{`
                 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
                 .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
@@ -596,7 +596,7 @@ const SecretarySettingsPage = () => {
 
             <ActivationModal />
 
-            <div className="max-w-5xl mx-auto p-6">
+            <div className="max-w-4xl mx-auto p-6 pb-24">
                 {/* Header */}
                 <div className="mb-6">
                     <div className="flex items-center gap-4">

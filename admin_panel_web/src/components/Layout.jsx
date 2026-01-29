@@ -113,6 +113,40 @@ const Layout = () => {
         }
     }, [location.pathname]);
 
+    // ═══════════════════════════════════════════════════════════════
+    // SECRETARIA VIRTUAL PRO INDICATOR
+    // ═══════════════════════════════════════════════════════════════
+    const [isProModeActive, setIsProModeActive] = useState(false);
+
+    useEffect(() => {
+        const checkProMode = async () => {
+            const { data } = await supabase
+                .from('business_config')
+                .select('value')
+                .eq('key', 'secretary_mode')
+                .single();
+
+            setIsProModeActive(data?.value === 'pro');
+        };
+        checkProMode();
+
+        // Subscribe to changes
+        const channel = supabase
+            .channel('secretary-mode-changes')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'business_config', filter: "key=eq.secretary_mode" },
+                (payload) => {
+                    setIsProModeActive(payload.new?.value === 'pro');
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
+
     // Sound Effect Helper
     const playNotificationSound = () => {
         try {
@@ -211,7 +245,42 @@ const Layout = () => {
     };
 
     return (
-        <div className="flex h-screen w-full bg-slate-50 overflow-hidden font-sans relative">
+        <div className={`flex h-screen w-full bg-slate-50 overflow-hidden font-sans relative ${isProModeActive ? 'ring-4 ring-[#c9a227] ring-inset shadow-[inset_0_0_30px_rgba(201,162,39,0.2)]' : ''}`}>
+
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            {/* SECRETARIA VIRTUAL PRO ACTIVE INDICATOR */}
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            {isProModeActive && (
+                <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999]">
+                    <div className="bg-gradient-to-r from-[#1a1506] via-[#2a2010] to-[#1a1506] px-6 py-2.5 rounded-full shadow-2xl flex items-center gap-3 border-2 border-[#c9a227] backdrop-blur-sm">
+                        {/* Animated Bot Icon */}
+                        <div className="relative">
+                            <div className="w-8 h-8 bg-gradient-to-br from-[#d4a853] to-[#c9a227] rounded-full flex items-center justify-center shadow-lg">
+                                <Bot size={18} className="text-[#1a1506]" />
+                            </div>
+                            {/* Pulse ring */}
+                            <div className="absolute -inset-1 bg-[#c9a227] rounded-full animate-ping opacity-30" />
+                        </div>
+
+                        {/* Text */}
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-[#d4a853]/70 uppercase tracking-widest">
+                                Autopilot
+                            </span>
+                            <span className="text-sm font-black text-[#d4a853] tracking-wide">
+                                SECRETARIA VIRTUAL PRO
+                            </span>
+                        </div>
+
+                        {/* Status Dot */}
+                        <div className="flex items-center gap-1.5 ml-2 px-3 py-1 bg-[#c9a227]/20 rounded-full">
+                            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-lg shadow-emerald-400/50" />
+                            <span className="text-xs font-bold text-emerald-400 uppercase">Activa</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* GLOBAL NOTIFICATION BANNER (MORTIFY) */}
             {showMortifyBanner && (
                 <div className="absolute top-4 right-4 z-[9999] animate-in slide-in-from-top-5 duration-300">
