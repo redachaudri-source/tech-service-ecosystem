@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Bot, Settings, Save, CheckCircle, AlertTriangle, Zap, Users, Building2, MessageCircle, FileText, Calendar } from 'lucide-react';
+import { Bot, Settings, Save, CheckCircle, AlertTriangle, Zap, Users, Building2, MessageCircle, FileText, Calendar, Clock, ToggleLeft, ToggleRight } from 'lucide-react';
 import WhatsAppBotSection from '../components/settings/WhatsAppBotSection';
 
 /**
@@ -19,13 +19,18 @@ const SecretarySettingsPage = () => {
     // Mode Config
     const [secretaryMode, setSecretaryMode] = useState('basic'); // 'basic' | 'pro'
     const [proConfig, setProConfig] = useState({
+        pro_enabled: true,
         slots_count: 3,
         timeout_minutes: 3,
         search_days: 7,
         channels: {
             whatsapp: true,
             app: true
-        }
+        },
+        // Operating schedule
+        operating_days: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie'],
+        working_hours_start: '09:00',
+        working_hours_end: '19:00'
     });
 
     useEffect(() => {
@@ -92,8 +97,8 @@ const SecretarySettingsPage = () => {
                     Secretaria Virtual
                     {/* Active Mode Badge */}
                     <span className={`ml-2 px-3 py-1 text-xs font-bold rounded-full ${secretaryMode === 'pro'
-                            ? 'bg-purple-100 text-purple-700 border border-purple-200'
-                            : 'bg-blue-100 text-blue-700 border border-blue-200'
+                        ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                        : 'bg-blue-100 text-blue-700 border border-blue-200'
                         }`}>
                         {secretaryMode === 'pro' ? '✨ PRO ACTIVO' : '📋 BÁSICO ACTIVO'}
                     </span>
@@ -283,8 +288,8 @@ const SecretarySettingsPage = () => {
                     <div className="space-y-6">
                         {/* Mode Indicator */}
                         <div className={`p-4 rounded-xl border ${secretaryMode === 'pro'
-                                ? 'bg-purple-50 border-purple-200'
-                                : 'bg-blue-50 border-blue-200'
+                            ? 'bg-purple-50 border-purple-200'
+                            : 'bg-blue-50 border-blue-200'
                             }`}>
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
@@ -367,6 +372,103 @@ const SecretarySettingsPage = () => {
                                                 ))}
                                             </select>
                                             <p className="text-xs text-slate-500 mt-1">Rango de búsqueda de disponibilidad</p>
+                                        </div>
+                                    </div>
+
+                                    {/* PRO Enabled Toggle */}
+                                    <div className="border-t border-slate-100 pt-6">
+                                        <div
+                                            onClick={() => setProConfig(prev => ({ ...prev, pro_enabled: !prev.pro_enabled }))}
+                                            className={`flex items-center justify-between p-4 rounded-xl cursor-pointer transition-all ${proConfig.pro_enabled
+                                                    ? 'bg-purple-100 border-2 border-purple-400'
+                                                    : 'bg-slate-100 border-2 border-slate-300'
+                                                }`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                {proConfig.pro_enabled ? (
+                                                    <ToggleRight className="text-purple-600" size={28} />
+                                                ) : (
+                                                    <ToggleLeft className="text-slate-400" size={28} />
+                                                )}
+                                                <div>
+                                                    <p className={`font-bold ${proConfig.pro_enabled ? 'text-purple-800' : 'text-slate-600'}`}>
+                                                        {proConfig.pro_enabled ? '🟢 PRO Activo' : '⚪ PRO Desactivado'}
+                                                    </p>
+                                                    <p className={`text-sm ${proConfig.pro_enabled ? 'text-purple-600' : 'text-slate-500'}`}>
+                                                        {proConfig.pro_enabled
+                                                            ? 'El bot responderá automáticamente en modo PRO'
+                                                            : 'El bot no propondrá citas automáticamente'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Operating Days */}
+                                    <div className="border-t border-slate-100 pt-6">
+                                        <label className="block text-sm font-bold text-slate-700 mb-3">
+                                            📅 Días de operación PRO
+                                        </label>
+                                        <p className="text-xs text-slate-500 mb-3">El modo PRO solo estará activo en los días seleccionados</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(day => (
+                                                <button
+                                                    key={day}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const days = proConfig.operating_days || [];
+                                                        if (days.includes(day)) {
+                                                            setProConfig(prev => ({
+                                                                ...prev,
+                                                                operating_days: days.filter(d => d !== day)
+                                                            }));
+                                                        } else {
+                                                            setProConfig(prev => ({
+                                                                ...prev,
+                                                                operating_days: [...days, day]
+                                                            }));
+                                                        }
+                                                    }}
+                                                    className={`px-4 py-2 rounded-xl font-medium transition-all ${(proConfig.operating_days || []).includes(day)
+                                                            ? 'bg-purple-600 text-white shadow-lg'
+                                                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                                        }`}
+                                                >
+                                                    {day}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Working Hours */}
+                                    <div className="border-t border-slate-100 pt-6">
+                                        <label className="block text-sm font-bold text-slate-700 mb-3">
+                                            🕐 Horario de operación PRO
+                                        </label>
+                                        <p className="text-xs text-slate-500 mb-3">Fuera de este horario, el bot no propondrá citas automáticamente</p>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-xs font-medium text-slate-500 mb-1">
+                                                    <Clock size={12} className="inline mr-1" /> HORA INICIO
+                                                </label>
+                                                <input
+                                                    type="time"
+                                                    value={proConfig.working_hours_start || '09:00'}
+                                                    onChange={(e) => setProConfig(prev => ({ ...prev, working_hours_start: e.target.value }))}
+                                                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-slate-50"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-slate-500 mb-1">
+                                                    <Clock size={12} className="inline mr-1" /> HORA FIN
+                                                </label>
+                                                <input
+                                                    type="time"
+                                                    value={proConfig.working_hours_end || '19:00'}
+                                                    onChange={(e) => setProConfig(prev => ({ ...prev, working_hours_end: e.target.value }))}
+                                                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-slate-50"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
 
