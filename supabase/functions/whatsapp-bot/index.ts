@@ -62,6 +62,32 @@ interface ClientIdentity {
     isAppUser?: boolean; // True if registered via APP - should redirect to app
 }
 
+// ============================================================================
+// TIPOS - SECRETARIA VIRTUAL PRO (Fase 3.3.9)
+// ============================================================================
+
+interface PendingSlot {
+    date: string;           // "2026-01-30"
+    time_start: string;     // "10:00"
+    time_end: string;       // "12:00"
+    technician_id: string;
+    technician_name: string;
+}
+
+interface SecretaryProConfig {
+    secretary_mode: 'basic' | 'pro';
+    bot_active_days: number[];  // [1,2,3,4,5] = Mon-Fri
+    pro_config: {
+        slots_count: number;
+        timeout_minutes: number;
+        search_days: number;
+        channels: {
+            whatsapp: boolean;
+            app: boolean;
+        };
+    };
+}
+
 interface CollectedData {
     appliance?: string;
     brand?: string;
@@ -74,6 +100,11 @@ interface CollectedData {
     // Fase 2: Identidad del cliente (cacheada)
     client_identity?: ClientIdentity;
     selected_address_id?: string;
+    // Fase 3.3.9: PRO Mode - Propuestas de cita
+    pending_slots?: PendingSlot[];
+    slot_selection_retries?: number;
+    slot_selection_timeout_at?: string;
+    created_ticket_id?: number;
 }
 
 interface BotConfig {
@@ -343,6 +374,252 @@ async function getBotConfig(): Promise<BotConfig> {
         console.error('[Bot] Error getting config:', e);
         return DEFAULT_CONFIG;
     }
+}
+
+// ============================================================================
+// SECRETARIA VIRTUAL PRO - FUNCIONES (Fase 3.3.9)
+// ============================================================================
+
+const DEFAULT_PRO_CONFIG: SecretaryProConfig = {
+    secretary_mode: 'basic',
+    bot_active_days: [1, 2, 3, 4, 5], // Mon-Fri
+    pro_config: {
+        slots_count: 3,
+        timeout_minutes: 3,
+        search_days: 7,
+        channels: { whatsapp: true, app: true }
+    }
+};
+
+async function getSecretaryConfig(): Promise<SecretaryProConfig> {
+    try {
+        const { data: configs } = await supabase
+            .from('business_config')
+            .select('key, value')
+            .in('key', ['secretary_mode', 'bot_active_days', 'pro_config']);
+
+        const result = { ...DEFAULT_PRO_CONFIG };
+
+        if (configs) {
+            for (const c of configs) {
+                if (c.key === 'secretary_mode' && c.value) {
+                    result.secretary_mode = c.value;
+                }
+                if (c.key === 'bot_active_days' && Array.isArray(c.value)) {
+                    result.bot_active_days = c.value;
+                }
+                if (c.key === 'pro_config' && c.value) {
+                    result.pro_config = { ...result.pro_config, ...c.value };
+                }
+            }
+        }
+
+        console.log('[Bot] 🤖 Secretary config:', JSON.stringify(result));
+        return result;
+    } catch (e) {
+        console.error('[Bot] Error getting secretary config:', e);
+        return DEFAULT_PRO_CONFIG;
+    }
+}
+
+function isBotActiveDay(activeDays: number[]): boolean {
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0=Sunday, 1=Monday, ...
+    return activeDays.includes(dayOfWeek);
+}
+
+async function getAvailableSlots(
+    postalCode: string | null,
+    slotsCount: number,
+    searchDays: number
+): Promise<PendingSlot[]> {
+    console.log(`[Bot] 📅 Searching ${slotsCount} slots for CP: ${postalCode}, days: ${searchDays}`);
+
+    try {
+        // Get all active technicians
+        const { data: technicians } = await supabase
+            .from('technicians')
+            .select('id, full_name, work_areas, postal_codes_covered')
+            .eq('is_active', true)
+            .eq('is_deleted', false);
+
+        if (!technicians || technicians.length === 0) {
+            console.log('[Bot] ❌ No active technicians found');
+            return [];
+        }
+
+        // Filter technicians who cover this postal code
+        let validTechs = technicians;
+        if (postalCode) {
+            validTechs = technicians.filter(t => {
+                const cpList = t.postal_codes_covered || [];
+                return cpList.length === 0 || cpList.includes(postalCode);
+            });
+        }
+
+        if (validTechs.length === 0) {
+            console.log('[Bot] ❌ No technicians cover postal code:', postalCode);
+            return [];
+        }
+
+        console.log(`[Bot] 👥 Found ${validTechs.length} technicians covering area`);
+
+        // Get busy slots for next N days
+        const startDate = new Date();
+        const endDate = new Date();
+        endDate.setDate(endDate.getDate() + searchDays);
+
+        const { data: busySlots } = await supabase
+            .from('tickets')
+            .select('assigned_technician_id, scheduled_date, scheduled_time')
+            .in('assigned_technician_id', validTechs.map(t => t.id))
+            .gte('scheduled_date', startDate.toISOString().split('T')[0])
+            .lte('scheduled_date', endDate.toISOString().split('T')[0])
+            .in('status', ['asignado', 'en_camino', 'en_proceso']);
+
+        // Create a map of busy times
+        const busyMap = new Map<string, Set<string>>();
+        if (busySlots) {
+            for (const slot of busySlots) {
+                const key = `${slot.assigned_technician_id}_${slot.scheduled_date}`;
+                if (!busyMap.has(key)) busyMap.set(key, new Set());
+                if (slot.scheduled_time) {
+                    busyMap.get(key)!.add(slot.scheduled_time);
+                }
+            }
+        }
+
+        // Standard time slots (2-hour windows)
+        const timeSlots = ['09:00', '11:00', '13:00', '16:00', '18:00'];
+        const slots: PendingSlot[] = [];
+
+        // Iterate through days and find available slots
+        for (let d = 1; d <= searchDays && slots.length < slotsCount; d++) {
+            const checkDate = new Date();
+            checkDate.setDate(checkDate.getDate() + d);
+            const dayOfWeek = checkDate.getDay();
+
+            // Skip weekends (0=Sunday, 6=Saturday)
+            if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+
+            const dateStr = checkDate.toISOString().split('T')[0];
+
+            for (const tech of validTechs) {
+                if (slots.length >= slotsCount) break;
+
+                const busyKey = `${tech.id}_${dateStr}`;
+                const busyTimes = busyMap.get(busyKey) || new Set();
+
+                for (const time of timeSlots) {
+                    if (slots.length >= slotsCount) break;
+                    if (busyTimes.has(time)) continue;
+
+                    // Calculate end time (2 hours later)
+                    const startHour = parseInt(time.split(':')[0]);
+                    const endHour = startHour + 2;
+                    const endTime = `${endHour.toString().padStart(2, '0')}:00`;
+
+                    slots.push({
+                        date: dateStr,
+                        time_start: time,
+                        time_end: endTime,
+                        technician_id: tech.id,
+                        technician_name: tech.full_name
+                    });
+
+                    // Mark as taken to avoid duplicates
+                    busyTimes.add(time);
+                    busyMap.set(busyKey, busyTimes);
+                    break; // One slot per tech per day iteration
+                }
+            }
+        }
+
+        console.log(`[Bot] ✅ Found ${slots.length} available slots`);
+        return slots;
+    } catch (e) {
+        console.error('[Bot] ❌ Error getting available slots:', e);
+        return [];
+    }
+}
+
+async function assignAutomatically(
+    ticketId: number,
+    slot: PendingSlot
+): Promise<boolean> {
+    console.log(`[Bot] 🎯 Auto-assigning ticket #${ticketId} to ${slot.technician_name}`);
+
+    try {
+        const { error } = await supabase
+            .from('tickets')
+            .update({
+                status: 'asignado',
+                assigned_technician_id: slot.technician_id,
+                scheduled_date: slot.date,
+                scheduled_time: slot.time_start
+            })
+            .eq('id', ticketId);
+
+        if (error) {
+            console.error('[Bot] ❌ Assignment error:', error);
+            return false;
+        }
+
+        console.log(`[Bot] ✅ Ticket #${ticketId} assigned to ${slot.technician_name}`);
+        return true;
+    } catch (e) {
+        console.error('[Bot] ❌ Error assigning ticket:', e);
+        return false;
+    }
+}
+
+function formatSlotMessage(slots: PendingSlot[], timeoutMinutes: number): string {
+    const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+    let msg = '📅 *Tengo estas citas disponibles:*\n\n';
+
+    slots.forEach((slot, i) => {
+        const d = new Date(slot.date);
+        const dayName = dayNames[d.getDay()];
+        const day = d.getDate();
+        const month = d.toLocaleString('es-ES', { month: 'short' });
+
+        msg += `*${i + 1}️⃣* ${dayName} ${day} ${month} - ${slot.time_start} a ${slot.time_end}\n`;
+        msg += `   👤 ${slot.technician_name}\n\n`;
+    });
+
+    msg += `Responde con el número (${slots.map((_, i) => i + 1).join(', ')})\n`;
+    msg += `⏱️ Tienes *${timeoutMinutes} minutos* para elegir`;
+
+    return msg;
+}
+
+function parseSlotResponse(message: string, slotsCount: number): number | 'none' | null {
+    const msg = message.toLowerCase().trim();
+
+    // Check for "ninguna"
+    if (msg.includes('ninguna') || msg.includes('otra') || msg.includes('diferente')) {
+        return 'none';
+    }
+
+    // Check for number
+    const numMatch = msg.match(/^(\d)$/);
+    if (numMatch) {
+        const num = parseInt(numMatch[1]);
+        if (num >= 1 && num <= slotsCount) {
+            return num - 1; // Return 0-indexed
+        }
+    }
+
+    // Check for word numbers
+    const words = ['primera', 'segunda', 'tercera', 'cuarta', 'quinta'];
+    for (let i = 0; i < words.length; i++) {
+        if (msg.includes(words[i]) && i < slotsCount) {
+            return i;
+        }
+    }
+
+    return null; // Invalid response
 }
 
 async function getConversation(phone: string): Promise<ConversationState | null> {
@@ -943,6 +1220,17 @@ serve(async (req: Request) => {
             return new Response('OK', { status: 200 });
         }
 
+        // ═══════════════════════════════════════════════════════════════════
+        // SECRETARIA VIRTUAL PRO: Verificar día activo
+        // ═══════════════════════════════════════════════════════════════════
+        const secretaryConfig = await getSecretaryConfig();
+
+        if (!isBotActiveDay(secretaryConfig.bot_active_days)) {
+            console.log('[Bot] 📅 Bot inactive today (not in active days)');
+            // No responder en días no activos
+            return new Response('OK', { status: 200 });
+        }
+
         // Normalizar el número (Meta lo envía sin +)
         const normalizedFrom = normalizePhone(from);
 
@@ -1025,6 +1313,92 @@ Si tienes alguna urgencia, llámanos al 633 489 521.`;
             return new Response('OK', { status: 200 });
         }
 
+        // ═══════════════════════════════════════════════════════════════════
+        // SECRETARIA VIRTUAL PRO: Manejo de selección de slot
+        // ═══════════════════════════════════════════════════════════════════
+        if (conversation.current_step === 'waiting_slot_selection') {
+            console.log('[Bot] 🎯 Processing slot selection response');
+
+            const pendingSlots = conversation.collected_data.pending_slots || [];
+            const ticketId = conversation.collected_data.created_ticket_id;
+            const retries = conversation.collected_data.slot_selection_retries || 0;
+
+            // Parse user response
+            const selection = parseSlotResponse(body, pendingSlots.length);
+
+            if (selection === null) {
+                // Invalid response - retry
+                if (retries >= 2) {
+                    console.log('[Bot] ⏰ Max retries reached, marking for manual coordination');
+                    await sendWhatsAppMessage(from,
+                        '⏰ No pude entender tu respuesta.\n\nNo te preocupes, te llamaremos para coordinar una fecha.\n\nReferencia: #' + ticketId
+                    );
+                    await updateConversation(normalizedFrom, 'completed', conversation.collected_data);
+                    return new Response('OK', { status: 200 });
+                }
+
+                // Ask again
+                conversation.collected_data.slot_selection_retries = retries + 1;
+                await updateConversation(normalizedFrom, 'waiting_slot_selection', conversation.collected_data);
+                await sendWhatsAppMessage(from,
+                    '❓ No reconocí tu respuesta.\n\nPor favor, responde con el *número* de la cita (1, 2 o 3).\nO escribe "ninguna" si ninguna te viene bien.'
+                );
+                return new Response('OK', { status: 200 });
+            }
+
+            if (selection === 'none') {
+                // User wants different options
+                console.log('[Bot] ❌ User rejected all slots');
+                await sendWhatsAppMessage(from,
+                    '📞 Entendido, te llamaremos para coordinar un horario que te venga mejor.\n\nReferencia: #' + ticketId
+                );
+                await updateConversation(normalizedFrom, 'completed', conversation.collected_data);
+                return new Response('OK', { status: 200 });
+            }
+
+            // Valid selection - assign automatically
+            const selectedSlot = pendingSlots[selection];
+            if (!selectedSlot || !ticketId) {
+                console.error('[Bot] ❌ Invalid slot selection or missing ticketId');
+                await updateConversation(normalizedFrom, 'completed', conversation.collected_data);
+                return new Response('OK', { status: 200 });
+            }
+
+            const assigned = await assignAutomatically(ticketId, selectedSlot);
+
+            if (assigned) {
+                const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                const d = new Date(selectedSlot.date);
+                const dayName = dayNames[d.getDay()];
+                const day = d.getDate();
+                const monthName = d.toLocaleString('es-ES', { month: 'long' });
+                const year = d.getFullYear();
+
+                const confirmMsg = `✅ *¡Cita confirmada!*
+
+📅 ${dayName} ${day} de ${monthName} ${year}
+🕐 ${selectedSlot.time_start} - ${selectedSlot.time_end}
+📍 ${conversation.collected_data.address || 'Tu dirección'}
+🔧 Servicio: ${conversation.collected_data.appliance || 'Reparación'}
+👤 Técnico: ${selectedSlot.technician_name}
+
+Te enviaremos:
+• Recordatorio 24h antes
+• Aviso cuando esté en camino
+
+Referencia: #${ticketId}`;
+
+                await sendWhatsAppMessage(from, confirmMsg);
+            } else {
+                await sendWhatsAppMessage(from,
+                    '⚠️ Hubo un problema al confirmar tu cita.\nTe llamaremos para coordinar.\n\nReferencia: #' + ticketId
+                );
+            }
+
+            await updateConversation(normalizedFrom, 'completed', conversation.collected_data);
+            return new Response('OK', { status: 200 });
+        }
+
         // Process current step
         const { nextStep, responseMessage, updatedData } = processStep(
             conversation.current_step,
@@ -1046,6 +1420,62 @@ Si tienes alguna urgencia, llámanos al 633 489 521.`;
             const ticketId = await createTicketFromConversation(updatedData, normalizedFrom);
             console.log(`[Bot] ✅ Created ticket #${ticketId}`);
 
+            // ═══════════════════════════════════════════════════════════════
+            // SECRETARIA VIRTUAL PRO: Buscar y proponer slots disponibles
+            // ═══════════════════════════════════════════════════════════════
+            if (secretaryConfig.secretary_mode === 'pro' && secretaryConfig.pro_config.channels.whatsapp) {
+                console.log('[Bot] 🤖 PRO MODE ACTIVE - Searching for available slots');
+
+                // Get postal code from client's selected address
+                let postalCode: string | null = null;
+                if (updatedData.selected_address_id && updatedData.client_identity?.addresses) {
+                    const addr = updatedData.client_identity.addresses.find(
+                        a => a.id === updatedData.selected_address_id
+                    );
+                    postalCode = addr?.postal_code || null;
+                }
+
+                const slots = await getAvailableSlots(
+                    postalCode,
+                    secretaryConfig.pro_config.slots_count,
+                    secretaryConfig.pro_config.search_days
+                );
+
+                if (slots.length > 0) {
+                    // Store pending slots and ticket ID
+                    updatedData.pending_slots = slots;
+                    updatedData.created_ticket_id = ticketId;
+                    updatedData.slot_selection_retries = 0;
+                    updatedData.slot_selection_timeout_at = new Date(
+                        Date.now() + secretaryConfig.pro_config.timeout_minutes * 60 * 1000
+                    ).toISOString();
+
+                    // Send slot proposal message
+                    const proposalMsg = formatSlotMessage(slots, secretaryConfig.pro_config.timeout_minutes);
+
+                    // First send confirmation that ticket was created
+                    await sendWhatsAppMessage(from,
+                        `✅ *Solicitud registrada* (Ref: #${ticketId})\n\n` +
+                        `🔧 ${updatedData.appliance || 'Reparación'} ${updatedData.brand || ''}\n` +
+                        `📍 ${updatedData.address || ''}\n\n` +
+                        `_Ahora te propongo algunas citas disponibles..._`
+                    );
+
+                    // Then send slot options
+                    await sendWhatsAppMessage(from, proposalMsg);
+
+                    // Update conversation to waiting state
+                    await updateConversation(normalizedFrom, 'waiting_slot_selection', updatedData);
+
+                    console.log('[Bot] 📅 Sent slot proposals, waiting for selection');
+                    return new Response('OK', { status: 200 });
+                } else {
+                    console.log('[Bot] ⚠️ No slots available, falling back to basic mode');
+                    // No slots available, fallback to basic mode message
+                }
+            }
+
+            // BASIC MODE (or no slots available in PRO)
             const confirmVars: Record<string, string> = {
                 company_name: config.company.name,
                 ticket_id: ticketId.toString(),

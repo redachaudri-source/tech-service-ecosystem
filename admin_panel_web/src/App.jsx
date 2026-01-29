@@ -20,6 +20,7 @@ import BudgetRegistry from './pages/financial/BudgetRegistry'; // New
 import MaterialManager from './pages/MaterialManager'; // New Material Workflow
 import BusinessSettings from './pages/BusinessSettings'; // New God Mode Settings
 import Analytics from './pages/Analytics'; // Level God Analytics
+import SecretarySettingsPage from './pages/SecretarySettingsPage'; // Secretaria Virtual PRO
 import MortifyDashboard from './pages/MortifyDashboard'; // Phase 3.1.4
 
 // Tech Imports
@@ -63,6 +64,7 @@ function App() {
                                 <Route path="materials" element={<MaterialManager />} />
                                 <Route path="budgets" element={<BudgetRegistry />} />
                                 <Route path="business-settings" element={<BusinessSettings />} />
+                                <Route path="secretary" element={<SecretarySettingsPage />} />
                                 <Route path="settings" element={<Settings />} />
                             </Route>
 

@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard, Users, Map, Package, LogOut, UserCheck, Settings as SettingsIcon,
     Globe, Calendar, Tag, FileText, Menu as MenuIcon, X, Briefcase, TrendingUp,
-    ChevronDown, ChevronRight, HelpCircle, Scale, Bell, Truck
+    ChevronDown, ChevronRight, HelpCircle, Scale, Bell, Truck, Bot
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -42,6 +42,7 @@ const Layout = () => {
         { icon: FileText, label: 'Presupuestos', path: '/budgets' },
         { icon: UserCheck, label: 'Equipo Técnico', path: '/team' },
         { icon: TrendingUp, label: 'Analytics (BI)', path: '/analytics' },
+        { icon: Bot, label: 'Secretaria Virtual', path: '/secretary' },
     ];
 
     const settingsNav = [
