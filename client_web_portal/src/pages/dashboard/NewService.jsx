@@ -210,63 +210,95 @@ const NewService = () => {
             const secretaryMode = secretaryModeConfig?.value || 'basic';
             const proConfig = proConfigData?.value || { channels: { app: false } };
 
-            // If PRO mode and app channel enabled, wait for backend proposal (realtime + fast polling)
+            // If PRO mode and app channel enabled, wait for backend proposal
             if ((secretaryMode ?? '').toString().toLowerCase() === 'pro' && proConfig.channels?.app) {
                 console.log('[NewService] PRO mode active, waiting for backend proposal...');
 
+                // Guardar info del ticket para el modal
+                const ticketInfoData = {
+                    appliance: formData.type,
+                    brand: formData.brand,
+                    address: formData.address
+                };
+                const timeoutMins = proConfig?.timeout_minutes ?? 3;
+
+                // Flag para evitar abrir el modal dos veces
+                let modalOpened = false;
+
                 const openModalWithProposal = (proposal) => {
+                    if (modalOpened) return;
                     if (proposal?.proposed_slots?.length > 0) {
+                        modalOpened = true;
+                        console.log('[NewService] Opening modal with', proposal.proposed_slots.length, 'slots');
                         setCreatedTicketId(ticketId);
                         setPendingSlots(proposal.proposed_slots);
-                        setTicketInfoForModal({
-                            appliance: formData.type,
-                            brand: formData.brand,
-                            address: formData.address
-                        });
-                        setAppointmentTimeoutMinutes(proConfig?.timeout_minutes ?? 3);
+                        setTicketInfoForModal(ticketInfoData);
+                        setAppointmentTimeoutMinutes(timeoutMins);
                         setShowAppointmentModal(true);
                         setLoading(false);
                     }
                 };
 
-                // Realtime: abrir modal en cuanto el backend escriba pro_proposal
+                // Esperar a que el backend procese el ticket (dar tiempo al trigger + Edge Function)
+                // El backend necesita: recibir webhook → leer config → buscar técnicos → buscar slots → escribir pro_proposal
+                // Esto puede tardar 2-5 segundos dependiendo de la carga
+
+                // ESTRATEGIA: Polling con timeout generoso (30s) + Realtime como backup
+                const maxWaitMs = 30000; // 30 segundos máximo de espera
+                const pollIntervalMs = 1000; // Cada 1 segundo
+                const startTime = Date.now();
+
+                // Suscripción realtime (backup por si el polling falla)
                 const channel = supabase
                     .channel(`ticket-proposal-${ticketId}`)
                     .on(
                         'postgres_changes',
                         { event: 'UPDATE', schema: 'public', table: 'tickets', filter: `id=eq.${ticketId}` },
                         (payload) => {
+                            console.log('[NewService] Realtime UPDATE received');
                             const p = payload.new?.pro_proposal;
                             if (p?.proposed_slots?.length > 0) {
+                                supabase.removeChannel(channel);
                                 openModalWithProposal(p);
                             }
                         }
                     )
-                    .subscribe();
+                    .subscribe((status) => {
+                        console.log('[NewService] Realtime channel status:', status);
+                    });
 
-                // Poll rápido (cada 400ms, máx 25 intentos ≈ 10s) por si realtime tarda
-                let attempts = 0;
-                const maxAttempts = 25;
-                const pollIntervalMs = 400;
+                // Polling: revisar cada segundo si ya hay propuesta
+                while (!modalOpened && (Date.now() - startTime) < maxWaitMs) {
+                    await new Promise((r) => setTimeout(r, pollIntervalMs));
 
-                while (attempts < maxAttempts) {
-                    const { data: ticketCheck } = await supabase
+                    const { data: ticketCheck, error } = await supabase
                         .from('tickets')
                         .select('pro_proposal')
                         .eq('id', ticketId)
                         .single();
 
+                    if (error) {
+                        console.error('[NewService] Poll error:', error);
+                        continue;
+                    }
+
+                    const elapsed = Math.round((Date.now() - startTime) / 1000);
+                    console.log(`[NewService] Poll check (${elapsed}s): pro_proposal =`, ticketCheck?.pro_proposal ? 'exists' : 'null');
+
                     if (ticketCheck?.pro_proposal?.proposed_slots?.length > 0) {
                         supabase.removeChannel(channel);
                         openModalWithProposal(ticketCheck.pro_proposal);
-                        return;
+                        return; // Salir del handleSubmit, modal abierto
                     }
-                    await new Promise((r) => setTimeout(r, pollIntervalMs));
-                    attempts++;
                 }
 
+                // Cleanup
                 supabase.removeChannel(channel);
-                console.log('[NewService] PRO proposal not received after timeout, falling back');
+
+                if (!modalOpened) {
+                    console.log('[NewService] PRO proposal not received after 30s timeout, falling back to manual');
+                    // Fallback: no se recibió propuesta, continuar con flujo básico
+                }
             }
 
             // BASIC mode or no slots available - navigate normally
