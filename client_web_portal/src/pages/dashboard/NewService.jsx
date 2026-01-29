@@ -191,6 +191,7 @@ const NewService = () => {
             if (error) throw error;
 
             const ticketId = ticketData.id;
+            console.log('[NewService] Ticket created:', ticketId);
 
             // Check if PRO mode is enabled
             const { data: secretaryModeConfig } = await supabase
@@ -208,30 +209,47 @@ const NewService = () => {
             const secretaryMode = secretaryModeConfig?.value || 'basic';
             const proConfig = proConfigData?.value || { channels: { app: false } };
 
-            // If PRO mode and app channel enabled, show slot selector
+            // If PRO mode and app channel enabled, wait for backend proposal
             if (secretaryMode === 'pro' && proConfig.channels?.app) {
-                console.log('[NewService] PRO mode active, fetching slots...');
+                console.log('[NewService] PRO mode active, waiting for backend proposal...');
 
-                // Get available slots via Edge Function or direct query
-                const slots = await fetchAvailableSlots(selectedAddressId, proConfig);
+                // Poll for backend-generated proposal (autopilot edge function)
+                let attempts = 0;
+                const maxAttempts = 10; // 10 seconds max
 
-                if (slots && slots.length > 0) {
-                    // Show modal instead of navigating
-                    setCreatedTicketId(ticketId);
-                    setPendingSlots(slots);
-                    setTicketInfoForModal({
-                        appliance: formData.type,
-                        brand: formData.brand,
-                        address: formData.address
-                    });
-                    setShowAppointmentModal(true);
-                    setLoading(false);
-                    return; // Don't navigate, wait for modal
+                while (attempts < maxAttempts) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+
+                    const { data: ticketCheck } = await supabase
+                        .from('tickets')
+                        .select('pro_proposal')
+                        .eq('id', ticketId)
+                        .single();
+
+                    console.log('[NewService] Poll attempt', attempts + 1, 'proposal:', ticketCheck?.pro_proposal);
+
+                    if (ticketCheck?.pro_proposal?.proposed_slots?.length > 0) {
+                        // Backend has generated slots
+                        setCreatedTicketId(ticketId);
+                        setPendingSlots(ticketCheck.pro_proposal.proposed_slots);
+                        setTicketInfoForModal({
+                            appliance: formData.type,
+                            brand: formData.brand,
+                            address: formData.address
+                        });
+                        setShowAppointmentModal(true);
+                        setLoading(false);
+                        return;
+                    }
+
+                    attempts++;
                 }
+
+                console.log('[NewService] PRO proposal not received after timeout, falling back');
             }
 
             // BASIC mode or no slots available - navigate normally
-            alert('Solicitud enviada correctamente. Ref: #' + ticketId);
+            alert('¡Solicitud enviada! Ref: #' + ticketId + '\n\nTe contactaremos pronto para coordinar la cita.');
             navigate('/dashboard');
 
         } catch (error) {
