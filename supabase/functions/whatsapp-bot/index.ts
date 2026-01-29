@@ -445,7 +445,8 @@ async function createTicketFromConversation(data: CollectedData, phone: string):
                     phone: normalizedPhone,
                     full_name: data.name || 'Cliente WhatsApp',
                     address: data.address,
-                    role: 'client'
+                    role: 'client',
+                    registration_source: 'whatsapp' // WhatsApp-registered clients
                 })
                 .select('id')
                 .single();
