@@ -39,7 +39,7 @@ const DEFAULT_CONFIG = {
     }
 };
 
-const WhatsAppBotSection = () => {
+const WhatsAppBotSection = ({ hideActiveToggle = false }) => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [activeTab, setActiveTab] = useState('company');
@@ -182,14 +182,16 @@ const WhatsAppBotSection = () => {
                     <p className="text-slate-500 text-sm mt-1">Configura los mensajes y comportamiento del asistente virtual.</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    {/* Bot Status Badge */}
-                    <div className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 ${config.settings.bot_enabled
-                        ? 'bg-green-100 text-green-700 border border-green-200'
-                        : 'bg-slate-100 text-slate-500 border border-slate-200'
-                        }`}>
-                        <div className={`w-2 h-2 rounded-full ${config.settings.bot_enabled ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}`} />
-                        {config.settings.bot_enabled ? 'Bot Activo' : 'Bot Desactivado'}
-                    </div>
+                    {/* Bot Status Badge - Hidden when used from SecretarySettingsPage */}
+                    {!hideActiveToggle && (
+                        <div className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 ${config.settings.bot_enabled
+                            ? 'bg-green-100 text-green-700 border border-green-200'
+                            : 'bg-slate-100 text-slate-500 border border-slate-200'
+                            }`}>
+                            <div className={`w-2 h-2 rounded-full ${config.settings.bot_enabled ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}`} />
+                            {config.settings.bot_enabled ? 'Bot Activo' : 'Bot Desactivado'}
+                        </div>
+                    )}
                     <button
                         onClick={handleSave}
                         disabled={saving}
