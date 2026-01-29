@@ -339,6 +339,49 @@ const WhatsAppBotSection = () => {
                         <div className="space-y-6 animate-in fade-in duration-200">
                             <p className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-4">Configuración del Bot</p>
 
+                            {/* Días de Operación */}
+                            <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4">
+                                <label className="block text-xs font-bold text-slate-600 uppercase mb-2 flex items-center gap-2">
+                                    <Clock size={14} className="text-blue-600" />
+                                    Días de Operación
+                                </label>
+                                <p className="text-xs text-slate-500 mb-3">
+                                    El bot solo responderá en los días seleccionados (24 horas)
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                    {[
+                                        { id: 1, label: 'Lun' },
+                                        { id: 2, label: 'Mar' },
+                                        { id: 3, label: 'Mié' },
+                                        { id: 4, label: 'Jue' },
+                                        { id: 5, label: 'Vie' },
+                                        { id: 6, label: 'Sáb' },
+                                        { id: 0, label: 'Dom' }
+                                    ].map(day => {
+                                        const activeDays = config.settings.active_days || [1, 2, 3, 4, 5];
+                                        const isActive = activeDays.includes(day.id);
+                                        return (
+                                            <button
+                                                key={day.id}
+                                                onClick={() => {
+                                                    const newDays = isActive
+                                                        ? activeDays.filter(d => d !== day.id)
+                                                        : [...activeDays, day.id];
+                                                    updateSettings('active_days', newDays);
+                                                }}
+                                                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all
+                                                    ${isActive
+                                                        ? 'bg-blue-600 text-white shadow-lg'
+                                                        : 'bg-white text-slate-500 border border-slate-200 hover:border-blue-300'
+                                                    }`}
+                                            >
+                                                {day.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
                             {/* Bot Toggle */}
                             <div
                                 onClick={() => updateSettings('bot_enabled', !config.settings.bot_enabled)}

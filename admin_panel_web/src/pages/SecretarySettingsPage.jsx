@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Bot, MessageSquare, Settings, Save, CheckCircle, AlertTriangle, Clock, Send } from 'lucide-react';
+import { Bot, MessageSquare, Settings, Save, CheckCircle, AlertTriangle } from 'lucide-react';
+import WhatsAppBotSection from '../components/settings/WhatsAppBotSection';
 
 const SecretarySettingsPage = () => {
     // Tab state
@@ -8,29 +9,7 @@ const SecretarySettingsPage = () => {
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
 
-    // Bot WhatsApp Config
-    const [botConfig, setBotConfig] = useState({
-        company_name: 'Fixarr',
-        company_phone: '',
-        company_email: '',
-        greeting_message: '',
-        farewell_message: '',
-        service_conditions: '',
-        bot_active: true
-    });
-
-    // Operation Days (L-D) - NEW
-    const [activeDays, setActiveDays] = useState({
-        monday: true,
-        tuesday: true,
-        wednesday: true,
-        thursday: true,
-        friday: true,
-        saturday: false,
-        sunday: false
-    });
-
-    // Mode Config
+    // Mode Config (Tab 2)
     const [secretaryMode, setSecretaryMode] = useState('basic'); // 'basic' | 'pro'
     const [proConfig, setProConfig] = useState({
         slots_count: 3,
@@ -43,37 +22,20 @@ const SecretarySettingsPage = () => {
     });
 
     useEffect(() => {
-        fetchConfig();
+        fetchModeConfig();
     }, []);
 
-    const fetchConfig = async () => {
+    const fetchModeConfig = async () => {
         try {
-            // Fetch all relevant configs
             const { data: configs } = await supabase
                 .from('business_config')
                 .select('key, value')
-                .in('key', ['bot_config', 'secretary_mode', 'bot_active_days', 'pro_config']);
+                .in('key', ['secretary_mode', 'pro_config']);
 
             if (configs) {
                 configs.forEach(c => {
-                    if (c.key === 'bot_config' && c.value) {
-                        setBotConfig(prev => ({ ...prev, ...c.value }));
-                    }
                     if (c.key === 'secretary_mode') {
                         setSecretaryMode(c.value || 'basic');
-                    }
-                    if (c.key === 'bot_active_days' && c.value) {
-                        // Convert array [1,2,3,4,5] to object
-                        const daysArray = c.value;
-                        setActiveDays({
-                            monday: daysArray.includes(1),
-                            tuesday: daysArray.includes(2),
-                            wednesday: daysArray.includes(3),
-                            thursday: daysArray.includes(4),
-                            friday: daysArray.includes(5),
-                            saturday: daysArray.includes(6),
-                            sunday: daysArray.includes(0)
-                        });
                     }
                     if (c.key === 'pro_config' && c.value) {
                         setProConfig(prev => ({ ...prev, ...c.value }));
@@ -85,24 +47,12 @@ const SecretarySettingsPage = () => {
         }
     };
 
-    const handleSave = async () => {
+    const handleSaveModeConfig = async () => {
         setSaving(true);
         try {
-            // Convert activeDays to array format
-            const daysArray = [];
-            if (activeDays.sunday) daysArray.push(0);
-            if (activeDays.monday) daysArray.push(1);
-            if (activeDays.tuesday) daysArray.push(2);
-            if (activeDays.wednesday) daysArray.push(3);
-            if (activeDays.thursday) daysArray.push(4);
-            if (activeDays.friday) daysArray.push(5);
-            if (activeDays.saturday) daysArray.push(6);
-
-            // Upsert all configs
+            // Upsert mode configs
             const upserts = [
-                { key: 'bot_config', value: botConfig },
                 { key: 'secretary_mode', value: secretaryMode },
-                { key: 'bot_active_days', value: daysArray },
                 { key: 'pro_config', value: proConfig }
             ];
 
@@ -120,16 +70,6 @@ const SecretarySettingsPage = () => {
         } finally {
             setSaving(false);
         }
-    };
-
-    const dayLabels = {
-        monday: 'Lunes',
-        tuesday: 'Martes',
-        wednesday: 'Miércoles',
-        thursday: 'Jueves',
-        friday: 'Viernes',
-        saturday: 'Sábado',
-        sunday: 'Domingo'
     };
 
     return (
@@ -150,8 +90,8 @@ const SecretarySettingsPage = () => {
                 <button
                     onClick={() => setActiveTab('bot')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium transition-all ${activeTab === 'bot'
-                            ? 'bg-indigo-100 text-indigo-700 border-b-2 border-indigo-500'
-                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                        ? 'bg-indigo-100 text-indigo-700 border-b-2 border-indigo-500'
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                         }`}
                 >
                     <MessageSquare size={16} />
@@ -160,8 +100,8 @@ const SecretarySettingsPage = () => {
                 <button
                     onClick={() => setActiveTab('mode')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium transition-all ${activeTab === 'mode'
-                            ? 'bg-indigo-100 text-indigo-700 border-b-2 border-indigo-500'
-                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                        ? 'bg-indigo-100 text-indigo-700 border-b-2 border-indigo-500'
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                         }`}
                 >
                     <Settings size={16} />
@@ -170,84 +110,15 @@ const SecretarySettingsPage = () => {
             </div>
 
             {/* Tab Content */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                {/* TAB 1: Bot WhatsApp */}
+            <div>
+                {/* TAB 1: Bot WhatsApp - Uses existing complete component */}
                 {activeTab === 'bot' && (
-                    <div className="space-y-6">
-                        {/* Days of Operation - NEW */}
-                        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-5 border border-indigo-100">
-                            <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4">
-                                <Clock size={18} className="text-indigo-600" />
-                                Días de Operación
-                            </h3>
-                            <p className="text-sm text-slate-500 mb-4">
-                                El bot solo responderá en los días seleccionados (24 horas)
-                            </p>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-                                {Object.entries(dayLabels).map(([key, label]) => (
-                                    <label
-                                        key={key}
-                                        className={`flex items-center justify-center gap-2 p-3 rounded-lg border cursor-pointer transition-all ${activeDays[key]
-                                                ? 'bg-indigo-600 text-white border-indigo-600'
-                                                : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'
-                                            }`}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={activeDays[key]}
-                                            onChange={(e) => setActiveDays(prev => ({ ...prev, [key]: e.target.checked }))}
-                                            className="sr-only"
-                                        />
-                                        <span className="text-sm font-medium">{label.substring(0, 3)}</span>
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Bot Active Toggle */}
-                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border">
-                            <div>
-                                <h4 className="font-bold text-slate-800">Bot Activo</h4>
-                                <p className="text-sm text-slate-500">Activa o desactiva el bot de WhatsApp</p>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={botConfig.bot_active}
-                                    onChange={(e) => setBotConfig(prev => ({ ...prev, bot_active: e.target.checked }))}
-                                    className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                            </label>
-                        </div>
-
-                        {/* Company Info */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Nombre Empresa</label>
-                                <input
-                                    type="text"
-                                    value={botConfig.company_name}
-                                    onChange={(e) => setBotConfig(prev => ({ ...prev, company_name: e.target.value }))}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Teléfono WhatsApp</label>
-                                <input
-                                    type="text"
-                                    value={botConfig.company_phone}
-                                    onChange={(e) => setBotConfig(prev => ({ ...prev, company_phone: e.target.value }))}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                />
-                            </div>
-                        </div>
-                    </div>
+                    <WhatsAppBotSection />
                 )}
 
                 {/* TAB 2: Mode of Operation */}
                 {activeTab === 'mode' && (
-                    <div className="space-y-6">
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-6">
                         {/* Warning Banner */}
                         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
                             <AlertTriangle className="text-amber-500 shrink-0 mt-0.5" size={20} />
@@ -262,8 +133,8 @@ const SecretarySettingsPage = () => {
                             {/* BASIC Mode */}
                             <label
                                 className={`block p-5 rounded-xl border-2 cursor-pointer transition-all ${secretaryMode === 'basic'
-                                        ? 'border-blue-500 bg-blue-50'
-                                        : 'border-slate-200 hover:border-slate-300'
+                                    ? 'border-blue-500 bg-blue-50'
+                                    : 'border-slate-200 hover:border-slate-300'
                                     }`}
                             >
                                 <div className="flex items-start gap-4">
@@ -290,8 +161,8 @@ const SecretarySettingsPage = () => {
                             {/* PRO Mode */}
                             <label
                                 className={`block p-5 rounded-xl border-2 cursor-pointer transition-all ${secretaryMode === 'pro'
-                                        ? 'border-purple-500 bg-purple-50'
-                                        : 'border-slate-200 hover:border-slate-300'
+                                    ? 'border-purple-500 bg-purple-50'
+                                    : 'border-slate-200 hover:border-slate-300'
                                     }`}
                             >
                                 <div className="flex items-start gap-4">
@@ -398,37 +269,37 @@ const SecretarySettingsPage = () => {
                                 </div>
                             </div>
                         )}
+
+                        {/* Save Button - Only for Mode tab */}
+                        <div className="flex justify-end pt-4">
+                            <button
+                                onClick={handleSaveModeConfig}
+                                disabled={saving}
+                                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white transition-all ${saved
+                                    ? 'bg-green-500'
+                                    : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700'
+                                    } disabled:opacity-50`}
+                            >
+                                {saved ? (
+                                    <>
+                                        <CheckCircle size={18} />
+                                        ¡Guardado!
+                                    </>
+                                ) : saving ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        Guardando...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Save size={18} />
+                                        Guardar Modo
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 )}
-            </div>
-
-            {/* Save Button */}
-            <div className="mt-6 flex justify-end">
-                <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white transition-all ${saved
-                            ? 'bg-green-500'
-                            : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700'
-                        } disabled:opacity-50`}
-                >
-                    {saved ? (
-                        <>
-                            <CheckCircle size={18} />
-                            ¡Guardado!
-                        </>
-                    ) : saving ? (
-                        <>
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            Guardando...
-                        </>
-                    ) : (
-                        <>
-                            <Save size={18} />
-                            Guardar Configuración
-                        </>
-                    )}
-                </button>
             </div>
         </div>
     );

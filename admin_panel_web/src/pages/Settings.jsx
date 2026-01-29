@@ -473,7 +473,7 @@ const Settings = () => {
         { id: 'hours', label: 'Horarios y Festivos', icon: Clock },
         { id: 'taxes', label: 'Impuestos (IVA)', icon: Calculator },
         { id: 'appliances', label: 'Tipos Electro.', icon: Tag },
-        { id: 'whatsapp', label: 'Bot WhatsApp', icon: MessageCircle },
+        // Bot WhatsApp MOVED to Secretaria Virtual
     ];
 
     return (
@@ -542,7 +542,6 @@ const Settings = () => {
                     {activeTab === 'hours' && <HoursSection />}
                     {activeTab === 'taxes' && <TaxesSection />}
                     {activeTab === 'appliances' && <ApplianceTypesSection />}
-                    {activeTab === 'whatsapp' && <WhatsAppBotSection />}
                 </div>
             </div>
         </div>
