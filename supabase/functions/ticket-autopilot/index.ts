@@ -41,24 +41,25 @@ serve(async (req) => {
 
         // Parse webhook payload from Supabase database trigger
         const payload = await req.json();
-        console.log('[Autopilot] Received payload:', JSON.stringify(payload));
+        console.log('[Autopilot] 1/6 Received payload type:', payload?.type, 'table:', payload?.table);
 
         // Payload from database webhook will have: type, table, record, old_record
         const { type, table, record } = payload;
 
-        // Only handle INSERT or UPDATE to 'solicitado' status
         if (table !== 'tickets') {
+            console.log('[Autopilot] 2/6 STOP: table is not tickets, got', table);
             return new Response(JSON.stringify({ message: 'Ignored: not tickets table' }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });
         }
 
         const ticket = record;
+        const ticketStatus = (ticket?.status ?? '').toString().toLowerCase();
+        console.log('[Autopilot] 2/6 Ticket status (normalized):', ticketStatus, '| id:', ticket?.id);
 
-        // Only trigger for 'solicitado' status
-        if (ticket.status !== 'solicitado') {
-            console.log('[Autopilot] Ignored: status is', ticket.status);
-            return new Response(JSON.stringify({ message: `Ignored: status ${ticket.status}` }), {
+        if (ticketStatus !== 'solicitado') {
+            console.log('[Autopilot] 3/6 STOP: status is not solicitado, got', ticket?.status);
+            return new Response(JSON.stringify({ message: `Ignored: status ${ticket?.status}` }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });
         }
@@ -91,13 +92,14 @@ serve(async (req) => {
 
         if (configs) {
             for (const c of configs) {
-                if (c.key === 'secretary_mode') secretaryMode = c.value;
+                if (c.key === 'secretary_mode') secretaryMode = (c.value ?? '').toString().toLowerCase();
                 if (c.key === 'pro_config' && c.value) proConfig = { ...proConfig, ...c.value };
             }
         }
+        console.log('[Autopilot] 4/6 business_config read OK. secretary_mode (normalized):', secretaryMode, '| pro_config channels:', proConfig?.channels);
 
         if (secretaryMode !== 'pro') {
-            console.log('[Autopilot] PRO mode not active, skipping');
+            console.log('[Autopilot] 5/6 STOP: secretary_mode is not "pro", got', secretaryMode);
             return new Response(JSON.stringify({ message: 'PRO mode not active' }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });
@@ -122,7 +124,7 @@ serve(async (req) => {
             });
         }
 
-        console.log('[Autopilot] PRO mode active, searching slots...');
+        console.log('[Autopilot] 5/6 PRO mode active, searching slots...');
 
         // ═══════════════════════════════════════════════════════════════
         // 2. Find available slots
@@ -155,7 +157,7 @@ serve(async (req) => {
             })
             .eq('id', ticket.id);
 
-        console.log('[Autopilot] Stored proposal in ticket #', ticket.id);
+        console.log('[Autopilot] 6/6 Stored proposal in ticket #', ticket.id);
 
         // ═══════════════════════════════════════════════════════════════
         // 4. Notify client based on origin channel

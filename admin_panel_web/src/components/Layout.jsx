@@ -126,18 +126,18 @@ const Layout = () => {
                 .eq('key', 'secretary_mode')
                 .single();
 
-            setIsProModeActive(data?.value === 'pro');
+            setIsProModeActive((data?.value ?? '').toString().toLowerCase() === 'pro');
         };
         checkProMode();
 
-        // Subscribe to changes
+        // Subscribe to changes (source of truth: DB)
         const channel = supabase
             .channel('secretary-mode-changes')
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'business_config', filter: "key=eq.secretary_mode" },
                 (payload) => {
-                    setIsProModeActive(payload.new?.value === 'pro');
+                    setIsProModeActive((payload.new?.value ?? '').toString().toLowerCase() === 'pro');
                 }
             )
             .subscribe();
@@ -245,7 +245,7 @@ const Layout = () => {
     };
 
     return (
-        <div className={`flex h-screen w-full bg-slate-50 overflow-hidden font-sans relative ${isProModeActive ? 'ring-4 ring-[#c9a227] ring-inset shadow-[inset_0_0_30px_rgba(201,162,39,0.2)]' : ''}`}>
+        <div className={`flex h-screen w-full bg-slate-50 overflow-hidden font-sans relative ${isProModeActive ? 'shadow-[inset_0_0_30px_rgba(212,175,55,0.12)]' : ''}`} style={isProModeActive ? { border: '4px solid #D4AF37', boxSizing: 'border-box' } : undefined}>
 
             {/* ═══════════════════════════════════════════════════════════════ */}
             {/* SECRETARIA VIRTUAL PRO ACTIVE INDICATOR */}
@@ -264,18 +264,18 @@ const Layout = () => {
 
                         {/* Text */}
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-[#d4a853]/70 uppercase tracking-widest">
+                            <span className="text-[10px] font-bold text-[#D4AF37]/80 uppercase tracking-widest">
                                 Autopilot
                             </span>
-                            <span className="text-sm font-black text-[#d4a853] tracking-wide">
-                                SECRETARIA VIRTUAL PRO
+                            <span className="text-sm font-black text-[#D4AF37] tracking-wide">
+                                AUTOPILOT ACTIVO
                             </span>
                         </div>
 
-                        {/* Status Dot */}
-                        <div className="flex items-center gap-1.5 ml-2 px-3 py-1 bg-[#c9a227]/20 rounded-full">
+                        {/* Status Dot - verde pulsante */}
+                        <div className="flex items-center gap-1.5 ml-2 px-3 py-1 bg-[#D4AF37]/20 rounded-full">
                             <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-lg shadow-emerald-400/50" />
-                            <span className="text-xs font-bold text-emerald-400 uppercase">Activa</span>
+                            <span className="text-xs font-bold text-emerald-400 uppercase">Activo</span>
                         </div>
                     </div>
                 </div>

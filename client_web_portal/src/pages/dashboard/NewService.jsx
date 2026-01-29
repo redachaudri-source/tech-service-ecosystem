@@ -210,43 +210,68 @@ const NewService = () => {
             const secretaryMode = secretaryModeConfig?.value || 'basic';
             const proConfig = proConfigData?.value || { channels: { app: false } };
 
-            // If PRO mode and app channel enabled, wait for backend proposal
-            if (secretaryMode === 'pro' && proConfig.channels?.app) {
+            // If PRO mode and app channel enabled, wait for backend proposal (fast polling + realtime)
+            if ((secretaryMode || '').toString().toLowerCase() === 'pro' && proConfig.channels?.app) {
                 console.log('[NewService] PRO mode active, waiting for backend proposal...');
 
-                // Poll for backend-generated proposal (autopilot edge function)
+                const maxAttempts = 30; // 15 s with 500ms interval
+                const intervalMs = 500;
                 let attempts = 0;
-                const maxAttempts = 10; // 10 seconds max
 
-                while (attempts < maxAttempts) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-
+                const checkProposal = async () => {
                     const { data: ticketCheck } = await supabase
                         .from('tickets')
                         .select('pro_proposal')
                         .eq('id', ticketId)
                         .single();
+                    return ticketCheck?.pro_proposal?.proposed_slots?.length > 0 ? ticketCheck : null;
+                };
 
-                    console.log('[NewService] Poll attempt', attempts + 1, 'proposal:', ticketCheck?.pro_proposal);
+                // First check immediately
+                let ticketCheck = await checkProposal();
+                if (ticketCheck?.pro_proposal?.proposed_slots?.length > 0) {
+                    setCreatedTicketId(ticketId);
+                    setPendingSlots(ticketCheck.pro_proposal.proposed_slots);
+                    setTicketInfoForModal({ appliance: formData.type, brand: formData.brand, address: formData.address });
+                    setAppointmentTimeoutMinutes(proConfig?.timeout_minutes ?? 3);
+                    setShowAppointmentModal(true);
+                    setLoading(false);
+                    return;
+                }
 
+                // Realtime: subscribe so modal opens as soon as backend writes pro_proposal
+                const channel = supabase
+                    .channel(`ticket-proposal-${ticketId}`)
+                    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tickets', filter: `id=eq.${ticketId}` }, async (payload) => {
+                        const newProposal = payload.new?.pro_proposal;
+                        if (newProposal?.proposed_slots?.length > 0) {
+                            setCreatedTicketId(ticketId);
+                            setPendingSlots(newProposal.proposed_slots);
+                            setTicketInfoForModal({ appliance: formData.type, brand: formData.brand, address: formData.address });
+                            setAppointmentTimeoutMinutes(proConfig?.timeout_minutes ?? 3);
+                            setShowAppointmentModal(true);
+                            setLoading(false);
+                        }
+                    })
+                    .subscribe();
+
+                while (attempts < maxAttempts) {
+                    await new Promise(resolve => setTimeout(resolve, intervalMs));
+                    ticketCheck = await checkProposal();
                     if (ticketCheck?.pro_proposal?.proposed_slots?.length > 0) {
-                        // Backend has generated slots
+                        supabase.removeChannel(channel);
                         setCreatedTicketId(ticketId);
                         setPendingSlots(ticketCheck.pro_proposal.proposed_slots);
-                        setTicketInfoForModal({
-                            appliance: formData.type,
-                            brand: formData.brand,
-                            address: formData.address
-                        });
+                        setTicketInfoForModal({ appliance: formData.type, brand: formData.brand, address: formData.address });
                         setAppointmentTimeoutMinutes(proConfig?.timeout_minutes ?? 3);
                         setShowAppointmentModal(true);
                         setLoading(false);
                         return;
                     }
-
                     attempts++;
                 }
 
+                supabase.removeChannel(channel);
                 console.log('[NewService] PRO proposal not received after timeout, falling back');
             }
 
