@@ -52,12 +52,14 @@ interface ClientProfile {
     phone: string;
     email?: string | null;
     address?: string | null; // Fallback address from profile
+    registration_source?: string; // 'app' | 'office'
 }
 
 interface ClientIdentity {
     exists: boolean;
     client?: ClientProfile;
     addresses?: ClientAddress[];
+    isAppUser?: boolean; // True if registered via APP - should redirect to app
 }
 
 interface CollectedData {
@@ -264,7 +266,7 @@ async function identifyClient(waId: string): Promise<ClientIdentity> {
         // Ordenar por updated_at DESC para tomar el más reciente si hay duplicados
         const { data: clientsData, error } = await supabase
             .from('profiles')
-            .select('id, full_name, phone, email, address')
+            .select('id, full_name, phone, email, address, registration_source')
             .eq('phone', normalizedPhone)
             .eq('role', 'client')
             .order('updated_at', { ascending: false })
@@ -276,6 +278,7 @@ async function identifyClient(waId: string): Promise<ClientIdentity> {
         }
 
         const clientData = clientsData[0];
+        const isAppUser = clientData.registration_source === 'app';
 
         // Log warning if there might be duplicates
         if (clientsData.length > 1) {
@@ -283,6 +286,7 @@ async function identifyClient(waId: string): Promise<ClientIdentity> {
         }
 
         console.log(`[Bot] ✅ Client found: ${clientData.full_name} (${clientData.id})`);
+        console.log(`[Bot] 📱 Registration source: ${clientData.registration_source || 'N/A'} | isAppUser: ${isAppUser}`);
         console.log(`[Bot] 📍 Profile address: ${clientData.address || 'N/A'}`);
 
         // Cargar direcciones del cliente
@@ -291,12 +295,14 @@ async function identifyClient(waId: string): Promise<ClientIdentity> {
 
         return {
             exists: true,
+            isAppUser, // Flag for APP-registered clients
             client: {
                 id: clientData.id,
                 full_name: clientData.full_name,
                 phone: clientData.phone,
                 email: clientData.email,
-                address: clientData.address // Fallback address from profile
+                address: clientData.address, // Fallback address from profile
+                registration_source: clientData.registration_source
             },
             addresses
         };
@@ -978,6 +984,36 @@ serve(async (req: Request) => {
             console.log('[Bot] 📦 Using cached client identity');
             const identity = conversation.collected_data.client_identity;
             console.log(`[Bot] 📋 Cached: name=${identity.client?.full_name}, addr=${identity.client?.address || 'NULL'}`);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // REDIRECCIÓN A APP: Clientes registrados vía APP deben usar la app
+        // ═══════════════════════════════════════════════════════════════════
+        const identity = conversation.collected_data.client_identity;
+        if (identity?.isAppUser) {
+            console.log('[Bot] 📱 APP USER DETECTED - Redirecting to mobile app');
+
+            const appRedirectMessage = `¡Hola ${identity.client?.full_name?.split(' ')[0] || ''}! 👋
+
+Veo que ya tienes cuenta en nuestra *App de Clientes*. 📱
+
+Para solicitar una reparación o consultar el estado de tus servicios, por favor usa la app. Allí podrás:
+
+✅ Solicitar nuevas reparaciones
+✅ Ver el estado en tiempo real
+✅ Seguir al técnico en el mapa
+✅ Gestionar tus direcciones y equipos
+
+🔗 *Accede aquí:* https://webcliente.fixarr.es
+
+Si tienes alguna urgencia, llámanos al 633 489 521.`;
+
+            await sendWhatsAppMessage(from, appRedirectMessage);
+
+            // Delete conversation to avoid leaving it in a broken state
+            await deleteConversation(normalizedFrom);
+
+            return new Response('OK', { status: 200 });
         }
 
         // Process current step
