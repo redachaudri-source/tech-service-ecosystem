@@ -346,8 +346,10 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
     };
 
     const addProposal = (slot) => {
-        // Logic: Allow 3 slots if Digital Origin OR (Digital User + Not Manual)
-        const isDigitalHeading = (ticket.origin_source?.includes('client') || ticket.origin_source === 'tech_app') || (!!ticket.client?.user_id && ticket.created_via !== 'manual');
+        // Logic: Allow 3 slots if Digital Origin OR (Digital User + Not Manual) OR App-registered client
+        const isDigitalHeading = (ticket.origin_source?.includes('client') || ticket.origin_source === 'tech_app') ||
+            (!!ticket.client?.user_id && ticket.created_via !== 'manual') ||
+            ticket.profiles?.registration_source === 'app';
         const maxSlots = isDigitalHeading ? 3 : 1;
 
         if (proposals.length >= maxSlots) {
@@ -605,16 +607,18 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
 
                         {/* Actions */}
                         <div className="space-y-2 mt-auto">
-                            {/* Logic: Client has App/Web Origin OR (User ID exists AND Not Manual) */}
-                            {((ticket.origin_source?.includes('client') || ticket.origin_source === 'tech_app') || (!!ticket.client?.user_id && ticket.created_via !== 'manual')) && (
-                                <button
-                                    onClick={handleSendProposals}
-                                    disabled={proposals.length === 0}
-                                    className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-200 transition text-sm flex items-center justify-center gap-2"
-                                >
-                                    <CheckCircle size={16} /> Enviar Propuestas
-                                </button>
-                            )}
+                            {/* Logic: Client has App/Web Origin OR (User ID exists AND Not Manual) OR App-registered client */}
+                            {((ticket.origin_source?.includes('client') || ticket.origin_source === 'tech_app') ||
+                                (!!ticket.client?.user_id && ticket.created_via !== 'manual') ||
+                                ticket.profiles?.registration_source === 'app') && (
+                                    <button
+                                        onClick={handleSendProposals}
+                                        disabled={proposals.length === 0}
+                                        className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-200 transition text-sm flex items-center justify-center gap-2"
+                                    >
+                                        <CheckCircle size={16} /> Enviar Propuestas
+                                    </button>
+                                )}
 
                             <button
                                 onClick={handleConfirmDirect}
