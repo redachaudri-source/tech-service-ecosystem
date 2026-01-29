@@ -139,15 +139,15 @@ const SecretarySettingsPage = () => {
         setSecretaryMode(pendingMode);
         setShowActivationModal(false);
         setPendingMode(null);
-        await handleSave(pendingMode); // Persists to Supabase business_config
+        await handleSave(pendingMode);
     };
 
     const handleSave = async (modeOverride) => {
         setSaving(true);
         try {
-            const modeValue = (modeOverride ?? secretaryMode) === 'pro' ? 'pro' : 'basic';
+            const mode = (modeOverride ?? secretaryMode) === 'pro' ? 'pro' : 'basic';
             const upserts = [
-                { key: 'secretary_mode', value: modeValue },
+                { key: 'secretary_mode', value: mode },
                 { key: 'pro_config', value: proConfig },
                 { key: 'shared_config', value: sharedConfig },
                 {
