@@ -1,86 +1,128 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import {
     Bot, Settings, Save, CheckCircle, AlertTriangle, Zap, Users,
-    Clock, Play, Pause, X, ChevronRight, Sparkles, Crown, Shield,
-    Phone, MessageCircle, Calendar, Route, Timer, UserCheck
+    Clock, X, ChevronRight, Sparkles, Crown, Shield,
+    Phone, MessageCircle, Calendar, Route, Timer, UserCheck,
+    Building2, FileText, ChevronDown, ChevronUp
 } from 'lucide-react';
 
 /**
- * SecretarySettingsPage - PREMIUM GOD MODE REDESIGN v3.0
+ * SecretarySettingsPage - PREMIUM GOD MODE v4.0
  * 
- * Design: Dark theme with matte gold accents
- * Features: Animated workflow previews, clear mode indicators, activation modals
+ * Full config for both modes, messages, company info, full dark background
  */
 
-// Color palette - Premium Dark + Gold
+// Color palette
 const colors = {
     dark: {
-        primary: '#0f172a',      // Slate 900
-        secondary: '#1e293b',    // Slate 800
-        tertiary: '#334155',     // Slate 700
-        border: '#475569',       // Slate 600
+        primary: '#0f172a',
+        secondary: '#1e293b',
+        tertiary: '#334155',
+        border: '#475569',
     },
     gold: {
-        primary: '#d4a853',      // Matte gold
-        secondary: '#c9a227',    // Darker gold
-        accent: '#f5d67b',       // Light gold
+        primary: '#d4a853',
+        secondary: '#c9a227',
+        accent: '#f5d67b',
+        bg: '#2a2518',
         glow: 'rgba(212, 168, 83, 0.3)',
     },
     basic: {
-        primary: '#3b82f6',      // Blue 500
-        secondary: '#1d4ed8',    // Blue 700
-        bg: '#1e3a5f',           // Dark blue
+        primary: '#3b82f6',
+        secondary: '#1d4ed8',
+        bg: '#1e3a5f',
         glow: 'rgba(59, 130, 246, 0.3)',
     },
     text: {
-        primary: '#f8fafc',      // Slate 50
-        secondary: '#cbd5e1',    // Slate 300
-        muted: '#94a3b8',        // Slate 400
+        primary: '#f8fafc',
+        secondary: '#cbd5e1',
+        muted: '#94a3b8',
     }
+};
+
+// Default messages config
+const DEFAULT_MESSAGES = {
+    greeting: "¡Hola! 👋 Bienvenido a {company_name}. Soy tu asistente virtual.",
+    ask_appliance: "¿Qué electrodoméstico necesita reparación?",
+    ask_brand: "¿Cuál es la marca del {appliance}?",
+    ask_model: "¿Conoces el modelo? (puedes escribir 'no sé')",
+    ask_problem: "Describe brevemente el problema que presenta",
+    ask_address: "¿Cuál es la dirección donde realizaremos el servicio?",
+    ask_name: "¿A nombre de quién agendamos la cita?",
+    ticket_created: "✅ *¡Registrado!*\n\nTu solicitud *#{ticket_id}* está en proceso.",
+    propose_slots: "Perfecto! Te propongo estas fechas disponibles:",
+    slot_confirmed: "¡Cita confirmada! 📅 Te esperamos el {date} a las {time}.",
+    goodbye: "Gracias por confiar en {company_name}. ¡Hasta pronto!"
 };
 
 const SecretarySettingsPage = () => {
     const [activeTab, setActiveTab] = useState('type');
+    const [configSubTab, setConfigSubTab] = useState('general');
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [loading, setLoading] = useState(true);
     const [showActivationModal, setShowActivationModal] = useState(false);
     const [pendingMode, setPendingMode] = useState(null);
+    const [expandedSection, setExpandedSection] = useState('general');
 
     // Mode Config
     const [secretaryMode, setSecretaryMode] = useState('basic');
+
+    // Shared config (used by both modes)
+    const [sharedConfig, setSharedConfig] = useState({
+        operating_days: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie'],
+        working_hours_start: '09:00',
+        working_hours_end: '19:00',
+        response_delay_seconds: 2
+    });
+
+    // PRO-specific config
     const [proConfig, setProConfig] = useState({
-        pro_enabled: true,
         slots_count: 3,
         timeout_minutes: 3,
         search_days: 7,
-        channels: { whatsapp: true, app: true },
-        operating_days: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie'],
-        working_hours_start: '09:00',
-        working_hours_end: '19:00'
+        channels: { whatsapp: true, app: true }
+    });
+
+    // Messages config
+    const [messages, setMessages] = useState(DEFAULT_MESSAGES);
+
+    // Company info (loaded from business_config)
+    const [companyInfo, setCompanyInfo] = useState({
+        name: 'Fixarr Servicio Técnico',
+        phone: '+34633489521',
+        email: 'info@fixarr.es'
     });
 
     useEffect(() => {
-        fetchModeConfig();
+        fetchAllConfig();
     }, []);
 
-    const fetchModeConfig = async () => {
+    const fetchAllConfig = async () => {
         setLoading(true);
         try {
             const { data: configs } = await supabase
                 .from('business_config')
                 .select('key, value')
-                .in('key', ['secretary_mode', 'pro_config']);
+                .in('key', ['secretary_mode', 'pro_config', 'shared_config', 'whatsapp_bot_config', 'company_identity']);
 
             if (configs) {
                 configs.forEach(c => {
                     if (c.key === 'secretary_mode') setSecretaryMode(c.value || 'basic');
                     if (c.key === 'pro_config' && c.value) setProConfig(prev => ({ ...prev, ...c.value }));
+                    if (c.key === 'shared_config' && c.value) setSharedConfig(prev => ({ ...prev, ...c.value }));
+                    if (c.key === 'whatsapp_bot_config' && c.value) {
+                        if (c.value.messages) setMessages(prev => ({ ...prev, ...c.value.messages }));
+                        if (c.value.settings) setSharedConfig(prev => ({ ...prev, ...c.value.settings }));
+                    }
+                    if (c.key === 'company_identity' && c.value) {
+                        setCompanyInfo(prev => ({ ...prev, ...c.value }));
+                    }
                 });
             }
         } catch (err) {
-            console.error('Error fetching secretary config:', err);
+            console.error('Error fetching config:', err);
         } finally {
             setLoading(false);
         }
@@ -97,15 +139,23 @@ const SecretarySettingsPage = () => {
         setSecretaryMode(pendingMode);
         setShowActivationModal(false);
         setPendingMode(null);
-        await handleSave();
+        await handleSave(pendingMode);
     };
 
-    const handleSave = async () => {
+    const handleSave = async (modeOverride) => {
         setSaving(true);
         try {
             const upserts = [
-                { key: 'secretary_mode', value: secretaryMode },
-                { key: 'pro_config', value: proConfig }
+                { key: 'secretary_mode', value: modeOverride || secretaryMode },
+                { key: 'pro_config', value: proConfig },
+                { key: 'shared_config', value: sharedConfig },
+                {
+                    key: 'whatsapp_bot_config', value: {
+                        messages,
+                        company: companyInfo,
+                        settings: sharedConfig
+                    }
+                }
             ];
 
             for (const config of upserts) {
@@ -135,72 +185,37 @@ const SecretarySettingsPage = () => {
             ]
             : [
                 { icon: MessageCircle, label: 'Cliente escribe', delay: 0 },
-                { icon: Sparkles, label: 'IA propone 3 citas', delay: 1 },
+                { icon: Sparkles, label: 'IA propone citas', delay: 1 },
                 { icon: Timer, label: 'Cliente elige', delay: 2 },
-                { icon: Route, label: 'Auto-asignación', delay: 3 }
+                { icon: Route, label: 'Auto-asigna', delay: 3 }
             ];
 
         return (
-            <div className="relative h-32 overflow-hidden rounded-xl" style={{
-                background: `linear-gradient(135deg, ${type === 'pro' ? colors.dark.secondary : colors.basic.bg}, ${type === 'pro' ? colors.dark.primary : '#0c2d48'})`
+            <div className="relative h-28 overflow-hidden rounded-xl" style={{
+                background: `linear-gradient(135deg, ${type === 'pro' ? colors.gold.bg : colors.basic.bg}, ${colors.dark.primary})`
             }}>
-                {/* Animated dots connecting steps */}
                 <div className="absolute inset-0 flex items-center justify-around px-4">
                     {steps.map((step, i) => (
                         <div
                             key={i}
                             className="flex flex-col items-center gap-2 animate-pulse"
-                            style={{
-                                animationDelay: `${step.delay * 0.3}s`,
-                                animationDuration: '2s'
-                            }}
+                            style={{ animationDelay: `${step.delay * 0.3}s`, animationDuration: '2s' }}
                         >
                             <div
                                 className="p-2 rounded-lg transition-all duration-500"
                                 style={{
-                                    background: isActive
-                                        ? (type === 'pro' ? colors.gold.glow : colors.basic.glow)
-                                        : 'rgba(255,255,255,0.1)',
-                                    boxShadow: isActive
-                                        ? `0 0 20px ${type === 'pro' ? colors.gold.glow : colors.basic.glow}`
-                                        : 'none'
+                                    background: isActive ? (type === 'pro' ? colors.gold.glow : colors.basic.glow) : 'rgba(255,255,255,0.1)',
+                                    boxShadow: isActive ? `0 0 20px ${type === 'pro' ? colors.gold.glow : colors.basic.glow}` : 'none'
                                 }}
                             >
-                                <step.icon
-                                    size={20}
-                                    style={{
-                                        color: isActive
-                                            ? (type === 'pro' ? colors.gold.primary : colors.basic.primary)
-                                            : colors.text.muted
-                                    }}
-                                />
+                                <step.icon size={18} style={{ color: isActive ? (type === 'pro' ? colors.gold.primary : colors.basic.primary) : colors.text.muted }} />
                             </div>
-                            <span
-                                className="text-[10px] text-center font-medium max-w-16"
-                                style={{ color: colors.text.muted }}
-                            >
+                            <span className="text-[10px] text-center font-medium max-w-14" style={{ color: colors.text.muted }}>
                                 {step.label}
                             </span>
                         </div>
                     ))}
                 </div>
-                {/* Flow lines */}
-                <svg className="absolute inset-0 w-full h-full pointer-events-none">
-                    <defs>
-                        <linearGradient id={`flow-${type}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" style={{ stopColor: type === 'pro' ? colors.gold.primary : colors.basic.primary, stopOpacity: 0.3 }} />
-                            <stop offset="50%" style={{ stopColor: type === 'pro' ? colors.gold.accent : '#60a5fa', stopOpacity: 0.8 }} />
-                            <stop offset="100%" style={{ stopColor: type === 'pro' ? colors.gold.primary : colors.basic.primary, stopOpacity: 0.3 }} />
-                        </linearGradient>
-                    </defs>
-                    <line
-                        x1="15%" y1="50%" x2="85%" y2="50%"
-                        stroke={`url(#flow-${type})`}
-                        strokeWidth="2"
-                        strokeDasharray="8 4"
-                        className="animate-[dash_2s_linear_infinite]"
-                    />
-                </svg>
             </div>
         );
     };
@@ -209,547 +224,401 @@ const SecretarySettingsPage = () => {
     const ModeCard = ({ mode, title, subtitle, features, icon: Icon, isActive, color }) => (
         <div
             onClick={() => handleModeChange(mode)}
-            className="relative rounded-2xl p-6 cursor-pointer transition-all duration-300 overflow-hidden group"
+            className="relative rounded-2xl p-5 cursor-pointer transition-all duration-300 overflow-hidden group"
             style={{
-                background: isActive
-                    ? `linear-gradient(135deg, ${color.bg || colors.dark.secondary}, ${colors.dark.primary})`
-                    : colors.dark.secondary,
+                background: isActive ? `linear-gradient(135deg, ${color.bg || colors.dark.secondary}, ${colors.dark.primary})` : colors.dark.secondary,
                 border: `2px solid ${isActive ? color.primary : colors.dark.border}`,
                 boxShadow: isActive ? `0 0 30px ${color.glow}` : 'none'
             }}
         >
-            {/* Active glow effect */}
             {isActive && (
-                <div
-                    className="absolute inset-0 opacity-20 animate-pulse"
-                    style={{ background: `radial-gradient(circle at 30% 30%, ${color.glow}, transparent 60%)` }}
-                />
+                <div className="absolute inset-0 opacity-20 animate-pulse" style={{ background: `radial-gradient(circle at 30% 30%, ${color.glow}, transparent 60%)` }} />
             )}
 
             <div className="relative z-10">
-                {/* Header */}
-                <div className="flex items-start justify-between mb-4">
+                <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
-                        {/* Radio indicator */}
                         <div
-                            className="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all"
-                            style={{
-                                borderColor: isActive ? color.primary : colors.dark.border,
-                                background: isActive ? color.primary : 'transparent'
-                            }}
+                            className="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all"
+                            style={{ borderColor: isActive ? color.primary : colors.dark.border, background: isActive ? color.primary : 'transparent' }}
                         >
-                            {isActive && <CheckCircle size={14} style={{ color: colors.dark.primary }} />}
+                            {isActive && <CheckCircle size={12} style={{ color: colors.dark.primary }} />}
                         </div>
                         <div className="flex items-center gap-2">
-                            <Icon size={24} style={{ color: isActive ? color.primary : colors.text.muted }} />
+                            <Icon size={22} style={{ color: isActive ? color.primary : colors.text.muted }} />
                             <div>
-                                <h3
-                                    className="text-lg font-bold"
-                                    style={{ color: isActive ? color.primary : colors.text.primary }}
-                                >
-                                    {title}
-                                </h3>
+                                <h3 className="text-base font-bold" style={{ color: isActive ? color.primary : colors.text.primary }}>{title}</h3>
                                 <p className="text-xs" style={{ color: colors.text.muted }}>{subtitle}</p>
                             </div>
                         </div>
                     </div>
-
-                    {/* Status badge */}
                     <div
-                        className="px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all"
-                        style={{
-                            background: isActive ? color.primary : colors.dark.tertiary,
-                            color: isActive ? colors.dark.primary : colors.text.muted
-                        }}
+                        className="px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1"
+                        style={{ background: isActive ? color.primary : colors.dark.tertiary, color: isActive ? colors.dark.primary : colors.text.muted }}
                     >
-                        {isActive && <span className="w-2 h-2 rounded-full bg-current animate-pulse" />}
+                        {isActive && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
                         {isActive ? 'ACTIVO' : 'INACTIVO'}
                     </div>
                 </div>
 
-                {/* Animated workflow preview */}
                 <WorkflowAnimation type={mode} isActive={isActive} />
 
-                {/* Features list */}
-                <div className="mt-4 space-y-2">
+                <div className="mt-3 space-y-1">
                     {features.map((feature, i) => (
-                        <div
-                            key={i}
-                            className="flex items-center gap-2 text-sm"
-                            style={{ color: isActive ? colors.text.secondary : colors.text.muted }}
-                        >
-                            <ChevronRight size={14} style={{ color: isActive ? color.primary : colors.text.muted }} />
+                        <div key={i} className="flex items-center gap-2 text-xs" style={{ color: isActive ? colors.text.secondary : colors.text.muted }}>
+                            <ChevronRight size={12} style={{ color: isActive ? color.primary : colors.text.muted }} />
                             {feature}
                         </div>
                     ))}
                 </div>
 
-                {/* Activation hint */}
                 {!isActive && (
-                    <div
-                        className="mt-4 text-center text-xs py-2 rounded-lg border border-dashed opacity-0 group-hover:opacity-100 transition-opacity"
-                        style={{ borderColor: color.primary, color: color.primary }}
-                    >
-                        Haz clic para activar este modo
+                    <div className="mt-3 text-center text-xs py-1.5 rounded-lg border border-dashed opacity-0 group-hover:opacity-100 transition-opacity" style={{ borderColor: color.primary, color: color.primary }}>
+                        Clic para activar
                     </div>
                 )}
             </div>
         </div>
     );
 
+    // Collapsible Section Component
+    const Section = ({ id, title, icon: Icon, children, color }) => {
+        const isExpanded = expandedSection === id;
+        return (
+            <div className="rounded-xl overflow-hidden" style={{ background: colors.dark.secondary, border: `1px solid ${colors.dark.border}` }}>
+                <button
+                    onClick={() => setExpandedSection(isExpanded ? null : id)}
+                    className="w-full flex items-center justify-between p-4 transition-colors hover:bg-white/5"
+                >
+                    <div className="flex items-center gap-3">
+                        <Icon size={20} style={{ color: color || colors.gold.primary }} />
+                        <span className="font-bold" style={{ color: colors.text.primary }}>{title}</span>
+                    </div>
+                    {isExpanded ? <ChevronUp size={20} style={{ color: colors.text.muted }} /> : <ChevronDown size={20} style={{ color: colors.text.muted }} />}
+                </button>
+                {isExpanded && (
+                    <div className="p-4 pt-0 animate-in slide-in-from-top-2 duration-200">
+                        {children}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     // Activation Modal
     const ActivationModal = () => {
         if (!showActivationModal || !pendingMode) return null;
 
         const modeInfo = pendingMode === 'pro'
-            ? {
-                title: 'Activar PRO - Autopilot',
-                icon: Crown,
-                color: colors.gold,
-                description: 'El sistema propondrá citas automáticamente a tus clientes. Ellos elegirán y el sistema asignará técnicos optimizando rutas.'
-            }
-            : {
-                title: 'Activar BÁSICO - Manual',
-                icon: Users,
-                color: colors.basic,
-                description: 'Los clientes solicitarán servicio y un administrador coordinará manualmente las citas por teléfono.'
-            };
+            ? { title: 'Activar PRO - Autopilot', icon: Crown, color: colors.gold, description: 'El sistema propondrá citas automáticamente.' }
+            : { title: 'Activar BÁSICO - Manual', icon: Users, color: colors.basic, description: 'Un administrador coordinará las citas manualmente.' };
 
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fadeIn">
-                <div
-                    className="relative w-full max-w-lg mx-4 rounded-2xl p-8 animate-scaleIn"
-                    style={{
-                        background: `linear-gradient(135deg, ${colors.dark.secondary}, ${colors.dark.primary})`,
-                        border: `2px solid ${modeInfo.color.primary}`,
-                        boxShadow: `0 0 60px ${modeInfo.color.glow}`
-                    }}
-                >
-                    {/* Close button */}
-                    <button
-                        onClick={() => setShowActivationModal(false)}
-                        className="absolute top-4 right-4 p-2 rounded-lg hover:bg-white/10 transition-colors"
-                    >
+                <div className="relative w-full max-w-md mx-4 rounded-2xl p-6" style={{ background: colors.dark.secondary, border: `2px solid ${modeInfo.color.primary}`, boxShadow: `0 0 60px ${modeInfo.color.glow}` }}>
+                    <button onClick={() => setShowActivationModal(false)} className="absolute top-4 right-4 p-2 rounded-lg hover:bg-white/10">
                         <X size={20} style={{ color: colors.text.muted }} />
                     </button>
 
-                    {/* Icon */}
-                    <div
-                        className="w-20 h-20 mx-auto rounded-2xl flex items-center justify-center mb-6"
-                        style={{
-                            background: `linear-gradient(135deg, ${modeInfo.color.primary}, ${modeInfo.color.secondary})`,
-                            boxShadow: `0 0 30px ${modeInfo.color.glow}`
-                        }}
-                    >
-                        <modeInfo.icon size={40} style={{ color: colors.dark.primary }} />
+                    <div className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-4" style={{ background: `linear-gradient(135deg, ${modeInfo.color.primary}, ${modeInfo.color.secondary})` }}>
+                        <modeInfo.icon size={32} style={{ color: colors.dark.primary }} />
                     </div>
 
-                    {/* Title */}
-                    <h2
-                        className="text-2xl font-black text-center mb-4"
-                        style={{ color: modeInfo.color.primary }}
-                    >
-                        {modeInfo.title}
-                    </h2>
+                    <h2 className="text-xl font-black text-center mb-2" style={{ color: modeInfo.color.primary }}>{modeInfo.title}</h2>
+                    <p className="text-center mb-4 text-sm" style={{ color: colors.text.secondary }}>{modeInfo.description}</p>
 
-                    {/* Description */}
-                    <p
-                        className="text-center mb-6 leading-relaxed"
-                        style={{ color: colors.text.secondary }}
-                    >
-                        {modeInfo.description}
-                    </p>
+                    <WorkflowAnimation type={pendingMode} isActive={true} />
 
-                    {/* Animated workflow preview */}
-                    <div className="mb-6">
-                        <WorkflowAnimation type={pendingMode} isActive={true} />
+                    <div className="flex items-start gap-2 p-3 rounded-xl my-4" style={{ background: 'rgba(234, 179, 8, 0.1)', border: '1px solid rgba(234, 179, 8, 0.3)' }}>
+                        <AlertTriangle size={16} style={{ color: '#eab308' }} className="shrink-0 mt-0.5" />
+                        <p className="text-xs" style={{ color: '#fde047' }}>Al cambiar de modo, el anterior se desactivará.</p>
                     </div>
 
-                    {/* Warning */}
-                    <div
-                        className="flex items-start gap-3 p-4 rounded-xl mb-6"
-                        style={{ background: 'rgba(234, 179, 8, 0.1)', border: '1px solid rgba(234, 179, 8, 0.3)' }}
-                    >
-                        <AlertTriangle size={20} style={{ color: '#eab308' }} className="shrink-0 mt-0.5" />
-                        <p className="text-sm" style={{ color: '#fde047' }}>
-                            Al cambiar de modo, el anterior se desactivará inmediatamente. Los tickets en curso no se verán afectados.
-                        </p>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex gap-4">
-                        <button
-                            onClick={() => setShowActivationModal(false)}
-                            className="flex-1 py-3 rounded-xl font-bold transition-colors"
-                            style={{
-                                background: colors.dark.tertiary,
-                                color: colors.text.secondary,
-                                border: `1px solid ${colors.dark.border}`
-                            }}
-                        >
-                            Cancelar
-                        </button>
-                        <button
-                            onClick={confirmModeChange}
-                            className="flex-1 py-3 rounded-xl font-bold transition-all hover:scale-105"
-                            style={{
-                                background: `linear-gradient(135deg, ${modeInfo.color.primary}, ${modeInfo.color.secondary})`,
-                                color: colors.dark.primary,
-                                boxShadow: `0 0 20px ${modeInfo.color.glow}`
-                            }}
-                        >
-                            Activar Ahora
-                        </button>
+                    <div className="flex gap-3">
+                        <button onClick={() => setShowActivationModal(false)} className="flex-1 py-2.5 rounded-xl font-bold" style={{ background: colors.dark.tertiary, color: colors.text.secondary }}>Cancelar</button>
+                        <button onClick={confirmModeChange} className="flex-1 py-2.5 rounded-xl font-bold" style={{ background: `linear-gradient(135deg, ${modeInfo.color.primary}, ${modeInfo.color.secondary})`, color: colors.dark.primary }}>Activar</button>
                     </div>
                 </div>
             </div>
         );
     };
 
-    // Configuration Panel Component
-    const ConfigPanel = () => (
-        <div
-            className="rounded-2xl p-6"
-            style={{
-                background: colors.dark.secondary,
-                border: `1px solid ${colors.dark.border}`
-            }}
-        >
-            {/* Header with mode indicator */}
-            <div className="flex items-center justify-between mb-6 pb-4" style={{ borderBottom: `1px solid ${colors.dark.border}` }}>
-                <div className="flex items-center gap-3">
-                    {secretaryMode === 'pro' ? (
-                        <Crown size={24} style={{ color: colors.gold.primary }} />
-                    ) : (
-                        <Users size={24} style={{ color: colors.basic.primary }} />
-                    )}
-                    <div>
-                        <h3 className="font-bold" style={{ color: colors.text.primary }}>
-                            Configuración {secretaryMode === 'pro' ? 'PRO' : 'BÁSICO'}
-                        </h3>
-                        <p className="text-xs" style={{ color: colors.text.muted }}>
-                            Personaliza el comportamiento del modo activo
+    // Configuration Panel
+    const ConfigPanel = () => {
+        const modeColor = secretaryMode === 'pro' ? colors.gold : colors.basic;
+
+        return (
+            <div className="space-y-4">
+                {/* Mode indicator */}
+                <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: colors.dark.secondary, border: `1px solid ${modeColor.primary}40` }}>
+                    <div className="flex items-center gap-3">
+                        {secretaryMode === 'pro' ? <Crown size={22} style={{ color: modeColor.primary }} /> : <Users size={22} style={{ color: modeColor.primary }} />}
+                        <div>
+                            <p className="font-bold" style={{ color: colors.text.primary }}>Configurando: {secretaryMode === 'pro' ? 'PRO - Autopilot' : 'BÁSICO - Manual'}</p>
+                            <p className="text-xs" style={{ color: colors.text.muted }}>Personaliza el comportamiento del asistente</p>
+                        </div>
+                    </div>
+                    <div className="px-3 py-1 rounded-full text-xs font-bold" style={{ background: modeColor.primary, color: colors.dark.primary }}>
+                        {secretaryMode === 'pro' ? '✨ PRO' : '📋 BÁSICO'}
+                    </div>
+                </div>
+
+                {/* General Settings - Both modes */}
+                <Section id="general" title="⚙️ Configuración General" icon={Settings} color={modeColor.primary}>
+                    <div className="space-y-4 mt-4">
+                        {/* Operating Days */}
+                        <div>
+                            <label className="block text-sm font-medium mb-2" style={{ color: colors.text.secondary }}>📅 Días de operación</label>
+                            <div className="flex flex-wrap gap-2">
+                                {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(day => (
+                                    <button
+                                        key={day}
+                                        type="button"
+                                        onClick={() => {
+                                            const days = sharedConfig.operating_days || [];
+                                            setSharedConfig(prev => ({
+                                                ...prev,
+                                                operating_days: days.includes(day) ? days.filter(d => d !== day) : [...days, day]
+                                            }));
+                                        }}
+                                        className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
+                                        style={{
+                                            background: (sharedConfig.operating_days || []).includes(day) ? modeColor.primary : colors.dark.tertiary,
+                                            color: (sharedConfig.operating_days || []).includes(day) ? colors.dark.primary : colors.text.muted
+                                        }}
+                                    >
+                                        {day}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Working Hours */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-medium mb-1" style={{ color: colors.text.muted }}>🕐 Hora inicio</label>
+                                <input
+                                    type="time"
+                                    value={sharedConfig.working_hours_start || '09:00'}
+                                    onChange={(e) => setSharedConfig(prev => ({ ...prev, working_hours_start: e.target.value }))}
+                                    className="w-full px-3 py-2 rounded-lg"
+                                    style={{ background: colors.dark.tertiary, border: `1px solid ${colors.dark.border}`, color: colors.text.primary }}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium mb-1" style={{ color: colors.text.muted }}>🕐 Hora fin</label>
+                                <input
+                                    type="time"
+                                    value={sharedConfig.working_hours_end || '19:00'}
+                                    onChange={(e) => setSharedConfig(prev => ({ ...prev, working_hours_end: e.target.value }))}
+                                    className="w-full px-3 py-2 rounded-lg"
+                                    style={{ background: colors.dark.tertiary, border: `1px solid ${colors.dark.border}`, color: colors.text.primary }}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Response delay */}
+                        <div>
+                            <label className="block text-xs font-medium mb-1" style={{ color: colors.text.muted }}>⏱️ Retraso de respuesta (segundos)</label>
+                            <input
+                                type="number"
+                                min="0"
+                                max="10"
+                                value={sharedConfig.response_delay_seconds || 2}
+                                onChange={(e) => setSharedConfig(prev => ({ ...prev, response_delay_seconds: parseInt(e.target.value) }))}
+                                className="w-full px-3 py-2 rounded-lg"
+                                style={{ background: colors.dark.tertiary, border: `1px solid ${colors.dark.border}`, color: colors.text.primary }}
+                            />
+                            <p className="text-xs mt-1" style={{ color: colors.text.muted }}>Simula tiempo de escritura para parecer más humano</p>
+                        </div>
+                    </div>
+                </Section>
+
+                {/* PRO-specific settings */}
+                {secretaryMode === 'pro' && (
+                    <Section id="pro" title="✨ Configuración PRO" icon={Crown} color={colors.gold.primary}>
+                        <div className="space-y-4 mt-4">
+                            <div className="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label className="block text-xs font-medium mb-1" style={{ color: colors.text.muted }}>📅 Citas a proponer</label>
+                                    <select
+                                        value={proConfig.slots_count}
+                                        onChange={(e) => setProConfig(prev => ({ ...prev, slots_count: parseInt(e.target.value) }))}
+                                        className="w-full px-3 py-2 rounded-lg"
+                                        style={{ background: colors.dark.tertiary, border: `1px solid ${colors.dark.border}`, color: colors.text.primary }}
+                                    >
+                                        {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium mb-1" style={{ color: colors.text.muted }}>⏱️ Timeout (min)</label>
+                                    <select
+                                        value={proConfig.timeout_minutes}
+                                        onChange={(e) => setProConfig(prev => ({ ...prev, timeout_minutes: parseInt(e.target.value) }))}
+                                        className="w-full px-3 py-2 rounded-lg"
+                                        style={{ background: colors.dark.tertiary, border: `1px solid ${colors.dark.border}`, color: colors.text.primary }}
+                                    >
+                                        {[1, 2, 3, 5, 10].map(n => <option key={n} value={n}>{n}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium mb-1" style={{ color: colors.text.muted }}>🔮 Días a futuro</label>
+                                    <select
+                                        value={proConfig.search_days}
+                                        onChange={(e) => setProConfig(prev => ({ ...prev, search_days: parseInt(e.target.value) }))}
+                                        className="w-full px-3 py-2 rounded-lg"
+                                        style={{ background: colors.dark.tertiary, border: `1px solid ${colors.dark.border}`, color: colors.text.primary }}
+                                    >
+                                        {[3, 5, 7, 10, 14].map(n => <option key={n} value={n}>{n}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-medium mb-2" style={{ color: colors.text.muted }}>📱 Canales activos</label>
+                                <div className="flex gap-3">
+                                    {[{ key: 'whatsapp', label: 'WhatsApp' }, { key: 'app', label: 'App Cliente' }].map(ch => (
+                                        <label key={ch.key} className="flex items-center gap-2 cursor-pointer p-2 rounded-lg" style={{ background: proConfig.channels[ch.key] ? colors.gold.glow : colors.dark.tertiary }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={proConfig.channels[ch.key]}
+                                                onChange={(e) => setProConfig(prev => ({ ...prev, channels: { ...prev.channels, [ch.key]: e.target.checked } }))}
+                                                className="w-4 h-4"
+                                                style={{ accentColor: colors.gold.primary }}
+                                            />
+                                            <span className="text-sm" style={{ color: colors.text.primary }}>{ch.label}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </Section>
+                )}
+
+                {/* Company Info */}
+                <Section id="company" title="🏢 Datos de Empresa" icon={Building2} color={modeColor.primary}>
+                    <div className="space-y-3 mt-4">
+                        <p className="text-xs p-2 rounded-lg" style={{ background: colors.dark.tertiary, color: colors.text.muted }}>
+                            ℹ️ Esta información se usa en los mensajes del bot. Edítala en Configuración → Identidad de Empresa.
                         </p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div>
+                                <label className="block text-xs font-medium mb-1" style={{ color: colors.text.muted }}>Nombre</label>
+                                <div className="px-3 py-2 rounded-lg" style={{ background: colors.dark.tertiary, color: colors.text.primary }}>
+                                    {companyInfo.name || 'Sin configurar'}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium mb-1" style={{ color: colors.text.muted }}>Teléfono</label>
+                                <div className="px-3 py-2 rounded-lg" style={{ background: colors.dark.tertiary, color: colors.text.primary }}>
+                                    {companyInfo.phone || 'Sin configurar'}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium mb-1" style={{ color: colors.text.muted }}>Email</label>
+                                <div className="px-3 py-2 rounded-lg" style={{ background: colors.dark.tertiary, color: colors.text.primary }}>
+                                    {companyInfo.email || 'Sin configurar'}
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div
-                    className="px-3 py-1 rounded-full text-xs font-bold"
-                    style={{
-                        background: secretaryMode === 'pro' ? colors.gold.primary : colors.basic.primary,
-                        color: colors.dark.primary
-                    }}
-                >
-                    {secretaryMode === 'pro' ? '✨ PRO' : '📋 BÁSICO'}
+                </Section>
+
+                {/* Messages */}
+                <Section id="messages" title="💬 Mensajes del Bot" icon={MessageCircle} color={modeColor.primary}>
+                    <div className="space-y-3 mt-4">
+                        <p className="text-xs" style={{ color: colors.text.muted }}>
+                            Personaliza los mensajes que envía el bot. Usa <code style={{ color: modeColor.primary }}>{'{company_name}'}</code>, <code style={{ color: modeColor.primary }}>{'{appliance}'}</code>, etc.
+                        </p>
+                        {[
+                            { key: 'greeting', label: '👋 Saludo inicial' },
+                            { key: 'ask_appliance', label: '🔧 Preguntar electrodoméstico' },
+                            { key: 'ask_problem', label: '❓ Preguntar problema' },
+                            { key: 'ask_address', label: '📍 Preguntar dirección' },
+                            { key: 'ask_name', label: '👤 Preguntar nombre' },
+                            { key: 'ticket_created', label: '✅ Ticket creado (básico)' },
+                            ...(secretaryMode === 'pro' ? [
+                                { key: 'propose_slots', label: '📅 Proponer citas (PRO)' },
+                                { key: 'slot_confirmed', label: '✨ Cita confirmada (PRO)' }
+                            ] : []),
+                            { key: 'goodbye', label: '👋 Despedida' }
+                        ].map(msg => (
+                            <div key={msg.key}>
+                                <label className="block text-xs font-medium mb-1" style={{ color: colors.text.muted }}>{msg.label}</label>
+                                <textarea
+                                    value={messages[msg.key] || ''}
+                                    onChange={(e) => setMessages(prev => ({ ...prev, [msg.key]: e.target.value }))}
+                                    rows={2}
+                                    className="w-full px-3 py-2 rounded-lg resize-none text-sm"
+                                    style={{ background: colors.dark.tertiary, border: `1px solid ${colors.dark.border}`, color: colors.text.primary }}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </Section>
+
+                {/* Save Button */}
+                <div className="flex justify-end pt-2">
+                    <button
+                        onClick={() => handleSave()}
+                        disabled={saving}
+                        className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all hover:scale-105 disabled:opacity-50"
+                        style={{
+                            background: saved ? '#22c55e' : `linear-gradient(135deg, ${modeColor.primary}, ${modeColor.secondary})`,
+                            color: colors.dark.primary,
+                            boxShadow: `0 0 20px ${modeColor.glow}`
+                        }}
+                    >
+                        {saved ? <><CheckCircle size={18} /> ¡Guardado!</> : saving ? <><div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> Guardando...</> : <><Save size={18} /> Guardar Todo</>}
+                    </button>
                 </div>
             </div>
-
-            {/* PRO specific config */}
-            {secretaryMode === 'pro' && (
-                <div className="space-y-6">
-                    {/* Slots, Timeout, Days */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium mb-2" style={{ color: colors.text.secondary }}>
-                                📅 Citas a proponer
-                            </label>
-                            <select
-                                value={proConfig.slots_count}
-                                onChange={(e) => setProConfig(prev => ({ ...prev, slots_count: parseInt(e.target.value) }))}
-                                className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2"
-                                style={{
-                                    background: colors.dark.tertiary,
-                                    border: `1px solid ${colors.dark.border}`,
-                                    color: colors.text.primary
-                                }}
-                            >
-                                {[1, 2, 3, 4, 5].map(n => (
-                                    <option key={n} value={n}>{n} {n === 1 ? 'cita' : 'citas'}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-2" style={{ color: colors.text.secondary }}>
-                                ⏱️ Timeout respuesta
-                            </label>
-                            <select
-                                value={proConfig.timeout_minutes}
-                                onChange={(e) => setProConfig(prev => ({ ...prev, timeout_minutes: parseInt(e.target.value) }))}
-                                className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2"
-                                style={{
-                                    background: colors.dark.tertiary,
-                                    border: `1px solid ${colors.dark.border}`,
-                                    color: colors.text.primary
-                                }}
-                            >
-                                {[1, 2, 3, 5, 10].map(n => (
-                                    <option key={n} value={n}>{n} min</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-2" style={{ color: colors.text.secondary }}>
-                                🔮 Días a futuro
-                            </label>
-                            <select
-                                value={proConfig.search_days}
-                                onChange={(e) => setProConfig(prev => ({ ...prev, search_days: parseInt(e.target.value) }))}
-                                className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2"
-                                style={{
-                                    background: colors.dark.tertiary,
-                                    border: `1px solid ${colors.dark.border}`,
-                                    color: colors.text.primary
-                                }}
-                            >
-                                {[3, 5, 7, 10, 14].map(n => (
-                                    <option key={n} value={n}>{n} días</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Operating Days */}
-                    <div>
-                        <label className="block text-sm font-medium mb-3" style={{ color: colors.text.secondary }}>
-                            📅 Días de operación
-                        </label>
-                        <div className="flex flex-wrap gap-2">
-                            {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(day => (
-                                <button
-                                    key={day}
-                                    type="button"
-                                    onClick={() => {
-                                        const days = proConfig.operating_days || [];
-                                        if (days.includes(day)) {
-                                            setProConfig(prev => ({ ...prev, operating_days: days.filter(d => d !== day) }));
-                                        } else {
-                                            setProConfig(prev => ({ ...prev, operating_days: [...days, day] }));
-                                        }
-                                    }}
-                                    className="px-4 py-2 rounded-xl font-medium transition-all"
-                                    style={{
-                                        background: (proConfig.operating_days || []).includes(day)
-                                            ? colors.gold.primary
-                                            : colors.dark.tertiary,
-                                        color: (proConfig.operating_days || []).includes(day)
-                                            ? colors.dark.primary
-                                            : colors.text.muted,
-                                        border: `1px solid ${(proConfig.operating_days || []).includes(day) ? colors.gold.primary : colors.dark.border}`
-                                    }}
-                                >
-                                    {day}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Working Hours */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium mb-2" style={{ color: colors.text.secondary }}>
-                                🕐 Hora inicio
-                            </label>
-                            <input
-                                type="time"
-                                value={proConfig.working_hours_start || '09:00'}
-                                onChange={(e) => setProConfig(prev => ({ ...prev, working_hours_start: e.target.value }))}
-                                className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2"
-                                style={{
-                                    background: colors.dark.tertiary,
-                                    border: `1px solid ${colors.dark.border}`,
-                                    color: colors.text.primary
-                                }}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-2" style={{ color: colors.text.secondary }}>
-                                🕐 Hora fin
-                            </label>
-                            <input
-                                type="time"
-                                value={proConfig.working_hours_end || '19:00'}
-                                onChange={(e) => setProConfig(prev => ({ ...prev, working_hours_end: e.target.value }))}
-                                className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2"
-                                style={{
-                                    background: colors.dark.tertiary,
-                                    border: `1px solid ${colors.dark.border}`,
-                                    color: colors.text.primary
-                                }}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Channels */}
-                    <div>
-                        <label className="block text-sm font-medium mb-3" style={{ color: colors.text.secondary }}>
-                            📱 Canales activos
-                        </label>
-                        <div className="flex gap-4">
-                            {[
-                                { key: 'whatsapp', label: 'WhatsApp' },
-                                { key: 'app', label: 'App Cliente' }
-                            ].map(channel => (
-                                <label
-                                    key={channel.key}
-                                    className="flex items-center gap-3 cursor-pointer p-3 rounded-xl transition-all"
-                                    style={{
-                                        background: proConfig.channels[channel.key] ? colors.gold.glow : colors.dark.tertiary,
-                                        border: `1px solid ${proConfig.channels[channel.key] ? colors.gold.primary : colors.dark.border}`
-                                    }}
-                                >
-                                    <input
-                                        type="checkbox"
-                                        checked={proConfig.channels[channel.key]}
-                                        onChange={(e) => setProConfig(prev => ({
-                                            ...prev,
-                                            channels: { ...prev.channels, [channel.key]: e.target.checked }
-                                        }))}
-                                        className="w-5 h-5 rounded"
-                                        style={{ accentColor: colors.gold.primary }}
-                                    />
-                                    <span style={{ color: colors.text.primary }}>{channel.label}</span>
-                                </label>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Basic mode info */}
-            {secretaryMode === 'basic' && (
-                <div
-                    className="p-6 rounded-xl text-center"
-                    style={{ background: colors.dark.tertiary }}
-                >
-                    <Shield size={48} className="mx-auto mb-4" style={{ color: colors.basic.primary }} />
-                    <h4 className="font-bold mb-2" style={{ color: colors.text.primary }}>
-                        Modo Manual Activo
-                    </h4>
-                    <p className="text-sm" style={{ color: colors.text.muted }}>
-                        El bot recogerá los datos del cliente y creará un ticket para que un administrador coordine la cita manualmente.
-                    </p>
-                    <p className="text-xs mt-4" style={{ color: colors.text.muted }}>
-                        Para configurar mensajes y datos de empresa, ve a la pestaña "Configuración Bot"
-                    </p>
-                </div>
-            )}
-
-            {/* Save Button */}
-            <div className="flex justify-end mt-6 pt-4" style={{ borderTop: `1px solid ${colors.dark.border}` }}>
-                <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all hover:scale-105 disabled:opacity-50"
-                    style={{
-                        background: saved
-                            ? '#22c55e'
-                            : `linear-gradient(135deg, ${secretaryMode === 'pro' ? colors.gold.primary : colors.basic.primary}, ${secretaryMode === 'pro' ? colors.gold.secondary : colors.basic.secondary})`,
-                        color: colors.dark.primary,
-                        boxShadow: `0 0 20px ${secretaryMode === 'pro' ? colors.gold.glow : colors.basic.glow}`
-                    }}
-                >
-                    {saved ? (
-                        <>
-                            <CheckCircle size={18} />
-                            ¡Guardado!
-                        </>
-                    ) : saving ? (
-                        <>
-                            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                            Guardando...
-                        </>
-                    ) : (
-                        <>
-                            <Save size={18} />
-                            Guardar Configuración
-                        </>
-                    )}
-                </button>
-            </div>
-        </div>
-    );
+        );
+    };
 
     if (loading) {
         return (
-            <div
-                className="min-h-screen flex items-center justify-center"
-                style={{ background: colors.dark.primary }}
-            >
+            <div className="fixed inset-0 flex items-center justify-center" style={{ background: colors.dark.primary }}>
                 <div className="text-center">
                     <Bot size={48} className="mx-auto animate-pulse mb-4" style={{ color: colors.gold.primary }} />
-                    <p style={{ color: colors.text.muted }}>Cargando configuración...</p>
+                    <p style={{ color: colors.text.muted }}>Cargando...</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div
-            className="min-h-screen p-6"
-            style={{ background: colors.dark.primary }}
-        >
+        <div className="fixed inset-0 overflow-auto" style={{ background: colors.dark.primary }}>
             <style>{`
-                @keyframes dash {
-                    to { stroke-dashoffset: -24; }
-                }
-                @keyframes fadeIn {
-                    from { opacity: 0; }
-                    to { opacity: 1; }
-                }
-                @keyframes scaleIn {
-                    from { transform: scale(0.9); opacity: 0; }
-                    to { transform: scale(1); opacity: 1; }
-                }
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
                 .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
-                .animate-scaleIn { animation: scaleIn 0.3s ease-out; }
             `}</style>
 
-            {/* Activation Modal */}
             <ActivationModal />
 
-            <div className="max-w-5xl mx-auto">
+            <div className="max-w-5xl mx-auto p-6">
                 {/* Header */}
-                <div className="mb-8">
+                <div className="mb-6">
                     <div className="flex items-center gap-4">
-                        <div
-                            className="p-3 rounded-2xl"
-                            style={{
-                                background: `linear-gradient(135deg, ${colors.gold.primary}, ${colors.gold.secondary})`,
-                                boxShadow: `0 0 30px ${colors.gold.glow}`
-                            }}
-                        >
-                            <Bot size={32} style={{ color: colors.dark.primary }} />
+                        <div className="p-3 rounded-2xl" style={{ background: `linear-gradient(135deg, ${colors.gold.primary}, ${colors.gold.secondary})`, boxShadow: `0 0 30px ${colors.gold.glow}` }}>
+                            <Bot size={28} style={{ color: colors.dark.primary }} />
                         </div>
                         <div>
-                            <h1
-                                className="text-3xl font-black"
-                                style={{ color: colors.text.primary }}
-                            >
-                                Secretaria Virtual
-                            </h1>
-                            <p style={{ color: colors.text.muted }}>
-                                Automatiza la gestión de citas con inteligencia artificial
-                            </p>
+                            <h1 className="text-2xl font-black" style={{ color: colors.text.primary }}>Secretaria Virtual</h1>
+                            <p className="text-sm" style={{ color: colors.text.muted }}>Automatiza la gestión de citas con inteligencia artificial</p>
                         </div>
                     </div>
                 </div>
 
                 {/* Tabs */}
-                <div
-                    className="flex gap-2 mb-6 p-1 rounded-xl"
-                    style={{ background: colors.dark.secondary }}
-                >
-                    {[
-                        { id: 'type', label: 'Tipo de Asistente', icon: Zap },
-                        { id: 'config', label: 'Configuración', icon: Settings }
-                    ].map(tab => (
+                <div className="flex gap-2 mb-6 p-1 rounded-xl" style={{ background: colors.dark.secondary }}>
+                    {[{ id: 'type', label: 'Tipo de Asistente', icon: Zap }, { id: 'config', label: 'Configuración', icon: Settings }].map(tab => (
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium transition-all"
                             style={{
-                                background: activeTab === tab.id
-                                    ? `linear-gradient(135deg, ${colors.gold.primary}, ${colors.gold.secondary})`
-                                    : 'transparent',
+                                background: activeTab === tab.id ? `linear-gradient(135deg, ${colors.gold.primary}, ${colors.gold.secondary})` : 'transparent',
                                 color: activeTab === tab.id ? colors.dark.primary : colors.text.muted
                             }}
                         >
@@ -761,28 +630,16 @@ const SecretarySettingsPage = () => {
 
                 {/* Tab Content */}
                 {activeTab === 'type' && (
-                    <div className="space-y-6">
-                        {/* Info banner */}
-                        <div
-                            className="flex items-start gap-4 p-4 rounded-xl"
-                            style={{
-                                background: colors.dark.secondary,
-                                border: `1px solid ${colors.gold.primary}20`
-                            }}
-                        >
-                            <Sparkles size={24} style={{ color: colors.gold.primary }} className="shrink-0" />
+                    <div className="space-y-4">
+                        <div className="flex items-start gap-3 p-4 rounded-xl" style={{ background: colors.dark.secondary, border: `1px solid ${colors.gold.primary}20` }}>
+                            <Sparkles size={20} style={{ color: colors.gold.primary }} className="shrink-0" />
                             <div>
-                                <p className="font-bold" style={{ color: colors.text.primary }}>
-                                    Elige el tipo de asistente para tu negocio
-                                </p>
-                                <p className="text-sm" style={{ color: colors.text.muted }}>
-                                    Solo un modo puede estar activo a la vez. Haz clic en cualquiera para cambiar.
-                                </p>
+                                <p className="font-bold text-sm" style={{ color: colors.text.primary }}>Elige el tipo de asistente para tu negocio</p>
+                                <p className="text-xs" style={{ color: colors.text.muted }}>Solo un modo puede estar activo. Haz clic para cambiar.</p>
                             </div>
                         </div>
 
-                        {/* Mode cards */}
-                        <div className="grid md:grid-cols-2 gap-6">
+                        <div className="grid md:grid-cols-2 gap-4">
                             <ModeCard
                                 mode="basic"
                                 title="BÁSICO"
@@ -790,12 +647,7 @@ const SecretarySettingsPage = () => {
                                 icon={Users}
                                 isActive={secretaryMode === 'basic'}
                                 color={colors.basic}
-                                features={[
-                                    'Bot recoge datos del cliente',
-                                    'Crea ticket en estado "solicitado"',
-                                    'Admin coordina cita por teléfono',
-                                    'Asignación manual de técnico'
-                                ]}
+                                features={['Bot recoge datos del cliente', 'Crea ticket "solicitado"', 'Admin coordina cita', 'Asignación manual']}
                             />
                             <ModeCard
                                 mode="pro"
@@ -804,12 +656,7 @@ const SecretarySettingsPage = () => {
                                 icon={Crown}
                                 isActive={secretaryMode === 'pro'}
                                 color={colors.gold}
-                                features={[
-                                    'IA propone citas disponibles',
-                                    'Cliente elige en tiempo real',
-                                    'Asignación automática de técnico',
-                                    'Optimización inteligente de rutas'
-                                ]}
+                                features={['IA propone citas disponibles', 'Cliente elige en tiempo real', 'Asignación automática', 'Optimización de rutas']}
                             />
                         </div>
                     </div>
