@@ -263,27 +263,30 @@ async function identifyClient(waId: string): Promise<ClientIdentity> {
 
     try {
         // Buscar cliente por teléfono usando formato 9-dígitos
-        // Ordenar por updated_at DESC para tomar el más reciente si hay duplicados
+        // CRITICAL: Fetch ALL matches to check if ANY is registered via APP
         const { data: clientsData, error } = await supabase
             .from('profiles')
             .select('id, full_name, phone, email, address, registration_source')
             .eq('phone', normalizedPhone)
             .eq('role', 'client')
-            .order('updated_at', { ascending: false })
-            .limit(1);
+            .order('created_at', { ascending: false });
 
         if (error || !clientsData || clientsData.length === 0) {
             console.log(`[Bot] 👤 Client NOT found for ${normalizedPhone}`);
             return { exists: false };
         }
 
-        const clientData = clientsData[0];
-        const isAppUser = clientData.registration_source === 'app';
-
-        // Log warning if there might be duplicates
-        if (clientsData.length > 1) {
-            console.warn(`[Bot] ⚠️ DUPLICATE PHONES DETECTED for ${normalizedPhone}! Using most recent: ${clientData.full_name}`);
+        // PRIORITY: If ANY profile is registered via APP, use that one
+        // This prevents office duplicates from blocking APP user detection
+        let clientData = clientsData[0]; // Default to most recent
+        const appClient = clientsData.find((c: any) => c.registration_source === 'app');
+        if (appClient) {
+            console.log(`[Bot] 🔴 FOUND APP-REGISTERED CLIENT among ${clientsData.length} matches!`);
+            clientData = appClient;
         }
+
+        // Calculate isAppUser AFTER selecting the right client
+        const isAppUser = clientData.registration_source === 'app';
 
         console.log(`[Bot] ✅ Client found: ${clientData.full_name} (${clientData.id})`);
         console.log(`[Bot] 📱 Registration source: ${clientData.registration_source || 'N/A'} | isAppUser: ${isAppUser}`);
@@ -966,25 +969,30 @@ serve(async (req: Request) => {
 
         console.log(`[Bot] 📍 Current step: ${conversation.current_step}`);
 
-        // ═══════════════════════════════════════════════════════════════════
         // FASE 2: Identificación de cliente (con caché)
+        // MIGRATION FIX: Reload if isAppUser is undefined (old cached identities)
         // ═══════════════════════════════════════════════════════════════════
-        if (!conversation.collected_data.client_identity) {
-            console.log('[Bot] 🔍 First message - identifying client...');
+        const needsReload = !conversation.collected_data.client_identity ||
+            (conversation.collected_data.client_identity.exists &&
+                conversation.collected_data.client_identity.isAppUser === undefined);
+
+        if (needsReload) {
+            console.log('[Bot] 🔍 Identifying client (first message or migration reload)...');
             conversation.collected_data.client_identity = await identifyClient(normalizedFrom);
 
             // Detailed logging
             const identity = conversation.collected_data.client_identity;
-            console.log(`[Bot] 📋 Identity result: exists=${identity.exists}`);
+            console.log(`[Bot] 📋 Identity result: exists=${identity.exists}, isAppUser=${identity.isAppUser}`);
             if (identity.exists && identity.client) {
                 console.log(`[Bot] 👤 Client name: ${identity.client.full_name}`);
+                console.log(`[Bot] 📱 Registration source: ${identity.client.registration_source || 'N/A'}`);
                 console.log(`[Bot] 📍 Client profile address: ${identity.client.address || 'NULL'}`);
                 console.log(`[Bot] 📍 Addresses count: ${identity.addresses?.length || 0}`);
             }
         } else {
             console.log('[Bot] 📦 Using cached client identity');
             const identity = conversation.collected_data.client_identity;
-            console.log(`[Bot] 📋 Cached: name=${identity.client?.full_name}, addr=${identity.client?.address || 'NULL'}`);
+            console.log(`[Bot] 📋 Cached: name=${identity.client?.full_name}, isAppUser=${identity.isAppUser}`);
         }
 
         // ═══════════════════════════════════════════════════════════════════
