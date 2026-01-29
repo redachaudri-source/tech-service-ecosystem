@@ -401,26 +401,80 @@ const Dashboard = () => {
     const activeTickets = tickets.filter(t => !['finalizado', 'pagado', 'cancelado'].includes(t.status));
     const historyTickets = tickets.filter(t => ['finalizado', 'pagado', 'cancelado'].includes(t.status));
 
+    const isPro = profile?.client_type === 'professional';
+
     return (
-        <div className="min-h-screen bg-slate-50">
-            {/* Navbar */}
-            <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
-                <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className={`min-h-screen ${isPro ? 'bg-slate-900' : 'bg-slate-50'}`}>
+            {/* Navbar - Premium Dual Mode */}
+            <div className={`${isPro
+                ? 'bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700/50 shadow-lg shadow-black/20'
+                : 'bg-white border-b border-slate-200 shadow-sm'
+                } sticky top-0 z-50 backdrop-blur-xl`}>
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between h-16 items-center">
-                        <div className="flex items-center gap-2">
-                            {/* Logo Placeholder */}
-                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
-                                S
+                        {/* Logo & Brand */}
+                        <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold shadow-lg ${isPro
+                                ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-slate-900 shadow-amber-500/20'
+                                : 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-blue-500/30'
+                                }`}>
+                                F
                             </div>
-                            <span className="font-bold text-slate-800">Servicio Técnico</span>
+                            <div className="flex flex-col">
+                                <span className={`font-bold text-lg ${isPro ? 'text-white' : 'text-slate-800'}`}>Fixarr</span>
+                                {isPro && (
+                                    <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest -mt-1">Profesional</span>
+                                )}
+                            </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                            <span className="text-sm font-medium text-slate-600 hidden sm:block">
-                                Hola, {profile?.full_name?.split(' ')[0] || 'Usuario'}
-                            </span>
+
+                        {/* Navigation Links - Pro Version */}
+                        {isPro && (
+                            <nav className="hidden md:flex items-center gap-1">
+                                <button onClick={() => navigate('/dashboard')} className="px-4 py-2 text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition">
+                                    Dashboard
+                                </button>
+                                <button onClick={() => navigate('/addresses')} className="px-4 py-2 text-sm font-medium text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition">
+                                    Propiedades
+                                </button>
+                                <button onClick={() => navigate('/appliances')} className="px-4 py-2 text-sm font-medium text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition">
+                                    Equipos
+                                </button>
+                                <button onClick={() => navigate('/analytics')} className="px-4 py-2 text-sm font-medium text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition">
+                                    Analytics
+                                </button>
+                            </nav>
+                        )}
+
+                        {/* User Section */}
+                        <div className="flex items-center gap-3">
+                            {isPro ? (
+                                <>
+                                    <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full">
+                                        <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                                        <span className="text-xs font-medium text-white/70">En línea</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-purple-500/20">
+                                            {profile?.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                                        </div>
+                                        <div className="hidden sm:block">
+                                            <p className="text-sm font-semibold text-white">{profile?.full_name?.split(' ')[0] || 'Usuario'}</p>
+                                            <p className="text-[10px] text-white/50">Gestora de Propiedades</p>
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <span className="text-sm font-medium text-slate-600 hidden sm:block">
+                                    Hola, {profile?.full_name?.split(' ')[0] || 'Usuario'}
+                                </span>
+                            )}
                             <button
                                 onClick={handleLogout}
-                                className="p-2 text-slate-400 hover:text-red-600 transition rounded-full hover:bg-red-50"
+                                className={`p-2 rounded-full transition ${isPro
+                                    ? 'text-white/60 hover:text-red-400 hover:bg-red-500/10'
+                                    : 'text-slate-400 hover:text-red-600 hover:bg-red-50'
+                                    }`}
                                 title="Cerrar Sesión"
                             >
                                 <LogOut size={20} />
@@ -430,65 +484,154 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+            <div className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 ${isPro ? 'pt-6' : ''}`}>
 
-                {/* Header Section */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-                            Mis Servicios
-                            {isConnected && (
-                                <span className="flex items-center gap-1 text-[10px] bg-green-100 text-green-600 px-2 py-0.5 rounded-full border border-green-200 animate-pulse">
-                                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-                                    EN VIVO
-                                </span>
-                            )}
-                        </h1>
-                        <p className="text-slate-500">Consulta el estado de tus reparaciones en tiempo real.</p>
+                {/* Header Section - Conditional */}
+                {isPro ? (
+                    /* PROFESIONAL: Premium Hero Section */
+                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 via-slate-800 to-purple-900/50 p-8 border border-white/10">
+                        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=&quot;60&quot; height=&quot;60&quot; viewBox=&quot;0 0 60 60&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot;%3E%3Cg fill=&quot;none&quot; fill-rule=&quot;evenodd&quot;%3E%3Cg fill=&quot;%239C92AC&quot; fill-opacity=&quot;0.03&quot;%3E%3Cpath d=&quot;M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z&quot;/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-50"></div>
+                        <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+                            <div>
+                                <p className="text-amber-400 text-sm font-semibold uppercase tracking-widest mb-2">Panel de Control</p>
+                                <h1 className="text-3xl lg:text-4xl font-bold text-white mb-2">
+                                    Hola, {profile?.full_name?.split(' ')[0] || 'Usuario'} 👋
+                                </h1>
+                                <p className="text-white/60 text-lg">
+                                    Gestiona tus {tickets.length} servicios técnicos desde aquí.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => navigate('/new-service')}
+                                className="flex items-center gap-3 bg-gradient-to-r from-amber-400 to-orange-500 text-slate-900 px-6 py-3.5 rounded-xl font-bold hover:from-amber-500 hover:to-orange-600 transition shadow-xl shadow-amber-500/20 active:scale-95 transform duration-150"
+                            >
+                                <Plus size={22} />
+                                <span>Nueva Solicitud</span>
+                            </button>
+                        </div>
+                        {/* Stats within Hero */}
+                        <div className="relative z-10 grid grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
+                            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                                        <Clock size={20} className="text-emerald-400" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-medium text-white/50 uppercase tracking-wider">Activos</p>
+                                        <p className="text-2xl font-bold text-white">{activeTickets.length}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                                        <CheckCircle size={20} className="text-blue-400" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-medium text-white/50 uppercase tracking-wider">Historial</p>
+                                        <p className="text-2xl font-bold text-white">{historyTickets.length}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                                        <MapPin size={20} className="text-purple-400" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-medium text-white/50 uppercase tracking-wider">Propiedades</p>
+                                        <p className="text-2xl font-bold text-white">{profile?.address_count || '—'}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                                        <Package size={20} className="text-amber-400" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-medium text-white/50 uppercase tracking-wider">Equipos</p>
+                                        <p className="text-2xl font-bold text-white">{profile?.appliance_count || '—'}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                        <button
-                            onClick={() => navigate('/appliances')}
-                            className="flex items-center gap-2 bg-white text-slate-600 px-4 py-2.5 rounded-xl font-bold border border-slate-200 hover:bg-slate-50 transition shadow-sm active:scale-95"
-                        >
-                            <Package size={20} />
-                            <span className="hidden sm:inline">Mis Equipos</span>
-                        </button>
-                        <button
-                            onClick={() => navigate('/analytics')}
-                            className="flex items-center gap-2 bg-white text-slate-600 px-4 py-2.5 rounded-xl font-bold border border-slate-200 hover:bg-slate-50 transition shadow-sm active:scale-95"
-                        >
-                            <PieChart size={20} />
-                            <span className="hidden sm:inline">Gastos</span>
-                        </button>
-                        <button
-                            onClick={() => navigate('/addresses')}
-                            className="flex items-center gap-2 bg-white text-slate-600 px-4 py-2.5 rounded-xl font-bold border border-slate-200 hover:bg-slate-50 transition shadow-sm active:scale-95"
-                        >
-                            <MapPin size={20} />
-                            <span className="hidden sm:inline">Direcciones</span>
-                        </button>
-                        <button
-                            onClick={() => navigate('/new-service')}
-                            className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-600/20 active:scale-95 transform duration-150"
-                        >
-                            <Plus size={20} />
-                            <span>Solicitar Reparación</span>
-                        </button>
-                    </div>
-                </div>
+                ) : (
+                    /* PARTICULAR: Clean & Intuitive */
+                    <>
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                            <div>
+                                <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
+                                    Mis Servicios
+                                    {isConnected && (
+                                        <span className="flex items-center gap-1 text-[10px] bg-green-100 text-green-600 px-2 py-0.5 rounded-full border border-green-200 animate-pulse">
+                                            <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                                            EN VIVO
+                                        </span>
+                                    )}
+                                </h1>
+                                <p className="text-slate-500">Consulta el estado de tus reparaciones en tiempo real.</p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    onClick={() => navigate('/appliances')}
+                                    className="flex items-center gap-2 bg-white text-slate-600 px-4 py-2.5 rounded-xl font-bold border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition shadow-sm active:scale-95"
+                                >
+                                    <Package size={20} className="text-purple-500" />
+                                    <span className="hidden sm:inline">Mis Equipos</span>
+                                </button>
+                                <button
+                                    onClick={() => navigate('/analytics')}
+                                    className="flex items-center gap-2 bg-white text-slate-600 px-4 py-2.5 rounded-xl font-bold border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition shadow-sm active:scale-95"
+                                >
+                                    <PieChart size={20} className="text-blue-500" />
+                                    <span className="hidden sm:inline">Gastos</span>
+                                </button>
+                                <button
+                                    onClick={() => navigate('/addresses')}
+                                    className="flex items-center gap-2 bg-white text-slate-600 px-4 py-2.5 rounded-xl font-bold border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition shadow-sm active:scale-95"
+                                >
+                                    <MapPin size={20} className="text-teal-500" />
+                                    <span className="hidden sm:inline">Direcciones</span>
+                                </button>
+                                <button
+                                    onClick={() => navigate('/new-service')}
+                                    className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-5 py-2.5 rounded-xl font-bold hover:from-blue-600 hover:to-blue-700 transition shadow-lg shadow-blue-500/25 active:scale-95 transform duration-150"
+                                >
+                                    <Plus size={20} />
+                                    <span>Solicitar Reparación</span>
+                                </button>
+                            </div>
+                        </div>
 
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                        <div className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-1">Activos</div>
-                        <div className="text-2xl font-bold text-slate-800">{activeTickets.length}</div>
-                    </div>
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                        <div className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-1">Histórico</div>
-                        <div className="text-2xl font-bold text-slate-800">{tickets.length}</div>
-                    </div>
-                </div>
+                        {/* Stats Grid - PARTICULAR */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:shadow-md hover:border-blue-200 transition-all duration-200">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                                        <Clock size={18} className="text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <div className="text-slate-400 text-xs font-medium uppercase tracking-wider">Activos</div>
+                                        <div className="text-2xl font-bold text-slate-800">{activeTickets.length}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:shadow-md hover:border-green-200 transition-all duration-200">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                                        <CheckCircle size={18} className="text-green-600" />
+                                    </div>
+                                    <div>
+                                        <div className="text-slate-400 text-xs font-medium uppercase tracking-wider">Historial</div>
+                                        <div className="text-2xl font-bold text-slate-800">{historyTickets.length}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                )}
 
                 {/* PENDING BUDGET PROPOSALS (From Admin) */}
                 {budgets.length > 0 && (
