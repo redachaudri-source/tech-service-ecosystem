@@ -436,11 +436,11 @@ async function getAvailableSlots(
     console.log(`[Bot] 📅 Searching ${slotsCount} slots for CP: ${postalCode}, days: ${searchDays}`);
 
     try {
-        // Get all active technicians
+        // Get all active technicians from profiles table
         const { data: technicians } = await supabase
-            .from('technicians')
-            .select('id, full_name, work_areas, postal_codes_covered')
-            .eq('is_active', true)
+            .from('profiles')
+            .select('id, full_name, is_active')
+            .eq('role', 'tech')
             .eq('is_deleted', false);
 
         if (!technicians || technicians.length === 0) {
@@ -448,21 +448,15 @@ async function getAvailableSlots(
             return [];
         }
 
-        // Filter technicians who cover this postal code
-        let validTechs = technicians;
-        if (postalCode) {
-            validTechs = technicians.filter(t => {
-                const cpList = t.postal_codes_covered || [];
-                return cpList.length === 0 || cpList.includes(postalCode);
-            });
-        }
+        // Filter only active technicians
+        const validTechs = technicians.filter((t: any) => t.is_active !== false);
 
         if (validTechs.length === 0) {
-            console.log('[Bot] ❌ No technicians cover postal code:', postalCode);
+            console.log('[Bot] ❌ No active technicians available');
             return [];
         }
 
-        console.log(`[Bot] 👥 Found ${validTechs.length} technicians covering area`);
+        console.log(`[Bot] 👥 Found ${validTechs.length} active technicians`);
 
         // Get busy slots for next N days
         const startDate = new Date();
@@ -471,21 +465,23 @@ async function getAvailableSlots(
 
         const { data: busySlots } = await supabase
             .from('tickets')
-            .select('assigned_technician_id, scheduled_date, scheduled_time')
-            .in('assigned_technician_id', validTechs.map(t => t.id))
-            .gte('scheduled_date', startDate.toISOString().split('T')[0])
-            .lte('scheduled_date', endDate.toISOString().split('T')[0])
+            .select('technician_id, scheduled_at')
+            .in('technician_id', validTechs.map((t: any) => t.id))
+            .not('scheduled_at', 'is', null)
+            .gte('scheduled_at', startDate.toISOString())
+            .lte('scheduled_at', endDate.toISOString())
             .in('status', ['asignado', 'en_camino', 'en_proceso']);
 
         // Create a map of busy times
         const busyMap = new Map<string, Set<string>>();
         if (busySlots) {
             for (const slot of busySlots) {
-                const key = `${slot.assigned_technician_id}_${slot.scheduled_date}`;
+                const slotDate = new Date(slot.scheduled_at);
+                const dateStr = slotDate.toISOString().split('T')[0];
+                const timeStr = `${slotDate.getHours().toString().padStart(2, '0')}:00`;
+                const key = `${slot.technician_id}_${dateStr}`;
                 if (!busyMap.has(key)) busyMap.set(key, new Set());
-                if (slot.scheduled_time) {
-                    busyMap.get(key)!.add(slot.scheduled_time);
-                }
+                busyMap.get(key)!.add(timeStr);
             }
         }
 

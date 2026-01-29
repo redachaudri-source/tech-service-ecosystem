@@ -221,19 +221,23 @@ async function findAvailableSlots(
 
     const { data: busySlots } = await supabase
         .from('tickets')
-        .select('assigned_technician_id, scheduled_date, scheduled_time')
-        .in('assigned_technician_id', activeTechs.map((t: any) => t.id))
-        .gte('scheduled_date', startDate.toISOString().split('T')[0])
-        .lte('scheduled_date', endDate.toISOString().split('T')[0])
+        .select('technician_id, scheduled_at')
+        .in('technician_id', activeTechs.map((t: any) => t.id))
+        .not('scheduled_at', 'is', null)
+        .gte('scheduled_at', startDate.toISOString())
+        .lte('scheduled_at', endDate.toISOString())
         .in('status', ['asignado', 'en_camino', 'en_proceso']);
 
     // Build busy map
     const busyMap = new Map<string, Set<string>>();
     if (busySlots) {
         for (const slot of busySlots) {
-            const key = `${slot.assigned_technician_id}_${slot.scheduled_date}`;
+            const slotDate = new Date(slot.scheduled_at);
+            const dateStr = slotDate.toISOString().split('T')[0];
+            const timeStr = `${slotDate.getHours().toString().padStart(2, '0')}:00`;
+            const key = `${slot.technician_id}_${dateStr}`;
             if (!busyMap.has(key)) busyMap.set(key, new Set());
-            if (slot.scheduled_time) busyMap.get(key)!.add(slot.scheduled_time);
+            busyMap.get(key)!.add(timeStr);
         }
     }
 
