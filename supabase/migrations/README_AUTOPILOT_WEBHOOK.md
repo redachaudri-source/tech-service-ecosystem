@@ -1,11 +1,21 @@
 # Autopilot Webhook – Cómo activarlo
 
-## Opción A: Trigger con pg_net (recomendado)
+## Opción A: Script Node (recomendado)
 
-1. **Activar pg_net:** Dashboard → Database → Extensions → buscar "pg_net" → Enable.
-2. **Aplicar la migración:** Ejecutar en SQL Editor el contenido de `20260129_ticket_autopilot_webhook_trigger.sql` (o aplicar migraciones con `supabase db push` si usas CLI).
+1. **Activar pg_net:** Dashboard → Database → Extensions → "pg_net" → Enable.
+2. Obtener **Connection string (URI)** en Dashboard → Project Settings → Database.
+3. Ejecutar:
+   ```bash
+   DATABASE_URL='postgresql://...' npm run install:trigger
+   ```
+   O bien `node scripts/install_trigger.js` con `DATABASE_URL` o `SUPABASE_DB_URL` en el entorno.
 
-Con esto, cada INSERT en `tickets` con `status = 'solicitado'` llamará a la Edge Function `ticket-autopilot`.
+Con esto se crea el trigger `ticket_autopilot_on_insert` en `tickets` (INSERT + `status = 'solicitado'`).
+
+## Opción A2: Migración SQL
+
+1. Activar pg_net (igual que arriba).
+2. Ejecutar en SQL Editor el contenido de `20260129_ticket_autopilot_webhook_trigger.sql` (o `supabase db push` si usas CLI).
 
 ## Opción B: Database Webhook desde el Dashboard
 
