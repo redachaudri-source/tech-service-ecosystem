@@ -258,11 +258,16 @@ const NewService = () => {
             // Get active technicians from profiles table
             const { data: technicians, error: techError } = await supabase
                 .from('profiles')
-                .select('id, full_name, postal_codes_covered, is_active')
+                .select('id, full_name, is_active')
                 .eq('role', 'tech')
                 .eq('is_deleted', false);
 
-            console.log('[PRO] Technicians found:', technicians?.length, techError);
+            console.log('[PRO] Technicians query result:', technicians?.length, techError);
+
+            if (techError) {
+                console.error('[PRO] Error fetching technicians:', techError);
+                return [];
+            }
 
             if (!technicians || technicians.length === 0) {
                 console.log('[PRO] No technicians found');
@@ -272,21 +277,15 @@ const NewService = () => {
             // Filter only active technicians
             const activeTechs = technicians.filter(t => t.is_active !== false);
 
+            console.log('[PRO] Active technicians:', activeTechs.length);
+
             if (activeTechs.length === 0) {
                 console.log('[PRO] No active technicians');
                 return [];
             }
 
-            // Filter by postal code if available
-            let validTechs = activeTechs;
-            if (postalCode) {
-                validTechs = activeTechs.filter(t => {
-                    const cpList = t.postal_codes_covered || [];
-                    return cpList.length === 0 || cpList.includes(postalCode);
-                });
-            }
-
-            console.log('[PRO] Valid techs for postal code:', validTechs.length);
+            // For now, use all active techs (postal code filtering can be added later with proper column)
+            const validTechs = activeTechs;
 
             if (validTechs.length === 0) return [];
 
