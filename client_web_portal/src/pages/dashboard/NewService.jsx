@@ -22,6 +22,7 @@ const NewService = () => {
     const [pendingSlots, setPendingSlots] = useState([]);
     const [createdTicketId, setCreatedTicketId] = useState(null);
     const [ticketInfoForModal, setTicketInfoForModal] = useState({});
+    const [appointmentTimeoutMinutes, setAppointmentTimeoutMinutes] = useState(3);
 
     const [formData, setFormData] = useState({
         type: 'Lavadora',
@@ -237,6 +238,7 @@ const NewService = () => {
                             brand: formData.brand,
                             address: formData.address
                         });
+                        setAppointmentTimeoutMinutes(proConfig?.timeout_minutes ?? 3);
                         setShowAppointmentModal(true);
                         setLoading(false);
                         return;
@@ -314,19 +316,23 @@ const NewService = () => {
 
             const { data: busySlots } = await supabase
                 .from('tickets')
-                .select('assigned_technician_id, scheduled_date, scheduled_time')
-                .in('assigned_technician_id', validTechs.map(t => t.id))
-                .gte('scheduled_date', startDate.toISOString().split('T')[0])
-                .lte('scheduled_date', endDate.toISOString().split('T')[0])
+                .select('technician_id, scheduled_at')
+                .in('technician_id', validTechs.map(t => t.id))
+                .not('scheduled_at', 'is', null)
+                .gte('scheduled_at', startDate.toISOString())
+                .lte('scheduled_at', endDate.toISOString())
                 .in('status', ['asignado', 'en_camino', 'en_proceso']);
 
-            // Build busy map
+            // Build busy map (scheduled_at is timestamptz)
             const busyMap = new Map();
             if (busySlots) {
                 for (const slot of busySlots) {
-                    const key = `${slot.assigned_technician_id}_${slot.scheduled_date}`;
+                    const slotDate = new Date(slot.scheduled_at);
+                    const dateStr = slotDate.toISOString().split('T')[0];
+                    const timeStr = `${slotDate.getUTCHours().toString().padStart(2, '0')}:00`;
+                    const key = `${slot.technician_id}_${dateStr}`;
                     if (!busyMap.has(key)) busyMap.set(key, new Set());
-                    if (slot.scheduled_time) busyMap.get(key).add(slot.scheduled_time);
+                    busyMap.get(key).add(timeStr);
                 }
             }
 
@@ -380,20 +386,19 @@ const NewService = () => {
         }
     };
 
-    // Handle slot confirmation
+    // Handle slot confirmation (DB columns: technician_id, scheduled_at)
     const handleSlotConfirm = async (selectedIndex) => {
         const slot = pendingSlots[selectedIndex];
         if (!slot || !createdTicketId) return;
 
         try {
-            // Update ticket with assignment
+            const scheduledAt = `${slot.date}T${slot.time_start}:00.000Z`;
             const { error } = await supabase
                 .from('tickets')
                 .update({
                     status: 'asignado',
-                    assigned_technician_id: slot.technician_id,
-                    scheduled_date: slot.date,
-                    scheduled_time: slot.time_start
+                    technician_id: slot.technician_id,
+                    scheduled_at: scheduledAt
                 })
                 .eq('id', createdTicketId);
 
@@ -705,12 +710,13 @@ const NewService = () => {
                 </div>
             )}
 
-            {/* PRO Mode - Appointment Selector Modal */}
+            {/* PRO Mode - Appointment Selector Modal (timer from pro_config.timeout_minutes) */}
             <AppointmentSelectorModal
                 isOpen={showAppointmentModal}
                 slots={pendingSlots}
                 ticketId={createdTicketId}
                 ticketInfo={ticketInfoForModal}
+                timeoutMinutes={appointmentTimeoutMinutes}
                 onConfirm={handleSlotConfirm}
                 onSkip={handleSlotSkip}
                 onTimeout={handleSlotTimeout}

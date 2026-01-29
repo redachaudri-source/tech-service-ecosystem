@@ -546,13 +546,13 @@ async function assignAutomatically(
     console.log(`[Bot] 🎯 Auto-assigning ticket #${ticketId} to ${slot.technician_name}`);
 
     try {
+        const scheduledAt = `${slot.date}T${slot.time_start}:00.000Z`;
         const { error } = await supabase
             .from('tickets')
             .update({
                 status: 'asignado',
-                assigned_technician_id: slot.technician_id,
-                scheduled_date: slot.date,
-                scheduled_time: slot.time_start
+                technician_id: slot.technician_id,
+                scheduled_at: scheduledAt
             })
             .eq('id', ticketId);
 

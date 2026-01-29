@@ -13,6 +13,7 @@ import { Clock, Calendar, User, CheckCircle, AlertTriangle, RefreshCw } from 'lu
  * - slots: Array<{ date, time_start, time_end, technician_id, technician_name }>
  * - ticketId: number - ID del ticket creado
  * - ticketInfo: { appliance, brand, address } - Info del ticket
+ * - timeoutMinutes: number - Minutos para elegir (pro_config.timeout_minutes, default 3)
  * - onConfirm: (selectedSlotIndex: number) => void
  * - onSkip: () => void - Usuario elige "Ninguna me viene bien"
  * - onTimeout: () => void - Se acabó el tiempo
@@ -22,20 +23,23 @@ const AppointmentSelectorModal = ({
     slots = [],
     ticketId,
     ticketInfo = {},
+    timeoutMinutes = 3,
     onConfirm,
     onSkip,
     onTimeout
 }) => {
+    const totalSeconds = Math.max(60, timeoutMinutes * 60);
     const [selectedIndex, setSelectedIndex] = useState(null);
-    const [timeLeft, setTimeLeft] = useState(180); // 3 minutes = 180 seconds
+    const [timeLeft, setTimeLeft] = useState(totalSeconds);
     const [isExpired, setIsExpired] = useState(false);
     const [isConfirming, setIsConfirming] = useState(false);
     const timerRef = useRef(null);
 
-    // Start countdown when modal opens
+    // Start countdown when modal opens (uses pro_config.timeout_minutes)
     useEffect(() => {
         if (isOpen && slots.length > 0) {
-            setTimeLeft(180);
+            const seconds = Math.max(60, timeoutMinutes * 60);
+            setTimeLeft(seconds);
             setIsExpired(false);
             setSelectedIndex(null);
 
@@ -55,7 +59,7 @@ const AppointmentSelectorModal = ({
         return () => {
             if (timerRef.current) clearInterval(timerRef.current);
         };
-    }, [isOpen, slots]);
+    }, [isOpen, slots, timeoutMinutes]);
 
     if (!isOpen || slots.length === 0) return null;
 

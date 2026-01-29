@@ -63,8 +63,8 @@ serve(async (req) => {
             });
         }
 
-        // Check if already has assigned technician or scheduled date
-        if (ticket.assigned_technician_id || ticket.scheduled_date) {
+        // Check if already has assigned technician or scheduled date (DB columns: technician_id, scheduled_at)
+        if (ticket.technician_id || ticket.scheduled_at) {
             console.log('[Autopilot] Ignored: already assigned or scheduled');
             return new Response(JSON.stringify({ message: 'Ignored: already assigned' }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },

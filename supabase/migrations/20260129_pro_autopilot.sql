@@ -20,19 +20,7 @@ ADD COLUMN IF NOT EXISTS origin_source VARCHAR(50) DEFAULT 'admin';
 
 COMMENT ON COLUMN tickets.origin_source IS 'Origin of ticket: admin, client_web, client_app, whatsapp, phone';
 
--- ═══════════════════════════════════════════════════════════════════════════
--- NOTE: Database Webhook must be configured in Supabase Dashboard:
--- 
--- 1. Go to Database → Webhooks
--- 2. Create new webhook:
---    - Name: ticket_autopilot_trigger
---    - Table: tickets
---    - Events: INSERT
---    - Webhook URL: https://YOUR_PROJECT.supabase.co/functions/v1/ticket-autopilot
---    - HTTP Headers: 
---      - Authorization: Bearer YOUR_SERVICE_ROLE_KEY
---      - Content-Type: application/json
--- ═══════════════════════════════════════════════════════════════════════════
+-- Autopilot trigger: see 20260129_ticket_autopilot_webhook_trigger.sql (pg_net).
 
 -- 4. Function to check and process pending PRO proposals (for cron job cleanup)
 CREATE OR REPLACE FUNCTION check_expired_pro_proposals()
