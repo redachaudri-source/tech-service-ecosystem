@@ -1,19 +1,13 @@
 /**
- * Installs the ticket_autopilot_on_insert trigger in Supabase.
- * Calls RPC install_autopilot_trigger() via REST (no node_modules needed).
- *
- * Prerequisites:
- * 1. Run the migration 20260129_ticket_autopilot_webhook_trigger.sql first
- * 2. Enable pg_net: Dashboard → Database → Extensions → pg_net → Enable
- *
- * Usage:
- *   SUPABASE_URL=https://xxx.supabase.co SUPABASE_SERVICE_ROLE_KEY=xxx node scripts/install_trigger.cjs
+ * Installs the ticket_autopilot_on_insert trigger via RPC.
+ * Requires: 1) pg_net enabled in Supabase Dashboard → Extensions
+ *           2) Migration 20260129_rpc_install_autopilot_trigger.sql applied (creates the RPC)
+ * Run: SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node scripts/install_trigger.cjs
  */
 const url = process.env.SUPABASE_URL;
-const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-
+const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!url || !key) {
-  console.error('Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or VITE_SUPABASE_ANON_KEY)');
+  console.error('Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');
   process.exit(1);
 }
 
@@ -21,7 +15,7 @@ const base = url.replace(/\/$/, '');
 const rpcUrl = base + '/rest/v1/rpc/install_autopilot_trigger';
 
 async function main() {
-  console.log('Installing trigger ticket_autopilot_on_insert...');
+  console.log('Calling install_autopilot_trigger RPC...');
   const res = await fetch(rpcUrl, {
     method: 'POST',
     headers: {
@@ -32,26 +26,26 @@ async function main() {
     },
     body: JSON.stringify({}),
   });
-
-  const data = await res.json().catch(() => ({}));
-
+  const text = await res.text();
   if (!res.ok) {
-    console.error('HTTP', res.status, data);
-    if (res.status === 404 || (data && data.code === '42883') || res.status === 406) {
-      console.error('RPC install_autopilot_trigger not found. Run the migration first:');
-      console.error('  1. Supabase Dashboard → SQL Editor');
-      console.error('  2. Paste and run: supabase/migrations/20260129_ticket_autopilot_webhook_trigger.sql');
-      console.error('  3. Enable pg_net: Database → Extensions → pg_net');
-      console.error('  4. Run this script again.');
+    console.error('HTTP', res.status, text);
+    if (res.status === 404 || text.includes('42883')) {
+      console.error('RPC not found. Run the migration 20260129_rpc_install_autopilot_trigger.sql in SQL Editor first.');
     }
     process.exit(1);
   }
-
+  let raw;
+  try {
+    raw = JSON.parse(text);
+  } catch (_) {
+    raw = text;
+  }
+  const data = Array.isArray(raw) ? raw[0] : raw;
+  console.log('Result:', data);
   if (data && data.ok) {
-    console.log('OK:', data.message || 'Trigger installed.');
+    console.log('Trigger ticket_autopilot_on_insert installed.');
   } else {
-    console.error('RPC returned:', data);
-    if (data && data.error) console.error('DB error:', data.error);
+    console.error('Install failed:', data?.error || data);
     process.exit(1);
   }
 }

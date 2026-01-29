@@ -136,18 +136,18 @@ const SecretarySettingsPage = () => {
     };
 
     const confirmModeChange = async () => {
-        setSecretaryMode(pendingMode);
+        const modeToSave = pendingMode;
+        setSecretaryMode(modeToSave);
         setShowActivationModal(false);
         setPendingMode(null);
-        await handleSave(pendingMode);
+        await handleSave(modeToSave);
     };
 
     const handleSave = async (modeOverride) => {
         setSaving(true);
         try {
-            const mode = (modeOverride ?? secretaryMode) === 'pro' ? 'pro' : 'basic';
             const upserts = [
-                { key: 'secretary_mode', value: mode },
+                { key: 'secretary_mode', value: modeOverride || secretaryMode },
                 { key: 'pro_config', value: proConfig },
                 { key: 'shared_config', value: sharedConfig },
                 {

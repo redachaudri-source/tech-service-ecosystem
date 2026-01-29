@@ -119,29 +119,33 @@ const Layout = () => {
     const [isProModeActive, setIsProModeActive] = useState(false);
 
     useEffect(() => {
-        const norm = (v) => (v != null ? String(v).toLowerCase().trim() : '');
         const checkProMode = async () => {
             const { data } = await supabase
                 .from('business_config')
                 .select('value')
                 .eq('key', 'secretary_mode')
                 .single();
-            setIsProModeActive(norm(data?.value) === 'pro');
+
+            setIsProModeActive((data?.value ?? '').toString().toLowerCase() === 'pro');
         };
         checkProMode();
 
+        // Subscribe to changes
         const channel = supabase
             .channel('secretary-mode-changes')
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'business_config', filter: "key=eq.secretary_mode" },
                 (payload) => {
-                    setIsProModeActive(norm(payload.new?.value) === 'pro');
+                    const v = (payload.new?.value ?? '').toString().toLowerCase();
+                    setIsProModeActive(v === 'pro');
                 }
             )
             .subscribe();
 
-        return () => { supabase.removeChannel(channel); };
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, []);
 
     // Sound Effect Helper
@@ -242,14 +246,19 @@ const Layout = () => {
     };
 
     return (
-        <div className={`flex h-screen w-full bg-slate-50 overflow-hidden font-sans relative ${isProModeActive ? 'ring-4 ring-[#D4AF37] ring-inset shadow-[inset_0_0_30px_rgba(212,175,55,0.2)]' : ''}`}>
+        <div
+            className={`flex h-screen w-full bg-slate-50 overflow-hidden font-sans relative ${isProModeActive ? 'ring-4 ring-[#D4AF37] ring-inset shadow-[inset_0_0_30px_rgba(212,175,55,0.25)]' : ''}`}
+            style={isProModeActive ? { boxShadow: 'inset 0 0 0 4px #D4AF37' } : undefined}
+        >
 
-            {/* AUTOPILOT ACTIVO — borde oro #D4AF37, dato real desde business_config */}
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            {/* AUTOPILOT ACTIVO - Badge flotante (dato real desde business_config) */}
+            {/* ═══════════════════════════════════════════════════════════════ */}
             {isProModeActive && (
                 <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999]">
                     <div className="bg-gradient-to-r from-[#1a1506] via-[#2a2010] to-[#1a1506] px-6 py-2.5 rounded-full shadow-2xl flex items-center gap-3 border-2 border-[#D4AF37] backdrop-blur-sm">
                         <div className="relative">
-                            <div className="w-8 h-8 bg-gradient-to-br from-[#D4AF37] to-[#c9a227] rounded-full flex items-center justify-center shadow-lg">
+                            <div className="w-8 h-8 bg-gradient-to-br from-[#D4AF37] to-[#b8962e] rounded-full flex items-center justify-center shadow-lg">
                                 <Bot size={18} className="text-[#1a1506]" />
                             </div>
                             <div className="absolute -inset-1 bg-[#D4AF37] rounded-full animate-ping opacity-30" />

@@ -210,61 +210,63 @@ const NewService = () => {
             const secretaryMode = secretaryModeConfig?.value || 'basic';
             const proConfig = proConfigData?.value || { channels: { app: false } };
 
-            // If PRO mode and app channel enabled, wait for backend proposal (Realtime + fast poll)
-            if ((secretaryMode || '').toLowerCase() === 'pro' && proConfig.channels?.app) {
-                console.log('[NewService] PRO mode active, waiting for backend proposal (realtime + fast poll)...');
+            // If PRO mode and app channel enabled, wait for backend proposal (realtime + fast polling)
+            if ((secretaryMode ?? '').toString().toLowerCase() === 'pro' && proConfig.channels?.app) {
+                console.log('[NewService] PRO mode active, waiting for backend proposal...');
 
-                let resolved = false;
-                const openModal = (slots) => {
-                    if (resolved) return;
-                    resolved = true;
-                    setCreatedTicketId(ticketId);
-                    setPendingSlots(slots);
-                    setTicketInfoForModal({ appliance: formData.type, brand: formData.brand, address: formData.address });
-                    setAppointmentTimeoutMinutes(proConfig?.timeout_minutes ?? 3);
-                    setShowAppointmentModal(true);
-                    setLoading(false);
+                const openModalWithProposal = (proposal) => {
+                    if (proposal?.proposed_slots?.length > 0) {
+                        setCreatedTicketId(ticketId);
+                        setPendingSlots(proposal.proposed_slots);
+                        setTicketInfoForModal({
+                            appliance: formData.type,
+                            brand: formData.brand,
+                            address: formData.address
+                        });
+                        setAppointmentTimeoutMinutes(proConfig?.timeout_minutes ?? 3);
+                        setShowAppointmentModal(true);
+                        setLoading(false);
+                    }
                 };
 
-                const ch = supabase
+                // Realtime: abrir modal en cuanto el backend escriba pro_proposal
+                const channel = supabase
                     .channel(`ticket-proposal-${ticketId}`)
-                    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tickets', filter: `id=eq.${ticketId}` }, (p) => {
-                        const slots = p.new?.pro_proposal?.proposed_slots;
-                        if (Array.isArray(slots) && slots.length > 0) {
-                            console.log('[NewService] Realtime: pro_proposal received');
-                            supabase.removeChannel(ch);
-                            openModal(slots);
+                    .on(
+                        'postgres_changes',
+                        { event: 'UPDATE', schema: 'public', table: 'tickets', filter: `id=eq.${ticketId}` },
+                        (payload) => {
+                            const p = payload.new?.pro_proposal;
+                            if (p?.proposed_slots?.length > 0) {
+                                openModalWithProposal(p);
+                            }
                         }
-                    })
+                    )
                     .subscribe();
 
-                const pollMs = 350;
-                const maxMs = 12000;
-                const start = Date.now();
-                const poll = async () => {
-                    while (!resolved && Date.now() - start < maxMs) {
-                        await new Promise((r) => setTimeout(r, pollMs));
-                        if (resolved) return;
-                        const { data } = await supabase.from('tickets').select('pro_proposal').eq('id', ticketId).single();
-                        const slots = data?.pro_proposal?.proposed_slots;
-                        if (Array.isArray(slots) && slots.length > 0) {
-                            console.log('[NewService] Poll: pro_proposal received');
-                            supabase.removeChannel(ch);
-                            openModal(slots);
-                            return;
-                        }
+                // Poll rápido (cada 400ms, máx 25 intentos ≈ 10s) por si realtime tarda
+                let attempts = 0;
+                const maxAttempts = 25;
+                const pollIntervalMs = 400;
+
+                while (attempts < maxAttempts) {
+                    const { data: ticketCheck } = await supabase
+                        .from('tickets')
+                        .select('pro_proposal')
+                        .eq('id', ticketId)
+                        .single();
+
+                    if (ticketCheck?.pro_proposal?.proposed_slots?.length > 0) {
+                        supabase.removeChannel(channel);
+                        openModalWithProposal(ticketCheck.pro_proposal);
+                        return;
                     }
-                    if (!resolved) {
-                        supabase.removeChannel(ch);
-                        resolved = true;
-                        console.log('[NewService] PRO proposal not received after timeout, falling back');
-                        setLoading(false);
-                        alert('¡Solicitud enviada! Ref: #' + ticketId + '\n\nTe contactaremos pronto para coordinar la cita.');
-                        navigate('/dashboard');
-                    }
-                };
-                poll();
-                return;
+                    await new Promise((r) => setTimeout(r, pollIntervalMs));
+                    attempts++;
+                }
+
+                supabase.removeChannel(channel);
+                console.log('[NewService] PRO proposal not received after timeout, falling back');
             }
 
             // BASIC mode or no slots available - navigate normally
