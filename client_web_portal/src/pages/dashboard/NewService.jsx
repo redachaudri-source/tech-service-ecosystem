@@ -255,23 +255,38 @@ const NewService = () => {
             const slotsCount = proConfig.slots_count || 3;
             const searchDays = proConfig.search_days || 7;
 
-            // Get active technicians
-            const { data: technicians } = await supabase
-                .from('technicians')
-                .select('id, full_name, postal_codes_covered')
-                .eq('is_active', true)
+            // Get active technicians from profiles table
+            const { data: technicians, error: techError } = await supabase
+                .from('profiles')
+                .select('id, full_name, postal_codes_covered, is_active')
+                .eq('role', 'tech')
                 .eq('is_deleted', false);
 
-            if (!technicians || technicians.length === 0) return [];
+            console.log('[PRO] Technicians found:', technicians?.length, techError);
+
+            if (!technicians || technicians.length === 0) {
+                console.log('[PRO] No technicians found');
+                return [];
+            }
+
+            // Filter only active technicians
+            const activeTechs = technicians.filter(t => t.is_active !== false);
+
+            if (activeTechs.length === 0) {
+                console.log('[PRO] No active technicians');
+                return [];
+            }
 
             // Filter by postal code if available
-            let validTechs = technicians;
+            let validTechs = activeTechs;
             if (postalCode) {
-                validTechs = technicians.filter(t => {
+                validTechs = activeTechs.filter(t => {
                     const cpList = t.postal_codes_covered || [];
                     return cpList.length === 0 || cpList.includes(postalCode);
                 });
             }
+
+            console.log('[PRO] Valid techs for postal code:', validTechs.length);
 
             if (validTechs.length === 0) return [];
 
