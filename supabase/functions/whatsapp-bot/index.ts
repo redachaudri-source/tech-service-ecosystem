@@ -143,7 +143,7 @@ const DEFAULT_CONFIG: BotConfig = {
         ask_problem: 'Describe brevemente el problema que presenta',
         ask_address: '¿Cuál es la dirección completa donde realizaremos el servicio? (Incluye calle, número, piso y código postal)',
         ask_name: '¿A nombre de quién agendamos la cita?',
-        ask_phone: '¿Un teléfono de contacto? (Escribe "este mismo" para usar este número de WhatsApp)',
+        // ask_phone removed - WhatsApp number is used automatically
         ticket_created: '✅ *¡Registrado!*\n\nTu solicitud *#{ticket_id}* está en proceso.\n\n📋 *Resumen:*\n• Equipo: {appliance} {brand}\n• Problema: {problem}\n• Dirección: {address}\n\nTe contactaremos pronto para confirmar día y hora.\n\n¡Gracias por confiar en {company_name}! 🙏',
         outside_hours: 'Gracias por contactarnos. 🕐\n\nNuestro horario de atención es de {start} a {end}.\n\nTe responderemos lo antes posible.',
         bot_disabled: 'Gracias por tu mensaje. Un agente te contactará pronto.',
@@ -695,38 +695,58 @@ async function createTicketFromConversation(data: CollectedData, phone: string):
         // Step 1: Find or create client
         console.log('[Bot] 👤 Step 1: Looking for existing client...');
 
+        // CRITICAL: Filter by role='client' to NEVER touch technicians!
         const { data: existingClient, error: findError } = await supabase
             .from('profiles')
-            .select('id')
+            .select('id, role')
             .eq('phone', normalizedPhone)
-            .single();
+            .eq('role', 'client')  // ONLY search clients, never technicians!
+            .limit(1)
+            .maybeSingle();
 
-        if (findError && findError.code !== 'PGRST116') {
+        if (findError) {
             console.error('[Bot] ❌ Error finding client:', JSON.stringify(findError));
         }
 
-        if (existingClient) {
+        if (existingClient && existingClient.role === 'client') {
+            // Found existing CLIENT (never a technician)
             clientId = existingClient.id;
-            console.log('[Bot] 👤 Found existing client:', clientId);
+            console.log('[Bot] 👤 Found existing CLIENT:', clientId);
 
+            // Only update CLIENT profiles, never technicians
             const { error: updateError } = await supabase
                 .from('profiles')
                 .update({ full_name: data.name, address: data.address })
-                .eq('id', clientId);
+                .eq('id', clientId)
+                .eq('role', 'client');  // SAFETY: Only update if role is client
 
             if (updateError) {
                 console.error('[Bot] ⚠️ Error updating client (non-fatal):', JSON.stringify(updateError));
             }
         } else {
-            console.log('[Bot] 👤 Creating new client...');
+            // Check if a TECHNICIAN exists with this phone - if so, DON'T create duplicate
+            const { data: techCheck } = await supabase
+                .from('profiles')
+                .select('id, role')
+                .eq('phone', normalizedPhone)
+                .eq('role', 'technician')
+                .limit(1)
+                .maybeSingle();
+
+            if (techCheck) {
+                // Phone belongs to a technician - create a SEPARATE client profile
+                console.log('[Bot] ⚠️ Phone belongs to technician - creating separate client profile');
+            }
+
+            console.log('[Bot] 👤 Creating new CLIENT...');
             const { data: newClient, error: clientError } = await supabase
                 .from('profiles')
                 .insert({
                     phone: normalizedPhone,
                     full_name: data.name || 'Cliente WhatsApp',
                     address: data.address,
-                    role: 'client',
-                    registration_source: 'whatsapp' // WhatsApp-registered clients
+                    role: 'client',  // ALWAYS client role
+                    registration_source: 'whatsapp'
                 })
                 .select('id')
                 .single();
@@ -736,7 +756,7 @@ async function createTicketFromConversation(data: CollectedData, phone: string):
                 throw clientError;
             }
             clientId = newClient.id;
-            console.log('[Bot] ✅ Created new client:', clientId);
+            console.log('[Bot] ✅ Created new CLIENT:', clientId);
         }
 
         // Step 2: Create ticket
@@ -1066,23 +1086,17 @@ function processStep(
 
         case 'ask_name':
             data.name = message;
-            return {
-                nextStep: 'ask_phone',
-                responseMessage: replaceVariables(config.messages.ask_phone, vars),
-                updatedData: data
-            };
-
-        case 'ask_phone': {
-            const useSamePhone = ['este', 'mismo', 'este mismo', 'el mismo', 'si', 'sí'];
-            data.phone = useSamePhone.some(p => message.toLowerCase().includes(p))
-                ? 'USE_WHATSAPP_NUMBER'
-                : message;
+            // BUG FIX: Skip ask_phone - WhatsApp number IS the client identifier
+            // No need to ask for phone, it's already known from the incoming message
+            data.phone = 'USE_WHATSAPP_NUMBER';  // Will use the WhatsApp sender number
             return {
                 nextStep: 'create_ticket',
                 responseMessage: '',
                 updatedData: data
             };
-        }
+
+        // ask_phone step REMOVED - WhatsApp number is used automatically
+        // The phone number from WhatsApp is the unique client identifier
 
         case 'completed':
             // No auto-restart - user must explicitly say "hola" or "reiniciar"
