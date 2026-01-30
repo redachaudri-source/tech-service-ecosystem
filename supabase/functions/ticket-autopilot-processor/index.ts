@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // Supabase Edge Function: ticket-autopilot-processor
 // Motor PRO: Procesa tickets con prioridad bifurcada y lock optimista
+// VERSION: 2.0 - Con logging exhaustivo para debugging
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -36,27 +37,52 @@ interface ProProposal {
 }
 
 serve(async (req) => {
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('🤖 BOT PRO PROCESSOR INICIADO');
+  console.log('📅 Timestamp:', new Date().toISOString());
+  console.log('🌐 Request method:', req.method);
+
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
+    console.log('✅ CORS preflight - respondiendo OK');
     return new Response('ok', { headers: corsHeaders });
   }
 
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  );
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+  
+  console.log('🔑 SUPABASE_URL presente:', supabaseUrl ? 'SÍ' : '❌ NO');
+  console.log('🔑 SERVICE_ROLE_KEY presente:', supabaseKey ? 'SÍ (longitud: ' + supabaseKey.length + ')' : '❌ NO');
+
+  const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    const payload = await req.json().catch(() => ({}));
+    const rawBody = await req.text();
+    console.log('📨 Body recibido (raw):', rawBody || '(vacío)');
+    
+    let payload: any = {};
+    try {
+      payload = rawBody ? JSON.parse(rawBody) : {};
+    } catch (e) {
+      console.error('❌ Error parseando JSON:', e);
+      payload = {};
+    }
+    
     const { mode, ticket_id } = payload;
-
-    console.log('[PRO-Processor] Mode:', mode, 'Ticket ID:', ticket_id);
+    console.log('📋 Payload parseado:');
+    console.log('   - mode:', mode || '(no especificado)');
+    console.log('   - ticket_id:', ticket_id || '(no especificado)');
+    console.log('   - type:', payload?.type || '(no especificado)');
+    console.log('   - record?.id:', payload?.record?.id || '(no especificado)');
 
     // ═══════════════════════════════════════════════════════════════
     // MODO WEBHOOK: Procesar ticket específico
     // ═══════════════════════════════════════════════════════════════
     if (ticket_id) {
+      console.log('🔵 MODO WEBHOOK - Procesando ticket específico:', ticket_id);
       const result = await procesarTicket(supabase, ticket_id);
+      console.log('✅ Resultado procesamiento:', JSON.stringify(result));
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       return new Response(JSON.stringify({ processed: ticket_id, result }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -67,22 +93,40 @@ serve(async (req) => {
     // MODO CRON: Buscar y procesar siguiente pendiente
     // ═══════════════════════════════════════════════════════════════
     if (mode === 'cron') {
+      console.log('🔄 MODO CRON - Iniciando ciclo de procesamiento');
+
       // 1. Limpiar locks antiguos (>5 min)
+      console.log('🧹 Paso 1: Limpiando locks antiguos (>5 min)...');
       await limpiarLocksAntiguos(supabase);
 
       // 2. Buscar tickets con prioridad bifurcada
+      console.log('🔍 Paso 2: Buscando tickets pendientes...');
       const tickets = await buscarTicketsPriorizados(supabase);
+      console.log(`📊 Tickets encontrados: ${tickets.length}`);
 
       if (tickets.length === 0) {
-        return new Response(JSON.stringify({ message: 'No pending tickets' }), {
+        console.log('⏸️  No hay tickets pendientes. Esperando próximo ciclo.');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        return new Response(JSON.stringify({ message: 'No pending tickets', count: 0 }), {
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
       // 3. Procesar solo el primero
-      const result = await procesarTicket(supabase, tickets[0].id);
-      return new Response(JSON.stringify({ processed: tickets[0].id, result }), {
+      const ticketToProcess = tickets[0];
+      console.log('🎯 Paso 3: Ticket seleccionado para procesar:');
+      console.log('   - ID:', ticketToProcess.id);
+      console.log('   - Cliente:', ticketToProcess.client_name);
+      console.log('   - Status:', ticketToProcess.status);
+      console.log('   - Creado:', ticketToProcess.created_at);
+      console.log('   - CP:', ticketToProcess.postal_code);
+
+      const result = await procesarTicket(supabase, ticketToProcess.id);
+      
+      console.log('✅ Ciclo CRON completado. Resultado:', JSON.stringify(result));
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      return new Response(JSON.stringify({ processed: ticketToProcess.id, result }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -92,15 +136,19 @@ serve(async (req) => {
     // MODO SCAN (compatibilidad con ticket-autopilot existente)
     // ═══════════════════════════════════════════════════════════════
     if (mode === 'scan') {
+      console.log('🔄 MODO SCAN - Procesando hasta 5 tickets');
       await limpiarLocksAntiguos(supabase);
       const tickets = await buscarTicketsPriorizados(supabase);
       
       let processed = 0;
       for (const ticket of tickets.slice(0, 5)) {
+        console.log(`   Procesando ticket ${ticket.id}...`);
         const result = await procesarTicket(supabase, ticket.id);
         if (result?.success) processed++;
       }
 
+      console.log(`✅ SCAN completado. Procesados: ${processed}/${tickets.length}`);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       return new Response(JSON.stringify({ processed, scanned: tickets.length }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -112,21 +160,29 @@ serve(async (req) => {
     // ═══════════════════════════════════════════════════════════════
     if (payload?.record?.id && payload?.type === 'INSERT') {
       const ticketId = payload.record.id;
+      console.log('🔵 MODO TRIGGER INSERT - Ticket:', ticketId);
       const result = await procesarTicket(supabase, ticketId);
+      console.log('✅ Resultado:', JSON.stringify(result));
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       return new Response(JSON.stringify({ processed: ticketId, result }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    return new Response(JSON.stringify({ error: 'Invalid mode' }), {
+    console.log('❌ MODO NO RECONOCIDO');
+    console.log('   Modos válidos: ticket_id, mode=cron, mode=scan, type=INSERT');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    return new Response(JSON.stringify({ error: 'Invalid mode', received: payload }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('[PRO-Processor] Error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('💥 ERROR CRÍTICO EN PROCESSOR:', error);
+    console.error('💥 Stack:', error.stack);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    return new Response(JSON.stringify({ error: error.message, stack: error.stack }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -138,6 +194,7 @@ serve(async (req) => {
 // ═══════════════════════════════════════════════════════════════════════════
 async function limpiarLocksAntiguos(supabase: any) {
   const hace5min = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  console.log('   🧹 Buscando locks anteriores a:', hace5min);
 
   const { data, error } = await supabase
     .from('tickets')
@@ -146,8 +203,15 @@ async function limpiarLocksAntiguos(supabase: any) {
     .is('pro_proposal', null)
     .select('id');
 
+  if (error) {
+    console.error('   ❌ Error limpiando locks:', error);
+    return;
+  }
+
   if (data && data.length > 0) {
-    console.log(`[PRO-Processor] Cleaned ${data.length} stale locks`);
+    console.log(`   ✅ Limpiados ${data.length} locks antiguos:`, data.map((t: any) => t.id));
+  } else {
+    console.log('   ✅ No había locks antiguos que limpiar');
   }
 }
 
@@ -155,6 +219,14 @@ async function limpiarLocksAntiguos(supabase: any) {
 // Buscar tickets con prioridad bifurcada: Día DESC + Hora ASC
 // ═══════════════════════════════════════════════════════════════════════════
 async function buscarTicketsPriorizados(supabase: any) {
+  console.log('   🔍 Ejecutando query en tabla tickets...');
+  console.log('   📋 Criterios de búsqueda:');
+  console.log('      - status = "solicitado"');
+  console.log('      - pro_proposal IS NULL');
+  console.log('      - processing_started_at IS NULL');
+  console.log('      - technician_id IS NULL');
+  console.log('      - scheduled_at IS NULL');
+
   const { data, error } = await supabase
     .from('tickets')
     .select('*')
@@ -164,13 +236,49 @@ async function buscarTicketsPriorizados(supabase: any) {
     .is('technician_id', null)
     .is('scheduled_at', null);
 
-  if (error || !data) {
-    console.error('[PRO-Processor] Error fetching tickets:', error);
+  if (error) {
+    console.error('   ❌ Error en query:', error);
+    console.error('   ❌ Código:', error.code);
+    console.error('   ❌ Mensaje:', error.message);
+    console.error('   ❌ Detalles:', error.details);
+    return [];
+  }
+
+  console.log(`   ✅ Query exitoso. Filas retornadas: ${data?.length || 0}`);
+
+  if (!data || data.length === 0) {
+    console.log('   ℹ️  No hay tickets que cumplan TODOS los criterios');
+    
+    // Query de diagnóstico
+    console.log('   🔬 Ejecutando query de diagnóstico...');
+    const { data: allSolicitados, error: diagError } = await supabase
+      .from('tickets')
+      .select('id, status, pro_proposal, processing_started_at, technician_id, scheduled_at, client_name')
+      .eq('status', 'solicitado')
+      .limit(10);
+    
+    if (diagError) {
+      console.error('   ❌ Error en diagnóstico:', diagError);
+    } else if (allSolicitados && allSolicitados.length > 0) {
+      console.log(`   🔬 Tickets con status="solicitado" encontrados: ${allSolicitados.length}`);
+      allSolicitados.forEach((t: any, i: number) => {
+        console.log(`      ${i+1}. ID: ${t.id}`);
+        console.log(`         - Cliente: ${t.client_name}`);
+        console.log(`         - pro_proposal: ${t.pro_proposal ? 'TIENE VALOR' : 'NULL ✓'}`);
+        console.log(`         - processing_started_at: ${t.processing_started_at || 'NULL ✓'}`);
+        console.log(`         - technician_id: ${t.technician_id || 'NULL ✓'}`);
+        console.log(`         - scheduled_at: ${t.scheduled_at || 'NULL ✓'}`);
+      });
+    } else {
+      console.log('   🔬 NO hay tickets con status="solicitado" en la base de datos');
+    }
+    
     return [];
   }
 
   // Ordenar: Día más reciente primero, FIFO dentro del mismo día
-  return data.sort((a: any, b: any) => {
+  console.log('   🔄 Ordenando por prioridad bifurcada (día DESC, hora ASC)...');
+  const sorted = data.sort((a: any, b: any) => {
     const diaA = a.created_at.split('T')[0];
     const diaB = b.created_at.split('T')[0];
 
@@ -180,27 +288,56 @@ async function buscarTicketsPriorizados(supabase: any) {
 
     return a.created_at.localeCompare(b.created_at); // FIFO dentro del día
   });
+
+  console.log('   📋 Tickets ordenados (listos para procesar):');
+  sorted.slice(0, 5).forEach((t: any, i: number) => {
+    console.log(`      ${i+1}. ID: ${t.id} | ${t.client_name} | ${t.created_at}`);
+  });
+  if (sorted.length > 5) {
+    console.log(`      ... y ${sorted.length - 5} más`);
+  }
+
+  return sorted;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Procesar un ticket individual
 // ═══════════════════════════════════════════════════════════════════════════
-async function procesarTicket(supabase: any, ticketId: string) {
+async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
+  console.log('  ══════════════════════════════════════════════════');
+  console.log('  🎯 PROCESANDO TICKET:', ticketId);
+  console.log('  ══════════════════════════════════════════════════');
+
   try {
     // PASO 1: Verificar modo PRO activo
-    const { data: modeConfig } = await supabase
+    console.log('  ⚙️  PASO 1: Verificando modo PRO activo...');
+    const { data: modeConfig, error: modeError } = await supabase
       .from('business_config')
       .select('value')
       .eq('key', 'secretary_mode')
       .single();
 
-    const secretaryMode = (modeConfig?.value ?? '').toString().toLowerCase().replace(/"/g, '');
-    if (secretaryMode !== 'pro') {
-      console.log('[PRO-Processor] PRO mode not active, skipping');
-      return { skipped: 'mode_not_pro' };
+    if (modeError) {
+      console.error('  ❌ Error obteniendo secretary_mode:', modeError);
+      return { skipped: 'config_error', error: modeError.message };
     }
 
+    console.log('  📋 Valor de secretary_mode (raw):', modeConfig?.value);
+    console.log('  📋 Tipo:', typeof modeConfig?.value);
+
+    const secretaryMode = (modeConfig?.value ?? '').toString().toLowerCase().replace(/"/g, '');
+    console.log('  📋 Valor normalizado:', secretaryMode);
+
+    if (secretaryMode !== 'pro') {
+      console.log('  ⚠️  MODO PRO NO ACTIVO (valor actual: "' + secretaryMode + '")');
+      console.log('  ⏭️  Saltando procesamiento');
+      return { skipped: 'mode_not_pro', currentMode: secretaryMode };
+    }
+
+    console.log('  ✅ Modo PRO confirmado');
+
     // PASO 2: Lock optimista
+    console.log('  🔒 PASO 2: Intentando lock optimista...');
     const { data: locked, error: lockError } = await supabase
       .from('tickets')
       .update({ processing_started_at: new Date().toISOString() })
@@ -210,15 +347,25 @@ async function procesarTicket(supabase: any, ticketId: string) {
       .is('pro_proposal', null)
       .select('*');
 
-    if (lockError || !locked || locked.length === 0) {
-      console.log('[PRO-Processor] Ticket already being processed or not eligible');
+    if (lockError) {
+      console.error('  ❌ Error en lock:', lockError);
+      return { skipped: 'lock_error', error: lockError.message };
+    }
+
+    if (!locked || locked.length === 0) {
+      console.log('  ⏭️  Lock fallido - Ticket ya procesado o no cumple criterios');
       return { skipped: 'already_processing' };
     }
 
+    console.log('  ✅ Lock adquirido exitosamente');
     const ticket = locked[0];
-    console.log(`[PRO-Processor] Locked ticket #${ticketId} for processing`);
+    console.log('     - Cliente:', ticket.client_name);
+    console.log('     - Teléfono:', ticket.client_phone);
+    console.log('     - CP:', ticket.postal_code || ticket.address_cp);
+    console.log('     - Origen:', ticket.origin_source);
 
     // PASO 3: Obtener configuración PRO
+    console.log('  ⚙️  PASO 3: Obteniendo configuración PRO...');
     const { data: proConfigData } = await supabase
       .from('business_config')
       .select('value')
@@ -226,15 +373,22 @@ async function procesarTicket(supabase: any, ticketId: string) {
       .single();
 
     const proConfig = proConfigData?.value || { slots_count: 3, timeout_minutes: 3, search_days: 7 };
+    console.log('     - slots_count:', proConfig.slots_count);
+    console.log('     - timeout_minutes:', proConfig.timeout_minutes);
+    console.log('     - search_days:', proConfig.search_days);
 
     // PASO 4: Buscar disponibilidad usando RPC (7 días)
+    console.log('  📅 PASO 4: Buscando disponibilidad...');
     let slotsEncontrados: SlotFromRPC[] = [];
     const postalCode = ticket.postal_code || ticket.address_cp || null;
+    console.log('     CP para búsqueda:', postalCode);
 
     for (let day = 1; day <= (proConfig.search_days || 7); day++) {
       const targetDate = new Date();
       targetDate.setDate(targetDate.getDate() + day);
       const dateStr = targetDate.toISOString().split('T')[0];
+
+      console.log(`     📆 Día ${day}: ${dateStr}`);
 
       const { data: slots, error: rpcError } = await supabase.rpc('get_tech_availability', {
         target_date: dateStr,
@@ -243,20 +397,25 @@ async function procesarTicket(supabase: any, ticketId: string) {
       });
 
       if (rpcError) {
-        console.error(`[PRO-Processor] RPC error for ${dateStr}:`, rpcError);
+        console.error(`     ❌ Error RPC día ${day}:`, rpcError);
+        console.error(`        Código: ${rpcError.code}`);
+        console.error(`        Mensaje: ${rpcError.message}`);
         continue;
       }
 
+      console.log(`        Slots encontrados: ${slots?.length || 0}`);
+
       if (slots && slots.length > 0) {
         slotsEncontrados = slots;
-        console.log(`[PRO-Processor] Found ${slots.length} slots on ${dateStr}`);
+        console.log(`  ✅ Disponibilidad encontrada en ${dateStr}`);
+        console.log(`     Primer slot: ${slots[0].technician_name} - ${slots[0].slot_start}`);
         break;
       }
     }
 
     // PASO 5: Sin disponibilidad
     if (slotsEncontrados.length === 0) {
-      console.log('[PRO-Processor] No availability found');
+      console.log('  ⚠️  SIN DISPONIBILIDAD en los próximos', proConfig.search_days, 'días');
       await supabase
         .from('tickets')
         .update({
@@ -267,11 +426,12 @@ async function procesarTicket(supabase: any, ticketId: string) {
           processing_started_at: null
         })
         .eq('id', ticketId);
-
+      console.log('  ✅ Ticket marcado como sin_slots');
       return { success: false, reason: 'no_availability' };
     }
 
     // PASO 6: Aplicar Regla de Oro
+    console.log('  🎲 PASO 6: Aplicando Regla de Oro...');
     const totalHuecos = slotsEncontrados.length;
     let cantidad: number;
     if (totalHuecos < 5) cantidad = 1;
@@ -281,12 +441,15 @@ async function procesarTicket(supabase: any, ticketId: string) {
     // Respetar config máximo
     cantidad = Math.min(cantidad, proConfig.slots_count || 3);
 
-    console.log(`[PRO-Processor] Regla de Oro: ${totalHuecos} slots → offering ${cantidad}`);
+    console.log(`     Total huecos disponibles: ${totalHuecos}`);
+    console.log(`     Propuestas a generar: ${cantidad}`);
 
     // PASO 7: Seleccionar slots según estrategia
+    console.log('  🎯 PASO 7: Seleccionando slots según estrategia...');
     const seleccionados = await aplicarEstrategia(supabase, slotsEncontrados, cantidad);
 
     // PASO 8: Construir propuesta
+    console.log('  📝 PASO 8: Construyendo propuesta...');
     const timeoutMinutes = proConfig.timeout_minutes || 3;
     const propuesta: ProProposal = {
       slots: seleccionados.map((s: SlotFromRPC, i: number) => {
@@ -305,7 +468,14 @@ async function procesarTicket(supabase: any, ticketId: string) {
       status: 'waiting_selection'
     };
 
+    console.log('     Propuesta generada:');
+    propuesta.slots.forEach((slot) => {
+      console.log(`        Opción ${slot.option}: ${slot.date} ${slot.time_start}-${slot.time_end} (${slot.technician_name})`);
+    });
+    console.log(`     Expira: ${propuesta.expires_at}`);
+
     // PASO 9: Guardar propuesta y liberar lock
+    console.log('  💾 PASO 9: Guardando propuesta en BD...');
     const { error: updateError } = await supabase
       .from('tickets')
       .update({
@@ -315,23 +485,35 @@ async function procesarTicket(supabase: any, ticketId: string) {
       .eq('id', ticketId);
 
     if (updateError) {
-      console.error('[PRO-Processor] Error saving proposal:', updateError);
+      console.error('  ❌ Error guardando propuesta:', updateError);
       await rollback(supabase, ticketId);
       return { success: false, error: updateError.message };
     }
 
-    console.log(`[PRO-Processor] ✅ Ticket #${ticketId} processed successfully - ${cantidad} slots proposed`);
+    console.log('  ✅ PROPUESTA GUARDADA EXITOSAMENTE');
 
     // PASO 10: Enviar notificación WhatsApp si corresponde
     const originSource = ticket.origin_source || 'admin';
+    console.log('  📱 PASO 10: Verificando envío WhatsApp...');
+    console.log('     Origen del ticket:', originSource);
+    console.log('     Teléfono cliente:', ticket.client_phone);
+
     if (originSource === 'whatsapp' && ticket.client_phone) {
+      console.log('  📤 Enviando propuesta por WhatsApp...');
       await enviarNotificacionWhatsApp(supabase, ticket, propuesta);
+    } else {
+      console.log('  ⏭️  No se envía WhatsApp (origen no es whatsapp o no hay teléfono)');
     }
+
+    console.log('  ══════════════════════════════════════════════════');
+    console.log('  ✅ TICKET PROCESADO EXITOSAMENTE');
+    console.log('  ══════════════════════════════════════════════════');
 
     return { success: true, slotsProposed: cantidad };
 
   } catch (error) {
-    console.error(`[PRO-Processor] Error processing ticket ${ticketId}:`, error);
+    console.error('  💥 ERROR PROCESANDO TICKET:', error);
+    console.error('  💥 Stack:', error.stack);
     await rollback(supabase, ticketId);
     return { success: false, error: error.message };
   }
@@ -341,7 +523,8 @@ async function procesarTicket(supabase: any, ticketId: string) {
 // Aplicar estrategia de selección de slots
 // ═══════════════════════════════════════════════════════════════════════════
 async function aplicarEstrategia(supabase: any, slots: SlotFromRPC[], cantidad: number): Promise<SlotFromRPC[]> {
-  // Obtener estrategia configurada
+  console.log('     Obteniendo estrategia configurada...');
+  
   const { data: config } = await supabase
     .from('business_config')
     .select('value')
@@ -349,22 +532,20 @@ async function aplicarEstrategia(supabase: any, slots: SlotFromRPC[], cantidad: 
     .single();
 
   const estrategia = (config?.value ?? 'balanced').toString().replace(/"/g, '');
-  console.log(`[PRO-Processor] Applying strategy: ${estrategia}`);
+  console.log(`     Estrategia activa: ${estrategia}`);
 
   const seleccionados: SlotFromRPC[] = [];
 
   // Slot 1: Siempre el primero (más cercano en tiempo)
   seleccionados.push(slots[0]);
+  console.log(`     ✓ Slot 1: ${new Date(slots[0].slot_start).toISOString()} - ${slots[0].technician_name}`);
 
   if (cantidad >= 2 && slots.length >= 2) {
-    // Slot 2: Buscar variedad según estrategia
     let slot2: SlotFromRPC | undefined;
 
     if (estrategia === 'speed') {
-      // Velocidad: simplemente el segundo
       slot2 = slots[1];
     } else if (estrategia === 'variety') {
-      // Variedad: priorizar técnico diferente
       slot2 = slots.find((s, i) =>
         i > 0 && s.technician_id !== seleccionados[0].technician_id
       );
@@ -378,16 +559,17 @@ async function aplicarEstrategia(supabase: any, slots: SlotFromRPC[], cantidad: 
     }
 
     seleccionados.push(slot2 || slots[1]);
+    console.log(`     ✓ Slot 2: ${new Date(seleccionados[1].slot_start).toISOString()} - ${seleccionados[1].technician_name}`);
   }
 
   if (cantidad >= 3 && slots.length >= 3) {
-    // Slot 3: Técnico diferente a los anteriores
     const techsUsados = seleccionados.map(s => s.technician_id);
     const slot3 = slots.find((s, i) =>
       i > 1 && !techsUsados.includes(s.technician_id)
     ) || slots.find((s, i) => i > 1 && !seleccionados.includes(s)) || slots[2];
 
     seleccionados.push(slot3);
+    console.log(`     ✓ Slot 3: ${new Date(slot3.slot_start).toISOString()} - ${slot3.technician_name}`);
   }
 
   return seleccionados;
@@ -397,10 +579,17 @@ async function aplicarEstrategia(supabase: any, slots: SlotFromRPC[], cantidad: 
 // Rollback: Liberar lock en caso de error
 // ═══════════════════════════════════════════════════════════════════════════
 async function rollback(supabase: any, ticketId: string) {
-  await supabase
+  console.log('  🔄 Ejecutando rollback (limpiando lock)...');
+  const { error } = await supabase
     .from('tickets')
     .update({ processing_started_at: null })
     .eq('id', ticketId);
+  
+  if (error) {
+    console.error('  ❌ Error en rollback:', error);
+  } else {
+    console.log('  ✅ Rollback completado');
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -424,14 +613,20 @@ async function enviarNotificacionWhatsApp(supabase: any, ticket: any, propuesta:
   message += `⏰ _Tienes 3 minutos para elegir_`;
 
   try {
-    await supabase.functions.invoke('send-whatsapp', {
+    console.log('     📤 Invocando send-whatsapp...');
+    const { data, error } = await supabase.functions.invoke('send-whatsapp', {
       body: {
         to: ticket.client_phone,
         message: message
       }
     });
-    console.log('[PRO-Processor] WhatsApp notification sent');
+
+    if (error) {
+      console.error('     ❌ Error enviando WhatsApp:', error);
+    } else {
+      console.log('     ✅ WhatsApp enviado exitosamente');
+    }
   } catch (e) {
-    console.error('[PRO-Processor] WhatsApp send error:', e);
+    console.error('     ❌ Excepción enviando WhatsApp:', e);
   }
 }
