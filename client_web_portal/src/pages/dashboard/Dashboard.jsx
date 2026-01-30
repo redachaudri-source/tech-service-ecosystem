@@ -60,7 +60,9 @@ const Dashboard = () => {
                             if (payload.new.technician_id && !payload.old.technician_id) {
                                 addToast('¡Técnico Asignado!', 'success', true);
                             }
-                        if (payload.new?.pro_proposal?.proposed_slots?.length) {
+                        // Soportar ambas estructuras: 'slots' (bot PRO) y 'proposed_slots' (legacy)
+                        const slotsFromUpdate = payload.new?.pro_proposal?.slots || payload.new?.pro_proposal?.proposed_slots;
+                        if (slotsFromUpdate?.length) {
                             const status = (payload.new.pro_proposal.status ?? 'waiting_selection').toString().toLowerCase();
                             if (status === 'waiting_selection') {
                                 openProposalModal(payload.new);
@@ -109,10 +111,14 @@ const Dashboard = () => {
         const now = Date.now();
         return (ticketList || []).find((t) => {
             const proposal = t.pro_proposal;
-            if (!proposal?.proposed_slots?.length) return false;
+            // Soportar ambas estructuras: 'slots' (bot PRO) y 'proposed_slots' (legacy)
+            const slots = proposal?.slots || proposal?.proposed_slots;
+            if (!slots?.length) return false;
             const status = (proposal.status ?? 'waiting_selection').toString().toLowerCase();
             if (status !== 'waiting_selection') return false;
-            if (proposal.timeout_at && new Date(proposal.timeout_at).getTime() < now) return false;
+            // Soportar ambos campos: 'expires_at' (bot PRO) y 'timeout_at' (legacy)
+            const expiresAt = proposal.expires_at || proposal.timeout_at;
+            if (expiresAt && new Date(expiresAt).getTime() < now) return false;
             return t.status === 'solicitado';
         });
     };
@@ -197,14 +203,23 @@ const Dashboard = () => {
 
     const openProposalModal = (ticket) => {
         const proposal = ticket?.pro_proposal;
-        const slots = proposal?.proposed_slots || [];
+        // Soportar ambas estructuras: 'slots' (bot PRO) y 'proposed_slots' (legacy)
+        const slots = proposal?.slots || proposal?.proposed_slots || [];
         if (!slots.length) return;
         if (proposalModal.show && proposalModal.ticket?.id === ticket.id) return;
 
-        let timeoutMinutes = 3;
-        if (proposal?.proposed_at && proposal?.timeout_at) {
-            const diff = (new Date(proposal.timeout_at).getTime() - new Date(proposal.proposed_at).getTime()) / 60000;
-            if (!Number.isNaN(diff) && diff > 0) timeoutMinutes = Math.ceil(diff);
+        // Calcular tiempo RESTANTE hasta expiración (no tiempo total)
+        const expiresAt = proposal?.expires_at || proposal?.timeout_at;
+        let timeoutMinutes = 3; // Default
+        if (expiresAt) {
+            const remaining = (new Date(expiresAt).getTime() - Date.now()) / 60000;
+            if (remaining > 0) {
+                timeoutMinutes = Math.ceil(remaining);
+            } else {
+                // Ya expiró, no abrir el modal
+                console.log('📋 Propuesta expirada, no se abre modal');
+                return;
+            }
         }
 
         setProposalModal({
