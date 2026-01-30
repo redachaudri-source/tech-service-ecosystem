@@ -382,13 +382,53 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
     let slotsEncontrados: SlotFromRPC[] = [];
     const postalCode = ticket.postal_code || ticket.address_cp || null;
     console.log('     CP para búsqueda:', postalCode);
+    
+    // Verificar técnicos activos primero
+    console.log('  👨‍🔧 Verificando técnicos activos...');
+    const { data: techs, error: techError } = await supabase
+      .from('profiles')
+      .select('id, full_name, is_active')
+      .eq('role', 'tech')
+      .eq('is_active', true);
+    
+    if (techError) {
+      console.error('  ❌ Error consultando técnicos:', techError);
+    } else {
+      console.log(`  ✅ Técnicos activos encontrados: ${techs?.length || 0}`);
+      techs?.forEach((t: any) => console.log(`     - ${t.full_name} (${t.id})`));
+    }
+    
+    if (!techs || techs.length === 0) {
+      console.log('  ⚠️  NO HAY TÉCNICOS ACTIVOS - No se pueden generar slots');
+      await supabase.from('tickets').update({
+        pro_proposal: { status: 'no_technicians', proposed_at: new Date().toISOString() },
+        processing_started_at: null
+      }).eq('id', ticketId);
+      return { success: false, reason: 'no_technicians' };
+    }
 
+    // Verificar horarios configurados
+    console.log('  ⏰ Verificando configuración de horarios...');
+    const { data: hoursConfig } = await supabase
+      .from('business_config')
+      .select('value')
+      .eq('key', 'working_hours')
+      .single();
+    console.log('     working_hours config:', JSON.stringify(hoursConfig?.value || 'NO CONFIGURADO'));
+    
+    // Buscar slots por día
+    let allSlotsAllDays: any[] = [];
     for (let day = 1; day <= (proConfig.search_days || 7); day++) {
       const targetDate = new Date();
       targetDate.setDate(targetDate.getDate() + day);
       const dateStr = targetDate.toISOString().split('T')[0];
+      const dayName = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][targetDate.getDay()];
 
-      console.log(`     📆 Día ${day}: ${dateStr}`);
+      console.log(`     📆 Día ${day}: ${dateStr} (${dayName})`);
+      
+      // Verificar si ese día está configurado
+      const dayConfig = hoursConfig?.value?.[dayName];
+      console.log(`        Config para ${dayName}:`, dayConfig === null ? 'CERRADO' : JSON.stringify(dayConfig));
 
       const { data: slots, error: rpcError } = await supabase.rpc('get_tech_availability', {
         target_date: dateStr,
@@ -404,6 +444,7 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
       }
 
       console.log(`        Slots encontrados: ${slots?.length || 0}`);
+      allSlotsAllDays.push({ day, date: dateStr, dayName, slots: slots?.length || 0 });
 
       if (slots && slots.length > 0) {
         slotsEncontrados = slots;
@@ -412,6 +453,8 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
         break;
       }
     }
+    
+    console.log('  📊 Resumen búsqueda:', JSON.stringify(allSlotsAllDays));
 
     // PASO 5: Sin disponibilidad
     if (slotsEncontrados.length === 0) {
