@@ -27,12 +27,12 @@ BEGIN
   -- Edge Function URL - use the new processor
   edge_url := 'https://zapjbtgnmxkhpfykxmnh.supabase.co/functions/v1/ticket-autopilot-processor';
 
+  -- Formato simplificado: solo ticket_id
+  -- El processor también soporta el formato completo con 'record'
   payload := jsonb_build_object(
+    'ticket_id', NEW.id::text,
     'type', 'INSERT',
-    'table', 'tickets',
-    'schema', 'public',
-    'record', to_jsonb(NEW),
-    'old_record', NULL
+    'table', 'tickets'
   );
 
   -- Call via pg_net (async, non-blocking)
