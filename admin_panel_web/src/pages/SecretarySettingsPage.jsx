@@ -146,8 +146,21 @@ const SecretarySettingsPage = () => {
     const handleSave = async (modeOverride) => {
         setSaving(true);
         try {
+            // Si estamos cambiando de modo, guardar secretary_mode primero y comprobar error
+            const modeToPersist = (modeOverride ?? secretaryMode) === 'pro' ? 'pro' : 'basic';
+            const { error: modeError } = await supabase
+                .from('business_config')
+                .upsert(
+                    { key: 'secretary_mode', value: modeToPersist },
+                    { onConflict: 'key' }
+                );
+            if (modeError) {
+                throw modeError;
+            }
+            // Notificar a Layout para que actualice el badge sin depender solo de Realtime
+            window.dispatchEvent(new CustomEvent('secretary-mode-changed', { detail: { value: modeToPersist } }));
+
             const upserts = [
-                { key: 'secretary_mode', value: modeOverride || secretaryMode },
                 { key: 'pro_config', value: proConfig },
                 { key: 'shared_config', value: sharedConfig },
                 {
@@ -160,16 +173,17 @@ const SecretarySettingsPage = () => {
             ];
 
             for (const config of upserts) {
-                await supabase
+                const { error } = await supabase
                     .from('business_config')
                     .upsert({ key: config.key, value: config.value }, { onConflict: 'key' });
+                if (error) throw error;
             }
 
             setSaved(true);
             setTimeout(() => setSaved(false), 2000);
         } catch (err) {
             console.error('Error saving config:', err);
-            alert('Error al guardar: ' + err.message);
+            alert('Error al guardar: ' + (err?.message || err));
         } finally {
             setSaving(false);
         }

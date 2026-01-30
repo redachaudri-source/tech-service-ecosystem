@@ -119,32 +119,42 @@ const Layout = () => {
     const [isProModeActive, setIsProModeActive] = useState(false);
 
     useEffect(() => {
+        const applyMode = (value) => {
+            const v = (value ?? '').toString().toLowerCase();
+            setIsProModeActive(v === 'pro');
+        };
+
         const checkProMode = async () => {
-            const { data } = await supabase
+            const { data, error } = await supabase
                 .from('business_config')
                 .select('value')
                 .eq('key', 'secretary_mode')
-                .single();
-
-            setIsProModeActive((data?.value ?? '').toString().toLowerCase() === 'pro');
+                .maybeSingle();
+            if (!error) applyMode(data?.value);
         };
         checkProMode();
 
-        // Subscribe to changes
+        // Realtime: cambios en BD
         const channel = supabase
             .channel('secretary-mode-changes')
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'business_config', filter: "key=eq.secretary_mode" },
                 (payload) => {
-                    const v = (payload.new?.value ?? '').toString().toLowerCase();
-                    setIsProModeActive(v === 'pro');
+                    applyMode(payload.new?.value);
                 }
             )
             .subscribe();
 
+        // Fallback: evento al guardar desde SecretarySettingsPage (por si Realtime no dispara)
+        const onModeChanged = (e) => {
+            if (e?.detail?.value !== undefined) applyMode(e.detail.value);
+        };
+        window.addEventListener('secretary-mode-changed', onModeChanged);
+
         return () => {
             supabase.removeChannel(channel);
+            window.removeEventListener('secretary-mode-changed', onModeChanged);
         };
     }, []);
 
