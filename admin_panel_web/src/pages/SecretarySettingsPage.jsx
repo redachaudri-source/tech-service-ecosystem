@@ -85,6 +85,9 @@ const SecretarySettingsPage = () => {
         channels: { whatsapp: true, app: true }
     });
 
+    // Selection strategy for PRO mode
+    const [selectionStrategy, setSelectionStrategy] = useState('balanced');
+
     // Messages config
     const [messages, setMessages] = useState(DEFAULT_MESSAGES);
 
@@ -105,7 +108,7 @@ const SecretarySettingsPage = () => {
             const { data: configs } = await supabase
                 .from('business_config')
                 .select('key, value')
-                .in('key', ['secretary_mode', 'pro_config', 'shared_config', 'whatsapp_bot_config', 'company_identity']);
+                .in('key', ['secretary_mode', 'pro_config', 'shared_config', 'whatsapp_bot_config', 'company_identity', 'pro_selection_strategy']);
 
             if (configs) {
                 configs.forEach(c => {
@@ -118,6 +121,10 @@ const SecretarySettingsPage = () => {
                     }
                     if (c.key === 'company_identity' && c.value) {
                         setCompanyInfo(prev => ({ ...prev, ...c.value }));
+                    }
+                    if (c.key === 'pro_selection_strategy' && c.value) {
+                        const strategyValue = (c.value || '').toString().replace(/"/g, '');
+                        setSelectionStrategy(strategyValue || 'balanced');
                     }
                 });
             }
@@ -163,6 +170,7 @@ const SecretarySettingsPage = () => {
             const upserts = [
                 { key: 'pro_config', value: proConfig },
                 { key: 'shared_config', value: sharedConfig },
+                { key: 'pro_selection_strategy', value: selectionStrategy },
                 {
                     key: 'whatsapp_bot_config', value: {
                         messages,
@@ -502,6 +510,59 @@ const SecretarySettingsPage = () => {
                                                 style={{ accentColor: colors.gold.primary }}
                                             />
                                             <span className="text-sm" style={{ color: colors.text.primary }}>{ch.label}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Strategy Selection */}
+                            <div className="pt-3 border-t" style={{ borderColor: colors.dark.border }}>
+                                <label className="block text-xs font-medium mb-3" style={{ color: colors.text.muted }}>🎯 Estrategia de selección de citas</label>
+                                <div className="space-y-2">
+                                    {[
+                                        { value: 'speed', icon: '🚀', label: 'RÁPIDO', desc: 'Primeras opciones disponibles' },
+                                        { value: 'balanced', icon: '⚖️', label: 'BALANCEADO', desc: 'Rapidez + variedad (recomendado)' },
+                                        { value: 'variety', icon: '🎭', label: 'VARIADO', desc: 'Técnicos y horarios diferentes' }
+                                    ].map(strategy => (
+                                        <label
+                                            key={strategy.value}
+                                            className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all"
+                                            style={{
+                                                background: selectionStrategy === strategy.value 
+                                                    ? `linear-gradient(135deg, ${colors.gold.bg}, ${colors.dark.tertiary})`
+                                                    : colors.dark.tertiary,
+                                                border: `2px solid ${selectionStrategy === strategy.value ? colors.gold.primary : 'transparent'}`,
+                                                boxShadow: selectionStrategy === strategy.value ? `0 0 10px ${colors.gold.glow}` : 'none'
+                                            }}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="strategy"
+                                                value={strategy.value}
+                                                checked={selectionStrategy === strategy.value}
+                                                onChange={(e) => setSelectionStrategy(e.target.value)}
+                                                className="hidden"
+                                            />
+                                            <div 
+                                                className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0"
+                                                style={{ 
+                                                    borderColor: selectionStrategy === strategy.value ? colors.gold.primary : colors.dark.border,
+                                                    background: selectionStrategy === strategy.value ? colors.gold.primary : 'transparent'
+                                                }}
+                                            >
+                                                {selectionStrategy === strategy.value && (
+                                                    <div className="w-2 h-2 rounded-full" style={{ background: colors.dark.primary }} />
+                                                )}
+                                            </div>
+                                            <span className="text-xl">{strategy.icon}</span>
+                                            <div className="flex-1">
+                                                <div className="font-bold text-sm" style={{ color: selectionStrategy === strategy.value ? colors.gold.primary : colors.text.primary }}>
+                                                    {strategy.label}
+                                                </div>
+                                                <div className="text-xs" style={{ color: colors.text.muted }}>
+                                                    {strategy.desc}
+                                                </div>
+                                            </div>
                                         </label>
                                     ))}
                                 </div>
