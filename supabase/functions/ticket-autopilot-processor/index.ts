@@ -117,7 +117,7 @@ serve(async (req) => {
       const ticketToProcess = tickets[0];
       console.log('🎯 Paso 3: Ticket seleccionado para procesar:');
       console.log('   - ID:', ticketToProcess.id);
-      console.log('   - Cliente:', ticketToProcess.client_name);
+      console.log('   - Ticket ID:', ticketToProcess.id);
       console.log('   - Status:', ticketToProcess.status);
       console.log('   - Creado:', ticketToProcess.created_at);
       console.log('   - CP:', ticketToProcess.postal_code);
@@ -253,7 +253,7 @@ async function buscarTicketsPriorizados(supabase: any) {
     console.log('   🔬 Ejecutando query de diagnóstico...');
     const { data: allSolicitados, error: diagError } = await supabase
       .from('tickets')
-      .select('id, status, pro_proposal, processing_started_at, technician_id, scheduled_at, client_name')
+      .select('id, status, pro_proposal, processing_started_at, technician_id, scheduled_at')
       .eq('status', 'solicitado')
       .limit(10);
     
@@ -263,7 +263,7 @@ async function buscarTicketsPriorizados(supabase: any) {
       console.log(`   🔬 Tickets con status="solicitado" encontrados: ${allSolicitados.length}`);
       allSolicitados.forEach((t: any, i: number) => {
         console.log(`      ${i+1}. ID: ${t.id}`);
-        console.log(`         - Cliente: ${t.client_name}`);
+        console.log(`         - ID: ${t.id}`);
         console.log(`         - pro_proposal: ${t.pro_proposal ? 'TIENE VALOR' : 'NULL ✓'}`);
         console.log(`         - processing_started_at: ${t.processing_started_at || 'NULL ✓'}`);
         console.log(`         - technician_id: ${t.technician_id || 'NULL ✓'}`);
@@ -291,7 +291,7 @@ async function buscarTicketsPriorizados(supabase: any) {
 
   console.log('   📋 Tickets ordenados (listos para procesar):');
   sorted.slice(0, 5).forEach((t: any, i: number) => {
-    console.log(`      ${i+1}. ID: ${t.id} | ${t.client_name} | ${t.created_at}`);
+    console.log(`      ${i+1}. ID: ${t.id} | created: ${t.created_at}`);
   });
   if (sorted.length > 5) {
     console.log(`      ... y ${sorted.length - 5} más`);
@@ -359,7 +359,7 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
 
     console.log('  ✅ Lock adquirido exitosamente');
     const ticket = locked[0];
-    console.log('     - Cliente:', ticket.client_name);
+    console.log('     - Ticket data loaded');
     console.log('     - Teléfono:', ticket.client_phone);
     console.log('     - CP:', ticket.postal_code || ticket.address_cp);
     console.log('     - Origen:', ticket.origin_source);
