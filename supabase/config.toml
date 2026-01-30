@@ -1,0 +1,17 @@
+# Edge Functions: webhooks y llamadas externas no envían JWT
+# https://supabase.com/docs/guides/functions/function-configuration
+
+[functions.whatsapp-bot]
+verify_jwt = false
+
+[functions.send-whatsapp]
+verify_jwt = false
+
+[functions.notify-departure]
+verify_jwt = false
+
+[functions.send-reminders]
+verify_jwt = false
+
+[functions.ticket-autopilot]
+verify_jwt = false
