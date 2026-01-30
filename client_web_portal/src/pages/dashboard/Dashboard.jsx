@@ -7,6 +7,7 @@ import TechLocationMap from '../../components/TechLocationMap';
 import { useToast } from '../../components/ToastProvider';
 import TechProfileCard from '../../components/TechProfileCard';
 import ReviewModal from '../../components/ReviewModal';
+import AppointmentSelectorModal from '../../components/AppointmentSelectorModal';
 
 const Dashboard = () => {
     const navigate = useNavigate();
@@ -19,6 +20,13 @@ const Dashboard = () => {
     const [lastUpdate, setLastUpdate] = useState(null);
     const [cancelModal, setCancelModal] = useState({ show: false, ticketId: null });
     const [cancelReason, setCancelReason] = useState('');
+    const [proposalModal, setProposalModal] = useState({
+        show: false,
+        ticket: null,
+        slots: [],
+        proposal: null,
+        timeoutMinutes: 3
+    });
 
     // Reputation System State
     const [reviewModal, setReviewModal] = useState({ show: false, ticketId: null, technicianId: null });
@@ -52,6 +60,12 @@ const Dashboard = () => {
                             if (payload.new.technician_id && !payload.old.technician_id) {
                                 addToast('¡Técnico Asignado!', 'success', true);
                             }
+                        if (payload.new?.pro_proposal?.proposed_slots?.length) {
+                            const status = (payload.new.pro_proposal.status ?? 'waiting_selection').toString().toLowerCase();
+                            if (status === 'waiting_selection') {
+                                openProposalModal(payload.new);
+                            }
+                        }
                         }
                     }
                 )
@@ -89,6 +103,18 @@ const Dashboard = () => {
             return true; // Indicates status changed
         }
         return false;
+    };
+
+    const findPendingProposal = (ticketList) => {
+        const now = Date.now();
+        return (ticketList || []).find((t) => {
+            const proposal = t.pro_proposal;
+            if (!proposal?.proposed_slots?.length) return false;
+            const status = (proposal.status ?? 'waiting_selection').toString().toLowerCase();
+            if (status !== 'waiting_selection') return false;
+            if (proposal.timeout_at && new Date(proposal.timeout_at).getTime() < now) return false;
+            return t.status === 'solicitado';
+        });
     };
 
     const fetchDashboardData = async () => {
@@ -154,14 +180,134 @@ const Dashboard = () => {
                     .eq('client_id', user.id)
                     .order('created_at', { ascending: false });
                 setTickets(refreshedData || []);
+                const pending = findPendingProposal(refreshedData || []);
+                if (pending && !proposalModal.show) openProposalModal(pending);
             } else {
                 setTickets(ticketData || []);
+                const pending = findPendingProposal(ticketData || []);
+                if (pending && !proposalModal.show) openProposalModal(pending);
             }
 
         } catch (error) {
             console.error('Error fetching dashboard:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const openProposalModal = (ticket) => {
+        const proposal = ticket?.pro_proposal;
+        const slots = proposal?.proposed_slots || [];
+        if (!slots.length) return;
+        if (proposalModal.show && proposalModal.ticket?.id === ticket.id) return;
+
+        let timeoutMinutes = 3;
+        if (proposal?.proposed_at && proposal?.timeout_at) {
+            const diff = (new Date(proposal.timeout_at).getTime() - new Date(proposal.proposed_at).getTime()) / 60000;
+            if (!Number.isNaN(diff) && diff > 0) timeoutMinutes = Math.ceil(diff);
+        }
+
+        setProposalModal({
+            show: true,
+            ticket,
+            slots,
+            proposal,
+            timeoutMinutes
+        });
+    };
+
+    const handleProposalConfirm = async (selectedIndex) => {
+        const ticket = proposalModal.ticket;
+        const slot = proposalModal.slots[selectedIndex];
+        const proposal = proposalModal.proposal || ticket?.pro_proposal;
+        if (!ticket || !slot) return;
+
+        try {
+            const scheduledAt = `${slot.date}T${slot.time_start}:00.000Z`;
+            const updatedProposal = {
+                ...(proposal || {}),
+                status: 'selected',
+                selected_slot_index: selectedIndex,
+                selected_at: new Date().toISOString()
+            };
+
+            const { error } = await supabase
+                .from('tickets')
+                .update({
+                    status: 'asignado',
+                    appointment_status: 'confirmed',
+                    technician_id: slot.technician_id,
+                    scheduled_at: scheduledAt,
+                    pro_proposal: updatedProposal
+                })
+                .eq('id', ticket.id);
+
+            if (error) throw error;
+
+            setProposalModal({ show: false, ticket: null, slots: [], proposal: null, timeoutMinutes: 3 });
+            fetchDashboardData();
+            addToast('✅ ¡Cita confirmada!', 'success', true);
+        } catch (error) {
+            console.error('Error confirming proposal:', error);
+            addToast('Error al confirmar la cita. Te llamaremos para coordinar.', 'error', true);
+        }
+    };
+
+    const handleProposalSkip = async () => {
+        const ticket = proposalModal.ticket;
+        const proposal = proposalModal.proposal || ticket?.pro_proposal;
+        if (!ticket) return;
+
+        try {
+            const updatedProposal = {
+                ...(proposal || {}),
+                status: 'rejected',
+                rejected_at: new Date().toISOString()
+            };
+
+            const { error } = await supabase
+                .from('tickets')
+                .update({
+                    appointment_status: 'rejected',
+                    pro_proposal: updatedProposal
+                })
+                .eq('id', ticket.id);
+
+            if (error) throw error;
+
+            setProposalModal({ show: false, ticket: null, slots: [], proposal: null, timeoutMinutes: 3 });
+            fetchDashboardData();
+            addToast('Solicitud de cambio enviada. Te contactaremos.', 'info', true);
+        } catch (error) {
+            console.error('Error rejecting proposal:', error);
+            addToast('Error al rechazar la propuesta.', 'error', true);
+        }
+    };
+
+    const handleProposalTimeout = async () => {
+        const ticket = proposalModal.ticket;
+        const proposal = proposalModal.proposal || ticket?.pro_proposal;
+        if (!ticket) return;
+
+        try {
+            const updatedProposal = {
+                ...(proposal || {}),
+                status: 'expired',
+                expired_at: new Date().toISOString()
+            };
+
+            const { error } = await supabase
+                .from('tickets')
+                .update({
+                    pro_proposal: updatedProposal
+                })
+                .eq('id', ticket.id);
+
+            if (error) throw error;
+        } catch (error) {
+            console.error('Error expiring proposal:', error);
+        } finally {
+            setProposalModal({ show: false, ticket: null, slots: [], proposal: null, timeoutMinutes: 3 });
         }
     };
 
@@ -1053,6 +1199,22 @@ const Dashboard = () => {
                 }
 
             </div >
+
+        {/* PRO Autopilot Proposal Modal (asynchronous after ticket creation) */}
+        <AppointmentSelectorModal
+            isOpen={proposalModal.show}
+            slots={proposalModal.slots}
+            ticketId={proposalModal.ticket?.ticket_number || proposalModal.ticket?.id}
+            ticketInfo={{
+                appliance: proposalModal.ticket?.appliance_info?.type || 'Reparación',
+                brand: proposalModal.ticket?.appliance_info?.brand || '',
+                address: profile?.address || ''
+            }}
+            timeoutMinutes={proposalModal.timeoutMinutes}
+            onConfirm={handleProposalConfirm}
+            onSkip={handleProposalSkip}
+            onTimeout={handleProposalTimeout}
+        />
 
             {/* Cancel Modal */}
             {

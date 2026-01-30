@@ -30,3 +30,11 @@ Si no quieres usar pg_net o el trigger falla:
 7. Guardar.
 
 Supabase inyectará la autorización y enviará el payload esperado por la función.
+
+## Opción C: Escaneo continuo (cron cada minuto)
+
+Si quieres que el bot revise continuamente tickets en estado `solicitado`, puedes programar
+una llamada cada minuto a la Edge Function con `mode: "scan"`.
+
+1. Activa la extensión **pg_cron** en Dashboard → Database → Extensions.
+2. Ejecuta el SQL en `scripts/CRON_AUTOPILOT_SCAN.sql`.

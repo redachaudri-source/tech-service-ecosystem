@@ -28,6 +28,145 @@ interface SlotProposal {
     technician_name: string;
 }
 
+const DEFAULT_PRO_CONFIG: ProConfig = {
+    slots_count: 3,
+    timeout_minutes: 3,
+    search_days: 7,
+    channels: { whatsapp: true, app: true }
+};
+
+async function getSecretaryConfig(supabase: any) {
+    const { data: configs } = await supabase
+        .from('business_config')
+        .select('key, value')
+        .in('key', ['secretary_mode', 'pro_config']);
+
+    let secretaryMode = 'basic';
+    let proConfig: ProConfig = { ...DEFAULT_PRO_CONFIG };
+
+    if (configs) {
+        for (const c of configs) {
+            if (c.key === 'secretary_mode') secretaryMode = (c.value ?? '').toString().toLowerCase();
+            if (c.key === 'pro_config' && c.value) proConfig = { ...proConfig, ...c.value };
+        }
+    }
+
+    const secretaryModeNorm = (secretaryMode ?? '').toString().toLowerCase();
+    return { secretaryModeNorm, proConfig };
+}
+
+async function processTicket(
+    supabase: any,
+    ticket: any,
+    secretaryModeNorm: string,
+    proConfig: ProConfig
+) {
+    const status = (ticket?.status ?? '').toString().toLowerCase();
+    if (status !== 'solicitado') {
+        console.log('[Autopilot] Ignored: status is', ticket?.status);
+        return { skipped: 'status' };
+    }
+
+    if (ticket.technician_id || ticket.scheduled_at) {
+        console.log('[Autopilot] Ignored: already assigned or scheduled');
+        return { skipped: 'assigned' };
+    }
+
+    if (secretaryModeNorm !== 'pro') {
+        console.log('[Autopilot] PRO mode not active (secretary_mode=' + secretaryModeNorm + '), skipping');
+        return { skipped: 'mode' };
+    }
+
+    const originSource = ticket.origin_source || 'admin';
+    const isWebApp = originSource === 'client_web' || originSource === 'client_app';
+    const isWhatsApp = originSource === 'whatsapp';
+
+    if (isWebApp && !proConfig.channels.app) {
+        console.log('[Autopilot] Web App channel disabled');
+        return { skipped: 'app_disabled' };
+    }
+    if (isWhatsApp && !proConfig.channels.whatsapp) {
+        console.log('[Autopilot] WhatsApp channel disabled');
+        return { skipped: 'whatsapp_disabled' };
+    }
+
+    console.log('[Autopilot] PRO mode active, searching slots...');
+    const slots = await findAvailableSlots(supabase, proConfig);
+
+    if (slots.length === 0) {
+        console.log('[Autopilot] No slots available');
+        await supabase
+            .from('tickets')
+            .update({
+                pro_proposal: {
+                    status: 'no_slots',
+                    proposed_at: new Date().toISOString()
+                }
+            })
+            .eq('id', ticket.id);
+        return { skipped: 'no_slots' };
+    }
+
+    console.log('[Autopilot] Found', slots.length, 'slots');
+
+    const proposalData = {
+        proposed_slots: slots,
+        proposed_at: new Date().toISOString(),
+        timeout_at: new Date(Date.now() + proConfig.timeout_minutes * 60 * 1000).toISOString(),
+        status: 'waiting_selection'
+    };
+
+    await supabase
+        .from('tickets')
+        .update({ pro_proposal: proposalData })
+        .eq('id', ticket.id);
+
+    console.log('[Autopilot] Stored proposal in ticket #', ticket.id);
+
+    if (isWebApp) {
+        console.log('[Autopilot] Web App client will receive proposal via realtime');
+    } else if (isWhatsApp && ticket.client_phone) {
+        await sendWhatsAppSlotProposal(supabase, ticket, slots, proConfig.timeout_minutes);
+    }
+
+    return { success: true, ticketId: ticket.id, slotsProposed: slots.length, channel: originSource };
+}
+
+async function scanPendingTickets(supabase: any) {
+    const { secretaryModeNorm, proConfig } = await getSecretaryConfig(supabase);
+    if (secretaryModeNorm !== 'pro') {
+        return { skipped: 'mode' };
+    }
+
+    const { data: tickets, error } = await supabase
+        .from('tickets')
+        .select('*')
+        .eq('status', 'solicitado')
+        .is('technician_id', null)
+        .is('scheduled_at', null)
+        .order('created_at', { ascending: true })
+        .limit(10);
+
+    if (error || !tickets || tickets.length === 0) {
+        return { processed: 0 };
+    }
+
+    let processed = 0;
+    for (const ticket of tickets) {
+        const proposal = ticket.pro_proposal;
+        const pStatus = (proposal?.status ?? '').toString().toLowerCase();
+        const expired = proposal?.timeout_at && new Date(proposal.timeout_at).getTime() < Date.now();
+        if (proposal && pStatus === 'waiting_selection' && !expired) {
+            continue;
+        }
+
+        const result = await processTicket(supabase, ticket, secretaryModeNorm, proConfig);
+        if (result?.success) processed += 1;
+    }
+
+    return { processed, scanned: tickets.length };
+}
+
 serve(async (req) => {
     // Handle CORS preflight
     if (req.method === 'OPTIONS') {
@@ -39,13 +178,19 @@ serve(async (req) => {
         const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-        // Parse webhook payload from Supabase database trigger
-        const payload = await req.json();
-        console.log('[Autopilot] Received payload type:', payload?.type, 'table:', payload?.table, 'record.id:', payload?.record?.id);
+        // Parse payload (trigger or cron)
+        const payload = await req.json().catch(() => ({}));
+        console.log('[Autopilot] Received payload type:', payload?.type, 'table:', payload?.table, 'record.id:', payload?.record?.id, 'mode:', payload?.mode);
 
-        // Payload from database webhook will have: type, table, record, old_record
-        const { type, table, record } = payload;
+        const isScan = payload?.mode === 'scan' || !payload?.record;
+        if (isScan) {
+            const result = await scanPendingTickets(supabase);
+            return new Response(JSON.stringify(result), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+        }
 
+        const { table, record } = payload;
         if (table !== 'tickets') {
             console.log('[Autopilot] Ignored: table is', table, '(expected tickets)');
             return new Response(JSON.stringify({ message: 'Ignored: not tickets table' }), {
@@ -54,130 +199,11 @@ serve(async (req) => {
         }
 
         const ticket = record;
-        const status = (ticket?.status ?? '').toString().toLowerCase();
+        const { secretaryModeNorm, proConfig } = await getSecretaryConfig(supabase);
+        console.log('[Autopilot] business_config secretary_mode normalized:', secretaryModeNorm);
 
-        if (status !== 'solicitado') {
-            console.log('[Autopilot] Ignored: status is', ticket.status, '(expected solicitado)');
-            return new Response(JSON.stringify({ message: `Ignored: status ${ticket.status}` }), {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
-        }
-
-        // Check if already has assigned technician or scheduled date (DB columns: technician_id, scheduled_at)
-        if (ticket.technician_id || ticket.scheduled_at) {
-            console.log('[Autopilot] Ignored: already assigned or scheduled');
-            return new Response(JSON.stringify({ message: 'Ignored: already assigned' }), {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
-        }
-
-        console.log('[Autopilot] Processing ticket #', ticket.id);
-
-        // ═══════════════════════════════════════════════════════════════
-        // 1. Check if PRO mode is enabled
-        // ═══════════════════════════════════════════════════════════════
-        const { data: configs } = await supabase
-            .from('business_config')
-            .select('key, value')
-            .in('key', ['secretary_mode', 'pro_config']);
-
-        let secretaryMode = 'basic';
-        let proConfig: ProConfig = {
-            slots_count: 3,
-            timeout_minutes: 3,
-            search_days: 7,
-            channels: { whatsapp: true, app: true }
-        };
-
-        if (configs) {
-            for (const c of configs) {
-                if (c.key === 'secretary_mode') secretaryMode = (c.value ?? '').toString().toLowerCase();
-                if (c.key === 'pro_config' && c.value) proConfig = { ...proConfig, ...c.value };
-            }
-        }
-
-        const secretaryModeNorm = (secretaryMode ?? '').toString().toLowerCase();
-        console.log('[Autopilot] business_config secretary_mode raw:', secretaryMode, 'normalized:', secretaryModeNorm);
-
-        if (secretaryModeNorm !== 'pro') {
-            console.log('[Autopilot] PRO mode not active (secretary_mode=' + secretaryModeNorm + '), skipping');
-            return new Response(JSON.stringify({ message: 'PRO mode not active' }), {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
-        }
-
-        // Check origin channel
-        const originSource = ticket.origin_source || 'admin';
-        const isWebApp = originSource === 'client_web' || originSource === 'client_app';
-        const isWhatsApp = originSource === 'whatsapp';
-
-        // Validate channel is enabled
-        if (isWebApp && !proConfig.channels.app) {
-            console.log('[Autopilot] Web App channel disabled');
-            return new Response(JSON.stringify({ message: 'App channel disabled' }), {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
-        }
-        if (isWhatsApp && !proConfig.channels.whatsapp) {
-            console.log('[Autopilot] WhatsApp channel disabled');
-            return new Response(JSON.stringify({ message: 'WhatsApp channel disabled' }), {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
-        }
-
-        console.log('[Autopilot] PRO mode active, searching slots...');
-
-        // ═══════════════════════════════════════════════════════════════
-        // 2. Find available slots
-        // ═══════════════════════════════════════════════════════════════
-        const slots = await findAvailableSlots(supabase, proConfig);
-
-        if (slots.length === 0) {
-            console.log('[Autopilot] No slots available');
-            return new Response(JSON.stringify({ message: 'No slots available' }), {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
-        }
-
-        console.log('[Autopilot] Found', slots.length, 'slots');
-
-        // ═══════════════════════════════════════════════════════════════
-        // 3. Store slot proposals in ticket metadata
-        // ═══════════════════════════════════════════════════════════════
-        const proposalData = {
-            proposed_slots: slots,
-            proposed_at: new Date().toISOString(),
-            timeout_at: new Date(Date.now() + proConfig.timeout_minutes * 60 * 1000).toISOString(),
-            status: 'waiting_selection'
-        };
-
-        await supabase
-            .from('tickets')
-            .update({
-                pro_proposal: proposalData
-            })
-            .eq('id', ticket.id);
-
-        console.log('[Autopilot] Stored proposal in ticket #', ticket.id);
-
-        // ═══════════════════════════════════════════════════════════════
-        // 4. Notify client based on origin channel
-        // ═══════════════════════════════════════════════════════════════
-        if (isWebApp) {
-            // For web app, the frontend will poll for pro_proposal
-            // and show a modal when detected
-            console.log('[Autopilot] Web App client will receive proposal via realtime');
-        } else if (isWhatsApp && ticket.client_phone) {
-            // Send WhatsApp message with slot options
-            await sendWhatsAppSlotProposal(supabase, ticket, slots, proConfig.timeout_minutes);
-        }
-
-        return new Response(JSON.stringify({
-            success: true,
-            ticketId: ticket.id,
-            slotsProposed: slots.length,
-            channel: originSource
-        }), {
+        const result = await processTicket(supabase, ticket, secretaryModeNorm, proConfig);
+        return new Response(JSON.stringify(result), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
 
