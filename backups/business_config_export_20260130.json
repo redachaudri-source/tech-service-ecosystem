@@ -1,0 +1,75 @@
+[
+    {
+        "key": "working_hours",
+        "value": {
+            "friday": {
+                "end": "23:00",
+                "start": "00:00"
+            },
+            "monday": {
+                "end": "19:00",
+                "start": "09:00",
+                "breaks": [
+                    {
+                        "end": "15:00",
+                        "start": "14:00"
+                    }
+                ]
+            },
+            "sunday": {
+                "end": "23:59",
+                "start": "09:00"
+            },
+            "tuesday": {
+                "end": "19:00",
+                "start": "09:00",
+                "breaks": [
+                    {
+                        "end": "15:00",
+                        "start": "14:00"
+                    }
+                ]
+            },
+            "saturday": {
+                "end": "23:59",
+                "start": "00:00"
+            },
+            "thursday": {
+                "end": "23:00",
+                "start": "09:00",
+                "breaks": [
+                    {
+                        "end": "15:00",
+                        "start": "14:00"
+                    }
+                ]
+            },
+            "wednesday": {
+                "end": "19:00",
+                "start": "09:00",
+                "breaks": [
+                    {
+                        "end": "15:00",
+                        "start": "14:00"
+                    }
+                ]
+            }
+        }
+    },
+    {
+        "key": "secretary_mode",
+        "value": "pro"
+    },
+    {
+        "key": "pro_config",
+        "value": {
+            "search_days": 7,
+            "slots_count": 3,
+            "timeout_minutes": 15
+        }
+    },
+    {
+        "key": "pro_selection_strategy",
+        "value": "balanced"
+    }
+]
