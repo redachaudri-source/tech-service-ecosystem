@@ -270,12 +270,12 @@ async function findAvailableSlots(
         }
     }
 
-    // 3. Generate slots alternating between technicians
+    // 3. Generate ALL free slots (barrido día a día, sin tope)
     const timeSlots = ['09:00', '11:00', '13:00', '16:00', '18:00'];
-    const slots: SlotProposal[] = [];
+    const allSlots: SlotProposal[] = [];
     let techIndex = 0;
 
-    for (let d = 0; d <= search_days && slots.length < slots_count; d++) {
+    for (let d = 0; d <= search_days; d++) {
         const checkDate = new Date();
         checkDate.setDate(checkDate.getDate() + d);
         const dayOfWeek = checkDate.getDay();
@@ -289,8 +289,6 @@ async function findAvailableSlots(
         const nowMinute = new Date().getMinutes();
 
         for (const time of timeSlots) {
-            if (slots.length >= slots_count) break;
-
             // Skip past times for today
             if (isToday) {
                 const [slotHour, slotMin] = time.split(':').map(Number);
@@ -300,7 +298,7 @@ async function findAvailableSlots(
             }
 
             // Round-robin through technicians
-            for (let i = 0; i < activeTechs.length && slots.length < slots_count; i++) {
+            for (let i = 0; i < activeTechs.length; i++) {
                 const tech = activeTechs[(techIndex + i) % activeTechs.length];
                 const busyKey = `${tech.id}_${dateStr}`;
                 const busyTimes = busyMap.get(busyKey) || new Set();
@@ -310,7 +308,7 @@ async function findAvailableSlots(
                     const endHour = startHour + 2;
                     const endTime = `${endHour.toString().padStart(2, '0')}:00`;
 
-                    slots.push({
+                    allSlots.push({
                         date: dateStr,
                         time_start: time,
                         time_end: endTime,
@@ -329,7 +327,17 @@ async function findAvailableSlots(
         }
     }
 
-    return slots;
+    // 4. REGLA DE ORO: cuántas opciones ofrecer según huecos libres totales
+    const totalFree = allSlots.length;
+    let slotsToOffer: number;
+    if (totalFree < 5) slotsToOffer = 1;
+    else if (totalFree < 8) slotsToOffer = 2;
+    else slotsToOffer = Math.min(3, totalFree);
+
+    // Respetar tope config si es más restrictivo (ej. admin quiere solo 2)
+    const capped = Math.min(slotsToOffer, slots_count);
+    console.log(`[Autopilot] Total free slots: ${totalFree} → offering ${capped} (rule: ${slotsToOffer}, config max: ${slots_count})`);
+    return allSlots.slice(0, capped);
 }
 
 // ═══════════════════════════════════════════════════════════════
