@@ -217,7 +217,52 @@ serve(async (req) => {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// HELPER: Find available slots
+// HELPERS: Calendario y eventos
+// ═══════════════════════════════════════════════════════════════
+/** day_of_week: 0=Dom, 1=Lun, ... 6=Sab (JS getDay()). */
+interface CalendarRow {
+    technician_id: string;
+    day_of_week: number;
+    start_time: string;
+    end_time: string;
+    is_working_day: boolean;
+}
+
+/** Genera horas de inicio de slot cada 2h entre start_time y end_time (slot 2h). */
+function getSlotTimesBetween(startTime: string, endTime: string, slotDurationHours = 2): string[] {
+    const parse = (t: string) => {
+        const parts = (t || '').split(':');
+        const h = parseInt(parts[0], 10) || 0;
+        const m = parseInt(parts[1], 10) || 0;
+        return h * 60 + m;
+    };
+    const startM = parse(startTime);
+    const endM = parse(endTime);
+    const step = slotDurationHours * 60;
+    const out: string[] = [];
+    for (let m = startM; m + step <= endM; m += step) {
+        const h = Math.floor(m / 60);
+        const min = m % 60;
+        out.push(`${h.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`);
+    }
+    return out;
+}
+
+/** Overlap: slot [dateStr + time_start, dateStr + time_end] con event [start_time, end_time]. */
+function slotOverlapsEvent(
+    dateStr: string,
+    timeStart: string,
+    timeEnd: string,
+    eventStart: string,
+    eventEnd: string
+): boolean {
+    const slotStart = `${dateStr}T${timeStart}:00.000Z`;
+    const slotEnd = `${dateStr}T${timeEnd}:00.000Z`;
+    return slotStart < eventEnd && slotEnd > eventStart;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELPER: Find available slots (calendario + eventos + tickets)
 // ═══════════════════════════════════════════════════════════════
 async function findAvailableSlots(
     supabase: any,
@@ -241,100 +286,165 @@ async function findAvailableSlots(
     const activeTechs = technicians.filter((t: any) => t.is_active !== false);
     if (activeTechs.length === 0) return [];
 
+    const techIds = activeTechs.map((t: any) => t.id);
     console.log('[Autopilot] Active technicians:', activeTechs.length);
 
-    // 2. Get busy slots
     const startDate = new Date();
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + search_days);
+    const endDateISO = endDate.toISOString();
+    const startDateISO = startDate.toISOString();
 
+    // 2. Horario base: technician_calendars (por technician_id y day_of_week)
+    let calendarRows: any[] = [];
+    try {
+        const res = await supabase
+            .from('technician_calendars')
+            .select('technician_id, day_of_week, start_time, end_time, is_working_day')
+            .in('technician_id', techIds);
+        if (res.data) calendarRows = res.data;
+    } catch (_) {
+        // Tabla technician_calendars puede no existir aún
+    }
+    const calendarMap = new Map<string, { start_time: string; end_time: string; is_working_day: boolean }>();
+    if (calendarRows.length > 0) {
+        for (const row of calendarRows as CalendarRow[]) {
+            const key = `${row.technician_id}_${row.day_of_week}`;
+            calendarMap.set(key, {
+                start_time: (row.start_time ?? '09:00').toString().slice(0, 5),
+                end_time: (row.end_time ?? '18:00').toString().slice(0, 5),
+                is_working_day: row.is_working_day !== false
+            });
+        }
+        console.log('[Autopilot] Loaded', calendarMap.size, 'calendar rows');
+    } else {
+        // Fallback: sin calendario definido, Lun-Vie 09:00-18:00 (comportamiento anterior)
+        for (const t of activeTechs) {
+            for (let dow = 1; dow <= 5; dow++) {
+                calendarMap.set(`${t.id}_${dow}`, { start_time: '09:00', end_time: '18:00', is_working_day: true });
+            }
+        }
+        console.log('[Autopilot] No calendar rows → using default Mon-Fri 09:00-18:00');
+    }
+
+    // 3. Bloqueos: events (Vacaciones, Médico, etc.) — overlap con [startDate, endDate]
+    let events: any[] = [];
+    try {
+        const res = await supabase
+            .from('events')
+            .select('technician_id, start_time, end_time')
+            .in('technician_id', techIds)
+            .lt('start_time', endDateISO)
+            .gt('end_time', startDateISO);
+        if (res.data) events = res.data;
+    } catch (_) {
+        // Tabla events puede no exister aún
+    }
+    const eventsByTech = new Map<string, Array<{ start_time: string; end_time: string }>>();
+    if (events.length > 0) {
+        for (const ev of events) {
+            const list = eventsByTech.get(ev.technician_id) || [];
+            list.push({ start_time: ev.start_time, end_time: ev.end_time });
+            eventsByTech.set(ev.technician_id, list);
+        }
+        console.log('[Autopilot] Loaded', events?.length ?? 0, 'events in range');
+    }
+
+    // 4. Ocupación por tickets existentes
     const { data: busySlots } = await supabase
         .from('tickets')
         .select('technician_id, scheduled_at')
-        .in('technician_id', activeTechs.map((t: any) => t.id))
+        .in('technician_id', techIds)
         .not('scheduled_at', 'is', null)
-        .gte('scheduled_at', startDate.toISOString())
-        .lte('scheduled_at', endDate.toISOString())
+        .gte('scheduled_at', startDateISO)
+        .lte('scheduled_at', endDateISO)
         .in('status', ['asignado', 'en_camino', 'en_proceso']);
 
-    // Build busy map
     const busyMap = new Map<string, Set<string>>();
     if (busySlots) {
         for (const slot of busySlots) {
             const slotDate = new Date(slot.scheduled_at);
             const dateStr = slotDate.toISOString().split('T')[0];
-            const timeStr = `${slotDate.getHours().toString().padStart(2, '0')}:00`;
+            const timeStr = `${slotDate.getUTCHours().toString().padStart(2, '0')}:00`;
             const key = `${slot.technician_id}_${dateStr}`;
             if (!busyMap.has(key)) busyMap.set(key, new Set());
             busyMap.get(key)!.add(timeStr);
         }
     }
 
-    // 3. Generate ALL free slots (barrido día a día, sin tope)
-    const timeSlots = ['09:00', '11:00', '13:00', '16:00', '18:00'];
+    // 5. Generar candidatos: por día, por técnico, según calendario y filtrar eventos + tickets
     const allSlots: SlotProposal[] = [];
     let techIndex = 0;
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const nowHour = now.getHours();
+    const nowMinute = now.getMinutes();
 
     for (let d = 0; d <= search_days; d++) {
         const checkDate = new Date();
         checkDate.setDate(checkDate.getDate() + d);
         const dayOfWeek = checkDate.getDay();
-
-        // Skip weekends
-        if (dayOfWeek === 0 || dayOfWeek === 6) continue;
-
         const dateStr = checkDate.toISOString().split('T')[0];
-        const isToday = d === 0;
-        const nowHour = new Date().getHours();
-        const nowMinute = new Date().getMinutes();
+        const isToday = dateStr === todayStr;
 
-        for (const time of timeSlots) {
-            // Skip past times for today
-            if (isToday) {
-                const [slotHour, slotMin] = time.split(':').map(Number);
-                if (slotHour < nowHour || (slotHour === nowHour && slotMin <= nowMinute + 30)) {
-                    continue;
+        for (let i = 0; i < activeTechs.length; i++) {
+            const tech = activeTechs[(techIndex + i) % activeTechs.length];
+            const calKey = `${tech.id}_${dayOfWeek}`;
+            const cal = calendarMap.get(calKey);
+
+            // Sin registro o no laborable -> no generar slots ese día para este técnico
+            if (!cal || !cal.is_working_day) continue;
+
+            const timeSlots = getSlotTimesBetween(cal.start_time, cal.end_time);
+            const dayEvents = eventsByTech.get(tech.id) || [];
+
+            for (const time of timeSlots) {
+                // Hoy: descartar slots ya pasados
+                if (isToday) {
+                    const [slotHour, slotMin] = time.split(':').map(Number);
+                    if (slotHour < nowHour || (slotHour === nowHour && slotMin <= nowMinute + 30)) continue;
                 }
-            }
 
-            // Round-robin through technicians
-            for (let i = 0; i < activeTechs.length; i++) {
-                const tech = activeTechs[(techIndex + i) % activeTechs.length];
                 const busyKey = `${tech.id}_${dateStr}`;
-                const busyTimes = busyMap.get(busyKey) || new Set();
+                if (busyMap.get(busyKey)?.has(time)) continue;
 
-                if (!busyTimes.has(time)) {
-                    const startHour = parseInt(time.split(':')[0]);
-                    const endHour = startHour + 2;
-                    const endTime = `${endHour.toString().padStart(2, '0')}:00`;
+                const startHour = parseInt(time.split(':')[0], 10);
+                const endHour = startHour + 2;
+                const endTime = `${endHour.toString().padStart(2, '0')}:00`;
 
-                    allSlots.push({
-                        date: dateStr,
-                        time_start: time,
-                        time_end: endTime,
-                        technician_id: tech.id,
-                        technician_name: tech.full_name
-                    });
-
-                    // Mark as busy for this session
-                    busyTimes.add(time);
-                    busyMap.set(busyKey, busyTimes);
-
-                    techIndex = (techIndex + i + 1) % activeTechs.length;
-                    break;
+                // Comprobar solapamiento con eventos
+                let overlaps = false;
+                for (const ev of dayEvents) {
+                    if (slotOverlapsEvent(dateStr, time, endTime, ev.start_time, ev.end_time)) {
+                        overlaps = true;
+                        break;
+                    }
                 }
+                if (overlaps) continue;
+
+                allSlots.push({
+                    date: dateStr,
+                    time_start: time,
+                    time_end: endTime,
+                    technician_id: tech.id,
+                    technician_name: tech.full_name
+                });
+
+                const busySet = busyMap.get(busyKey) || new Set();
+                busySet.add(time);
+                busyMap.set(busyKey, busySet);
             }
         }
+        techIndex = (techIndex + 1) % activeTechs.length;
     }
 
-    // 4. REGLA DE ORO: cuántas opciones ofrecer según huecos libres totales
+    // 6. REGLA DE ORO: cuántas opciones ofrecer según huecos libres totales
     const totalFree = allSlots.length;
     let slotsToOffer: number;
     if (totalFree < 5) slotsToOffer = 1;
     else if (totalFree < 8) slotsToOffer = 2;
     else slotsToOffer = Math.min(3, totalFree);
 
-    // Respetar tope config si es más restrictivo (ej. admin quiere solo 2)
     const capped = Math.min(slotsToOffer, slots_count);
     console.log(`[Autopilot] Total free slots: ${totalFree} → offering ${capped} (rule: ${slotsToOffer}, config max: ${slots_count})`);
     return allSlots.slice(0, capped);
