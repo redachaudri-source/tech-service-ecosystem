@@ -111,8 +111,15 @@ const SecretarySettingsPage = () => {
                 .in('key', ['secretary_mode', 'pro_config', 'shared_config', 'whatsapp_bot_config', 'company_identity', 'pro_selection_strategy']);
 
             if (configs) {
+                console.log('[Secretary] Configs cargadas:', configs);
                 configs.forEach(c => {
-                    if (c.key === 'secretary_mode') setSecretaryMode(c.value || 'basic');
+                    if (c.key === 'secretary_mode') {
+                        // Normalizar valor: puede venir como "pro", '"pro"', o 'pro'
+                        const rawValue = c.value;
+                        const normalizedValue = (rawValue ?? '').toString().toLowerCase().replace(/"/g, '').trim() || 'basic';
+                        console.log('[Secretary] secretary_mode raw:', rawValue, '-> normalized:', normalizedValue);
+                        setSecretaryMode(normalizedValue);
+                    }
                     if (c.key === 'pro_config' && c.value) setProConfig(prev => ({ ...prev, ...c.value }));
                     if (c.key === 'shared_config' && c.value) setSharedConfig(prev => ({ ...prev, ...c.value }));
                     if (c.key === 'whatsapp_bot_config' && c.value) {
@@ -154,13 +161,16 @@ const SecretarySettingsPage = () => {
         setSaving(true);
         try {
             // Si estamos cambiando de modo, guardar secretary_mode primero y comprobar error
+            // IMPORTANTE: Guardar como string simple, no como JSON string con comillas
             const modeToPersist = (modeOverride ?? secretaryMode) === 'pro' ? 'pro' : 'basic';
+            console.log('[Secretary] Guardando secretary_mode:', modeToPersist);
             const { error: modeError } = await supabase
                 .from('business_config')
                 .upsert(
                     { key: 'secretary_mode', value: modeToPersist },
                     { onConflict: 'key' }
                 );
+            console.log('[Secretary] Resultado guardado:', modeError ? 'ERROR' : 'OK', modeError);
             if (modeError) {
                 throw modeError;
             }
