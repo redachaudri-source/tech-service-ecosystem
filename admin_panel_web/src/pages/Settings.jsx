@@ -470,7 +470,7 @@ const Settings = () => {
         { id: 'identity', label: 'Identidad de Empresa', icon: Building },
         { id: 'brands', label: 'Gestión de Marcas', icon: Briefcase },
         { id: 'rates', label: 'Tarifas y Precios', icon: Euro },
-        { id: 'hours', label: 'Horarios y Festivos', icon: Clock },
+        // 'hours' MOVIDO a /business-settings para evitar duplicación
         { id: 'taxes', label: 'Impuestos (IVA)', icon: Calculator },
         { id: 'appliances', label: 'Tipos Electro.', icon: Tag },
         // Bot WhatsApp MOVED to Secretaria Virtual
@@ -539,7 +539,7 @@ const Settings = () => {
                     {activeTab === 'identity' && <IdentitySection />}
                     {activeTab === 'brands' && <BrandsSection />}
                     {activeTab === 'rates' && <RatesSection />}
-                    {activeTab === 'hours' && <HoursSection />}
+                    {/* hours MOVIDO a /business-settings */}
                     {activeTab === 'taxes' && <TaxesSection />}
                     {activeTab === 'appliances' && <ApplianceTypesSection />}
                 </div>
