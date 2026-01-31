@@ -416,9 +416,9 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
       .single();
     console.log('     working_hours config:', JSON.stringify(hoursConfig?.value || 'NO CONFIGURADO'));
     
-    // Buscar slots por día
+    // Buscar slots por día (empezando desde HOY = day 0)
     let allSlotsAllDays: any[] = [];
-    for (let day = 1; day <= (proConfig.search_days || 7); day++) {
+    for (let day = 0; day < (proConfig.search_days || 7); day++) {
       const targetDate = new Date();
       targetDate.setDate(targetDate.getDate() + day);
       const dateStr = targetDate.toISOString().split('T')[0];
@@ -430,9 +430,10 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
       const dayConfig = hoursConfig?.value?.[dayName];
       console.log(`        Config para ${dayName}:`, dayConfig === null ? 'CERRADO' : JSON.stringify(dayConfig));
 
+      // Usar duración estándar de 90 min (igual que Asistente Inteligente)
       const { data: slots, error: rpcError } = await supabase.rpc('get_tech_availability', {
         target_date: dateStr,
-        duration_minutes: 120,
+        duration_minutes: 90,
         target_cp: postalCode
       });
 
@@ -501,7 +502,7 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
           option: i + 1,
           date: slotDate.toISOString().split('T')[0],
           time_start: slotDate.toTimeString().slice(0, 5),
-          time_end: new Date(slotDate.getTime() + 120 * 60 * 1000).toTimeString().slice(0, 5),
+          time_end: new Date(slotDate.getTime() + 90 * 60 * 1000).toTimeString().slice(0, 5),
           technician_id: s.technician_id,
           technician_name: s.technician_name
         };
