@@ -345,15 +345,52 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
 
     console.log('  ✅ Modo PRO confirmado');
 
-    // PASO 2: Lock optimista
+    // PASO 2: Lock optimista (SIMPLIFICADO - solo verifica que no esté siendo procesado)
     console.log('  🔒 PASO 2: Intentando lock optimista...');
+    
+    // Primero verificar estado actual del ticket
+    const { data: currentTicket, error: fetchError } = await supabase
+      .from('tickets')
+      .select('*')
+      .eq('id', ticketId)
+      .single();
+    
+    if (fetchError || !currentTicket) {
+      console.error('  ❌ Error obteniendo ticket:', fetchError);
+      return { skipped: 'ticket_not_found', error: fetchError?.message };
+    }
+    
+    console.log('  📋 Estado actual del ticket:');
+    console.log('     - status:', currentTicket.status);
+    console.log('     - pro_proposal:', currentTicket.pro_proposal ? JSON.stringify(currentTicket.pro_proposal).substring(0, 100) : 'NULL');
+    console.log('     - processing_started_at:', currentTicket.processing_started_at || 'NULL');
+    
+    // Verificar si ya tiene propuesta válida (waiting_selection o selected)
+    const propStatus = currentTicket.pro_proposal?.status;
+    if (propStatus === 'waiting_selection' || propStatus === 'selected') {
+      console.log('  ⏭️  Ticket ya tiene propuesta válida (status:', propStatus, ')');
+      return { skipped: 'already_has_valid_proposal', propStatus };
+    }
+    
+    // Verificar si está siendo procesado por otra instancia
+    if (currentTicket.processing_started_at) {
+      const lockTime = new Date(currentTicket.processing_started_at).getTime();
+      const now = Date.now();
+      const lockAgeMinutes = (now - lockTime) / 60000;
+      
+      if (lockAgeMinutes < 5) {
+        console.log('  ⏭️  Ticket siendo procesado por otra instancia (lock age:', lockAgeMinutes.toFixed(1), 'min)');
+        return { skipped: 'being_processed' };
+      }
+      console.log('  🔓 Lock antiguo detectado (', lockAgeMinutes.toFixed(1), 'min), ignorando...');
+    }
+    
+    // Adquirir lock
     const { data: locked, error: lockError } = await supabase
       .from('tickets')
       .update({ processing_started_at: new Date().toISOString() })
       .eq('id', ticketId)
-      .is('processing_started_at', null)
       .eq('status', 'solicitado')
-      .is('pro_proposal', null)
       .select('*');
 
     if (lockError) {
@@ -362,8 +399,8 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
     }
 
     if (!locked || locked.length === 0) {
-      console.log('  ⏭️  Lock fallido - Ticket ya procesado o no cumple criterios');
-      return { skipped: 'already_processing' };
+      console.log('  ⏭️  Lock fallido - Ticket cambió de estado');
+      return { skipped: 'status_changed' };
     }
 
     console.log('  ✅ Lock adquirido exitosamente');
