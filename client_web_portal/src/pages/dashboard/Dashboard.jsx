@@ -308,11 +308,18 @@ const Dashboard = () => {
             }
         }
 
-        console.log('   ✅ ABRIENDO MODAL con', slots.length, 'slots y', timeoutMinutes, 'min timeout');
+        // ORDENAR SLOTS POR HORA antes de mostrar
+        const sortedSlots = [...slots].sort((a, b) => {
+            const timeA = a.time_start || '00:00';
+            const timeB = b.time_start || '00:00';
+            return timeA.localeCompare(timeB);
+        });
+        
+        console.log('   ✅ ABRIENDO MODAL con', sortedSlots.length, 'slots ordenados y', timeoutMinutes, 'min timeout');
         setProposalModal({
             show: true,
             ticket,
-            slots,
+            slots: sortedSlots,
             proposal,
             timeoutMinutes,
             confirming: false
@@ -331,11 +338,18 @@ const Dashboard = () => {
             return;
         }
 
-        // MARCAR COMO CONFIRMANDO para evitar que polling/realtime reabran el modal
-        setProposalModal(prev => ({ ...prev, show: false, confirming: true }));
+        // CERRAR MODAL INMEDIATAMENTE - resetear todo el estado
+        setProposalModal({ show: false, ticket: null, slots: [], proposal: null, timeoutMinutes: 3, confirming: true });
 
         try {
-            const scheduledAt = `${slot.date}T${slot.time_start}:00.000Z`;
+            // La hora del slot ya está en hora España, convertir a UTC restando 1 hora
+            const [hours, minutes] = slot.time_start.split(':').map(Number);
+            const utcHours = hours - 1; // España = UTC+1 (invierno)
+            const utcTimeStr = `${utcHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+            const scheduledAt = `${slot.date}T${utcTimeStr}:00.000Z`;
+            
+            console.log('[Dashboard] Hora España:', slot.time_start, '-> UTC:', utcTimeStr);
+            
             const updatedProposal = {
                 ...(proposal || {}),
                 status: 'selected',
