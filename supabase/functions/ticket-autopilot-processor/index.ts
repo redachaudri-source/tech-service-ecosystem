@@ -217,60 +217,69 @@ async function limpiarLocksAntiguos(supabase: any) {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Buscar tickets con prioridad bifurcada: Día DESC + Hora ASC
+// CRITERIOS SIMPLIFICADOS: Solo status + sin propuesta válida + sin lock
 // ═══════════════════════════════════════════════════════════════════════════
 async function buscarTicketsPriorizados(supabase: any) {
   console.log('   🔍 Ejecutando query en tabla tickets...');
-  console.log('   📋 Criterios de búsqueda:');
+  console.log('   📋 Criterios de búsqueda (SIMPLIFICADOS):');
   console.log('      - status = "solicitado"');
-  console.log('      - pro_proposal IS NULL');
-  console.log('      - processing_started_at IS NULL');
-  console.log('      - technician_id IS NULL');
-  console.log('      - scheduled_at IS NULL');
+  console.log('      - SIN propuesta válida (pro_proposal NULL o status=no_slots/no_technicians)');
+  console.log('      - processing_started_at IS NULL (no está siendo procesado)');
 
-  const { data, error } = await supabase
+  // Primero: tickets sin ninguna propuesta
+  const { data: sinPropuesta, error: error1 } = await supabase
     .from('tickets')
     .select('*')
     .eq('status', 'solicitado')
     .is('pro_proposal', null)
-    .is('processing_started_at', null)
-    .is('technician_id', null)
-    .is('scheduled_at', null);
+    .is('processing_started_at', null);
 
-  if (error) {
-    console.error('   ❌ Error en query:', error);
-    console.error('   ❌ Código:', error.code);
-    console.error('   ❌ Mensaje:', error.message);
-    console.error('   ❌ Detalles:', error.details);
-    return [];
+  // Segundo: tickets con propuesta fallida (no_slots o no_technicians) que se pueden reintentar
+  const { data: conFallo, error: error2 } = await supabase
+    .from('tickets')
+    .select('*')
+    .eq('status', 'solicitado')
+    .is('processing_started_at', null)
+    .or('pro_proposal->status.eq.no_slots,pro_proposal->status.eq.no_technicians');
+
+  if (error1) {
+    console.error('   ❌ Error en query 1:', error1);
+  }
+  if (error2) {
+    console.error('   ❌ Error en query 2:', error2);
   }
 
-  console.log(`   ✅ Query exitoso. Filas retornadas: ${data?.length || 0}`);
+  // Combinar resultados (sin duplicados)
+  const ticketMap = new Map();
+  (sinPropuesta || []).forEach((t: any) => ticketMap.set(t.id, t));
+  (conFallo || []).forEach((t: any) => ticketMap.set(t.id, t));
+  
+  const data = Array.from(ticketMap.values());
 
-  if (!data || data.length === 0) {
-    console.log('   ℹ️  No hay tickets que cumplan TODOS los criterios');
+  console.log(`   ✅ Tickets sin propuesta: ${sinPropuesta?.length || 0}`);
+  console.log(`   ✅ Tickets con fallo reintentable: ${conFallo?.length || 0}`);
+  console.log(`   ✅ Total únicos: ${data.length}`);
+
+  if (data.length === 0) {
+    console.log('   ℹ️  No hay tickets pendientes de procesar');
     
-    // Query de diagnóstico
-    console.log('   🔬 Ejecutando query de diagnóstico...');
-    const { data: allSolicitados, error: diagError } = await supabase
+    // Query de diagnóstico: mostrar TODOS los tickets en status solicitado
+    console.log('   🔬 Diagnóstico: todos los tickets "solicitado"...');
+    const { data: allSolicitados } = await supabase
       .from('tickets')
-      .select('id, status, pro_proposal, processing_started_at, technician_id, scheduled_at')
+      .select('id, ticket_number, status, pro_proposal, processing_started_at')
       .eq('status', 'solicitado')
       .limit(10);
     
-    if (diagError) {
-      console.error('   ❌ Error en diagnóstico:', diagError);
-    } else if (allSolicitados && allSolicitados.length > 0) {
-      console.log(`   🔬 Tickets con status="solicitado" encontrados: ${allSolicitados.length}`);
+    if (allSolicitados && allSolicitados.length > 0) {
+      console.log(`   🔬 Encontrados ${allSolicitados.length} tickets "solicitado":`);
       allSolicitados.forEach((t: any, i: number) => {
-        console.log(`      ${i+1}. ID: ${t.id}`);
-        console.log(`         - ID: ${t.id}`);
-        console.log(`         - pro_proposal: ${t.pro_proposal ? 'TIENE VALOR' : 'NULL ✓'}`);
-        console.log(`         - processing_started_at: ${t.processing_started_at || 'NULL ✓'}`);
-        console.log(`         - technician_id: ${t.technician_id || 'NULL ✓'}`);
-        console.log(`         - scheduled_at: ${t.scheduled_at || 'NULL ✓'}`);
+        const propStatus = t.pro_proposal?.status || 'NULL';
+        const processing = t.processing_started_at ? 'LOCKED' : 'libre';
+        console.log(`      ${i+1}. #${t.ticket_number}: pro_proposal.status=${propStatus}, lock=${processing}`);
       });
     } else {
-      console.log('   🔬 NO hay tickets con status="solicitado" en la base de datos');
+      console.log('   🔬 NO hay tickets con status="solicitado"');
     }
     
     return [];
