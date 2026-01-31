@@ -97,38 +97,23 @@ const SmartAssignmentModal = ({ ticket, onClose, onSuccess }) => {
             // Logic to extract CP (MEJORADO - busca en múltiples fuentes):
             let targetCp = null;
             
-            // 1. Primero intentar desde el ticket directamente
-            if (ticket.postal_code) {
-                targetCp = ticket.postal_code;
-            } 
-            // 2. Luego desde address_cp del ticket
-            else if (ticket.address_cp) {
-                targetCp = ticket.address_cp;
-            }
-            // 3. Luego desde client_addresses si hay address_id
-            else if (ticket.client_address?.postal_code) {
+            // 1. Desde client_addresses (relación cargada)
+            if (ticket.client_address?.postal_code) {
                 targetCp = ticket.client_address.postal_code;
             }
-            // 4. Desde el perfil del cliente
+            // 2. Desde el perfil del cliente
             else if (ticket.profiles?.postal_code) {
                 targetCp = ticket.profiles.postal_code;
             } 
-            // 5. Extraer de la dirección del perfil
+            // 3. Extraer de la dirección del perfil con regex
             else if (ticket.profiles?.address) {
                 const match = ticket.profiles.address.match(/\b\d{5}\b/);
                 if (match) targetCp = match[0];
             }
-            // 6. Extraer de la dirección del ticket
-            else if (ticket.address) {
-                const match = ticket.address.match(/\b\d{5}\b/);
-                if (match) targetCp = match[0];
-            }
             
-            console.log('[SmartAssistant] 🎯 CP extraído para algoritmo de viaje:', targetCp, '| Fuentes buscadas:', {
-                'ticket.postal_code': ticket.postal_code,
-                'ticket.address_cp': ticket.address_cp,
-                'ticket.client_address?.postal_code': ticket.client_address?.postal_code,
-                'ticket.profiles?.postal_code': ticket.profiles?.postal_code
+            console.log('[SmartAssistant] 🎯 CP extraído para algoritmo de viaje:', targetCp, '| Fuentes:', {
+                'client_address.postal_code': ticket.client_address?.postal_code,
+                'profiles.postal_code': ticket.profiles?.postal_code
             });
 
             const { data, error } = await supabase.rpc('get_tech_availability', {
