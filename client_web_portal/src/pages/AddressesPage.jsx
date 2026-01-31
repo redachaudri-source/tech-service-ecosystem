@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import {
     MapPin, Plus, Trash2, Edit2, Star, Search,
-    Home, Briefcase, Loader2, Save, X, ChevronRight
+    Home, Briefcase, Loader2, Save, X, ChevronRight, CheckCircle
 } from 'lucide-react';
+import AddressAutocomplete from '../components/AddressAutocomplete';
 
 const CLIENT_TYPES = {
     particular: { label: 'Particular', icon: Home, maxAddresses: 3 },
@@ -18,7 +19,14 @@ const AddressesPage = () => {
     const [search, setSearch] = useState('');
     const [editingId, setEditingId] = useState(null);
     const [showAddModal, setShowAddModal] = useState(false);
-    const [newAddress, setNewAddress] = useState({ label: '', address_line: '' });
+    const [newAddress, setNewAddress] = useState({ 
+        label: '', 
+        address_line: '',
+        postal_code: '',
+        city: '',
+        latitude: null,
+        longitude: null
+    });
 
     useEffect(() => {
         loadData();
@@ -73,19 +81,35 @@ const AddressesPage = () => {
                 client_id: user.id,
                 label: newAddress.label || `Dirección ${addresses.length + 1}`,
                 address_line: newAddress.address_line,
+                postal_code: newAddress.postal_code || null,
+                city: newAddress.city || null,
+                latitude: newAddress.latitude,
+                longitude: newAddress.longitude,
                 is_primary: addresses.length === 0,
                 address_order: addresses.length + 1
             });
 
             if (error) throw error;
             setShowAddModal(false);
-            setNewAddress({ label: '', address_line: '' });
+            setNewAddress({ label: '', address_line: '', postal_code: '', city: '', latitude: null, longitude: null });
             loadData();
         } catch (error) {
             alert('Error al añadir dirección: ' + error.message);
         } finally {
             setSaving(false);
         }
+    };
+
+    // Handle Google Places selection for new address
+    const handleNewAddressSelect = (placeData) => {
+        setNewAddress(prev => ({
+            ...prev,
+            address_line: placeData.address,
+            postal_code: placeData.postal_code,
+            city: placeData.city,
+            latitude: placeData.latitude,
+            longitude: placeData.longitude
+        }));
     };
 
     const handleUpdate = async (id, updates) => {
@@ -327,12 +351,20 @@ const AddressesPage = () => {
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-slate-700">Dirección Completa</label>
-                                <input
-                                    value={newAddress.address_line}
-                                    onChange={e => setNewAddress({ ...newAddress, address_line: e.target.value })}
-                                    placeholder="Calle, número, ciudad..."
-                                    className="w-full p-3 border border-slate-200 rounded-xl mt-1"
-                                />
+                                <div className="mt-1">
+                                    <AddressAutocomplete
+                                        value={newAddress.address_line}
+                                        onChange={(val) => setNewAddress({ ...newAddress, address_line: val })}
+                                        onSelect={handleNewAddressSelect}
+                                        placeholder="Buscar dirección..."
+                                    />
+                                </div>
+                                {newAddress.postal_code && (
+                                    <div className="mt-2 flex items-center gap-2 text-xs text-emerald-600">
+                                        <CheckCircle size={12} />
+                                        <span>CP: {newAddress.postal_code} · {newAddress.city}</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

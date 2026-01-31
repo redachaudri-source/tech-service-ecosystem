@@ -7,6 +7,7 @@ import {
     AlertCircle, HelpCircle
 } from 'lucide-react';
 import { normalizePhone, formatPhoneDisplay } from '../../lib/utils';
+import AddressAutocomplete from '../../components/AddressAutocomplete';
 
 // CLIENT TYPE CONSTANTS
 const CLIENT_TYPES = {
@@ -48,10 +49,14 @@ const Register = () => {
         confirmPassword: ''
     });
 
-    // Multiple Addresses
+    // Multiple Addresses (with postal_code, city, lat/lng from Google Places)
     const [addresses, setAddresses] = useState([{
         label: 'Casa',
         address_line: '',
+        postal_code: '',
+        city: '',
+        latitude: null,
+        longitude: null,
         is_primary: true
     }]);
 
@@ -80,6 +85,10 @@ const Register = () => {
         setAddresses(prev => [...prev, {
             label: `Dirección ${prev.length + 1}`,
             address_line: '',
+            postal_code: '',
+            city: '',
+            latitude: null,
+            longitude: null,
             is_primary: false
         }]);
     };
@@ -95,6 +104,20 @@ const Register = () => {
     const updateAddress = (index, field, value) => {
         setAddresses(prev => prev.map((addr, i) =>
             i === index ? { ...addr, [field]: value } : addr
+        ));
+    };
+
+    // Handle Google Places selection
+    const handleAddressSelect = (index, placeData) => {
+        setAddresses(prev => prev.map((addr, i) =>
+            i === index ? {
+                ...addr,
+                address_line: placeData.address,
+                postal_code: placeData.postal_code,
+                city: placeData.city,
+                latitude: placeData.latitude,
+                longitude: placeData.longitude
+            } : addr
         ));
     };
 
@@ -192,7 +215,7 @@ const Register = () => {
             if (authData?.user) {
                 const primaryAddress = addresses.find(a => a.is_primary) || addresses[0];
 
-                // 2. Create Profile
+                // 2. Create Profile (with postal_code from Google Places)
                 const { error: profileError } = await supabase
                     .from('profiles')
                     .insert([{
@@ -202,6 +225,10 @@ const Register = () => {
                         role: 'client',
                         phone: normalizePhone(formData.phone),
                         address: primaryAddress.address_line,
+                        postal_code: primaryAddress.postal_code || null,
+                        city: primaryAddress.city || null,
+                        latitude: primaryAddress.latitude,
+                        longitude: primaryAddress.longitude,
                         client_type: formData.client_type
                     }]);
 
@@ -213,12 +240,16 @@ const Register = () => {
                             role: 'client',
                             phone: normalizePhone(formData.phone),
                             address: primaryAddress.address_line,
+                            postal_code: primaryAddress.postal_code || null,
+                            city: primaryAddress.city || null,
+                            latitude: primaryAddress.latitude,
+                            longitude: primaryAddress.longitude,
                             client_type: formData.client_type
                         })
                         .eq('id', authData.user.id);
                 }
 
-                // 3. Create client_addresses
+                // 3. Create client_addresses (with postal_code, city, lat/lng from Google Places)
                 for (let i = 0; i < addresses.length; i++) {
                     const addr = addresses[i];
                     if (addr.address_line) {
@@ -226,6 +257,10 @@ const Register = () => {
                             client_id: authData.user.id,
                             label: addr.label || `Dirección ${i + 1}`,
                             address_line: addr.address_line,
+                            postal_code: addr.postal_code || null,
+                            city: addr.city || null,
+                            latitude: addr.latitude,
+                            longitude: addr.longitude,
                             is_primary: addr.is_primary,
                             address_order: i + 1
                         });
@@ -460,15 +495,18 @@ const Register = () => {
                                         )}
                                     </div>
                                 </div>
-                                <div className="relative">
-                                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                    <input
-                                        value={addr.address_line}
-                                        onChange={e => updateAddress(index, 'address_line', e.target.value)}
-                                        placeholder="Calle Ejemplo 123, Málaga"
-                                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                                    />
-                                </div>
+                                <AddressAutocomplete
+                                    value={addr.address_line}
+                                    onChange={(val) => updateAddress(index, 'address_line', val)}
+                                    onSelect={(placeData) => handleAddressSelect(index, placeData)}
+                                    placeholder="Buscar dirección..."
+                                />
+                                {addr.postal_code && (
+                                    <div className="mt-1 flex items-center gap-2 text-xs text-emerald-600">
+                                        <CheckCircle size={12} />
+                                        <span>CP: {addr.postal_code} · {addr.city}</span>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
