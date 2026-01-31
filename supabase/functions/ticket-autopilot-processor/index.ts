@@ -657,22 +657,38 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
         
         // Obtener IDs únicos de técnicos en estos slots
         const techIds = [...new Set(validSlots.map((s: any) => s.technician_id))];
+        console.log(`        🔍 Técnicos en slots: ${techIds.length}`);
         
-        // Buscar servicios existentes de estos técnicos en este día
+        // Buscar TODOS los servicios de estos técnicos en este día (sin filtro de status aquí)
         const { data: existingServices, error: svcError } = await supabase
           .from('tickets')
-          .select('id, technician_id, scheduled_at, scheduled_end_at, estimated_duration, status, address_id, client_id')
+          .select('id, ticket_number, technician_id, scheduled_at, scheduled_end_at, estimated_duration, status, address_id, client_id')
           .in('technician_id', techIds)
           .gte('scheduled_at', `${dateStr}T00:00:00`)
           .lt('scheduled_at', `${dateStr}T23:59:59`)
-          .not('status', 'in', '("cancelado","rejected","finalizado","anulado")')
+          .not('scheduled_at', 'is', null)
           .order('scheduled_at', { ascending: true });
+        
+        console.log(`        📊 Query servicios - Raw result: ${existingServices?.length || 0} tickets`);
         
         if (svcError) {
           console.error(`        ❌ Error buscando servicios existentes:`, svcError);
+          console.error(`        ❌ Código: ${svcError.code}, Mensaje: ${svcError.message}`);
         } else {
-          const activeServices = existingServices || [];
-          console.log(`        📊 Servicios activos encontrados: ${activeServices.length}`);
+          // Filtrar status manualmente para evitar problemas de sintaxis SQL
+          const excludedStatuses = ['cancelado', 'rejected', 'finalizado', 'anulado'];
+          const activeServices = (existingServices || []).filter((svc: any) => 
+            !excludedStatuses.includes((svc.status || '').toLowerCase())
+          );
+          
+          console.log(`        📊 Servicios encontrados: ${existingServices?.length || 0} total, ${activeServices.length} activos`);
+          
+          // DEBUG: Mostrar cada servicio encontrado
+          activeServices.forEach((svc: any) => {
+            const start = new Date(svc.scheduled_at);
+            const end = svc.scheduled_end_at ? new Date(svc.scheduled_end_at) : new Date(start.getTime() + (svc.estimated_duration || 60) * 60000);
+            console.log(`        📋 #${svc.ticket_number}: ${start.toISOString().slice(11,16)}-${end.toISOString().slice(11,16)} UTC | status=${svc.status} | client_id=${svc.client_id?.slice(0,8)}...`);
+          });
           
           // Agrupar servicios por técnico
           const servicesByTech: Record<string, any[]> = {};
@@ -730,17 +746,27 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
           
           // CP del nuevo cliente (el del ticket actual)
           const newClientCP = postalCode;
-          console.log(`        🎯 CP nuevo cliente: ${newClientCP || 'N/A'}`);
+          console.log(`        🎯 CP nuevo cliente (Torrox/destino): ${newClientCP || 'N/A'}`);
           
           // Filtrar slots que no cumplan con el margen de viaje
           const beforeTravelFilter = validSlots.length;
           const filteredByTravel: any[] = [];
+          
+          console.log(`        🔍 Evaluando ${validSlots.length} slots...`);
           
           for (const slot of validSlots) {
             const techServices = servicesByTech[slot.technician_id] || [];
             const slotStart = new Date(slot.slot_start);
             const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60 * 1000);
             let isValid = true;
+            let rejectionReason = '';
+            
+            // DEBUG: Mostrar info del slot
+            const slotTimeStr = slotStart.toISOString().slice(11, 16);
+            
+            if (techServices.length === 0) {
+              console.log(`        ✅ ${slot.technician_name} @ ${slotTimeStr} UTC - Sin servicios previos, ACEPTADO`);
+            }
             
             for (const svc of techServices) {
               const svcStart = new Date(svc.scheduled_at);
@@ -758,19 +784,32 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
               // Calcular hora mínima disponible después del servicio anterior
               const minAvailableAfter = new Date(svcEnd.getTime() + travelTime * 60 * 1000);
               
+              // DEBUG detallado
+              console.log(`        🔄 ${slot.technician_name} @ ${slotTimeStr} UTC vs #${svc.ticket_number}:`);
+              console.log(`           Servicio: ${svcStart.toISOString().slice(11,16)}-${svcEnd.toISOString().slice(11,16)} UTC`);
+              console.log(`           CP origen: ${prevServiceCP || 'N/A'} → CP destino: ${newClientCP || 'N/A'}`);
+              console.log(`           Tiempo viaje: ${travelTime} min`);
+              console.log(`           Min disponible: ${minAvailableAfter.toISOString().slice(11,16)} UTC`);
+              console.log(`           Slot propuesto: ${slotTimeStr} UTC`);
+              console.log(`           ¿Slot >= svcStart? ${slotStart >= svcStart} | ¿Slot < minAvailable? ${slotStart < minAvailableAfter}`);
+              
               // REGLA 1: Slot empieza durante/después del servicio pero antes del margen de viaje
               if (slotStart >= svcStart && slotStart < minAvailableAfter) {
-                console.log(`        ❌ RECHAZADO: ${slot.technician_name} @ ${slotStart.toISOString().split('T')[1].slice(0,5)} - Viaje ${travelTime}min desde CP ${prevServiceCP || 'N/A'} (disponible: ${minAvailableAfter.toISOString().split('T')[1].slice(0,5)})`);
+                rejectionReason = `Viaje ${travelTime}min desde CP ${prevServiceCP || 'N/A'}, disponible: ${minAvailableAfter.toISOString().slice(11,16)} UTC`;
+                console.log(`        ❌ RECHAZADO: ${slot.technician_name} @ ${slotTimeStr} - ${rejectionReason}`);
                 isValid = false;
                 break;
               }
               
               // REGLA 2: Overlap
               if (slotStart < svcStart && slotEnd > svcStart) {
-                console.log(`        ❌ RECHAZADO: ${slot.technician_name} @ ${slotStart.toISOString().split('T')[1].slice(0,5)} - Overlap con servicio ${svcStart.toISOString().split('T')[1].slice(0,5)}`);
+                rejectionReason = `Overlap con servicio ${svcStart.toISOString().slice(11,16)} UTC`;
+                console.log(`        ❌ RECHAZADO: ${slot.technician_name} @ ${slotTimeStr} - ${rejectionReason}`);
                 isValid = false;
                 break;
               }
+              
+              console.log(`        ✅ ${slot.technician_name} @ ${slotTimeStr} - Pasa validación vs #${svc.ticket_number}`);
             }
             
             if (isValid) {
@@ -779,7 +818,7 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
           }
           
           validSlots = filteredByTravel;
-          console.log(`        🚗 Filtro viaje: ${beforeTravelFilter} -> ${validSlots.length} slots`);
+          console.log(`        🚗 RESULTADO filtro viaje: ${beforeTravelFilter} -> ${validSlots.length} slots`);
         }
       }
 
