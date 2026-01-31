@@ -39,6 +39,9 @@ const Register = () => {
     const [existingClient, setExistingClient] = useState(null);
     const [showDuplicateModal, setShowDuplicateModal] = useState(false);
 
+    // Error state for better UX
+    const [registrationError, setRegistrationError] = useState(null);
+
     // Form Data
     const [formData, setFormData] = useState({
         full_name: '',
@@ -62,6 +65,8 @@ const Register = () => {
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+        // Clear registration error when user modifies form
+        if (registrationError) setRegistrationError(null);
     };
 
     // Type selection with confirmation
@@ -191,8 +196,10 @@ const Register = () => {
     // Final registration
     const handleRegister = async (e) => {
         e.preventDefault();
+        setRegistrationError(null); // Clear any previous error
+        
         if (formData.password !== formData.confirmPassword) {
-            alert("Las contraseñas no coinciden");
+            setRegistrationError("Las contraseñas no coinciden");
             return;
         }
 
@@ -210,7 +217,25 @@ const Register = () => {
                 }
             });
 
-            if (authError) throw authError;
+            if (authError) {
+                // Handle specific auth errors with user-friendly messages
+                if (authError.message?.includes('already registered') || authError.message?.includes('User already registered')) {
+                    setRegistrationError(`El email "${formData.email}" ya está registrado. Por favor, inicia sesión o usa otro email.`);
+                    setLoading(false);
+                    return;
+                }
+                if (authError.message?.includes('Password')) {
+                    setRegistrationError('La contraseña debe tener al menos 6 caracteres.');
+                    setLoading(false);
+                    return;
+                }
+                if (authError.message?.includes('Invalid email')) {
+                    setRegistrationError('El formato del email no es válido.');
+                    setLoading(false);
+                    return;
+                }
+                throw authError;
+            }
 
             if (authData?.user) {
                 const primaryAddress = addresses.find(a => a.is_primary) || addresses[0];
@@ -273,7 +298,16 @@ const Register = () => {
 
         } catch (error) {
             console.error('Registration error:', error);
-            alert('Error en el registro: ' + error.message);
+            // Provide user-friendly error messages
+            let friendlyMessage = 'Error en el registro. ';
+            if (error.message?.includes('already registered')) {
+                friendlyMessage = `El email "${formData.email}" ya está registrado. Inicia sesión o usa otro email.`;
+            } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+                friendlyMessage = 'Error de conexión. Verifica tu internet e intenta de nuevo.';
+            } else {
+                friendlyMessage += error.message || 'Intenta de nuevo.';
+            }
+            setRegistrationError(friendlyMessage);
         } finally {
             setLoading(false);
         }
@@ -548,6 +582,25 @@ const Register = () => {
                         Por último, crea tu contraseña:
                     </p>
 
+                    {/* Error Message Display */}
+                    {registrationError && (
+                        <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+                            <AlertCircle className="text-red-500 flex-shrink-0 mt-0.5" size={20} />
+                            <div>
+                                <p className="text-sm font-semibold text-red-700">Error en el registro</p>
+                                <p className="text-sm text-red-600 mt-1">{registrationError}</p>
+                                {registrationError.includes('ya está registrado') && (
+                                    <Link 
+                                        to="/auth/login" 
+                                        className="inline-flex items-center gap-1 mt-2 text-sm font-bold text-blue-600 hover:text-blue-800"
+                                    >
+                                        <ArrowRight size={14} /> Ir a Iniciar Sesión
+                                    </Link>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
                         <div className="relative">
@@ -585,7 +638,10 @@ const Register = () => {
                     <div className="flex gap-3 pt-2">
                         <button
                             type="button"
-                            onClick={() => setStep(3)}
+                            onClick={() => {
+                                setRegistrationError(null);
+                                setStep(3);
+                            }}
                             className="flex-1 py-3 border border-slate-200 rounded-xl font-semibold text-slate-600 hover:bg-slate-50 flex items-center justify-center gap-2"
                         >
                             <ArrowLeft size={18} /> Atrás
