@@ -102,7 +102,7 @@ const ServiceMonitor = () => {
             // 1. Tickets
             const { data: ticketData, error } = await supabase
                 .from('tickets')
-                .select('*, profiles:client_id(full_name, address, phone, email, user_id, latitude, longitude), reviews(rating)')
+                .select('*, profiles:client_id(full_name, address, phone, email, user_id, latitude, longitude, postal_code), client_address:address_id(postal_code, full_address), reviews(rating)')
                 .order('updated_at', { ascending: false });
 
             if (error) throw error;
