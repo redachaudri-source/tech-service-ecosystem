@@ -382,6 +382,11 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
     let slotsEncontrados: SlotFromRPC[] = [];
     const postalCode = ticket.postal_code || ticket.address_cp || null;
     console.log('     CP para búsqueda:', postalCode);
+    console.log('     🔍 DEBUG - Datos del ticket:');
+    console.log('        - postal_code:', ticket.postal_code);
+    console.log('        - address_cp:', ticket.address_cp);
+    console.log('        - address:', ticket.address);
+    console.log('        - client_id:', ticket.client_id);
     
     // Verificar técnicos activos primero
     console.log('  👨‍🔧 Verificando técnicos activos...');
@@ -431,6 +436,11 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
       console.log(`        Config para ${dayName}:`, dayConfig === null ? 'CERRADO' : JSON.stringify(dayConfig));
 
       // Usar duración estándar de 90 min (igual que Asistente Inteligente)
+      console.log(`        🔄 Llamando RPC get_tech_availability:`);
+      console.log(`           - target_date: ${dateStr}`);
+      console.log(`           - duration_minutes: 90`);
+      console.log(`           - target_cp: ${postalCode || 'NULL'}`);
+      
       const { data: slots, error: rpcError } = await supabase.rpc('get_tech_availability', {
         target_date: dateStr,
         duration_minutes: 90,
@@ -441,10 +451,17 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
         console.error(`     ❌ Error RPC día ${day}:`, rpcError);
         console.error(`        Código: ${rpcError.code}`);
         console.error(`        Mensaje: ${rpcError.message}`);
+        console.error(`        Hint: ${rpcError.hint}`);
+        console.error(`        Details: ${rpcError.details}`);
         continue;
       }
 
-      console.log(`        Slots encontrados: ${slots?.length || 0}`);
+      console.log(`        ✅ RPC exitoso - Slots encontrados: ${slots?.length || 0}`);
+      if (slots && slots.length > 0) {
+        console.log(`        📋 Primeros 3 slots:`, JSON.stringify(slots.slice(0, 3)));
+      } else {
+        console.log(`        ⚠️ RPC devolvió array vacío o null`);
+      }
       allSlotsAllDays.push({ day, date: dateStr, dayName, slots: slots?.length || 0 });
 
       if (slots && slots.length > 0) {
