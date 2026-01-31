@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Save, Clock, Plus, Trash2, ShieldCheck, Briefcase } from 'lucide-react';
+import { Save, Clock, Plus, Trash2, ShieldCheck, Briefcase, Timer, Wrench } from 'lucide-react';
 import { useToast } from '../components/ToastProvider';
 
 const BusinessSettings = () => {
@@ -9,6 +9,7 @@ const BusinessSettings = () => {
     const [loading, setLoading] = useState(true);
     const [workingHours, setWorkingHours] = useState({});
     const [serviceTypes, setServiceTypes] = useState([]);
+    const [durationRules, setDurationRules] = useState({ default_duration: 60, rules: [] });
 
     // Temporary basic state for weekdays
     const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -27,6 +28,10 @@ const BusinessSettings = () => {
             // 2. Fetch Service Types
             const { data: typesData } = await supabase.from('service_types').select('*').order('estimated_duration_min');
             setServiceTypes(typesData || []);
+            
+            // 3. Fetch Duration Rules
+            const { data: rulesData } = await supabase.from('business_config').select('value').eq('key', 'service_duration_rules').single();
+            if (rulesData?.value) setDurationRules(rulesData.value);
         } catch (error) {
             console.error('Error fetching settings:', error);
         } finally {
@@ -90,6 +95,43 @@ const BusinessSettings = () => {
         if (!name) return;
         const { data, error } = await supabase.from('service_types').insert({ name, estimated_duration_min: 60 }).select().single();
         if (data) setServiceTypes([...serviceTypes, data]);
+    };
+
+    // Duration Rules Handlers
+    const handleUpdateDurationRule = (index, field, value) => {
+        setDurationRules(prev => {
+            const newRules = [...prev.rules];
+            newRules[index] = { ...newRules[index], [field]: field === 'duration_min' ? parseInt(value) || 0 : value };
+            return { ...prev, rules: newRules };
+        });
+    };
+
+    const handleAddDurationRule = () => {
+        setDurationRules(prev => ({
+            ...prev,
+            rules: [...prev.rules, { service_pattern: '', appliance_pattern: '*', duration_min: 60, label: 'Nueva Regla' }]
+        }));
+    };
+
+    const handleDeleteDurationRule = (index) => {
+        if (!window.confirm('¿Eliminar esta regla de duración?')) return;
+        setDurationRules(prev => ({
+            ...prev,
+            rules: prev.rules.filter((_, i) => i !== index)
+        }));
+    };
+
+    const handleSaveDurationRules = async () => {
+        try {
+            const { error } = await supabase
+                .from('business_config')
+                .upsert({ key: 'service_duration_rules', value: durationRules }, { onConflict: 'key' });
+            
+            if (error) throw error;
+            addToast('Reglas de duración guardadas correctamente', 'success');
+        } catch (error) {
+            addToast('Error al guardar reglas: ' + error.message, 'error');
+        }
     };
 
     if (loading) return <div className="p-10 text-center">Cargando configuración...</div>;
@@ -228,6 +270,130 @@ const BusinessSettings = () => {
                         ))}
                     </tbody>
                 </table>
+            </div>
+
+            {/* SECCION 3: REGLAS DE DURACIÓN POR ELECTRODOMÉSTICO */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="p-6 border-b border-slate-100 bg-gradient-to-r from-amber-50 to-orange-50 flex justify-between items-center">
+                    <div>
+                        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                            <Timer className="text-amber-600" /> Reglas de Duración Avanzadas
+                        </h2>
+                        <p className="text-sm text-slate-500">
+                            Configura duraciones específicas según <strong>tipo de servicio + electrodoméstico</strong>.
+                            <br />
+                            <span className="text-amber-600">Estas reglas tienen prioridad sobre los tipos básicos.</span>
+                        </p>
+                    </div>
+                    <div className="flex gap-2">
+                        <button onClick={handleAddDurationRule} className="flex items-center gap-2 bg-amber-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-amber-600 transition text-sm">
+                            <Plus size={18} /> Nueva Regla
+                        </button>
+                        <button onClick={handleSaveDurationRules} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 transition text-sm shadow-lg shadow-blue-900/10">
+                            <Save size={18} /> Guardar Reglas
+                        </button>
+                    </div>
+                </div>
+
+                {/* Default Duration */}
+                <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center gap-4">
+                    <span className="text-sm font-bold text-slate-600">Duración por defecto (si no coincide ninguna regla):</span>
+                    <input
+                        type="number"
+                        value={durationRules.default_duration || 60}
+                        onChange={(e) => setDurationRules(prev => ({ ...prev, default_duration: parseInt(e.target.value) || 60 }))}
+                        className="w-20 border rounded px-2 py-1 font-mono text-center"
+                    />
+                    <span className="text-xs text-slate-400">min</span>
+                </div>
+
+                <div className="p-6 space-y-3">
+                    {durationRules.rules?.length === 0 && (
+                        <div className="text-center py-8 text-slate-400">
+                            <Wrench size={32} className="mx-auto mb-2 opacity-50" />
+                            <p>No hay reglas configuradas. Añade una para personalizar duraciones.</p>
+                        </div>
+                    )}
+                    
+                    {durationRules.rules?.map((rule, index) => (
+                        <div key={index} className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 hover:border-amber-300 transition group">
+                            {/* Label */}
+                            <div className="flex-1">
+                                <input
+                                    type="text"
+                                    value={rule.label || ''}
+                                    onChange={(e) => handleUpdateDurationRule(index, 'label', e.target.value)}
+                                    placeholder="Nombre de la regla"
+                                    className="w-full bg-white border border-slate-200 rounded px-3 py-1.5 text-sm font-bold text-slate-700 focus:border-amber-400 focus:outline-none"
+                                />
+                            </div>
+                            
+                            {/* Service Pattern */}
+                            <div className="w-36">
+                                <label className="text-[10px] text-slate-400 uppercase font-bold">Servicio</label>
+                                <select
+                                    value={rule.service_pattern || ''}
+                                    onChange={(e) => handleUpdateDurationRule(index, 'service_pattern', e.target.value)}
+                                    className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-xs"
+                                >
+                                    <option value="">Cualquiera</option>
+                                    <option value="diagnos|revision">Diagnóstico</option>
+                                    <option value="reparac">Reparación</option>
+                                    <option value="instalac">Instalación</option>
+                                    <option value="mantenim">Mantenimiento</option>
+                                </select>
+                            </div>
+                            
+                            {/* Appliance Pattern */}
+                            <div className="w-44">
+                                <label className="text-[10px] text-slate-400 uppercase font-bold">Electrodoméstico</label>
+                                <select
+                                    value={rule.appliance_pattern || '*'}
+                                    onChange={(e) => handleUpdateDurationRule(index, 'appliance_pattern', e.target.value)}
+                                    className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-xs"
+                                >
+                                    <option value="*">Cualquiera</option>
+                                    <option value="frigo|nevera|refrigerador">Frigorífico/Nevera</option>
+                                    <option value="lavadora">Lavadora</option>
+                                    <option value="lavavajillas">Lavavajillas</option>
+                                    <option value="secadora">Secadora</option>
+                                    <option value="horno|microondas">Horno/Microondas</option>
+                                    <option value="calentador|termo|boiler">Calentador/Termo</option>
+                                    <option value="aire|acondicionado|split">Aire Acondicionado</option>
+                                    <option value="caldera">Caldera</option>
+                                </select>
+                            </div>
+                            
+                            {/* Duration */}
+                            <div className="w-24">
+                                <label className="text-[10px] text-slate-400 uppercase font-bold">Duración</label>
+                                <div className="flex items-center gap-1">
+                                    <input
+                                        type="number"
+                                        value={rule.duration_min || 60}
+                                        onChange={(e) => handleUpdateDurationRule(index, 'duration_min', e.target.value)}
+                                        className="w-16 bg-white border border-slate-200 rounded px-2 py-1.5 text-center font-mono text-sm"
+                                    />
+                                    <span className="text-xs text-slate-400">min</span>
+                                </div>
+                            </div>
+                            
+                            {/* Delete */}
+                            <button 
+                                onClick={() => handleDeleteDurationRule(index)}
+                                className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition p-2"
+                            >
+                                <Trash2 size={18} />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+                
+                {/* Help */}
+                <div className="px-6 py-4 bg-amber-50 border-t border-amber-100 text-xs text-amber-700">
+                    <strong>Ejemplo:</strong> Si configuras "Reparación + Frigorífico = 90 min", cuando se cree un ticket de reparación de frigorífico, 
+                    el sistema usará 90 minutos automáticamente en lugar de la duración genérica.
+                </div>
             </div>
         </div>
     );
