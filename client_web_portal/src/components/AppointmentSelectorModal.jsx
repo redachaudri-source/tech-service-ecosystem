@@ -81,16 +81,27 @@ const AppointmentSelectorModal = ({
         };
     };
 
-    const handleConfirm = async () => {
-        if (selectedIndex === null || isConfirming) return;
+    const handleConfirm = async (e) => {
+        // Prevent double clicks and event bubbling
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        if (selectedIndex === null || isConfirming) {
+            console.log('[Modal] handleConfirm blocked:', { selectedIndex, isConfirming });
+            return;
+        }
 
+        console.log('[Modal] Confirming slot index:', selectedIndex);
         setIsConfirming(true);
         clearInterval(timerRef.current);
 
         try {
             await onConfirm(selectedIndex);
+            console.log('[Modal] Confirmation successful');
         } catch (e) {
-            console.error('Error confirming:', e);
+            console.error('[Modal] Error confirming:', e);
             setIsConfirming(false);
         }
     };

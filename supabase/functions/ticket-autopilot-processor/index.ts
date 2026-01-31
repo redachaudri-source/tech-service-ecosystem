@@ -506,17 +506,37 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
       }
 
       console.log(`        ✅ RPC exitoso - Slots encontrados: ${slots?.length || 0}`);
-      if (slots && slots.length > 0) {
-        console.log(`        📋 Primeros 3 slots:`, JSON.stringify(slots.slice(0, 3)));
-      } else {
-        console.log(`        ⚠️ RPC devolvió array vacío o null`);
+      
+      // FILTRAR SLOTS PASADOS: Si es HOY, excluir slots cuya hora ya pasó
+      let validSlots = slots || [];
+      if (day === 0 && validSlots.length > 0) {
+        const now = new Date();
+        const nowPlusBuffer = new Date(now.getTime() + 30 * 60 * 1000); // +30 min buffer
+        console.log(`        ⏰ Filtrando slots pasados (hora actual + 30min buffer: ${nowPlusBuffer.toISOString()})`);
+        
+        const beforeFilter = validSlots.length;
+        validSlots = validSlots.filter((s: any) => {
+          const slotTime = new Date(s.slot_start);
+          const isValid = slotTime > nowPlusBuffer;
+          if (!isValid) {
+            console.log(`           ✗ Slot ${s.slot_start} ya pasó o está muy cerca`);
+          }
+          return isValid;
+        });
+        console.log(`        📋 Slots válidos después de filtrar: ${validSlots.length}/${beforeFilter}`);
       }
-      allSlotsAllDays.push({ day, date: dateStr, dayName, slots: slots?.length || 0 });
+      
+      if (validSlots.length > 0) {
+        console.log(`        📋 Primeros 3 slots válidos:`, JSON.stringify(validSlots.slice(0, 3)));
+      } else {
+        console.log(`        ⚠️ No hay slots válidos para este día`);
+      }
+      allSlotsAllDays.push({ day, date: dateStr, dayName, slots: validSlots.length });
 
-      if (slots && slots.length > 0) {
-        slotsEncontrados = slots;
+      if (validSlots.length > 0) {
+        slotsEncontrados = validSlots;
         console.log(`  ✅ Disponibilidad encontrada en ${dateStr}`);
-        console.log(`     Primer slot: ${slots[0].technician_name} - ${slots[0].slot_start}`);
+        console.log(`     Primer slot: ${validSlots[0].technician_name} - ${validSlots[0].slot_start}`);
         break;
       }
     }

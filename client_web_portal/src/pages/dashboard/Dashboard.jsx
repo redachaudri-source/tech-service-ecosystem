@@ -315,7 +315,16 @@ const Dashboard = () => {
         const ticket = proposalModal.ticket;
         const slot = proposalModal.slots[selectedIndex];
         const proposal = proposalModal.proposal || ticket?.pro_proposal;
-        if (!ticket || !slot) return;
+        
+        console.log('[Dashboard] handleProposalConfirm called:', { selectedIndex, ticketId: ticket?.id });
+        
+        if (!ticket || !slot) {
+            console.log('[Dashboard] Missing ticket or slot, aborting');
+            return;
+        }
+
+        // CERRAR MODAL INMEDIATAMENTE para evitar dobles clics
+        setProposalModal({ show: false, ticket: null, slots: [], proposal: null, timeoutMinutes: 3 });
 
         try {
             const scheduledAt = `${slot.date}T${slot.time_start}:00.000Z`;
@@ -326,6 +335,8 @@ const Dashboard = () => {
                 selected_at: new Date().toISOString()
             };
 
+            console.log('[Dashboard] Updating ticket with scheduledAt:', scheduledAt);
+            
             const { error } = await supabase
                 .from('tickets')
                 .update({
@@ -339,11 +350,11 @@ const Dashboard = () => {
 
             if (error) throw error;
 
-            setProposalModal({ show: false, ticket: null, slots: [], proposal: null, timeoutMinutes: 3 });
+            console.log('[Dashboard] Ticket updated successfully');
             fetchDashboardData();
             addToast('✅ ¡Cita confirmada!', 'success', true);
         } catch (error) {
-            console.error('Error confirming proposal:', error);
+            console.error('[Dashboard] Error confirming proposal:', error);
             addToast('Error al confirmar la cita. Te llamaremos para coordinar.', 'error', true);
         }
     };
