@@ -507,19 +507,26 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
 
       console.log(`        ✅ RPC exitoso - Slots encontrados: ${slots?.length || 0}`);
       
-      // FILTRAR SLOTS PASADOS: Si es HOY, excluir slots cuya hora ya pasó
+      // FILTRAR SLOTS PASADOS: Si es HOY, excluir slots cuya hora ya pasó (en hora España)
       let validSlots = slots || [];
       if (day === 0 && validSlots.length > 0) {
+        // Hora actual en España (UTC + 1 hora en invierno)
         const now = new Date();
-        const nowPlusBuffer = new Date(now.getTime() + 30 * 60 * 1000); // +30 min buffer
-        console.log(`        ⏰ Filtrando slots pasados (hora actual + 30min buffer: ${nowPlusBuffer.toISOString()})`);
+        const nowSpain = new Date(now.getTime() + 1 * 60 * 60 * 1000); // +1h para España
+        const nowPlusBuffer = new Date(nowSpain.getTime() + 60 * 60 * 1000); // +60 min buffer adicional
+        
+        console.log(`        ⏰ Hora actual UTC: ${now.toISOString()}`);
+        console.log(`        ⏰ Hora actual España: ${nowSpain.toISOString().split('T')[1].slice(0,5)}`);
+        console.log(`        ⏰ Umbral mínimo (España + 1h buffer): ${nowPlusBuffer.toISOString().split('T')[1].slice(0,5)}`);
         
         const beforeFilter = validSlots.length;
         validSlots = validSlots.filter((s: any) => {
-          const slotTime = new Date(s.slot_start);
-          const isValid = slotTime > nowPlusBuffer;
+          const slotTimeUTC = new Date(s.slot_start);
+          // Convertir slot a hora España para comparar
+          const slotTimeSpain = new Date(slotTimeUTC.getTime() + 1 * 60 * 60 * 1000);
+          const isValid = slotTimeSpain > nowPlusBuffer;
           if (!isValid) {
-            console.log(`           ✗ Slot ${s.slot_start} ya pasó o está muy cerca`);
+            console.log(`           ✗ Slot ${slotTimeSpain.toISOString().split('T')[1].slice(0,5)} (España) ya pasó o está muy cerca`);
           }
           return isValid;
         });
@@ -581,14 +588,34 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
     // PASO 8: Construir propuesta
     console.log('  📝 PASO 8: Construyendo propuesta...');
     const timeoutMinutes = proConfig.timeout_minutes || 3;
+    
+    // Convertir a hora España (UTC+1 en invierno, UTC+2 en verano)
+    const toSpainTime = (utcDate: Date): { date: string, time: string } => {
+      // España está en CET (UTC+1) en invierno y CEST (UTC+2) en verano
+      // Usamos offset fijo de +1 para simplificar (invierno)
+      const spainOffset = 1; // horas
+      const spainDate = new Date(utcDate.getTime() + spainOffset * 60 * 60 * 1000);
+      return {
+        date: spainDate.toISOString().split('T')[0],
+        time: spainDate.toISOString().split('T')[1].slice(0, 5)
+      };
+    };
+    
     const propuesta: ProProposal = {
       slots: seleccionados.map((s: SlotFromRPC, i: number) => {
         const slotDate = new Date(s.slot_start);
+        const slotEndDate = new Date(slotDate.getTime() + 90 * 60 * 1000);
+        
+        const startSpain = toSpainTime(slotDate);
+        const endSpain = toSpainTime(slotEndDate);
+        
+        console.log(`     Slot ${i+1}: UTC ${slotDate.toISOString()} -> España ${startSpain.date} ${startSpain.time}`);
+        
         return {
           option: i + 1,
-          date: slotDate.toISOString().split('T')[0],
-          time_start: slotDate.toTimeString().slice(0, 5),
-          time_end: new Date(slotDate.getTime() + 90 * 60 * 1000).toTimeString().slice(0, 5),
+          date: startSpain.date,
+          time_start: startSpain.time,
+          time_end: endSpain.time,
           technician_id: s.technician_id,
           technician_name: s.technician_name
         };

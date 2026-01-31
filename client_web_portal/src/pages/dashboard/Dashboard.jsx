@@ -25,7 +25,8 @@ const Dashboard = () => {
         ticket: null,
         slots: [],
         proposal: null,
-        timeoutMinutes: 3
+        timeoutMinutes: 3,
+        confirming: false  // Flag para evitar reabrir durante confirmación
     });
 
     // Reputation System State
@@ -269,6 +270,12 @@ const Dashboard = () => {
     const openProposalModal = (ticket) => {
         console.log('🚀 [BOT PRO DEBUG] openProposalModal llamado para ticket:', ticket?.ticket_number);
         
+        // No abrir si estamos en proceso de confirmación
+        if (proposalModal.confirming) {
+            console.log('   ⏭️ Confirmación en proceso - no reabrir modal');
+            return;
+        }
+        
         const proposal = ticket?.pro_proposal;
         console.log('   📋 pro_proposal:', proposal);
         
@@ -307,7 +314,8 @@ const Dashboard = () => {
             ticket,
             slots,
             proposal,
-            timeoutMinutes
+            timeoutMinutes,
+            confirming: false
         });
     };
 
@@ -323,8 +331,8 @@ const Dashboard = () => {
             return;
         }
 
-        // CERRAR MODAL INMEDIATAMENTE para evitar dobles clics
-        setProposalModal({ show: false, ticket: null, slots: [], proposal: null, timeoutMinutes: 3 });
+        // MARCAR COMO CONFIRMANDO para evitar que polling/realtime reabran el modal
+        setProposalModal(prev => ({ ...prev, show: false, confirming: true }));
 
         try {
             const scheduledAt = `${slot.date}T${slot.time_start}:00.000Z`;
@@ -351,10 +359,13 @@ const Dashboard = () => {
             if (error) throw error;
 
             console.log('[Dashboard] Ticket updated successfully');
+            // Resetear estado completo
+            setProposalModal({ show: false, ticket: null, slots: [], proposal: null, timeoutMinutes: 3, confirming: false });
             fetchDashboardData();
             addToast('✅ ¡Cita confirmada!', 'success', true);
         } catch (error) {
             console.error('[Dashboard] Error confirming proposal:', error);
+            setProposalModal({ show: false, ticket: null, slots: [], proposal: null, timeoutMinutes: 3, confirming: false });
             addToast('Error al confirmar la cita. Te llamaremos para coordinar.', 'error', true);
         }
     };
@@ -381,7 +392,7 @@ const Dashboard = () => {
 
             if (error) throw error;
 
-            setProposalModal({ show: false, ticket: null, slots: [], proposal: null, timeoutMinutes: 3 });
+            setProposalModal({ show: false, ticket: null, slots: [], proposal: null, timeoutMinutes: 3, confirming: false });
             fetchDashboardData();
             addToast('Solicitud de cambio enviada. Te contactaremos.', 'info', true);
         } catch (error) {
@@ -413,7 +424,7 @@ const Dashboard = () => {
         } catch (error) {
             console.error('Error expiring proposal:', error);
         } finally {
-            setProposalModal({ show: false, ticket: null, slots: [], proposal: null, timeoutMinutes: 3 });
+            setProposalModal({ show: false, ticket: null, slots: [], proposal: null, timeoutMinutes: 3, confirming: false });
         }
     };
 
