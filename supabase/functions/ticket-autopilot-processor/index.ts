@@ -37,6 +37,28 @@ interface ProProposal {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Calcular tiempo de viaje entre dos códigos postales (HEURÍSTICA LOCAL)
+// Replica la lógica de GlobalAgenda.jsx: getTravelTime(cpA, cpB)
+// Fórmula: min(60, 15 + (diferencia_CP * 2))
+// ═══════════════════════════════════════════════════════════════════════════
+function calcTravelTime(cpA: string | null, cpB: string | null): number {
+  if (!cpA || !cpB || cpA.trim() === '' || cpB.trim() === '') {
+    return 15; // Default mínimo si falta algún CP
+  }
+  
+  // Extraer solo dígitos del código postal
+  const numA = parseInt(cpA.replace(/\D/g, ''), 10) || 0;
+  const numB = parseInt(cpB.replace(/\D/g, ''), 10) || 0;
+  
+  if (numA === 0 || numB === 0) {
+    return 15; // Default si no se puede parsear
+  }
+  
+  const diff = Math.abs(numA - numB);
+  return Math.min(60, 15 + (diff * 2));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Calcular duración del servicio dinámicamente
 // Replica la lógica de calc_service_duration() del RPC PostgreSQL
 // ═══════════════════════════════════════════════════════════════════════════
@@ -621,10 +643,150 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
       }
       
       if (validSlots.length > 0) {
-        console.log(`        📋 Primeros 3 slots válidos:`, JSON.stringify(validSlots.slice(0, 3)));
+        console.log(`        📋 Primeros 3 slots válidos (antes de filtro viaje):`, JSON.stringify(validSlots.slice(0, 3)));
       } else {
         console.log(`        ⚠️ No hay slots válidos para este día`);
       }
+
+      // ═══════════════════════════════════════════════════════════════
+      // 🚗 FILTRO DE TIEMPO DE VIAJE (replica lógica de SmartAssignmentModal)
+      // Para cada técnico, buscar su servicio anterior y calcular gap dinámico
+      // ═══════════════════════════════════════════════════════════════
+      if (validSlots.length > 0) {
+        console.log(`        🚗 Aplicando filtro de tiempo de viaje...`);
+        
+        // Obtener IDs únicos de técnicos en estos slots
+        const techIds = [...new Set(validSlots.map((s: any) => s.technician_id))];
+        
+        // Buscar servicios existentes de estos técnicos en este día
+        const { data: existingServices, error: svcError } = await supabase
+          .from('tickets')
+          .select('id, technician_id, scheduled_at, scheduled_end_at, estimated_duration, status, address_id, client_id')
+          .in('technician_id', techIds)
+          .gte('scheduled_at', `${dateStr}T00:00:00`)
+          .lt('scheduled_at', `${dateStr}T23:59:59`)
+          .not('status', 'in', '("cancelado","rejected","finalizado","anulado")')
+          .order('scheduled_at', { ascending: true });
+        
+        if (svcError) {
+          console.error(`        ❌ Error buscando servicios existentes:`, svcError);
+        } else {
+          const activeServices = existingServices || [];
+          console.log(`        📊 Servicios activos encontrados: ${activeServices.length}`);
+          
+          // Agrupar servicios por técnico
+          const servicesByTech: Record<string, any[]> = {};
+          for (const svc of activeServices) {
+            if (!servicesByTech[svc.technician_id]) {
+              servicesByTech[svc.technician_id] = [];
+            }
+            servicesByTech[svc.technician_id].push(svc);
+          }
+          
+          // Para cada servicio, obtener el CP (desde client_addresses o profiles)
+          const cpCache: Record<string, string | null> = {};
+          
+          const getCPForService = async (svc: any): Promise<string | null> => {
+            const cacheKey = `${svc.address_id || ''}_${svc.client_id || ''}`;
+            if (cpCache[cacheKey] !== undefined) return cpCache[cacheKey];
+            
+            // 1. Intentar desde client_addresses
+            if (svc.address_id) {
+              const { data: addr } = await supabase
+                .from('client_addresses')
+                .select('postal_code')
+                .eq('id', svc.address_id)
+                .single();
+              if (addr?.postal_code) {
+                cpCache[cacheKey] = addr.postal_code;
+                return addr.postal_code;
+              }
+            }
+            
+            // 2. Intentar desde profiles
+            if (svc.client_id) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('postal_code, address')
+                .eq('id', svc.client_id)
+                .single();
+              if (profile?.postal_code) {
+                cpCache[cacheKey] = profile.postal_code;
+                return profile.postal_code;
+              }
+              // 3. Extraer de la dirección
+              if (profile?.address) {
+                const match = profile.address.match(/\b\d{5}\b/);
+                if (match) {
+                  cpCache[cacheKey] = match[0];
+                  return match[0];
+                }
+              }
+            }
+            
+            cpCache[cacheKey] = null;
+            return null;
+          };
+          
+          // CP del nuevo cliente (el del ticket actual)
+          const newClientCP = postalCode;
+          console.log(`        🎯 CP nuevo cliente: ${newClientCP || 'N/A'}`);
+          
+          // Filtrar slots que no cumplan con el margen de viaje
+          const beforeTravelFilter = validSlots.length;
+          const filteredByTravel: any[] = [];
+          
+          for (const slot of validSlots) {
+            const techServices = servicesByTech[slot.technician_id] || [];
+            const slotStart = new Date(slot.slot_start);
+            const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60 * 1000);
+            let isValid = true;
+            
+            for (const svc of techServices) {
+              const svcStart = new Date(svc.scheduled_at);
+              const svcDuration = svc.estimated_duration || 60;
+              const svcEnd = svc.scheduled_end_at 
+                ? new Date(svc.scheduled_end_at) 
+                : new Date(svcStart.getTime() + svcDuration * 60 * 1000);
+              
+              // Obtener CP del servicio anterior
+              const prevServiceCP = await getCPForService(svc);
+              
+              // Calcular tiempo de viaje dinámico
+              const travelTime = calcTravelTime(prevServiceCP, newClientCP);
+              
+              // Calcular hora mínima disponible después del servicio anterior
+              const minAvailableAfter = new Date(svcEnd.getTime() + travelTime * 60 * 1000);
+              
+              // REGLA 1: Slot empieza durante/después del servicio pero antes del margen de viaje
+              if (slotStart >= svcStart && slotStart < minAvailableAfter) {
+                console.log(`        ❌ RECHAZADO: ${slot.technician_name} @ ${slotStart.toISOString().split('T')[1].slice(0,5)} - Viaje ${travelTime}min desde CP ${prevServiceCP || 'N/A'} (disponible: ${minAvailableAfter.toISOString().split('T')[1].slice(0,5)})`);
+                isValid = false;
+                break;
+              }
+              
+              // REGLA 2: Overlap
+              if (slotStart < svcStart && slotEnd > svcStart) {
+                console.log(`        ❌ RECHAZADO: ${slot.technician_name} @ ${slotStart.toISOString().split('T')[1].slice(0,5)} - Overlap con servicio ${svcStart.toISOString().split('T')[1].slice(0,5)}`);
+                isValid = false;
+                break;
+              }
+            }
+            
+            if (isValid) {
+              filteredByTravel.push(slot);
+            }
+          }
+          
+          validSlots = filteredByTravel;
+          console.log(`        🚗 Filtro viaje: ${beforeTravelFilter} -> ${validSlots.length} slots`);
+        }
+      }
+
+      if (validSlots.length > 0) {
+        console.log(`        📋 Primeros 3 slots válidos (después de filtro viaje):`, JSON.stringify(validSlots.slice(0, 3)));
+      }
+      
       allSlotsAllDays.push({ day, date: dateStr, dayName, slots: validSlots.length });
 
       if (validSlots.length > 0) {
