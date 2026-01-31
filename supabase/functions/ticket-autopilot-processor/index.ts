@@ -538,13 +538,50 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
     // PASO 4: Buscar disponibilidad usando RPC (7 días)
     console.log('  📅 PASO 4: Buscando disponibilidad...');
     let slotsEncontrados: SlotFromRPC[] = [];
-    const postalCode = ticket.postal_code || ticket.address_cp || null;
-    console.log('     CP para búsqueda:', postalCode);
+    
+    // 🔧 FIX: Obtener CP del ticket correctamente (igual que SmartAssignmentModal)
+    let postalCode: string | null = ticket.postal_code || ticket.address_cp || null;
+    
+    // Si no hay CP directo en el ticket, buscarlo en client_addresses o profiles
+    if (!postalCode && ticket.address_id) {
+      console.log('     🔍 Buscando CP en client_addresses (address_id:', ticket.address_id, ')...');
+      const { data: addrData } = await supabase
+        .from('client_addresses')
+        .select('postal_code')
+        .eq('id', ticket.address_id)
+        .single();
+      if (addrData?.postal_code) {
+        postalCode = addrData.postal_code;
+        console.log('     ✅ CP encontrado en client_addresses:', postalCode);
+      }
+    }
+    
+    if (!postalCode && ticket.client_id) {
+      console.log('     🔍 Buscando CP en profiles (client_id:', ticket.client_id, ')...');
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('postal_code, address')
+        .eq('id', ticket.client_id)
+        .single();
+      if (profileData?.postal_code) {
+        postalCode = profileData.postal_code;
+        console.log('     ✅ CP encontrado en profiles.postal_code:', postalCode);
+      } else if (profileData?.address) {
+        // Extraer CP de la dirección con regex
+        const match = profileData.address.match(/\b\d{5}\b/);
+        if (match) {
+          postalCode = match[0];
+          console.log('     ✅ CP extraído de profiles.address:', postalCode);
+        }
+      }
+    }
+    
+    console.log('     📍 CP FINAL para nuevo cliente:', postalCode || 'N/A');
     console.log('     🔍 DEBUG - Datos del ticket:');
-    console.log('        - postal_code:', ticket.postal_code);
-    console.log('        - address_cp:', ticket.address_cp);
-    console.log('        - address:', ticket.address);
-    console.log('        - client_id:', ticket.client_id);
+    console.log('        - ticket.postal_code:', ticket.postal_code);
+    console.log('        - ticket.address_cp:', ticket.address_cp);
+    console.log('        - ticket.address_id:', ticket.address_id);
+    console.log('        - ticket.client_id:', ticket.client_id);
     
     // Verificar técnicos activos primero
     console.log('  👨‍🔧 Verificando técnicos activos...');
@@ -659,10 +696,11 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
         const techIds = [...new Set(validSlots.map((s: any) => s.technician_id))];
         console.log(`        🔍 Técnicos en slots: ${techIds.length}`);
         
-        // Buscar TODOS los servicios de estos técnicos en este día (sin filtro de status aquí)
+        // Buscar TODOS los servicios de estos técnicos en este día
+        // IGUAL QUE SmartAssignmentModal: usar JOIN para traer profiles con CP
         const { data: existingServices, error: svcError } = await supabase
           .from('tickets')
-          .select('id, ticket_number, technician_id, scheduled_at, scheduled_end_at, estimated_duration, status, address_id, client_id')
+          .select('id, ticket_number, technician_id, scheduled_at, scheduled_end_at, estimated_duration, status, address_id, client_id, profiles:client_id(postal_code, address), client_address:address_id(postal_code)')
           .in('technician_id', techIds)
           .gte('scheduled_at', `${dateStr}T00:00:00`)
           .lt('scheduled_at', `${dateStr}T23:59:59`)
@@ -699,48 +737,21 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
             servicesByTech[svc.technician_id].push(svc);
           }
           
-          // Para cada servicio, obtener el CP (desde client_addresses o profiles)
-          const cpCache: Record<string, string | null> = {};
-          
-          const getCPForService = async (svc: any): Promise<string | null> => {
-            const cacheKey = `${svc.address_id || ''}_${svc.client_id || ''}`;
-            if (cpCache[cacheKey] !== undefined) return cpCache[cacheKey];
-            
-            // 1. Intentar desde client_addresses
-            if (svc.address_id) {
-              const { data: addr } = await supabase
-                .from('client_addresses')
-                .select('postal_code')
-                .eq('id', svc.address_id)
-                .single();
-              if (addr?.postal_code) {
-                cpCache[cacheKey] = addr.postal_code;
-                return addr.postal_code;
-              }
+          // Helper: Extraer CP del servicio (usando datos del JOIN - igual que SmartAssignmentModal)
+          const extractCPFromService = (svc: any): string | null => {
+            // 1. Desde client_address (JOIN con address_id)
+            if (svc.client_address?.postal_code) {
+              return svc.client_address.postal_code;
             }
-            
-            // 2. Intentar desde profiles
-            if (svc.client_id) {
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('postal_code, address')
-                .eq('id', svc.client_id)
-                .single();
-              if (profile?.postal_code) {
-                cpCache[cacheKey] = profile.postal_code;
-                return profile.postal_code;
-              }
-              // 3. Extraer de la dirección
-              if (profile?.address) {
-                const match = profile.address.match(/\b\d{5}\b/);
-                if (match) {
-                  cpCache[cacheKey] = match[0];
-                  return match[0];
-                }
-              }
+            // 2. Desde profiles (JOIN con client_id)
+            if (svc.profiles?.postal_code) {
+              return svc.profiles.postal_code;
             }
-            
-            cpCache[cacheKey] = null;
+            // 3. Extraer de la dirección del perfil
+            if (svc.profiles?.address) {
+              const match = svc.profiles.address.match(/\b\d{5}\b/);
+              if (match) return match[0];
+            }
             return null;
           };
           
@@ -775,8 +786,8 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
                 ? new Date(svc.scheduled_end_at) 
                 : new Date(svcStart.getTime() + svcDuration * 60 * 1000);
               
-              // Obtener CP del servicio anterior
-              const prevServiceCP = await getCPForService(svc);
+              // Obtener CP del servicio anterior (usando datos del JOIN)
+              const prevServiceCP = extractCPFromService(svc);
               
               // Calcular tiempo de viaje dinámico
               const travelTime = calcTravelTime(prevServiceCP, newClientCP);
