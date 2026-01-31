@@ -34,6 +34,7 @@ const Dashboard = () => {
 
     useEffect(() => {
         let channel = null;
+        let fastPollingInterval = null;
 
         const initRealtime = async () => {
             // Ensure we have a session before subscribing to avoid Anon RLS issues
@@ -75,6 +76,44 @@ const Dashboard = () => {
                     console.log('Realtime Status:', status);
                     setIsConnected(status === 'SUBSCRIBED');
                 });
+            
+            // ═══════════════════════════════════════════════════════════════
+            // FAST POLLING: Check every 3 seconds for pending proposals
+            // This ensures near-instant response even if Realtime has lag
+            // ═══════════════════════════════════════════════════════════════
+            fastPollingInterval = setInterval(async () => {
+                try {
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (!user) return;
+                    
+                    // Only fetch tickets with status='solicitado' that might have new proposals
+                    const { data: pendingTickets } = await supabase
+                        .from('tickets')
+                        .select('id, ticket_number, status, pro_proposal, appliance_info')
+                        .eq('client_id', user.id)
+                        .eq('status', 'solicitado')
+                        .order('created_at', { ascending: false })
+                        .limit(5);
+                    
+                    if (pendingTickets && pendingTickets.length > 0) {
+                        const pendingWithProposal = findPendingProposal(pendingTickets);
+                        if (pendingWithProposal && !proposalModal.show) {
+                            console.log('⚡ FAST POLL: Found pending proposal for ticket', pendingWithProposal.ticket_number);
+                            // Fetch full ticket data
+                            const { data: fullTicket } = await supabase
+                                .from('tickets')
+                                .select('*, technician:profiles!technician_id (full_name)')
+                                .eq('id', pendingWithProposal.id)
+                                .single();
+                            if (fullTicket) {
+                                openProposalModal(fullTicket);
+                            }
+                        }
+                    }
+                } catch (err) {
+                    // Silent fail for polling
+                }
+            }, 3000); // Every 3 seconds
         };
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -85,6 +124,7 @@ const Dashboard = () => {
 
         return () => {
             if (channel) supabase.removeChannel(channel);
+            if (fastPollingInterval) clearInterval(fastPollingInterval);
             subscription.unsubscribe();
         };
     }, []);
