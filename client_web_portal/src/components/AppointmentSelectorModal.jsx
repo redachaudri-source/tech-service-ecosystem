@@ -32,7 +32,6 @@ const AppointmentSelectorModal = ({
     const [selectedIndex, setSelectedIndex] = useState(null);
     const [timeLeft, setTimeLeft] = useState(totalSeconds);
     const [isExpired, setIsExpired] = useState(false);
-    const [isConfirming, setIsConfirming] = useState(false);
     const timerRef = useRef(null);
 
     // Start countdown when modal opens (uses pro_config.timeout_minutes)
@@ -42,7 +41,6 @@ const AppointmentSelectorModal = ({
             setTimeLeft(seconds);
             setIsExpired(false);
             setSelectedIndex(null);
-            setIsConfirming(false); // Reset confirming state when modal opens
 
             timerRef.current = setInterval(() => {
                 setTimeLeft(prev => {
@@ -66,7 +64,6 @@ const AppointmentSelectorModal = ({
     useEffect(() => {
         if (!isOpen) {
             // Reset all state immediately
-            setIsConfirming(false);
             setSelectedIndex(null);
             setIsExpired(false);
             setTimeLeft(totalSeconds);
@@ -98,29 +95,26 @@ const AppointmentSelectorModal = ({
         };
     };
 
-    const handleConfirm = (e) => {
-        // Prevent double clicks and event bubbling
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-        
-        if (selectedIndex === null || isConfirming) {
-            console.log('[Modal] handleConfirm blocked:', { selectedIndex, isConfirming });
+    const handleConfirm = () => {
+        // Solo verificar que hay selección
+        if (selectedIndex === null) {
+            console.log('[Modal] No selection');
             return;
         }
 
         console.log('[Modal] Confirming slot index:', selectedIndex);
         
-        // Marcar como confirmando y detener timer
-        setIsConfirming(true);
+        // Detener timer
         if (timerRef.current) {
             clearInterval(timerRef.current);
             timerRef.current = null;
         }
 
         // Llamar al padre inmediatamente (el padre cierra el modal)
-        onConfirm(selectedIndex);
+        // NO usamos isConfirming porque confiamos en que el padre cierre el modal
+        if (onConfirm) {
+            onConfirm(selectedIndex);
+        }
     };
 
     const handleSkip = () => {
@@ -191,13 +185,11 @@ const AppointmentSelectorModal = ({
                                     <button
                                         key={index}
                                         onClick={() => setSelectedIndex(index)}
-                                        disabled={isConfirming}
-                                        className={`w-full p-4 rounded-xl border-2 text-left transition-all
+                                        className={`w-full p-4 rounded-xl border-2 text-left transition-all cursor-pointer
                                             ${isSelected
                                                 ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-500/20'
                                                 : 'bg-white border-slate-200 hover:border-blue-300 hover:bg-slate-50'
                                             }
-                                            ${isConfirming ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                                         `}
                                     >
                                         <div className="flex items-center justify-between">
@@ -242,31 +234,21 @@ const AppointmentSelectorModal = ({
                             {/* Confirm Button - DISABLED until selection */}
                             <button
                                 onClick={handleConfirm}
-                                disabled={selectedIndex === null || isConfirming}
+                                disabled={selectedIndex === null}
                                 className={`w-full py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2
-                                    ${selectedIndex !== null && !isConfirming
-                                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-600/30'
+                                    ${selectedIndex !== null
+                                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-600/30 active:scale-95'
                                         : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                                     }`}
                             >
-                                {isConfirming ? (
-                                    <>
-                                        <RefreshCw className="w-5 h-5 animate-spin" />
-                                        Confirmando...
-                                    </>
-                                ) : (
-                                    <>
-                                        <CheckCircle className="w-5 h-5" />
-                                        Confirmar Cita
-                                    </>
-                                )}
+                                <CheckCircle className="w-5 h-5" />
+                                Confirmar Cita
                             </button>
 
                             {/* Skip Button */}
                             <button
                                 onClick={handleSkip}
-                                disabled={isConfirming}
-                                className="w-full py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-medium hover:bg-slate-50 hover:border-slate-300 transition disabled:opacity-50"
+                                className="w-full py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-medium hover:bg-slate-50 hover:border-slate-300 transition"
                             >
                                 Ninguna me viene bien
                             </button>
