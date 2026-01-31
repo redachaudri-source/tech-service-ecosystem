@@ -109,18 +109,43 @@ const Dashboard = () => {
 
     const findPendingProposal = (ticketList) => {
         const now = Date.now();
-        return (ticketList || []).find((t) => {
+        console.log('🔍 [BOT PRO DEBUG] findPendingProposal llamado con', ticketList?.length, 'tickets');
+        
+        const found = (ticketList || []).find((t) => {
             const proposal = t.pro_proposal;
+            console.log(`   📋 Ticket #${t.ticket_number}: status=${t.status}, pro_proposal=`, proposal);
+            
             // Soportar ambas estructuras: 'slots' (bot PRO) y 'proposed_slots' (legacy)
             const slots = proposal?.slots || proposal?.proposed_slots;
-            if (!slots?.length) return false;
+            if (!slots?.length) {
+                console.log(`   ❌ Sin slots (slots=${proposal?.slots?.length}, proposed_slots=${proposal?.proposed_slots?.length})`);
+                return false;
+            }
+            
             const status = (proposal.status ?? 'waiting_selection').toString().toLowerCase();
-            if (status !== 'waiting_selection') return false;
+            if (status !== 'waiting_selection') {
+                console.log(`   ❌ Status no es waiting_selection: ${status}`);
+                return false;
+            }
+            
             // Soportar ambos campos: 'expires_at' (bot PRO) y 'timeout_at' (legacy)
             const expiresAt = proposal.expires_at || proposal.timeout_at;
-            if (expiresAt && new Date(expiresAt).getTime() < now) return false;
-            return t.status === 'solicitado';
+            if (expiresAt && new Date(expiresAt).getTime() < now) {
+                console.log(`   ❌ Expirado: ${expiresAt} < ${new Date(now).toISOString()}`);
+                return false;
+            }
+            
+            if (t.status !== 'solicitado') {
+                console.log(`   ❌ Ticket status no es solicitado: ${t.status}`);
+                return false;
+            }
+            
+            console.log(`   ✅ Ticket #${t.ticket_number} CUMPLE TODOS LOS CRITERIOS`);
+            return true;
         });
+        
+        console.log('🔍 [BOT PRO DEBUG] Resultado:', found ? `Ticket #${found.ticket_number}` : 'NINGUNO');
+        return found;
     };
 
     const fetchDashboardData = async () => {
@@ -202,26 +227,41 @@ const Dashboard = () => {
     };
 
     const openProposalModal = (ticket) => {
+        console.log('🚀 [BOT PRO DEBUG] openProposalModal llamado para ticket:', ticket?.ticket_number);
+        
         const proposal = ticket?.pro_proposal;
+        console.log('   📋 pro_proposal:', proposal);
+        
         // Soportar ambas estructuras: 'slots' (bot PRO) y 'proposed_slots' (legacy)
         const slots = proposal?.slots || proposal?.proposed_slots || [];
-        if (!slots.length) return;
-        if (proposalModal.show && proposalModal.ticket?.id === ticket.id) return;
+        console.log('   📋 Slots encontrados:', slots.length, slots);
+        
+        if (!slots.length) {
+            console.log('   ❌ NO HAY SLOTS - Modal no se abre');
+            return;
+        }
+        if (proposalModal.show && proposalModal.ticket?.id === ticket.id) {
+            console.log('   ⏭️ Modal ya abierto para este ticket');
+            return;
+        }
 
         // Calcular tiempo RESTANTE hasta expiración (no tiempo total)
         const expiresAt = proposal?.expires_at || proposal?.timeout_at;
+        console.log('   ⏰ expires_at:', expiresAt);
+        
         let timeoutMinutes = 3; // Default
         if (expiresAt) {
             const remaining = (new Date(expiresAt).getTime() - Date.now()) / 60000;
+            console.log('   ⏰ Minutos restantes:', remaining.toFixed(2));
             if (remaining > 0) {
                 timeoutMinutes = Math.ceil(remaining);
             } else {
-                // Ya expiró, no abrir el modal
-                console.log('📋 Propuesta expirada, no se abre modal');
+                console.log('   ❌ PROPUESTA EXPIRADA - Modal no se abre');
                 return;
             }
         }
 
+        console.log('   ✅ ABRIENDO MODAL con', slots.length, 'slots y', timeoutMinutes, 'min timeout');
         setProposalModal({
             show: true,
             ticket,
