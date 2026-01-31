@@ -47,6 +47,7 @@ const Layout = () => {
 
     const settingsNav = [
         { icon: SettingsIcon, label: 'Configuración', path: '/settings', help: 'Gestión integral del sistema (Identidad, Reglas, Catálogos).' },
+        { icon: Briefcase, label: 'Negocio & Horarios', path: '/business-settings', help: 'Horarios laborales, tipos de servicio y reglas de duración.' },
     ];
 
     // Close mobile menu when route changes
