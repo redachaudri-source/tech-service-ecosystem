@@ -226,39 +226,42 @@ async function buscarTicketsPriorizados(supabase: any) {
   console.log('      - SIN propuesta válida (pro_proposal NULL o status=no_slots/no_technicians)');
   console.log('      - processing_started_at IS NULL (no está siendo procesado)');
 
-  // Primero: tickets sin ninguna propuesta
-  const { data: sinPropuesta, error: error1 } = await supabase
+  // Query única: buscar TODOS los tickets 'solicitado' sin lock y filtrar en JS
+  const { data: allSolicitados, error: queryError } = await supabase
     .from('tickets')
     .select('*')
     .eq('status', 'solicitado')
-    .is('pro_proposal', null)
     .is('processing_started_at', null);
 
-  // Segundo: tickets con propuesta fallida (no_slots o no_technicians) que se pueden reintentar
-  const { data: conFallo, error: error2 } = await supabase
-    .from('tickets')
-    .select('*')
-    .eq('status', 'solicitado')
-    .is('processing_started_at', null)
-    .or('pro_proposal->status.eq.no_slots,pro_proposal->status.eq.no_technicians');
-
-  if (error1) {
-    console.error('   ❌ Error en query 1:', error1);
-  }
-  if (error2) {
-    console.error('   ❌ Error en query 2:', error2);
+  if (queryError) {
+    console.error('   ❌ Error en query:', queryError);
+    return [];
   }
 
-  // Combinar resultados (sin duplicados)
-  const ticketMap = new Map();
-  (sinPropuesta || []).forEach((t: any) => ticketMap.set(t.id, t));
-  (conFallo || []).forEach((t: any) => ticketMap.set(t.id, t));
-  
-  const data = Array.from(ticketMap.values());
+  console.log(`   ✅ Tickets 'solicitado' sin lock: ${allSolicitados?.length || 0}`);
 
-  console.log(`   ✅ Tickets sin propuesta: ${sinPropuesta?.length || 0}`);
-  console.log(`   ✅ Tickets con fallo reintentable: ${conFallo?.length || 0}`);
-  console.log(`   ✅ Total únicos: ${data.length}`);
+  // Filtrar: sin propuesta O con propuesta fallida (no_slots, no_technicians)
+  const data = (allSolicitados || []).filter((t: any) => {
+    const propStatus = t.pro_proposal?.status;
+    
+    // Sin propuesta = OK
+    if (!t.pro_proposal) {
+      console.log(`      ✓ #${t.ticket_number}: sin propuesta -> INCLUIR`);
+      return true;
+    }
+    
+    // Con propuesta fallida = OK (reintentar)
+    if (propStatus === 'no_slots' || propStatus === 'no_technicians') {
+      console.log(`      ✓ #${t.ticket_number}: propuesta fallida (${propStatus}) -> INCLUIR para reintentar`);
+      return true;
+    }
+    
+    // Con propuesta válida = EXCLUIR
+    console.log(`      ✗ #${t.ticket_number}: propuesta válida (${propStatus}) -> EXCLUIR`);
+    return false;
+  });
+
+  console.log(`   ✅ Total a procesar: ${data.length}`);
 
   if (data.length === 0) {
     console.log('   ℹ️  No hay tickets pendientes de procesar');
