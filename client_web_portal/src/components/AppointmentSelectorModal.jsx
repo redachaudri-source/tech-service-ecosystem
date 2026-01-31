@@ -42,6 +42,7 @@ const AppointmentSelectorModal = ({
             setTimeLeft(seconds);
             setIsExpired(false);
             setSelectedIndex(null);
+            setIsConfirming(false); // Reset confirming state when modal opens
 
             timerRef.current = setInterval(() => {
                 setTimeLeft(prev => {
@@ -61,7 +62,23 @@ const AppointmentSelectorModal = ({
         };
     }, [isOpen, slots, timeoutMinutes]);
 
-    if (!isOpen || slots.length === 0) return null;
+    // Reset state when modal closes
+    useEffect(() => {
+        if (!isOpen) {
+            // Reset all state immediately
+            setIsConfirming(false);
+            setSelectedIndex(null);
+            setIsExpired(false);
+            setTimeLeft(totalSeconds);
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
+        }
+    }, [isOpen]);
+
+    // Don't render if closed OR if no slots
+    if (!isOpen || !slots || slots.length === 0) return null;
 
     const formatTime = (seconds) => {
         const mins = Math.floor(seconds / 60);
@@ -81,7 +98,7 @@ const AppointmentSelectorModal = ({
         };
     };
 
-    const handleConfirm = async (e) => {
+    const handleConfirm = (e) => {
         // Prevent double clicks and event bubbling
         if (e) {
             e.preventDefault();
@@ -94,16 +111,16 @@ const AppointmentSelectorModal = ({
         }
 
         console.log('[Modal] Confirming slot index:', selectedIndex);
+        
+        // Marcar como confirmando y detener timer
         setIsConfirming(true);
-        clearInterval(timerRef.current);
-
-        try {
-            await onConfirm(selectedIndex);
-            console.log('[Modal] Confirmation successful');
-        } catch (e) {
-            console.error('[Modal] Error confirming:', e);
-            setIsConfirming(false);
+        if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
         }
+
+        // Llamar al padre inmediatamente (el padre cierra el modal)
+        onConfirm(selectedIndex);
     };
 
     const handleSkip = () => {
