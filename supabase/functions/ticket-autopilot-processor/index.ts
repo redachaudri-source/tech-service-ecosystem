@@ -36,6 +36,58 @@ interface ProProposal {
   status: string;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Calcular duración del servicio dinámicamente
+// Replica la lógica de calc_service_duration() del RPC PostgreSQL
+// ═══════════════════════════════════════════════════════════════════════════
+function calcServiceDuration(serviceTypeName: string | null, applianceType: string | null): number {
+  const service = (serviceTypeName || '').toLowerCase();
+  const appliance = (applianceType || '').toLowerCase();
+  
+  // DIAGNÓSTICO: 30 min
+  if (service.includes('diagnos') || service.includes('revisión') || service.includes('revision')) {
+    return 30;
+  }
+  
+  // INSTALACIÓN
+  if (service.includes('instalac')) {
+    // Aire Acondicionado: 240 min (4 horas)
+    if (appliance.includes('aire') || appliance.includes('acondicionado') || appliance.includes('split')) {
+      return 240;
+    }
+    // Calentador: 120 min
+    if (appliance.includes('calentador') || appliance.includes('termo') || appliance.includes('boiler')) {
+      return 120;
+    }
+    // Otros: 90 min por defecto
+    return 90;
+  }
+  
+  // REPARACIÓN
+  if (service.includes('reparac') || service.includes('repair') || service.includes('estándar') || service.includes('estandar')) {
+    // Frigorífico, Calentador, Termo, Aire Acondicionado: 90 min
+    if (appliance.includes('frigo') || appliance.includes('nevera') || 
+        appliance.includes('calentador') || appliance.includes('termo') || 
+        appliance.includes('aire') || appliance.includes('acondicionado')) {
+      return 90;
+    }
+    // Lavadora, Lavavajillas: 60 min
+    if (appliance.includes('lavadora') || appliance.includes('lavavajillas')) {
+      return 60;
+    }
+    // Otros: 60 min
+    return 60;
+  }
+  
+  // MANTENIMIENTO: 90 min
+  if (service.includes('mantenim')) {
+    return 90;
+  }
+  
+  // DEFAULT: 60 min
+  return 60;
+}
+
 serve(async (req) => {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('🤖 BOT PRO PROCESSOR INICIADO');
@@ -412,6 +464,41 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
     console.log('     - Teléfono:', ticket.client_phone);
     console.log('     - CP:', ticket.postal_code || ticket.address_cp);
     console.log('     - Origen:', ticket.origin_source);
+    
+    // 🆕 PASO 2.5: Calcular duración dinámica del servicio
+    console.log('  ⏱️  PASO 2.5: Calculando duración dinámica...');
+    let serviceDuration = 60; // Default
+    
+    // Intentar obtener duración de service_types si existe service_type_id
+    if (ticket.service_type_id) {
+      console.log('     - service_type_id encontrado:', ticket.service_type_id);
+      const { data: serviceType } = await supabase
+        .from('service_types')
+        .select('name, estimated_duration_min')
+        .eq('id', ticket.service_type_id)
+        .single();
+      
+      if (serviceType?.estimated_duration_min) {
+        serviceDuration = serviceType.estimated_duration_min;
+        console.log(`     - Duración desde service_types: ${serviceDuration} min (${serviceType.name})`);
+      }
+    }
+    
+    // Si no hay service_type, calcular basándose en appliance_info
+    if (serviceDuration === 60 && ticket.appliance_info?.type) {
+      // Asumimos "Reparación" como tipo de servicio por defecto
+      const applianceType = ticket.appliance_info?.type || '';
+      serviceDuration = calcServiceDuration('reparación', applianceType);
+      console.log(`     - Duración calculada para "${applianceType}": ${serviceDuration} min`);
+    }
+    
+    // Si el ticket tiene estimated_duration, usar ese (admin lo puede haber editado)
+    if (ticket.estimated_duration && ticket.estimated_duration !== serviceDuration) {
+      console.log(`     - ⚠️ Ticket tiene estimated_duration personalizado: ${ticket.estimated_duration} min`);
+      serviceDuration = ticket.estimated_duration;
+    }
+    
+    console.log(`     ✅ Duración final del servicio: ${serviceDuration} minutos`);
 
     // PASO 3: Obtener configuración PRO
     console.log('  ⚙️  PASO 3: Obteniendo configuración PRO...');
@@ -484,15 +571,15 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
       const dayConfig = hoursConfig?.value?.[dayName];
       console.log(`        Config para ${dayName}:`, dayConfig === null ? 'CERRADO' : JSON.stringify(dayConfig));
 
-      // Usar duración estándar de 90 min (igual que Asistente Inteligente)
+      // 🆕 Usar duración DINÁMICA calculada para este ticket
       console.log(`        🔄 Llamando RPC get_tech_availability:`);
       console.log(`           - target_date: ${dateStr}`);
-      console.log(`           - duration_minutes: 90`);
+      console.log(`           - duration_minutes: ${serviceDuration} (DINÁMICO)`);
       console.log(`           - target_cp: ${postalCode || 'NULL'}`);
       
       const { data: slots, error: rpcError } = await supabase.rpc('get_tech_availability', {
         target_date: dateStr,
-        duration_minutes: 90,
+        duration_minutes: serviceDuration,
         target_cp: postalCode
       });
 
@@ -604,7 +691,8 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
     const propuesta: ProProposal = {
       slots: seleccionados.map((s: SlotFromRPC, i: number) => {
         const slotDate = new Date(s.slot_start);
-        const slotEndDate = new Date(slotDate.getTime() + 90 * 60 * 1000);
+        // 🆕 Usar duración DINÁMICA calculada para este ticket
+        const slotEndDate = new Date(slotDate.getTime() + serviceDuration * 60 * 1000);
         
         const startSpain = toSpainTime(slotDate);
         const endSpain = toSpainTime(slotEndDate);
