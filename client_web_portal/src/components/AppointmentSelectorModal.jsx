@@ -197,7 +197,7 @@ const AppointmentSelectorModal = ({
                                                 <div className="ml-9 flex flex-col gap-1">
                                                     <span className="text-slate-600 text-sm flex items-center gap-2">
                                                         <Clock size={14} />
-                                                        {slot.time_start} - {slot.time_end}
+                                                        {slot.time_start} h
                                                     </span>
                                                     <span className="text-slate-500 text-xs flex items-center gap-2">
                                                         <User size={14} />
