@@ -726,6 +726,35 @@ const Dashboard = () => {
 
             addToast('🔄 Buscando nuevas citas disponibles...', 'info', true);
             fetchDashboardData();
+
+            // Re-fetch múltiples veces para detectar cuando el bot genera la nueva propuesta
+            // El bot tarda ~2-5 segundos en procesar
+            const ticketId = ticket.id;
+            const checkForNewProposal = async () => {
+                const { data: updatedTicket } = await supabase
+                    .from('tickets')
+                    .select('*, technician:profiles!technician_id (full_name)')
+                    .eq('id', ticketId)
+                    .single();
+
+                if (updatedTicket?.pro_proposal?.status === 'waiting_selection') {
+                    console.log('[RESET REQUEST] ✅ Bot generó nueva propuesta - abriendo modal');
+                    openProposalModal(updatedTicket);
+                    return true;
+                }
+                return false;
+            };
+
+            // Intentar detectar a los 3, 6 y 10 segundos
+            setTimeout(async () => {
+                if (!await checkForNewProposal()) {
+                    setTimeout(async () => {
+                        if (!await checkForNewProposal()) {
+                            setTimeout(checkForNewProposal, 4000); // 10s total
+                        }
+                    }, 3000); // 6s
+                }
+            }, 3000); // 3s
         } catch (error) {
             console.error('[RESET REQUEST] Error:', error);
             addToast('Error al reiniciar solicitud: ' + error.message, 'error');
