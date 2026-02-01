@@ -426,12 +426,14 @@ const Dashboard = () => {
         setProposalModal({ show: false, ticket: null, slots: [], proposal: null, timeoutMinutes: 3, confirming: false });
 
         try {
-            // Marcar propuesta como rechazada - NO reprocesar automáticamente
+            // Marcar propuesta como rechazada - Guardar slots rechazados para excluirlos en la próxima búsqueda
+            const rejectedSlots = proposal?.slots || proposal?.proposed_slots || [];
             const updatedProposal = {
                 ...(proposal || {}),
                 status: 'client_rejected',
                 rejected_at: new Date().toISOString(),
-                rejected_reason: 'client_skip'
+                rejected_reason: 'client_skip',
+                rejected_slots: rejectedSlots.map(s => ({ date: s.date, time_start: s.time_start, technician_id: s.technician_id }))
             };
 
             const { error } = await supabase
@@ -469,16 +471,18 @@ const Dashboard = () => {
         setProposalModal({ show: false, ticket: null, slots: [], proposal: null, timeoutMinutes: 3, confirming: false });
 
         try {
+            const expiredSlots = proposal?.slots || proposal?.proposed_slots || [];
             const updatedProposal = {
                 ...(proposal || {}),
                 status: 'expired',
-                expired_at: new Date().toISOString()
+                expired_at: new Date().toISOString(),
+                rejected_slots: expiredSlots.map(s => ({ date: s.date, time_start: s.time_start, technician_id: s.technician_id }))
             };
 
             const { error } = await supabase
                 .from('tickets')
                 .update({
-                    status: 'cita_rechazada',  // Nuevo estado - el bot NO lo reprocesa
+                    status: 'cita_rechazada',
                     pro_proposal: updatedProposal
                 })
                 .eq('id', ticket.id);
@@ -691,45 +695,48 @@ const Dashboard = () => {
         try {
             setLoading(true);
 
-            // Preparar pro_proposal con flag para que el bot busque desde MAÑANA
+            // Slots previamente rechazados para que el bot los excluya
+            const excludedSlots = ticket.pro_proposal?.rejected_slots || [];
+
             const resetProposal = {
                 status: 'reset_by_client',
-                search_from_tomorrow: true,  // El bot buscará desde mañana, no desde hoy
+                search_from_tomorrow: true,
+                excluded_slots: excludedSlots,
                 reset_at: new Date().toISOString(),
                 previous_status: ticket.status
             };
 
-            console.log('[RESET REQUEST] Enviando update a Supabase...');
-            console.log('[RESET REQUEST] Nuevo pro_proposal:', resetProposal);
+            console.log('[RESET REQUEST] Enviando update - excluded_slots:', excludedSlots.length);
 
-            // Limpiar y volver a status 'solicitado' para que el bot lo reprocese
             const { data, error } = await supabase
                 .from('tickets')
                 .update({
-                    status: 'solicitado',  // Volver a solicitado para que el bot lo procese
-                    pro_proposal: resetProposal,  // Con flag para buscar desde mañana
+                    status: 'solicitado',
+                    pro_proposal: resetProposal,
                     processing_started_at: null,
                     appointment_status: 'pending'
                 })
                 .eq('id', ticket.id)
                 .select();
 
-            console.log('[RESET REQUEST] Respuesta Supabase data:', data);
-            console.log('[RESET REQUEST] Respuesta Supabase error:', error);
-
             if (error) throw error;
 
-            // IMPORTANTE: Limpiar bloqueos para que el modal pueda reabrirse con la nueva propuesta
             recentlyHandledTicketRef.current = null;
             modalBlockedUntilRef.current = 0;
-            console.log('[RESET REQUEST] Bloqueos limpiados - modal podrá reabrirse');
 
             addToast('🔄 Buscando nuevas citas disponibles...', 'info', true);
             fetchDashboardData();
 
-            // Re-fetch múltiples veces para detectar cuando el bot genera la nueva propuesta
-            // El bot tarda ~2-5 segundos en procesar
+            // Invocar processor INMEDIATAMENTE para no esperar al cron
             const ticketId = ticket.id;
+            supabase.functions.invoke('ticket-autopilot-processor', {
+                body: { ticket_id: String(ticketId) }
+            }).then(() => {
+                console.log('[RESET REQUEST] Processor invocado');
+            }).catch((err) => {
+                console.warn('[RESET REQUEST] Invoke falló (cron lo procesará):', err);
+            });
+
             const checkForNewProposal = async () => {
                 const { data: updatedTicket } = await supabase
                     .from('tickets')
@@ -738,23 +745,17 @@ const Dashboard = () => {
                     .single();
 
                 if (updatedTicket?.pro_proposal?.status === 'waiting_selection') {
-                    console.log('[RESET REQUEST] ✅ Bot generó nueva propuesta - abriendo modal');
+                    console.log('[RESET REQUEST] ✅ Nueva propuesta - abriendo modal');
                     openProposalModal(updatedTicket);
                     return true;
                 }
                 return false;
             };
 
-            // Intentar detectar a los 1.5, 3 y 5 segundos (más rápido)
-            setTimeout(async () => {
-                if (!await checkForNewProposal()) {
-                    setTimeout(async () => {
-                        if (!await checkForNewProposal()) {
-                            setTimeout(checkForNewProposal, 2000); // 5s total
-                        }
-                    }, 1500); // 3s
-                }
-            }, 1500); // 1.5s
+            // Polling más rápido: 1s, 2.5s, 4s
+            setTimeout(() => checkForNewProposal(), 1000);
+            setTimeout(() => checkForNewProposal(), 2500);
+            setTimeout(() => checkForNewProposal(), 4000);
         } catch (error) {
             console.error('[RESET REQUEST] Error:', error);
             addToast('Error al reiniciar solicitud: ' + error.message, 'error');

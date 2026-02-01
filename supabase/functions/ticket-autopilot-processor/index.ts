@@ -314,7 +314,7 @@ async function buscarTicketsPriorizados(supabase: any) {
 
   console.log(`   ✅ Tickets 'solicitado' sin lock: ${allSolicitados?.length || 0}`);
 
-  // Filtrar: sin propuesta O con propuesta fallida (no_slots, no_technicians)
+  // Filtrar: sin propuesta O con propuesta fallida O reset por cliente
   const data = (allSolicitados || []).filter((t: any) => {
     const propStatus = t.pro_proposal?.status;
     
@@ -327,6 +327,12 @@ async function buscarTicketsPriorizados(supabase: any) {
     // Con propuesta fallida = OK (reintentar)
     if (propStatus === 'no_slots' || propStatus === 'no_technicians') {
       console.log(`      ✓ #${t.ticket_number}: propuesta fallida (${propStatus}) -> INCLUIR para reintentar`);
+      return true;
+    }
+    
+    // Cliente rechazó y pidió nuevas opciones = OK
+    if (propStatus === 'reset_by_client') {
+      console.log(`      ✓ #${t.ticket_number}: reset_by_client -> INCLUIR (buscar desde mañana, excluir anteriores)`);
       return true;
     }
     
@@ -486,6 +492,15 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
     console.log('     - Teléfono:', ticket.client_phone);
     console.log('     - CP:', ticket.postal_code || ticket.address_cp);
     console.log('     - Origen:', ticket.origin_source);
+
+    // Reset por cliente: buscar desde mañana y excluir slots rechazados
+    const searchFromTomorrow = ticket.pro_proposal?.status === 'reset_by_client' && ticket.pro_proposal?.search_from_tomorrow === true;
+    const excludedSlots: Array<{ date: string; time_start: string; technician_id: string }> = ticket.pro_proposal?.excluded_slots || [];
+    if (searchFromTomorrow || excludedSlots.length > 0) {
+      console.log('  🔄 RESET BY CLIENT detectado:');
+      console.log('     - search_from_tomorrow:', searchFromTomorrow);
+      console.log('     - excluded_slots:', excludedSlots.length);
+    }
     
     // 🆕 PASO 2.5: Calcular duración dinámica del servicio
     console.log('  ⏱️  PASO 2.5: Calculando duración dinámica...');
@@ -616,9 +631,10 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
       .single();
     console.log('     working_hours config:', JSON.stringify(hoursConfig?.value || 'NO CONFIGURADO'));
     
-    // Buscar slots por día (empezando desde HOY = day 0)
+    // Buscar slots por día - si reset_by_client, empezar desde MAÑANA (day 1)
+    const dayStart = searchFromTomorrow ? 1 : 0;
     let allSlotsAllDays: any[] = [];
-    for (let day = 0; day < (proConfig.search_days || 7); day++) {
+    for (let day = dayStart; day < (proConfig.search_days || 7); day++) {
       const targetDate = new Date();
       targetDate.setDate(targetDate.getDate() + day);
       const dateStr = targetDate.toISOString().split('T')[0];
@@ -831,6 +847,28 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
           validSlots = filteredByTravel;
           console.log(`        🚗 RESULTADO filtro viaje: ${beforeTravelFilter} -> ${validSlots.length} slots`);
         }
+      }
+
+      // Filtrar slots previamente rechazados por el cliente (reset_by_client)
+      if (excludedSlots.length > 0 && validSlots.length > 0) {
+        const beforeExcluded = validSlots.length;
+        validSlots = validSlots.filter((s: any) => {
+          const slotDate = new Date(s.slot_start);
+          const spainDate = new Date(slotDate.getTime() + 1 * 60 * 60 * 1000);
+          const slotDateStr = spainDate.toISOString().split('T')[0];
+          const slotTimeStr = spainDate.toISOString().split('T')[1].slice(0, 5);
+          const isExcluded = excludedSlots.some(
+            (ex: any) =>
+              ex.date === slotDateStr &&
+              (ex.time_start || '').slice(0, 5) === slotTimeStr &&
+              ex.technician_id === s.technician_id
+          );
+          if (isExcluded) {
+            console.log(`        ✗ Excluido (rechazado antes): ${s.technician_name} ${slotDateStr} ${slotTimeStr}`);
+          }
+          return !isExcluded;
+        });
+        console.log(`        📋 Filtro excluded_slots: ${beforeExcluded} -> ${validSlots.length} slots`);
       }
 
       if (validSlots.length > 0) {
