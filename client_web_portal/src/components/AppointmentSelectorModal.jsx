@@ -168,10 +168,10 @@ const AppointmentSelectorModal = ({
 
     return (
         <div
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 overflow-y-auto"
             style={{ backgroundColor: 'rgba(0, 0, 0, 0.85)' }}
         >
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md my-auto max-h-[95vh] overflow-y-auto flex flex-col">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-5 text-white">
                     <div className="flex items-center justify-between mb-3">
@@ -212,8 +212,8 @@ const AppointmentSelectorModal = ({
                     </div>
                 ) : (
                     <>
-                        {/* Slot Options */}
-                        <div className="p-4 space-y-3">
+                        {/* Slot Options - SCROLLABLE */}
+                        <div className="p-3 sm:p-4 space-y-2 sm:space-y-3 overflow-y-auto flex-1 min-h-0" style={{ maxHeight: '45vh' }}>
                             {slots.map((slot, index) => {
                                 const { dayName, day, month } = formatDate(slot.date);
                                 const isSelected = selectedIndex === index;
@@ -222,7 +222,7 @@ const AppointmentSelectorModal = ({
                                     <button
                                         key={index}
                                         onClick={() => setSelectedIndex(index)}
-                                        className={`w-full p-4 rounded-xl border-2 text-left transition-all cursor-pointer
+                                        className={`w-full p-3 sm:p-4 rounded-xl border-2 text-left transition-all cursor-pointer
                                             ${isSelected
                                                 ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-500/20'
                                                 : 'bg-white border-slate-200 hover:border-blue-300 hover:bg-slate-50'
@@ -231,34 +231,34 @@ const AppointmentSelectorModal = ({
                                     >
                                         <div className="flex items-center justify-between">
                                             <div className="flex-1">
-                                                <div className="flex items-center gap-3 mb-1">
-                                                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold
+                                                <div className="flex items-center gap-2 sm:gap-3 mb-1">
+                                                    <span className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold
                                                         ${isSelected ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
                                                         {index + 1}
                                                     </span>
-                                                    <span className="font-bold text-slate-800">
+                                                    <span className="font-bold text-slate-800 text-sm sm:text-base">
                                                         {dayName} {day} de {month}
                                                     </span>
                                                 </div>
-                                                <div className="ml-9 flex flex-col gap-1">
-                                                    <span className="text-slate-600 text-sm flex items-center gap-2">
-                                                        <Clock size={14} />
+                                                <div className="ml-7 sm:ml-9 flex flex-col gap-0.5 sm:gap-1">
+                                                    <span className="text-slate-600 text-xs sm:text-sm flex items-center gap-2">
+                                                        <Clock size={12} className="sm:w-[14px] sm:h-[14px]" />
                                                         {slot.time_start} h
                                                     </span>
-                                                    <span className="text-slate-500 text-xs flex items-center gap-2">
-                                                        <User size={14} />
-                                                        Técnico: {slot.technician_name}
+                                                    <span className="text-slate-500 text-[10px] sm:text-xs flex items-center gap-2">
+                                                        <User size={12} className="sm:w-[14px] sm:h-[14px]" />
+                                                        {slot.technician_name}
                                                     </span>
                                                 </div>
                                             </div>
 
                                             {/* Radio indicator */}
-                                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0
+                                            <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center shrink-0
                                                 ${isSelected
                                                     ? 'border-blue-600 bg-blue-600'
                                                     : 'border-slate-300'
                                                 }`}>
-                                                {isSelected && <CheckCircle size={16} className="text-white" />}
+                                                {isSelected && <CheckCircle size={14} className="text-white sm:w-4 sm:h-4" />}
                                             </div>
                                         </div>
                                     </button>
@@ -266,34 +266,32 @@ const AppointmentSelectorModal = ({
                             })}
                         </div>
 
-                        {/* Actions */}
-                        <div className="p-4 pt-0 space-y-3">
+                        {/* Actions - STICKY BOTTOM */}
+                        <div className="p-3 sm:p-4 pt-2 space-y-2 sm:space-y-3 border-t border-slate-100 bg-white flex-shrink-0">
                             {/* Confirm Button - DISABLED until selection */}
                             <button
                                 onClick={handleConfirm}
                                 disabled={selectedIndex === null}
-                                className={`w-full py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2
+                                className={`w-full py-3 sm:py-4 rounded-xl font-bold text-base sm:text-lg transition-all flex items-center justify-center gap-2
                                     ${selectedIndex !== null
                                         ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-600/30 active:scale-95'
                                         : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                                     }`}
                             >
-                                <CheckCircle className="w-5 h-5" />
+                                <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                                 Confirmar Cita
                             </button>
 
                             {/* Skip Button */}
                             <button
                                 onClick={handleSkip}
-                                className="w-full py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-medium hover:bg-slate-50 hover:border-slate-300 transition"
+                                className="w-full py-2.5 sm:py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-medium hover:bg-slate-50 hover:border-slate-300 transition text-sm sm:text-base"
                             >
                                 Ninguna me viene bien
                             </button>
-                        </div>
 
-                        {/* Helper text */}
-                        <div className="px-4 pb-4">
-                            <p className="text-center text-xs text-slate-400">
+                            {/* Helper text */}
+                            <p className="text-center text-[10px] sm:text-xs text-slate-400">
                                 Si no eliges, te llamaremos para coordinar
                             </p>
                         </div>

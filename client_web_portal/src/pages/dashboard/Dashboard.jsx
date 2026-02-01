@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { LogOut, Plus, Clock, CheckCircle, AlertCircle, Wrench, User, Calendar, FileText, Package, PieChart, ShieldAlert, MapPin } from 'lucide-react';
@@ -28,6 +28,10 @@ const Dashboard = () => {
         timeoutMinutes: 3,
         confirming: false  // Flag para evitar reabrir durante confirmación
     });
+    
+    // REF para evitar reapertura del modal (más confiable que estado por closures)
+    const recentlyHandledTicketRef = useRef(null);
+    const modalBlockedUntilRef = useRef(0);
 
     // Reputation System State
     const [reviewModal, setReviewModal] = useState({ show: false, ticketId: null, technicianId: null });
@@ -271,6 +275,18 @@ const Dashboard = () => {
     const openProposalModal = (ticket) => {
         console.log('🚀 [BOT PRO DEBUG] openProposalModal llamado para ticket:', ticket?.ticket_number);
         
+        // PROTECCIÓN 1: Bloqueo temporal después de confirmar (5 segundos)
+        if (Date.now() < modalBlockedUntilRef.current) {
+            console.log('   ⏭️ Modal bloqueado temporalmente');
+            return;
+        }
+        
+        // PROTECCIÓN 2: No reabrir para ticket recientemente manejado
+        if (recentlyHandledTicketRef.current === ticket?.id) {
+            console.log('   ⏭️ Ticket recién manejado - no reabrir');
+            return;
+        }
+        
         // No abrir si estamos en proceso de confirmación
         if (proposalModal.confirming) {
             console.log('   ⏭️ Confirmación en proceso - no reabrir modal');
@@ -279,6 +295,13 @@ const Dashboard = () => {
         
         const proposal = ticket?.pro_proposal;
         console.log('   📋 pro_proposal:', proposal);
+        
+        // Verificar que la propuesta esté en estado waiting_selection
+        const propStatus = (proposal?.status ?? '').toString().toLowerCase();
+        if (propStatus !== 'waiting_selection') {
+            console.log('   ⏭️ Propuesta no está en waiting_selection, status:', propStatus);
+            return;
+        }
         
         // Soportar ambas estructuras: 'slots' (bot PRO) y 'proposed_slots' (legacy)
         const slots = proposal?.slots || proposal?.proposed_slots || [];
@@ -339,6 +362,10 @@ const Dashboard = () => {
             return;
         }
 
+        // BLOQUEAR REAPERTURA: Guardar ticket ID y bloquear modal por 5 segundos
+        recentlyHandledTicketRef.current = ticket.id;
+        modalBlockedUntilRef.current = Date.now() + 5000; // 5 segundos
+
         // CERRAR MODAL INMEDIATAMENTE - resetear todo el estado
         setProposalModal({ show: false, ticket: null, slots: [], proposal: null, timeoutMinutes: 3, confirming: true });
 
@@ -390,18 +417,26 @@ const Dashboard = () => {
         const proposal = proposalModal.proposal || ticket?.pro_proposal;
         if (!ticket) return;
 
+        // BLOQUEAR REAPERTURA
+        recentlyHandledTicketRef.current = ticket.id;
+        modalBlockedUntilRef.current = Date.now() + 5000;
+
         try {
+            // Marcar propuesta como rechazada con info para que el bot busque desde día siguiente
             const updatedProposal = {
                 ...(proposal || {}),
-                status: 'rejected',
-                rejected_at: new Date().toISOString()
+                status: 'client_rejected',
+                rejected_at: new Date().toISOString(),
+                rejected_reason: 'client_skip',
+                search_from_tomorrow: true  // Flag para el bot: empezar desde mañana
             };
 
             const { error } = await supabase
                 .from('tickets')
                 .update({
-                    appointment_status: 'rejected',
-                    pro_proposal: updatedProposal
+                    appointment_status: 'pending',  // Volver a pendiente para que el bot lo reprocese
+                    pro_proposal: updatedProposal,
+                    processing_started_at: null     // Permitir reprocesamiento
                 })
                 .eq('id', ticket.id);
 
@@ -409,10 +444,10 @@ const Dashboard = () => {
 
             setProposalModal({ show: false, ticket: null, slots: [], proposal: null, timeoutMinutes: 3, confirming: false });
             fetchDashboardData();
-            addToast('Solicitud de cambio enviada. Te contactaremos.', 'info', true);
+            addToast('🔄 Buscando nuevas opciones para ti...', 'info', true);
         } catch (error) {
             console.error('Error rejecting proposal:', error);
-            addToast('Error al rechazar la propuesta.', 'error', true);
+            addToast('Error al procesar. Te llamaremos para coordinar.', 'error', true);
         }
     };
 
@@ -420,6 +455,10 @@ const Dashboard = () => {
         const ticket = proposalModal.ticket;
         const proposal = proposalModal.proposal || ticket?.pro_proposal;
         if (!ticket) return;
+
+        // BLOQUEAR REAPERTURA
+        recentlyHandledTicketRef.current = ticket.id;
+        modalBlockedUntilRef.current = Date.now() + 5000;
 
         try {
             const updatedProposal = {
