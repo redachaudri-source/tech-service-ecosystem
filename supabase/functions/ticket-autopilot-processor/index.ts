@@ -45,15 +45,15 @@ function calcTravelTime(cpA: string | null, cpB: string | null): number {
   if (!cpA || !cpB || cpA.trim() === '' || cpB.trim() === '') {
     return 15; // Default mínimo si falta algún CP
   }
-
+  
   // Extraer solo dígitos del código postal
   const numA = parseInt(cpA.replace(/\D/g, ''), 10) || 0;
   const numB = parseInt(cpB.replace(/\D/g, ''), 10) || 0;
-
+  
   if (numA === 0 || numB === 0) {
     return 15; // Default si no se puede parsear
   }
-
+  
   const diff = Math.abs(numA - numB);
   return Math.min(60, 15 + (diff * 2));
 }
@@ -65,12 +65,12 @@ function calcTravelTime(cpA: string | null, cpB: string | null): number {
 function calcServiceDuration(serviceTypeName: string | null, applianceType: string | null): number {
   const service = (serviceTypeName || '').toLowerCase();
   const appliance = (applianceType || '').toLowerCase();
-
+  
   // DIAGNÓSTICO: 30 min
   if (service.includes('diagnos') || service.includes('revisión') || service.includes('revision')) {
     return 30;
   }
-
+  
   // INSTALACIÓN
   if (service.includes('instalac')) {
     // Aire Acondicionado: 240 min (4 horas)
@@ -84,13 +84,13 @@ function calcServiceDuration(serviceTypeName: string | null, applianceType: stri
     // Otros: 90 min por defecto
     return 90;
   }
-
+  
   // REPARACIÓN
   if (service.includes('reparac') || service.includes('repair') || service.includes('estándar') || service.includes('estandar')) {
     // Frigorífico, Calentador, Termo, Aire Acondicionado: 90 min
-    if (appliance.includes('frigo') || appliance.includes('nevera') ||
-      appliance.includes('calentador') || appliance.includes('termo') ||
-      appliance.includes('aire') || appliance.includes('acondicionado')) {
+    if (appliance.includes('frigo') || appliance.includes('nevera') || 
+        appliance.includes('calentador') || appliance.includes('termo') || 
+        appliance.includes('aire') || appliance.includes('acondicionado')) {
       return 90;
     }
     // Lavadora, Lavavajillas: 60 min
@@ -100,12 +100,12 @@ function calcServiceDuration(serviceTypeName: string | null, applianceType: stri
     // Otros: 60 min
     return 60;
   }
-
+  
   // MANTENIMIENTO: 90 min
   if (service.includes('mantenim')) {
     return 90;
   }
-
+  
   // DEFAULT: 60 min
   return 60;
 }
@@ -124,7 +124,7 @@ serve(async (req) => {
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-
+  
   console.log('🔑 SUPABASE_URL presente:', supabaseUrl ? 'SÍ' : '❌ NO');
   console.log('🔑 SERVICE_ROLE_KEY presente:', supabaseKey ? 'SÍ (longitud: ' + supabaseKey.length + ')' : '❌ NO');
 
@@ -133,7 +133,7 @@ serve(async (req) => {
   try {
     const rawBody = await req.text();
     console.log('📨 Body recibido (raw):', rawBody || '(vacío)');
-
+    
     let payload: any = {};
     try {
       payload = rawBody ? JSON.parse(rawBody) : {};
@@ -141,7 +141,7 @@ serve(async (req) => {
       console.error('❌ Error parseando JSON:', e);
       payload = {};
     }
-
+    
     const { mode, ticket_id } = payload;
     console.log('📋 Payload parseado:');
     console.log('   - mode:', mode || '(no especificado)');
@@ -197,7 +197,7 @@ serve(async (req) => {
       console.log('   - CP:', ticketToProcess.postal_code);
 
       const result = await procesarTicket(supabase, ticketToProcess.id);
-
+      
       console.log('✅ Ciclo CRON completado. Resultado:', JSON.stringify(result));
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       return new Response(JSON.stringify({ processed: ticketToProcess.id, result }), {
@@ -213,7 +213,7 @@ serve(async (req) => {
       console.log('🔄 MODO SCAN - Procesando hasta 5 tickets');
       await limpiarLocksAntiguos(supabase);
       const tickets = await buscarTicketsPriorizados(supabase);
-
+      
       let processed = 0;
       for (const ticket of tickets.slice(0, 5)) {
         console.log(`   Procesando ticket ${ticket.id}...`);
@@ -317,25 +317,25 @@ async function buscarTicketsPriorizados(supabase: any) {
   // Filtrar: sin propuesta O con propuesta fallida/rechazada
   const data = (allSolicitados || []).filter((t: any) => {
     const propStatus = t.pro_proposal?.status;
-
+    
     // Sin propuesta = OK
     if (!t.pro_proposal) {
       console.log(`      ✓ #${t.ticket_number}: sin propuesta -> INCLUIR`);
       return true;
     }
-
+    
     // Con propuesta fallida = OK (reintentar)
     if (propStatus === 'no_slots' || propStatus === 'no_technicians') {
       console.log(`      ✓ #${t.ticket_number}: propuesta fallida (${propStatus}) -> INCLUIR para reintentar`);
       return true;
     }
-
-    // 🆕 Cliente rechazó propuesta O hizo reset = INCLUIR para buscar nuevas opciones
-    if (propStatus === 'client_rejected' || propStatus === 'reset_by_client') {
-      console.log(`      ✓ #${t.ticket_number}: cliente rechazó/reset (${propStatus}) -> INCLUIR para nuevas opciones`);
+    
+    // 🆕 Cliente rechazó propuesta = INCLUIR para buscar nuevas opciones
+    if (propStatus === 'client_rejected') {
+      console.log(`      ✓ #${t.ticket_number}: cliente rechazó (search_from_tomorrow) -> INCLUIR para nuevas opciones`);
       return true;
     }
-
+    
     // Con propuesta válida = EXCLUIR
     console.log(`      ✗ #${t.ticket_number}: propuesta válida (${propStatus}) -> EXCLUIR`);
     return false;
@@ -345,7 +345,7 @@ async function buscarTicketsPriorizados(supabase: any) {
 
   if (data.length === 0) {
     console.log('   ℹ️  No hay tickets pendientes de procesar');
-
+    
     // Query de diagnóstico: mostrar TODOS los tickets en status solicitado
     console.log('   🔬 Diagnóstico: todos los tickets "solicitado"...');
     const { data: allSolicitados } = await supabase
@@ -353,18 +353,18 @@ async function buscarTicketsPriorizados(supabase: any) {
       .select('id, ticket_number, status, pro_proposal, processing_started_at')
       .eq('status', 'solicitado')
       .limit(10);
-
+    
     if (allSolicitados && allSolicitados.length > 0) {
       console.log(`   🔬 Encontrados ${allSolicitados.length} tickets "solicitado":`);
       allSolicitados.forEach((t: any, i: number) => {
         const propStatus = t.pro_proposal?.status || 'NULL';
         const processing = t.processing_started_at ? 'LOCKED' : 'libre';
-        console.log(`      ${i + 1}. #${t.ticket_number}: pro_proposal.status=${propStatus}, lock=${processing}`);
+        console.log(`      ${i+1}. #${t.ticket_number}: pro_proposal.status=${propStatus}, lock=${processing}`);
       });
     } else {
       console.log('   🔬 NO hay tickets con status="solicitado"');
     }
-
+    
     return [];
   }
 
@@ -383,7 +383,7 @@ async function buscarTicketsPriorizados(supabase: any) {
 
   console.log('   📋 Tickets ordenados (listos para procesar):');
   sorted.slice(0, 5).forEach((t: any, i: number) => {
-    console.log(`      ${i + 1}. ID: ${t.id} | created: ${t.created_at}`);
+    console.log(`      ${i+1}. ID: ${t.id} | created: ${t.created_at}`);
   });
   if (sorted.length > 5) {
     console.log(`      ... y ${sorted.length - 5} más`);
@@ -430,44 +430,44 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
 
     // PASO 2: Lock optimista (SIMPLIFICADO - solo verifica que no esté siendo procesado)
     console.log('  🔒 PASO 2: Intentando lock optimista...');
-
+    
     // Primero verificar estado actual del ticket
     const { data: currentTicket, error: fetchError } = await supabase
       .from('tickets')
       .select('*')
       .eq('id', ticketId)
       .single();
-
+    
     if (fetchError || !currentTicket) {
       console.error('  ❌ Error obteniendo ticket:', fetchError);
       return { skipped: 'ticket_not_found', error: fetchError?.message };
     }
-
+    
     console.log('  📋 Estado actual del ticket:');
     console.log('     - status:', currentTicket.status);
     console.log('     - pro_proposal:', currentTicket.pro_proposal ? JSON.stringify(currentTicket.pro_proposal).substring(0, 100) : 'NULL');
     console.log('     - processing_started_at:', currentTicket.processing_started_at || 'NULL');
-
+    
     // Verificar si ya tiene propuesta válida (waiting_selection o selected)
     const propStatus = currentTicket.pro_proposal?.status;
     if (propStatus === 'waiting_selection' || propStatus === 'selected') {
       console.log('  ⏭️  Ticket ya tiene propuesta válida (status:', propStatus, ')');
       return { skipped: 'already_has_valid_proposal', propStatus };
     }
-
+    
     // Verificar si está siendo procesado por otra instancia
     if (currentTicket.processing_started_at) {
       const lockTime = new Date(currentTicket.processing_started_at).getTime();
       const now = Date.now();
       const lockAgeMinutes = (now - lockTime) / 60000;
-
+      
       if (lockAgeMinutes < 5) {
         console.log('  ⏭️  Ticket siendo procesado por otra instancia (lock age:', lockAgeMinutes.toFixed(1), 'min)');
         return { skipped: 'being_processed' };
       }
       console.log('  🔓 Lock antiguo detectado (', lockAgeMinutes.toFixed(1), 'min), ignorando...');
     }
-
+    
     // Adquirir lock
     const { data: locked, error: lockError } = await supabase
       .from('tickets')
@@ -492,11 +492,11 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
     console.log('     - Teléfono:', ticket.client_phone);
     console.log('     - CP:', ticket.postal_code || ticket.address_cp);
     console.log('     - Origen:', ticket.origin_source);
-
+    
     // 🆕 PASO 2.5: Calcular duración dinámica del servicio
     console.log('  ⏱️  PASO 2.5: Calculando duración dinámica...');
     let serviceDuration = 60; // Default
-
+    
     // Intentar obtener duración de service_types si existe service_type_id
     if (ticket.service_type_id) {
       console.log('     - service_type_id encontrado:', ticket.service_type_id);
@@ -505,13 +505,13 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
         .select('name, estimated_duration_min')
         .eq('id', ticket.service_type_id)
         .single();
-
+      
       if (serviceType?.estimated_duration_min) {
         serviceDuration = serviceType.estimated_duration_min;
         console.log(`     - Duración desde service_types: ${serviceDuration} min (${serviceType.name})`);
       }
     }
-
+    
     // Si no hay service_type, calcular basándose en appliance_info
     if (serviceDuration === 60 && ticket.appliance_info?.type) {
       // Asumimos "Reparación" como tipo de servicio por defecto
@@ -519,13 +519,13 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
       serviceDuration = calcServiceDuration('reparación', applianceType);
       console.log(`     - Duración calculada para "${applianceType}": ${serviceDuration} min`);
     }
-
+    
     // Si el ticket tiene estimated_duration, usar ese (admin lo puede haber editado)
     if (ticket.estimated_duration && ticket.estimated_duration !== serviceDuration) {
       console.log(`     - ⚠️ Ticket tiene estimated_duration personalizado: ${ticket.estimated_duration} min`);
       serviceDuration = ticket.estimated_duration;
     }
-
+    
     console.log(`     ✅ Duración final del servicio: ${serviceDuration} minutos`);
 
     // PASO 3: Obtener configuración PRO
@@ -544,10 +544,10 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
     // PASO 4: Buscar disponibilidad usando RPC (7 días)
     console.log('  📅 PASO 4: Buscando disponibilidad...');
     let slotsEncontrados: SlotFromRPC[] = [];
-
+    
     // 🔧 FIX: Obtener CP del ticket correctamente (igual que SmartAssignmentModal)
     let postalCode: string | null = ticket.postal_code || ticket.address_cp || null;
-
+    
     // Si no hay CP directo en el ticket, buscarlo en client_addresses o profiles
     if (!postalCode && ticket.address_id) {
       console.log('     🔍 Buscando CP en client_addresses (address_id:', ticket.address_id, ')...');
@@ -561,7 +561,7 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
         console.log('     ✅ CP encontrado en client_addresses:', postalCode);
       }
     }
-
+    
     if (!postalCode && ticket.client_id) {
       console.log('     🔍 Buscando CP en profiles (client_id:', ticket.client_id, ')...');
       const { data: profileData } = await supabase
@@ -581,14 +581,14 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
         }
       }
     }
-
+    
     console.log('     📍 CP FINAL para nuevo cliente:', postalCode || 'N/A');
     console.log('     🔍 DEBUG - Datos del ticket:');
     console.log('        - ticket.postal_code:', ticket.postal_code);
     console.log('        - ticket.address_cp:', ticket.address_cp);
     console.log('        - ticket.address_id:', ticket.address_id);
     console.log('        - ticket.client_id:', ticket.client_id);
-
+    
     // Verificar técnicos activos primero
     console.log('  👨‍🔧 Verificando técnicos activos...');
     const { data: techs, error: techError } = await supabase
@@ -596,14 +596,14 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
       .select('id, full_name, is_active')
       .eq('role', 'tech')
       .eq('is_active', true);
-
+    
     if (techError) {
       console.error('  ❌ Error consultando técnicos:', techError);
     } else {
       console.log(`  ✅ Técnicos activos encontrados: ${techs?.length || 0}`);
       techs?.forEach((t: any) => console.log(`     - ${t.full_name} (${t.id})`));
     }
-
+    
     if (!techs || techs.length === 0) {
       console.log('  ⚠️  NO HAY TÉCNICOS ACTIVOS - No se pueden generar slots');
       await supabase.from('tickets').update({
@@ -621,32 +621,21 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
       .eq('key', 'working_hours')
       .single();
     console.log('     working_hours config:', JSON.stringify(hoursConfig?.value || 'NO CONFIGURADO'));
-
-    // 🆕 Detectar si el cliente rechazó propuesta anterior o hizo reset (buscar desde MAÑANA)
+    
+    // 🆕 Detectar si el cliente rechazó propuesta anterior (buscar desde MAÑANA)
     const previousProposal = ticket.pro_proposal;
-
-    // 🔍 DEBUG: Ver valores exactos
-    console.log('  🔍 DEBUG pro_proposal:', JSON.stringify(previousProposal));
-    console.log('  🔍 DEBUG pro_proposal?.status:', previousProposal?.status);
-    console.log('  🔍 DEBUG pro_proposal?.search_from_tomorrow:', previousProposal?.search_from_tomorrow);
-
-    const searchFromTomorrow = previousProposal?.search_from_tomorrow === true ||
-      previousProposal?.status === 'client_rejected' ||
-      previousProposal?.status === 'reset_by_client';
-
-    console.log('  🔍 DEBUG searchFromTomorrow resultado:', searchFromTomorrow);
-
+    const searchFromTomorrow = previousProposal?.search_from_tomorrow === true || 
+                               previousProposal?.status === 'client_rejected';
+    
     // Si cliente rechazó, empezar desde mañana y buscar solo 3 días
     const startDay = searchFromTomorrow ? 1 : 0;
     const maxDays = searchFromTomorrow ? 3 : (proConfig.search_days || 7);
-
+    
     if (searchFromTomorrow) {
       console.log('  🔄 MODO REINTENTO: Cliente rechazó opciones anteriores');
       console.log(`     → Buscando desde MAÑANA (day=${startDay}) hasta ${maxDays} días`);
-    } else {
-      console.log('  ℹ️  Modo normal: buscando desde HOY');
     }
-
+    
     // Buscar slots por día
     let allSlotsAllDays: any[] = [];
     for (let day = startDay; day < startDay + maxDays; day++) {
@@ -656,7 +645,7 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
       const dayName = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][targetDate.getDay()];
 
       console.log(`     📆 Día ${day}: ${dateStr} (${dayName})`);
-
+      
       // Verificar si ese día está configurado
       const dayConfig = hoursConfig?.value?.[dayName];
       console.log(`        Config para ${dayName}:`, dayConfig === null ? 'CERRADO' : JSON.stringify(dayConfig));
@@ -666,7 +655,7 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
       console.log(`           - target_date: ${dateStr}`);
       console.log(`           - duration_minutes: ${serviceDuration} (DINÁMICO)`);
       console.log(`           - target_cp: ${postalCode || 'NULL'}`);
-
+      
       const { data: slots, error: rpcError } = await supabase.rpc('get_tech_availability', {
         target_date: dateStr,
         duration_minutes: serviceDuration,
@@ -683,7 +672,7 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
       }
 
       console.log(`        ✅ RPC exitoso - Slots encontrados: ${slots?.length || 0}`);
-
+      
       // FILTRAR SLOTS PASADOS: Si es HOY, excluir slots cuya hora ya pasó (en hora España)
       let validSlots = slots || [];
       if (day === 0 && validSlots.length > 0) {
@@ -691,11 +680,11 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
         const now = new Date();
         const nowSpain = new Date(now.getTime() + 1 * 60 * 60 * 1000); // +1h para España
         const nowPlusBuffer = new Date(nowSpain.getTime() + 60 * 60 * 1000); // +60 min buffer adicional
-
+        
         console.log(`        ⏰ Hora actual UTC: ${now.toISOString()}`);
-        console.log(`        ⏰ Hora actual España: ${nowSpain.toISOString().split('T')[1].slice(0, 5)}`);
-        console.log(`        ⏰ Umbral mínimo (España + 1h buffer): ${nowPlusBuffer.toISOString().split('T')[1].slice(0, 5)}`);
-
+        console.log(`        ⏰ Hora actual España: ${nowSpain.toISOString().split('T')[1].slice(0,5)}`);
+        console.log(`        ⏰ Umbral mínimo (España + 1h buffer): ${nowPlusBuffer.toISOString().split('T')[1].slice(0,5)}`);
+        
         const beforeFilter = validSlots.length;
         validSlots = validSlots.filter((s: any) => {
           const slotTimeUTC = new Date(s.slot_start);
@@ -703,13 +692,13 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
           const slotTimeSpain = new Date(slotTimeUTC.getTime() + 1 * 60 * 60 * 1000);
           const isValid = slotTimeSpain > nowPlusBuffer;
           if (!isValid) {
-            console.log(`           ✗ Slot ${slotTimeSpain.toISOString().split('T')[1].slice(0, 5)} (España) ya pasó o está muy cerca`);
+            console.log(`           ✗ Slot ${slotTimeSpain.toISOString().split('T')[1].slice(0,5)} (España) ya pasó o está muy cerca`);
           }
           return isValid;
         });
         console.log(`        📋 Slots válidos después de filtrar: ${validSlots.length}/${beforeFilter}`);
       }
-
+      
       if (validSlots.length > 0) {
         console.log(`        📋 Primeros 3 slots válidos (antes de filtro viaje):`, JSON.stringify(validSlots.slice(0, 3)));
       } else {
@@ -722,11 +711,11 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
       // ═══════════════════════════════════════════════════════════════
       if (validSlots.length > 0) {
         console.log(`        🚗 Aplicando filtro de tiempo de viaje...`);
-
+        
         // Obtener IDs únicos de técnicos en estos slots
         const techIds = [...new Set(validSlots.map((s: any) => s.technician_id))];
         console.log(`        🔍 Técnicos en slots: ${techIds.length}`);
-
+        
         // Buscar TODOS los servicios de estos técnicos en este día
         // IGUAL QUE SmartAssignmentModal: usar JOIN para traer profiles con CP
         const { data: existingServices, error: svcError } = await supabase
@@ -737,28 +726,28 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
           .lt('scheduled_at', `${dateStr}T23:59:59`)
           .not('scheduled_at', 'is', null)
           .order('scheduled_at', { ascending: true });
-
+        
         console.log(`        📊 Query servicios - Raw result: ${existingServices?.length || 0} tickets`);
-
+        
         if (svcError) {
           console.error(`        ❌ Error buscando servicios existentes:`, svcError);
           console.error(`        ❌ Código: ${svcError.code}, Mensaje: ${svcError.message}`);
         } else {
           // Filtrar status manualmente para evitar problemas de sintaxis SQL
           const excludedStatuses = ['cancelado', 'rejected', 'finalizado', 'anulado'];
-          const activeServices = (existingServices || []).filter((svc: any) =>
+          const activeServices = (existingServices || []).filter((svc: any) => 
             !excludedStatuses.includes((svc.status || '').toLowerCase())
           );
-
+          
           console.log(`        📊 Servicios encontrados: ${existingServices?.length || 0} total, ${activeServices.length} activos`);
-
+          
           // DEBUG: Mostrar cada servicio encontrado
           activeServices.forEach((svc: any) => {
             const start = new Date(svc.scheduled_at);
             const end = svc.scheduled_end_at ? new Date(svc.scheduled_end_at) : new Date(start.getTime() + (svc.estimated_duration || 60) * 60000);
-            console.log(`        📋 #${svc.ticket_number}: ${start.toISOString().slice(11, 16)}-${end.toISOString().slice(11, 16)} UTC | status=${svc.status} | client_id=${svc.client_id?.slice(0, 8)}...`);
+            console.log(`        📋 #${svc.ticket_number}: ${start.toISOString().slice(11,16)}-${end.toISOString().slice(11,16)} UTC | status=${svc.status} | client_id=${svc.client_id?.slice(0,8)}...`);
           });
-
+          
           // Agrupar servicios por técnico
           const servicesByTech: Record<string, any[]> = {};
           for (const svc of activeServices) {
@@ -767,7 +756,7 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
             }
             servicesByTech[svc.technician_id].push(svc);
           }
-
+          
           // Helper: Extraer CP del servicio (usando datos del JOIN - igual que SmartAssignmentModal)
           const extractCPFromService = (svc: any): string | null => {
             // 1. Desde client_address (JOIN con address_id)
@@ -785,80 +774,80 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
             }
             return null;
           };
-
+          
           // CP del nuevo cliente (el del ticket actual)
           const newClientCP = postalCode;
           console.log(`        🎯 CP nuevo cliente (Torrox/destino): ${newClientCP || 'N/A'}`);
-
+          
           // Filtrar slots que no cumplan con el margen de viaje
           const beforeTravelFilter = validSlots.length;
           const filteredByTravel: any[] = [];
-
+          
           console.log(`        🔍 Evaluando ${validSlots.length} slots...`);
-
+          
           for (const slot of validSlots) {
             const techServices = servicesByTech[slot.technician_id] || [];
             const slotStart = new Date(slot.slot_start);
             const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60 * 1000);
             let isValid = true;
             let rejectionReason = '';
-
+            
             // DEBUG: Mostrar info del slot
             const slotTimeStr = slotStart.toISOString().slice(11, 16);
-
+            
             if (techServices.length === 0) {
               console.log(`        ✅ ${slot.technician_name} @ ${slotTimeStr} UTC - Sin servicios previos, ACEPTADO`);
             }
-
+            
             for (const svc of techServices) {
               const svcStart = new Date(svc.scheduled_at);
               const svcDuration = svc.estimated_duration || 60;
-              const svcEnd = svc.scheduled_end_at
-                ? new Date(svc.scheduled_end_at)
+              const svcEnd = svc.scheduled_end_at 
+                ? new Date(svc.scheduled_end_at) 
                 : new Date(svcStart.getTime() + svcDuration * 60 * 1000);
-
+              
               // Obtener CP del servicio anterior (usando datos del JOIN)
               const prevServiceCP = extractCPFromService(svc);
-
+              
               // Calcular tiempo de viaje dinámico
               const travelTime = calcTravelTime(prevServiceCP, newClientCP);
-
+              
               // Calcular hora mínima disponible después del servicio anterior
               const minAvailableAfter = new Date(svcEnd.getTime() + travelTime * 60 * 1000);
-
+              
               // DEBUG detallado
               console.log(`        🔄 ${slot.technician_name} @ ${slotTimeStr} UTC vs #${svc.ticket_number}:`);
-              console.log(`           Servicio: ${svcStart.toISOString().slice(11, 16)}-${svcEnd.toISOString().slice(11, 16)} UTC`);
+              console.log(`           Servicio: ${svcStart.toISOString().slice(11,16)}-${svcEnd.toISOString().slice(11,16)} UTC`);
               console.log(`           CP origen: ${prevServiceCP || 'N/A'} → CP destino: ${newClientCP || 'N/A'}`);
               console.log(`           Tiempo viaje: ${travelTime} min`);
-              console.log(`           Min disponible: ${minAvailableAfter.toISOString().slice(11, 16)} UTC`);
+              console.log(`           Min disponible: ${minAvailableAfter.toISOString().slice(11,16)} UTC`);
               console.log(`           Slot propuesto: ${slotTimeStr} UTC`);
               console.log(`           ¿Slot >= svcStart? ${slotStart >= svcStart} | ¿Slot < minAvailable? ${slotStart < minAvailableAfter}`);
-
+              
               // REGLA 1: Slot empieza durante/después del servicio pero antes del margen de viaje
               if (slotStart >= svcStart && slotStart < minAvailableAfter) {
-                rejectionReason = `Viaje ${travelTime}min desde CP ${prevServiceCP || 'N/A'}, disponible: ${minAvailableAfter.toISOString().slice(11, 16)} UTC`;
+                rejectionReason = `Viaje ${travelTime}min desde CP ${prevServiceCP || 'N/A'}, disponible: ${minAvailableAfter.toISOString().slice(11,16)} UTC`;
                 console.log(`        ❌ RECHAZADO: ${slot.technician_name} @ ${slotTimeStr} - ${rejectionReason}`);
                 isValid = false;
                 break;
               }
-
+              
               // REGLA 2: Overlap
               if (slotStart < svcStart && slotEnd > svcStart) {
-                rejectionReason = `Overlap con servicio ${svcStart.toISOString().slice(11, 16)} UTC`;
+                rejectionReason = `Overlap con servicio ${svcStart.toISOString().slice(11,16)} UTC`;
                 console.log(`        ❌ RECHAZADO: ${slot.technician_name} @ ${slotTimeStr} - ${rejectionReason}`);
                 isValid = false;
                 break;
               }
-
+              
               console.log(`        ✅ ${slot.technician_name} @ ${slotTimeStr} - Pasa validación vs #${svc.ticket_number}`);
             }
-
+            
             if (isValid) {
               filteredByTravel.push(slot);
             }
           }
-
+          
           validSlots = filteredByTravel;
           console.log(`        🚗 RESULTADO filtro viaje: ${beforeTravelFilter} -> ${validSlots.length} slots`);
         }
@@ -867,7 +856,7 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
       if (validSlots.length > 0) {
         console.log(`        📋 Primeros 3 slots válidos (después de filtro viaje):`, JSON.stringify(validSlots.slice(0, 3)));
       }
-
+      
       allSlotsAllDays.push({ day, date: dateStr, dayName, slots: validSlots.length });
 
       if (validSlots.length > 0) {
@@ -877,7 +866,7 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
         break;
       }
     }
-
+    
     console.log('  📊 Resumen búsqueda:', JSON.stringify(allSlotsAllDays));
 
     // PASO 5: Sin disponibilidad
@@ -918,7 +907,7 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
     // PASO 8: Construir propuesta
     console.log('  📝 PASO 8: Construyendo propuesta...');
     const timeoutMinutes = proConfig.timeout_minutes || 3;
-
+    
     // Convertir a hora España (UTC+1 en invierno, UTC+2 en verano)
     const toSpainTime = (utcDate: Date): { date: string, time: string } => {
       // España está en CET (UTC+1) en invierno y CEST (UTC+2) en verano
@@ -930,18 +919,18 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
         time: spainDate.toISOString().split('T')[1].slice(0, 5)
       };
     };
-
+    
     const propuesta: ProProposal = {
       slots: seleccionados.map((s: SlotFromRPC, i: number) => {
         const slotDate = new Date(s.slot_start);
         // 🆕 Usar duración DINÁMICA calculada para este ticket
         const slotEndDate = new Date(slotDate.getTime() + serviceDuration * 60 * 1000);
-
+        
         const startSpain = toSpainTime(slotDate);
         const endSpain = toSpainTime(slotEndDate);
-
-        console.log(`     Slot ${i + 1}: UTC ${slotDate.toISOString()} -> España ${startSpain.date} ${startSpain.time}`);
-
+        
+        console.log(`     Slot ${i+1}: UTC ${slotDate.toISOString()} -> España ${startSpain.date} ${startSpain.time}`);
+        
         return {
           option: i + 1,
           date: startSpain.date,
@@ -1012,7 +1001,7 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
 // ═══════════════════════════════════════════════════════════════════════════
 async function aplicarEstrategia(supabase: any, slots: SlotFromRPC[], cantidad: number): Promise<SlotFromRPC[]> {
   console.log('     Obteniendo estrategia configurada...');
-
+  
   const { data: config } = await supabase
     .from('business_config')
     .select('value')
@@ -1072,7 +1061,7 @@ async function rollback(supabase: any, ticketId: string) {
     .from('tickets')
     .update({ processing_started_at: null })
     .eq('id', ticketId);
-
+  
   if (error) {
     console.error('  ❌ Error en rollback:', error);
   } else {
