@@ -684,26 +684,45 @@ const Dashboard = () => {
     const handleResetRequest = async (ticket) => {
         if (!window.confirm('¿Quieres volver a solicitar citas para este servicio?\n\nEsto buscará nuevas opciones de horario disponibles.')) return;
 
+        console.log('[RESET REQUEST] Iniciando reset para ticket:', ticket.id);
+        console.log('[RESET REQUEST] Estado actual:', ticket.status);
+        console.log('[RESET REQUEST] pro_proposal actual:', ticket.pro_proposal);
+
         try {
             setLoading(true);
 
-            // Limpiar pro_proposal y volver a status 'solicitado' para que el bot lo reprocese
-            const { error } = await supabase
+            // Preparar pro_proposal con flag para que el bot busque desde MAÑANA
+            const resetProposal = {
+                status: 'reset_by_client',
+                search_from_tomorrow: true,  // El bot buscará desde mañana, no desde hoy
+                reset_at: new Date().toISOString(),
+                previous_status: ticket.status
+            };
+
+            console.log('[RESET REQUEST] Enviando update a Supabase...');
+            console.log('[RESET REQUEST] Nuevo pro_proposal:', resetProposal);
+
+            // Limpiar y volver a status 'solicitado' para que el bot lo reprocese
+            const { data, error } = await supabase
                 .from('tickets')
                 .update({
                     status: 'solicitado',  // Volver a solicitado para que el bot lo procese
-                    pro_proposal: null,
+                    pro_proposal: resetProposal,  // Con flag para buscar desde mañana
                     processing_started_at: null,
                     appointment_status: 'pending'
                 })
-                .eq('id', ticket.id);
+                .eq('id', ticket.id)
+                .select();
+
+            console.log('[RESET REQUEST] Respuesta Supabase data:', data);
+            console.log('[RESET REQUEST] Respuesta Supabase error:', error);
 
             if (error) throw error;
 
             addToast('🔄 Buscando nuevas citas disponibles...', 'info', true);
             fetchDashboardData();
         } catch (error) {
-            console.error('Error resetting request:', error);
+            console.error('[RESET REQUEST] Error:', error);
             addToast('Error al reiniciar solicitud: ' + error.message, 'error');
         } finally {
             setLoading(false);
