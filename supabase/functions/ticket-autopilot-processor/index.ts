@@ -314,7 +314,7 @@ async function buscarTicketsPriorizados(supabase: any) {
 
   console.log(`   ✅ Tickets 'solicitado' sin lock: ${allSolicitados?.length || 0}`);
 
-  // Filtrar: sin propuesta O con propuesta fallida/rechazada
+  // Filtrar: sin propuesta O con propuesta fallida (no_slots, no_technicians)
   const data = (allSolicitados || []).filter((t: any) => {
     const propStatus = t.pro_proposal?.status;
     
@@ -327,12 +327,6 @@ async function buscarTicketsPriorizados(supabase: any) {
     // Con propuesta fallida = OK (reintentar)
     if (propStatus === 'no_slots' || propStatus === 'no_technicians') {
       console.log(`      ✓ #${t.ticket_number}: propuesta fallida (${propStatus}) -> INCLUIR para reintentar`);
-      return true;
-    }
-    
-    // 🆕 Cliente rechazó propuesta = INCLUIR para buscar nuevas opciones
-    if (propStatus === 'client_rejected') {
-      console.log(`      ✓ #${t.ticket_number}: cliente rechazó (search_from_tomorrow) -> INCLUIR para nuevas opciones`);
       return true;
     }
     
@@ -622,23 +616,9 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
       .single();
     console.log('     working_hours config:', JSON.stringify(hoursConfig?.value || 'NO CONFIGURADO'));
     
-    // 🆕 Detectar si el cliente rechazó propuesta anterior (buscar desde MAÑANA)
-    const previousProposal = ticket.pro_proposal;
-    const searchFromTomorrow = previousProposal?.search_from_tomorrow === true || 
-                               previousProposal?.status === 'client_rejected';
-    
-    // Si cliente rechazó, empezar desde mañana y buscar solo 3 días
-    const startDay = searchFromTomorrow ? 1 : 0;
-    const maxDays = searchFromTomorrow ? 3 : (proConfig.search_days || 7);
-    
-    if (searchFromTomorrow) {
-      console.log('  🔄 MODO REINTENTO: Cliente rechazó opciones anteriores');
-      console.log(`     → Buscando desde MAÑANA (day=${startDay}) hasta ${maxDays} días`);
-    }
-    
-    // Buscar slots por día
+    // Buscar slots por día (empezando desde HOY = day 0)
     let allSlotsAllDays: any[] = [];
-    for (let day = startDay; day < startDay + maxDays; day++) {
+    for (let day = 0; day < (proConfig.search_days || 7); day++) {
       const targetDate = new Date();
       targetDate.setDate(targetDate.getDate() + day);
       const dateStr = targetDate.toISOString().split('T')[0];
