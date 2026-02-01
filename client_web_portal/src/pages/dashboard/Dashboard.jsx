@@ -745,16 +745,16 @@ const Dashboard = () => {
                 return false;
             };
 
-            // Intentar detectar a los 3, 6 y 10 segundos
+            // Intentar detectar a los 1.5, 3 y 5 segundos (más rápido)
             setTimeout(async () => {
                 if (!await checkForNewProposal()) {
                     setTimeout(async () => {
                         if (!await checkForNewProposal()) {
-                            setTimeout(checkForNewProposal, 4000); // 10s total
+                            setTimeout(checkForNewProposal, 2000); // 5s total
                         }
-                    }, 3000); // 6s
+                    }, 1500); // 3s
                 }
-            }, 3000); // 3s
+            }, 1500); // 1.5s
         } catch (error) {
             console.error('[RESET REQUEST] Error:', error);
             addToast('Error al reiniciar solicitud: ' + error.message, 'error');
