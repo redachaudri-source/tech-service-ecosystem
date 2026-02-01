@@ -33,26 +33,61 @@ const AppointmentSelectorModal = ({
     const [timeLeft, setTimeLeft] = useState(totalSeconds);
     const [isExpired, setIsExpired] = useState(false);
     const timerRef = useRef(null);
+    const prevSlotsRef = useRef(null); // Para detectar si los slots realmente cambiaron
+    const timerStartedRef = useRef(false); // Para evitar reiniciar el timer
+
+    // Helper: Comparar si dos arrays de slots son iguales (por contenido)
+    const slotsAreEqual = (a, b) => {
+        if (!a || !b) return false;
+        if (a.length !== b.length) return false;
+        return a.every((slot, i) => 
+            slot.date === b[i]?.date && 
+            slot.time_start === b[i]?.time_start &&
+            slot.technician_id === b[i]?.technician_id
+        );
+    };
 
     // Start countdown when modal opens (uses pro_config.timeout_minutes)
+    // FIX: Solo resetear si los slots REALMENTE cambiaron, no por re-renders
     useEffect(() => {
         if (isOpen && slots.length > 0) {
-            const seconds = Math.max(60, timeoutMinutes * 60);
-            setTimeLeft(seconds);
-            setIsExpired(false);
-            setSelectedIndex(null);
+            // Verificar si los slots son los mismos que antes
+            const slotsChanged = !slotsAreEqual(slots, prevSlotsRef.current);
+            prevSlotsRef.current = slots;
 
-            timerRef.current = setInterval(() => {
-                setTimeLeft(prev => {
-                    if (prev <= 1) {
-                        clearInterval(timerRef.current);
-                        setIsExpired(true);
-                        if (onTimeout) onTimeout();
-                        return 0;
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
+            // Solo iniciar timer si NO está corriendo o si los slots cambiaron
+            if (!timerStartedRef.current || slotsChanged) {
+                console.log('[Modal] Iniciando timer. slotsChanged:', slotsChanged);
+                
+                const seconds = Math.max(60, timeoutMinutes * 60);
+                setTimeLeft(seconds);
+                setIsExpired(false);
+                
+                // Solo resetear selección si los slots realmente cambiaron
+                if (slotsChanged) {
+                    setSelectedIndex(null);
+                }
+
+                // Limpiar timer anterior si existe
+                if (timerRef.current) {
+                    clearInterval(timerRef.current);
+                }
+
+                timerRef.current = setInterval(() => {
+                    setTimeLeft(prev => {
+                        if (prev <= 1) {
+                            clearInterval(timerRef.current);
+                            timerStartedRef.current = false;
+                            setIsExpired(true);
+                            if (onTimeout) onTimeout();
+                            return 0;
+                        }
+                        return prev - 1;
+                    });
+                }, 1000);
+                
+                timerStartedRef.current = true;
+            }
         }
 
         return () => {
@@ -67,6 +102,8 @@ const AppointmentSelectorModal = ({
             setSelectedIndex(null);
             setIsExpired(false);
             setTimeLeft(totalSeconds);
+            prevSlotsRef.current = null;
+            timerStartedRef.current = false;
             if (timerRef.current) {
                 clearInterval(timerRef.current);
                 timerRef.current = null;

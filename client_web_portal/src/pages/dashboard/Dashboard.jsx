@@ -66,7 +66,8 @@ const Dashboard = () => {
                         const slotsFromUpdate = payload.new?.pro_proposal?.slots || payload.new?.pro_proposal?.proposed_slots;
                         if (slotsFromUpdate?.length) {
                             const status = (payload.new.pro_proposal.status ?? 'waiting_selection').toString().toLowerCase();
-                            if (status === 'waiting_selection') {
+                            // FIX: Solo abrir si no hay modal abierto para evitar reset de selección
+                            if (status === 'waiting_selection' && !proposalModal.show) {
                                 openProposalModal(payload.new);
                             }
                         }
