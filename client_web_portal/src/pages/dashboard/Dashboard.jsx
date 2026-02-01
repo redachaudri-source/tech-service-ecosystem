@@ -423,21 +423,19 @@ const Dashboard = () => {
         modalBlockedUntilRef.current = Date.now() + 5000;
 
         try {
-            // Marcar propuesta como rechazada con info para que el bot busque desde día siguiente
+            // Marcar propuesta como rechazada - NO reprocesar automáticamente
             const updatedProposal = {
                 ...(proposal || {}),
                 status: 'client_rejected',
                 rejected_at: new Date().toISOString(),
-                rejected_reason: 'client_skip',
-                search_from_tomorrow: true  // Flag para el bot: empezar desde mañana
+                rejected_reason: 'client_skip'
             };
 
             const { error } = await supabase
                 .from('tickets')
                 .update({
-                    appointment_status: 'pending',  // Volver a pendiente para que el bot lo reprocese
-                    pro_proposal: updatedProposal,
-                    processing_started_at: null     // Permitir reprocesamiento
+                    status: 'cita_rechazada',  // Nuevo estado - el bot NO lo reprocesa
+                    pro_proposal: updatedProposal
                 })
                 .eq('id', ticket.id);
 
@@ -445,7 +443,7 @@ const Dashboard = () => {
 
             setProposalModal({ show: false, ticket: null, slots: [], proposal: null, timeoutMinutes: 3, confirming: false });
             fetchDashboardData();
-            addToast('🔄 Buscando nuevas opciones para ti...', 'info', true);
+            addToast('Citas rechazadas. Puedes pulsar "Repetir Solicitud" cuando quieras buscar nuevas opciones.', 'info', true);
         } catch (error) {
             console.error('Error rejecting proposal:', error);
             addToast('Error al procesar. Te llamaremos para coordinar.', 'error', true);
@@ -471,15 +469,19 @@ const Dashboard = () => {
             const { error } = await supabase
                 .from('tickets')
                 .update({
+                    status: 'cita_rechazada',  // Nuevo estado - el bot NO lo reprocesa
                     pro_proposal: updatedProposal
                 })
                 .eq('id', ticket.id);
 
             if (error) throw error;
+
+            addToast('Tiempo expirado. Puedes pulsar "Repetir Solicitud" cuando quieras buscar nuevas citas.', 'info', true);
         } catch (error) {
             console.error('Error expiring proposal:', error);
         } finally {
             setProposalModal({ show: false, ticket: null, slots: [], proposal: null, timeoutMinutes: 3, confirming: false });
+            fetchDashboardData();
         }
     };
 
@@ -675,10 +677,11 @@ const Dashboard = () => {
         try {
             setLoading(true);
 
-            // Limpiar pro_proposal y processing_started_at para que el bot lo reprocese
+            // Limpiar pro_proposal y volver a status 'solicitado' para que el bot lo reprocese
             const { error } = await supabase
                 .from('tickets')
                 .update({
+                    status: 'solicitado',  // Volver a solicitado para que el bot lo procese
                     pro_proposal: null,
                     processing_started_at: null,
                     appointment_status: 'pending'
@@ -706,6 +709,7 @@ const Dashboard = () => {
         switch (status) {
             case 'nuevo':
             case 'solicitado': return 'bg-blue-100 text-blue-700 border-blue-200';
+            case 'cita_rechazada': return 'bg-orange-100 text-orange-700 border-orange-200';
             case 'asignado': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
             case 'presupuesto_pendiente': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
             case 'presupuesto_revision': return 'bg-red-100 text-red-800 border-red-300'; // New
@@ -724,6 +728,7 @@ const Dashboard = () => {
         const labels = {
             'nuevo': 'Pendiente',
             'solicitado': 'Solicitud Enviada',
+            'cita_rechazada': 'Cita Rechazada',
             'asignado': 'Técnico Asignado',
             'en_diagnostico': 'En Diagnóstico',
             'presupuesto_pendiente': 'Presupuesto Pte. Aceptación',
@@ -1057,8 +1062,8 @@ const Dashboard = () => {
                                             {ticket.description_failure}
                                         </p>
 
-                                        {/* Botón Repetir Solicitud - Solo para tickets 'solicitado' */}
-                                        {ticket.status === 'solicitado' && (
+                                        {/* Botón Repetir Solicitud - Para tickets 'solicitado' o 'cita_rechazada' */}
+                                        {(ticket.status === 'solicitado' || ticket.status === 'cita_rechazada') && (
                                             <div className="mt-3">
                                                 <button
                                                     onClick={() => handleResetRequest(ticket)}
