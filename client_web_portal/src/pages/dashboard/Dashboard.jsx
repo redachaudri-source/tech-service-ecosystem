@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { LogOut, Plus, Clock, CheckCircle, AlertCircle, Wrench, User, Calendar, FileText, Package, PieChart, ShieldAlert, MapPin } from 'lucide-react';
+import { LogOut, Plus, Clock, CheckCircle, AlertCircle, Wrench, User, Calendar, FileText, Package, PieChart, ShieldAlert, MapPin, RefreshCw } from 'lucide-react';
 import TechLocationMap from '../../components/TechLocationMap';
 
 import { useToast } from '../../components/ToastProvider';
@@ -668,6 +668,35 @@ const Dashboard = () => {
         }
     };
 
+    // Repetir Solicitud - Resetea el ticket para que el bot lo reprocese
+    const handleResetRequest = async (ticket) => {
+        if (!window.confirm('¿Quieres volver a solicitar citas para este servicio?\n\nEsto buscará nuevas opciones de horario disponibles.')) return;
+
+        try {
+            setLoading(true);
+
+            // Limpiar pro_proposal y processing_started_at para que el bot lo reprocese
+            const { error } = await supabase
+                .from('tickets')
+                .update({
+                    pro_proposal: null,
+                    processing_started_at: null,
+                    appointment_status: 'pending'
+                })
+                .eq('id', ticket.id);
+
+            if (error) throw error;
+
+            addToast('🔄 Buscando nuevas citas disponibles...', 'info', true);
+            fetchDashboardData();
+        } catch (error) {
+            console.error('Error resetting request:', error);
+            addToast('Error al reiniciar solicitud: ' + error.message, 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleLogout = async () => {
         await supabase.auth.signOut();
         navigate('/auth/login');
@@ -1027,6 +1056,22 @@ const Dashboard = () => {
                                         <p className={`text-sm line-clamp-2 ${isPro ? 'text-white/60' : 'text-slate-500'}`}>
                                             {ticket.description_failure}
                                         </p>
+
+                                        {/* Botón Repetir Solicitud - Solo para tickets 'solicitado' */}
+                                        {ticket.status === 'solicitado' && (
+                                            <div className="mt-3">
+                                                <button
+                                                    onClick={() => handleResetRequest(ticket)}
+                                                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition ${isPro
+                                                        ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30'
+                                                        : 'bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 hover:border-blue-300'
+                                                        }`}
+                                                >
+                                                    <RefreshCw size={16} />
+                                                    Repetir Solicitud
+                                                </button>
+                                            </div>
+                                        )}
 
                                         {/* TECH LOCATION MAP - Only when 'en_camino' */}
                                         {ticket.status === 'en_camino' && ticket.technician_id && (

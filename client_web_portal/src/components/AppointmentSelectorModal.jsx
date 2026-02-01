@@ -28,72 +28,57 @@ const AppointmentSelectorModal = ({
     onSkip,
     onTimeout
 }) => {
-    const totalSeconds = Math.max(60, timeoutMinutes * 60);
     const [selectedIndex, setSelectedIndex] = useState(null);
-    const [timeLeft, setTimeLeft] = useState(totalSeconds);
+    const [timeLeft, setTimeLeft] = useState(timeoutMinutes * 60);
     const [isExpired, setIsExpired] = useState(false);
     const timerRef = useRef(null);
-    const prevSlotsRef = useRef(null); // Para detectar si los slots realmente cambiaron
-    const timerStartedRef = useRef(false); // Para evitar reiniciar el timer
+    const modalOpenedRef = useRef(false);
 
-    // Helper: Comparar si dos arrays de slots son iguales (por contenido)
-    const slotsAreEqual = (a, b) => {
-        if (!a || !b) return false;
-        if (a.length !== b.length) return false;
-        return a.every((slot, i) =>
-            slot.date === b[i]?.date &&
-            slot.time_start === b[i]?.time_start &&
-            slot.technician_id === b[i]?.technician_id
-        );
-    };
-
-    // Start countdown when modal opens (uses pro_config.timeout_minutes)
-    // FIX: Solo resetear si los slots REALMENTE cambiaron, no por re-renders
+    // Start countdown when modal opens - SIMPLE AND RELIABLE
     useEffect(() => {
+        // Limpiar timer anterior
+        if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+        }
+
         if (isOpen && slots.length > 0) {
-            // Verificar si los slots son los mismos que antes
-            const slotsChanged = !slotsAreEqual(slots, prevSlotsRef.current);
-            prevSlotsRef.current = slots;
-
-            // Solo iniciar timer si NO está corriendo o si los slots cambiaron
-            if (!timerStartedRef.current || slotsChanged) {
-                console.log('[Modal] Iniciando timer. slotsChanged:', slotsChanged);
-
+            // Reset al abrir
+            if (!modalOpenedRef.current) {
                 const seconds = Math.max(60, timeoutMinutes * 60);
                 setTimeLeft(seconds);
                 setIsExpired(false);
+                setSelectedIndex(null);
+                modalOpenedRef.current = true;
 
-                // Solo resetear selección si los slots realmente cambiaron
-                if (slotsChanged) {
-                    setSelectedIndex(null);
-                }
-
-                // Limpiar timer anterior si existe
-                if (timerRef.current) {
-                    clearInterval(timerRef.current);
-                }
-
-                timerRef.current = setInterval(() => {
-                    setTimeLeft(prev => {
-                        if (prev <= 1) {
-                            clearInterval(timerRef.current);
-                            timerStartedRef.current = false;
-                            setIsExpired(true);
-                            if (onTimeout) onTimeout();
-                            return 0;
-                        }
-                        return prev - 1;
-                    });
-                }, 1000);
-
-                timerStartedRef.current = true;
+                console.log('[Modal] Iniciando timer:', seconds, 'segundos');
             }
+
+            // Iniciar countdown
+            timerRef.current = setInterval(() => {
+                setTimeLeft(prev => {
+                    if (prev <= 1) {
+                        clearInterval(timerRef.current);
+                        timerRef.current = null;
+                        setIsExpired(true);
+                        if (onTimeout) onTimeout();
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+        } else {
+            // Modal cerrado - reset
+            modalOpenedRef.current = false;
         }
 
         return () => {
-            if (timerRef.current) clearInterval(timerRef.current);
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
         };
-    }, [isOpen, slots, timeoutMinutes]);
+    }, [isOpen, slots.length, timeoutMinutes, onTimeout]);
 
     // Reset state when modal closes
     useEffect(() => {
@@ -177,7 +162,7 @@ const AppointmentSelectorModal = ({
             <div className="bg-white rounded-2xl shadow-2xl w-[calc(100%-24px)] sm:w-full max-w-[420px] mx-auto my-auto max-h-[calc(100vh-48px)] sm:max-h-[90vh] overflow-hidden flex flex-col">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-5 text-white">
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                             <Calendar className="w-5 h-5" />
                             <h2 className="font-bold text-lg">Elige tu Cita</h2>
@@ -188,6 +173,11 @@ const AppointmentSelectorModal = ({
                             <span>{formatTime(timeLeft)}</span>
                         </div>
                     </div>
+
+                    {/* Mensaje explicativo del timer */}
+                    <p className="text-blue-200 text-xs mb-3 text-right">
+                        ⏱️ Selecciona antes de que expire el tiempo
+                    </p>
 
                     {/* Ticket info */}
                     <div className="text-blue-100 text-sm space-y-0.5">
