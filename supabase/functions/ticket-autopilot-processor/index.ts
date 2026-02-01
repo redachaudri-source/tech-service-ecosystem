@@ -622,10 +622,11 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
       .single();
     console.log('     working_hours config:', JSON.stringify(hoursConfig?.value || 'NO CONFIGURADO'));
 
-    // 🆕 Detectar si el cliente rechazó propuesta anterior (buscar desde MAÑANA)
+    // 🆕 Detectar si el cliente rechazó propuesta anterior o hizo reset (buscar desde MAÑANA)
     const previousProposal = ticket.pro_proposal;
     const searchFromTomorrow = previousProposal?.search_from_tomorrow === true ||
-      previousProposal?.status === 'client_rejected';
+      previousProposal?.status === 'client_rejected' ||
+      previousProposal?.status === 'reset_by_client';
 
     // Si cliente rechazó, empezar desde mañana y buscar solo 3 días
     const startDay = searchFromTomorrow ? 1 : 0;
