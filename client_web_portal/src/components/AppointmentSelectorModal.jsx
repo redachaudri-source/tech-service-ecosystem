@@ -80,22 +80,6 @@ const AppointmentSelectorModal = ({
         };
     }, [isOpen, slots.length, timeoutMinutes, onTimeout]);
 
-    // Reset state when modal closes
-    useEffect(() => {
-        if (!isOpen) {
-            // Reset all state immediately
-            setSelectedIndex(null);
-            setIsExpired(false);
-            setTimeLeft(totalSeconds);
-            prevSlotsRef.current = null;
-            timerStartedRef.current = false;
-            if (timerRef.current) {
-                clearInterval(timerRef.current);
-                timerRef.current = null;
-            }
-        }
-    }, [isOpen]);
-
     // Don't render if closed OR if no slots
     if (!isOpen || !slots || slots.length === 0) return null;
 
