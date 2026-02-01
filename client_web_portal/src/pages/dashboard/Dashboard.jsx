@@ -28,7 +28,7 @@ const Dashboard = () => {
         timeoutMinutes: 3,
         confirming: false  // Flag para evitar reabrir durante confirmación
     });
-    
+
     // REF para evitar reapertura del modal (más confiable que estado por closures)
     const recentlyHandledTicketRef = useRef(null);
     const modalBlockedUntilRef = useRef(0);
@@ -66,15 +66,15 @@ const Dashboard = () => {
                             if (payload.new.technician_id && !payload.old.technician_id) {
                                 addToast('¡Técnico Asignado!', 'success', true);
                             }
-                        // Soportar ambas estructuras: 'slots' (bot PRO) y 'proposed_slots' (legacy)
-                        const slotsFromUpdate = payload.new?.pro_proposal?.slots || payload.new?.pro_proposal?.proposed_slots;
-                        if (slotsFromUpdate?.length) {
-                            const status = (payload.new.pro_proposal.status ?? 'waiting_selection').toString().toLowerCase();
-                            // FIX: Solo abrir si no hay modal abierto para evitar reset de selección
-                            if (status === 'waiting_selection' && !proposalModal.show) {
-                                openProposalModal(payload.new);
+                            // Soportar ambas estructuras: 'slots' (bot PRO) y 'proposed_slots' (legacy)
+                            const slotsFromUpdate = payload.new?.pro_proposal?.slots || payload.new?.pro_proposal?.proposed_slots;
+                            if (slotsFromUpdate?.length) {
+                                const status = (payload.new.pro_proposal.status ?? 'waiting_selection').toString().toLowerCase();
+                                // FIX: Solo abrir si no hay modal abierto para evitar reset de selección
+                                if (status === 'waiting_selection' && !proposalModal.show) {
+                                    openProposalModal(payload.new);
+                                }
                             }
-                        }
                         }
                     }
                 )
@@ -82,7 +82,7 @@ const Dashboard = () => {
                     console.log('Realtime Status:', status);
                     setIsConnected(status === 'SUBSCRIBED');
                 });
-            
+
             // ═══════════════════════════════════════════════════════════════
             // FAST POLLING: Check every 3 seconds for pending proposals
             // This ensures near-instant response even if Realtime has lag
@@ -91,7 +91,7 @@ const Dashboard = () => {
                 try {
                     const { data: { user } } = await supabase.auth.getUser();
                     if (!user) return;
-                    
+
                     // Only fetch tickets with status='solicitado' that might have new proposals
                     const { data: pendingTickets } = await supabase
                         .from('tickets')
@@ -100,7 +100,7 @@ const Dashboard = () => {
                         .eq('status', 'solicitado')
                         .order('created_at', { ascending: false })
                         .limit(5);
-                    
+
                     if (pendingTickets && pendingTickets.length > 0) {
                         const pendingWithProposal = findPendingProposal(pendingTickets);
                         if (pendingWithProposal && !proposalModal.show) {
@@ -156,40 +156,40 @@ const Dashboard = () => {
     const findPendingProposal = (ticketList) => {
         const now = Date.now();
         console.log('🔍 [BOT PRO DEBUG] findPendingProposal llamado con', ticketList?.length, 'tickets');
-        
+
         const found = (ticketList || []).find((t) => {
             const proposal = t.pro_proposal;
             console.log(`   📋 Ticket #${t.ticket_number}: status=${t.status}, pro_proposal=`, proposal);
-            
+
             // Soportar ambas estructuras: 'slots' (bot PRO) y 'proposed_slots' (legacy)
             const slots = proposal?.slots || proposal?.proposed_slots;
             if (!slots?.length) {
                 console.log(`   ❌ Sin slots (slots=${proposal?.slots?.length}, proposed_slots=${proposal?.proposed_slots?.length})`);
                 return false;
             }
-            
+
             const status = (proposal.status ?? 'waiting_selection').toString().toLowerCase();
             if (status !== 'waiting_selection') {
                 console.log(`   ❌ Status no es waiting_selection: ${status}`);
                 return false;
             }
-            
+
             // Soportar ambos campos: 'expires_at' (bot PRO) y 'timeout_at' (legacy)
             const expiresAt = proposal.expires_at || proposal.timeout_at;
             if (expiresAt && new Date(expiresAt).getTime() < now) {
                 console.log(`   ❌ Expirado: ${expiresAt} < ${new Date(now).toISOString()}`);
                 return false;
             }
-            
+
             if (t.status !== 'solicitado') {
                 console.log(`   ❌ Ticket status no es solicitado: ${t.status}`);
                 return false;
             }
-            
+
             console.log(`   ✅ Ticket #${t.ticket_number} CUMPLE TODOS LOS CRITERIOS`);
             return true;
         });
-        
+
         console.log('🔍 [BOT PRO DEBUG] Resultado:', found ? `Ticket #${found.ticket_number}` : 'NINGUNO');
         return found;
     };
@@ -274,39 +274,39 @@ const Dashboard = () => {
 
     const openProposalModal = (ticket) => {
         console.log('🚀 [BOT PRO DEBUG] openProposalModal llamado para ticket:', ticket?.ticket_number);
-        
+
         // PROTECCIÓN 1: Bloqueo temporal después de confirmar (5 segundos)
         if (Date.now() < modalBlockedUntilRef.current) {
             console.log('   ⏭️ Modal bloqueado temporalmente');
             return;
         }
-        
+
         // PROTECCIÓN 2: No reabrir para ticket recientemente manejado
         if (recentlyHandledTicketRef.current === ticket?.id) {
             console.log('   ⏭️ Ticket recién manejado - no reabrir');
             return;
         }
-        
+
         // No abrir si estamos en proceso de confirmación
         if (proposalModal.confirming) {
             console.log('   ⏭️ Confirmación en proceso - no reabrir modal');
             return;
         }
-        
+
         const proposal = ticket?.pro_proposal;
         console.log('   📋 pro_proposal:', proposal);
-        
+
         // Verificar que la propuesta esté en estado waiting_selection
         const propStatus = (proposal?.status ?? '').toString().toLowerCase();
         if (propStatus !== 'waiting_selection') {
             console.log('   ⏭️ Propuesta no está en waiting_selection, status:', propStatus);
             return;
         }
-        
+
         // Soportar ambas estructuras: 'slots' (bot PRO) y 'proposed_slots' (legacy)
         const slots = proposal?.slots || proposal?.proposed_slots || [];
         console.log('   📋 Slots encontrados:', slots.length, slots);
-        
+
         if (!slots.length) {
             console.log('   ❌ NO HAY SLOTS - Modal no se abre');
             return;
@@ -316,21 +316,22 @@ const Dashboard = () => {
             return;
         }
 
-        // Calcular tiempo RESTANTE hasta expiración (no tiempo total)
+        // Calcular tiempo RESTANTE hasta expiración (solo para verificar si expiró)
         const expiresAt = proposal?.expires_at || proposal?.timeout_at;
         console.log('   ⏰ expires_at:', expiresAt);
-        
-        let timeoutMinutes = 3; // Default
+
+        // Verificar si ya expiró
         if (expiresAt) {
             const remaining = (new Date(expiresAt).getTime() - Date.now()) / 60000;
-            console.log('   ⏰ Minutos restantes:', remaining.toFixed(2));
-            if (remaining > 0) {
-                timeoutMinutes = Math.ceil(remaining);
-            } else {
+            console.log('   ⏰ Minutos restantes hasta expiración:', remaining.toFixed(2));
+            if (remaining <= 0) {
                 console.log('   ❌ PROPUESTA EXPIRADA - Modal no se abre');
                 return;
             }
         }
+
+        // Timer siempre 3 minutos (UX consistente para el cliente)
+        const timeoutMinutes = 3;
 
         // ORDENAR SLOTS POR HORA antes de mostrar
         const sortedSlots = [...slots].sort((a, b) => {
@@ -338,7 +339,7 @@ const Dashboard = () => {
             const timeB = b.time_start || '00:00';
             return timeA.localeCompare(timeB);
         });
-        
+
         console.log('   ✅ ABRIENDO MODAL con', sortedSlots.length, 'slots ordenados y', timeoutMinutes, 'min timeout');
         setProposalModal({
             show: true,
@@ -354,9 +355,9 @@ const Dashboard = () => {
         const ticket = proposalModal.ticket;
         const slot = proposalModal.slots[selectedIndex];
         const proposal = proposalModal.proposal || ticket?.pro_proposal;
-        
+
         console.log('[Dashboard] handleProposalConfirm called:', { selectedIndex, ticketId: ticket?.id });
-        
+
         if (!ticket || !slot) {
             console.log('[Dashboard] Missing ticket or slot, aborting');
             return;
@@ -375,9 +376,9 @@ const Dashboard = () => {
             const utcHours = hours - 1; // España = UTC+1 (invierno)
             const utcTimeStr = `${utcHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
             const scheduledAt = `${slot.date}T${utcTimeStr}:00.000Z`;
-            
+
             console.log('[Dashboard] Hora España:', slot.time_start, '-> UTC:', utcTimeStr);
-            
+
             const updatedProposal = {
                 ...(proposal || {}),
                 status: 'selected',
@@ -386,7 +387,7 @@ const Dashboard = () => {
             };
 
             console.log('[Dashboard] Updating ticket with scheduledAt:', scheduledAt);
-            
+
             const { error } = await supabase
                 .from('tickets')
                 .update({
@@ -1371,21 +1372,21 @@ const Dashboard = () => {
 
             </div >
 
-        {/* PRO Autopilot Proposal Modal (asynchronous after ticket creation) */}
-        <AppointmentSelectorModal
-            isOpen={proposalModal.show}
-            slots={proposalModal.slots}
-            ticketId={proposalModal.ticket?.ticket_number || proposalModal.ticket?.id}
-            ticketInfo={{
-                appliance: proposalModal.ticket?.appliance_info?.type || 'Reparación',
-                brand: proposalModal.ticket?.appliance_info?.brand || '',
-                address: profile?.address || ''
-            }}
-            timeoutMinutes={proposalModal.timeoutMinutes}
-            onConfirm={handleProposalConfirm}
-            onSkip={handleProposalSkip}
-            onTimeout={handleProposalTimeout}
-        />
+            {/* PRO Autopilot Proposal Modal (asynchronous after ticket creation) */}
+            <AppointmentSelectorModal
+                isOpen={proposalModal.show}
+                slots={proposalModal.slots}
+                ticketId={proposalModal.ticket?.ticket_number || proposalModal.ticket?.id}
+                ticketInfo={{
+                    appliance: proposalModal.ticket?.appliance_info?.type || 'Reparación',
+                    brand: proposalModal.ticket?.appliance_info?.brand || '',
+                    address: profile?.address || ''
+                }}
+                timeoutMinutes={proposalModal.timeoutMinutes}
+                onConfirm={handleProposalConfirm}
+                onSkip={handleProposalSkip}
+                onTimeout={handleProposalTimeout}
+            />
 
             {/* Cancel Modal */}
             {
