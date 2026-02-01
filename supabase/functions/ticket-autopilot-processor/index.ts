@@ -624,9 +624,17 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
 
     // 🆕 Detectar si el cliente rechazó propuesta anterior o hizo reset (buscar desde MAÑANA)
     const previousProposal = ticket.pro_proposal;
+
+    // 🔍 DEBUG: Ver valores exactos
+    console.log('  🔍 DEBUG pro_proposal:', JSON.stringify(previousProposal));
+    console.log('  🔍 DEBUG pro_proposal?.status:', previousProposal?.status);
+    console.log('  🔍 DEBUG pro_proposal?.search_from_tomorrow:', previousProposal?.search_from_tomorrow);
+
     const searchFromTomorrow = previousProposal?.search_from_tomorrow === true ||
       previousProposal?.status === 'client_rejected' ||
       previousProposal?.status === 'reset_by_client';
+
+    console.log('  🔍 DEBUG searchFromTomorrow resultado:', searchFromTomorrow);
 
     // Si cliente rechazó, empezar desde mañana y buscar solo 3 días
     const startDay = searchFromTomorrow ? 1 : 0;
@@ -635,6 +643,8 @@ async function procesarTicket(supabase: any, ticketId: string): Promise<any> {
     if (searchFromTomorrow) {
       console.log('  🔄 MODO REINTENTO: Cliente rechazó opciones anteriores');
       console.log(`     → Buscando desde MAÑANA (day=${startDay}) hasta ${maxDays} días`);
+    } else {
+      console.log('  ℹ️  Modo normal: buscando desde HOY');
     }
 
     // Buscar slots por día
