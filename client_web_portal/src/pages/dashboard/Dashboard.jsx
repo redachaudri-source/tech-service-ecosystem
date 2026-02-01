@@ -422,6 +422,9 @@ const Dashboard = () => {
         recentlyHandledTicketRef.current = ticket.id;
         modalBlockedUntilRef.current = Date.now() + 5000;
 
+        // Cerrar modal INMEDIATAMENTE
+        setProposalModal({ show: false, ticket: null, slots: [], proposal: null, timeoutMinutes: 3, confirming: false });
+
         try {
             // Marcar propuesta como rechazada - NO reprocesar automáticamente
             const updatedProposal = {
@@ -439,11 +442,14 @@ const Dashboard = () => {
                 })
                 .eq('id', ticket.id);
 
-            if (error) throw error;
+            if (error) {
+                console.error('Supabase update error:', error);
+                addToast('Error al procesar. Te llamaremos para coordinar.', 'error', true);
+            } else {
+                addToast('Citas rechazadas. Puedes pulsar "Repetir Solicitud" para buscar nuevas opciones.', 'info', true);
+            }
 
-            setProposalModal({ show: false, ticket: null, slots: [], proposal: null, timeoutMinutes: 3, confirming: false });
             fetchDashboardData();
-            addToast('Citas rechazadas. Puedes pulsar "Repetir Solicitud" cuando quieras buscar nuevas opciones.', 'info', true);
         } catch (error) {
             console.error('Error rejecting proposal:', error);
             addToast('Error al procesar. Te llamaremos para coordinar.', 'error', true);
@@ -458,6 +464,9 @@ const Dashboard = () => {
         // BLOQUEAR REAPERTURA
         recentlyHandledTicketRef.current = ticket.id;
         modalBlockedUntilRef.current = Date.now() + 5000;
+
+        // Cerrar modal INMEDIATAMENTE
+        setProposalModal({ show: false, ticket: null, slots: [], proposal: null, timeoutMinutes: 3, confirming: false });
 
         try {
             const updatedProposal = {
@@ -474,14 +483,15 @@ const Dashboard = () => {
                 })
                 .eq('id', ticket.id);
 
-            if (error) throw error;
+            if (error) {
+                console.error('Supabase update error:', error);
+            } else {
+                addToast('Tiempo expirado. Puedes pulsar "Repetir Solicitud" para buscar nuevas citas.', 'info', true);
+            }
 
-            addToast('Tiempo expirado. Puedes pulsar "Repetir Solicitud" cuando quieras buscar nuevas citas.', 'info', true);
+            fetchDashboardData();
         } catch (error) {
             console.error('Error expiring proposal:', error);
-        } finally {
-            setProposalModal({ show: false, ticket: null, slots: [], proposal: null, timeoutMinutes: 3, confirming: false });
-            fetchDashboardData();
         }
     };
 
