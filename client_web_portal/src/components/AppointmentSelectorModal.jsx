@@ -40,8 +40,8 @@ const AppointmentSelectorModal = ({
     const slotsAreEqual = (a, b) => {
         if (!a || !b) return false;
         if (a.length !== b.length) return false;
-        return a.every((slot, i) => 
-            slot.date === b[i]?.date && 
+        return a.every((slot, i) =>
+            slot.date === b[i]?.date &&
             slot.time_start === b[i]?.time_start &&
             slot.technician_id === b[i]?.technician_id
         );
@@ -58,11 +58,11 @@ const AppointmentSelectorModal = ({
             // Solo iniciar timer si NO está corriendo o si los slots cambiaron
             if (!timerStartedRef.current || slotsChanged) {
                 console.log('[Modal] Iniciando timer. slotsChanged:', slotsChanged);
-                
+
                 const seconds = Math.max(60, timeoutMinutes * 60);
                 setTimeLeft(seconds);
                 setIsExpired(false);
-                
+
                 // Solo resetear selección si los slots realmente cambiaron
                 if (slotsChanged) {
                     setSelectedIndex(null);
@@ -85,7 +85,7 @@ const AppointmentSelectorModal = ({
                         return prev - 1;
                     });
                 }, 1000);
-                
+
                 timerStartedRef.current = true;
             }
         }
@@ -140,7 +140,7 @@ const AppointmentSelectorModal = ({
         }
 
         console.log('[Modal] Confirming slot index:', selectedIndex);
-        
+
         // Detener timer
         if (timerRef.current) {
             clearInterval(timerRef.current);
@@ -168,10 +168,13 @@ const AppointmentSelectorModal = ({
 
     return (
         <div
-            className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 overflow-y-auto"
-            style={{ backgroundColor: 'rgba(0, 0, 0, 0.85)' }}
+            className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto"
+            style={{
+                backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                padding: 'env(safe-area-inset-top, 12px) env(safe-area-inset-right, 12px) env(safe-area-inset-bottom, 12px) env(safe-area-inset-left, 12px)'
+            }}
         >
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md my-auto max-h-[95vh] overflow-y-auto flex flex-col">
+            <div className="bg-white rounded-2xl shadow-2xl w-[calc(100%-24px)] sm:w-full max-w-[420px] mx-auto my-auto max-h-[calc(100vh-48px)] sm:max-h-[90vh] overflow-hidden flex flex-col">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-5 text-white">
                     <div className="flex items-center justify-between mb-3">
