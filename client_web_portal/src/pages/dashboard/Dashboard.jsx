@@ -719,6 +719,11 @@ const Dashboard = () => {
 
             if (error) throw error;
 
+            // IMPORTANTE: Limpiar bloqueos para que el modal pueda reabrirse con la nueva propuesta
+            recentlyHandledTicketRef.current = null;
+            modalBlockedUntilRef.current = 0;
+            console.log('[RESET REQUEST] Bloqueos limpiados - modal podrá reabrirse');
+
             addToast('🔄 Buscando nuevas citas disponibles...', 'info', true);
             fetchDashboardData();
         } catch (error) {
