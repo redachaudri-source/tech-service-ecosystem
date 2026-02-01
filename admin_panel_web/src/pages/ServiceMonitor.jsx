@@ -566,6 +566,7 @@ const StatusBadge = ({ ticket }) => {
     const status = ticket.status;
     const colors = {
         solicitado: 'bg-yellow-100 text-yellow-800',
+        cita_rechazada: 'bg-slate-900 text-white',
         asignado: 'bg-blue-100 text-blue-800',
         en_camino: 'bg-indigo-100 text-indigo-800',
         en_diagnostico: 'bg-purple-100 text-purple-800',
@@ -580,6 +581,7 @@ const StatusBadge = ({ ticket }) => {
 
     const labels = {
         solicitado: 'Solicitado',
+        cita_rechazada: 'Cita Rechazada',
         asignado: 'Asignado',
         en_camino: 'En Camino',
         en_diagnostico: 'Diagnóstico',

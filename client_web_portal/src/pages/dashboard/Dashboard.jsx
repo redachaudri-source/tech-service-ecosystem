@@ -719,7 +719,7 @@ const Dashboard = () => {
         switch (status) {
             case 'nuevo':
             case 'solicitado': return 'bg-blue-100 text-blue-700 border-blue-200';
-            case 'cita_rechazada': return 'bg-orange-100 text-orange-700 border-orange-200';
+            case 'cita_rechazada': return 'bg-slate-900 text-white border-slate-800';
             case 'asignado': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
             case 'presupuesto_pendiente': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
             case 'presupuesto_revision': return 'bg-red-100 text-red-800 border-red-300'; // New
